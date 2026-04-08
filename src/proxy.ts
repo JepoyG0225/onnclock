@@ -90,7 +90,9 @@ export default auth((req) => {
     return NextResponse.redirect(buildRedirectUrl('/portal'))
   }
 
-  return NextResponse.next()
+  const requestHeaders = new Headers(req.headers)
+  requestHeaders.set('x-pathname', logicalPath)
+  return NextResponse.next({ request: { headers: requestHeaders } })
 })
 
 export const config = {
