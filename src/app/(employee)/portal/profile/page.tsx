@@ -447,8 +447,8 @@ export default function ProfilePage() {
               </button>
             </div>
             {editingContact ? (
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="sm:col-span-2">
                   <Label>Work Email</Label>
                   <Input value={profile.workEmail ?? ''} disabled />
                 </div>
@@ -460,7 +460,7 @@ export default function ProfilePage() {
                   <Label>Mobile</Label>
                   <Input value={contactForm.mobileNo} onChange={e => setContactForm(f => ({ ...f, mobileNo: e.target.value }))} />
                 </div>
-                <div className="col-span-2 flex justify-end">
+                <div className="sm:col-span-2 flex justify-end">
                   <Button
                     onClick={() =>
                       saveProfileSection(
@@ -474,7 +474,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <InfoRow label="Work Email" value={profile.workEmail} />
                 <InfoRow label="Personal Email" value={profile.personalEmail} />
                 <InfoRow label="Mobile" value={profile.mobileNo} />
