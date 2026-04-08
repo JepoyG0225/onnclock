@@ -48,7 +48,7 @@ export default auth((req) => {
   const isEmployee = role === 'EMPLOYEE'
   const hasPortalSession = req.cookies.get('portal_session')?.value === '1'
 
-  const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/portal/login', '/api/auth', '/api/companies', '/quotation', '/api/quotation']
+  const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/portal/login', '/admin/login', '/api/auth', '/api/companies', '/quotation', '/api/quotation']
   const isPublic = logicalPath === '/' || publicPaths.some((p) => logicalPath.startsWith(p))
   const isPortal = logicalPath.startsWith('/portal')
 
@@ -78,8 +78,12 @@ export default auth((req) => {
     return NextResponse.redirect(buildRedirectUrl('/dashboard'))
   }
 
+  if (isLoggedIn && logicalPath === '/admin/login') {
+    return NextResponse.redirect(buildRedirectUrl(role === 'SUPER_ADMIN' ? '/admin/companies' : '/dashboard'))
+  }
+
   if (isLoggedIn && (logicalPath === '/login' || logicalPath === '/register')) {
-    return NextResponse.redirect(buildRedirectUrl(isEmployee ? '/portal' : '/dashboard'))
+    return NextResponse.redirect(buildRedirectUrl(isEmployee ? '/portal' : role === 'SUPER_ADMIN' ? '/admin/companies' : '/dashboard'))
   }
 
   if (isLoggedIn && logicalPath === '/portal/login' && hasPortalSession) {

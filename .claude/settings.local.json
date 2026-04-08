@@ -80,7 +80,10 @@
       "Bash(curl -s -X POST https://onclockph.com/api/admin/seed-super-admin -H \"x-admin-secret: onclock-seed-2026\" -H \"Content-Type: application/json\")",
       "Bash(node --env-file=.env scripts/reset-admin-password.mjs)",
       "Bash(node --env-file=.env -e \":*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(grep -o \"\"vercel[^\"\"]*\"\" C:/Users/Admin/.claude/projects/C--Users-Admin-Desktop-ph-hrpayroll/d1baed71-acbb-47ff-9079-3fd5efa0c06d.jsonl)",
+      "Bash(find /c/Users/Admin/Desktop/ph-hrpayroll/src -name proxy.ts -o -name auth.ts -o -name *login* -o -name *admin*)",
+      "Bash(cat \"/c/Users/Admin/Desktop/ph-hrpayroll/src/app/\\(auth\\)/login/page.tsx\")"
     ]
   },
   "disableAllHooks": true
