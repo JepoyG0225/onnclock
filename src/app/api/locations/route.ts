@@ -1,0 +1,113 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
+import { prisma } from '@/lib/prisma'
+
+function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const R = 6371000
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+// Returns the last known location for each employee currently clocked in (today)
+export async function GET(req: NextRequest) {
+  const { ctx, error } = await requireAuth()
+  if (error) return error
+
+  const { searchParams } = new URL(req.url)
+  const clockedInOnly = searchParams.get('clockedInOnly') === '1'
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const company = await prisma.company.findUnique({
+    where: { id: ctx.companyId },
+    select: { geofenceEnabled: true, geofenceLat: true, geofenceLng: true, geofenceRadiusMeters: true },
+  })
+
+  // Get all employees clocked in today
+  const activeDTR = await prisma.dTRRecord.findMany({
+    where: {
+      employee: { companyId: ctx.companyId },
+      date: { gte: today, lt: tomorrow },
+      timeIn: { not: null },
+      ...(clockedInOnly ? { timeOut: null } : {}),
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          employeeNo: true,
+          photoUrl: true,
+          department: { select: { name: true } },
+          position: { select: { title: true } },
+        },
+      },
+    },
+  })
+
+  if (activeDTR.length === 0) return NextResponse.json({ locations: [] })
+
+  // For each active DTR, get the most recent location ping
+  const employeeIds = activeDTR.map(r => r.employeeId)
+
+  // Get last ping per employee using groupBy workaround
+  const latestPings = await prisma.locationPing.findMany({
+    where: {
+      employeeId: { in: employeeIds },
+      recordedAt: { gte: today },
+    },
+    orderBy: { recordedAt: 'desc' },
+  })
+
+  // Deduplicate: keep only the latest ping per employee
+  const seenEmployees = new Set<string>()
+  const dedupedPings = latestPings.filter(p => {
+    if (seenEmployees.has(p.employeeId)) return false
+    seenEmployees.add(p.employeeId)
+    return true
+  })
+
+  // Merge with DTR data
+  const locations = activeDTR.map(dtr => {
+    const ping = dedupedPings.find(p => p.employeeId === dtr.employeeId)
+    let geofenceOut: boolean | null = null
+    if (
+      company?.geofenceEnabled &&
+      company.geofenceLat != null &&
+      company.geofenceLng != null &&
+      company.geofenceRadiusMeters != null &&
+      ping
+    ) {
+      const dist = distanceMeters(ping.lat, ping.lng, company.geofenceLat, company.geofenceLng)
+      geofenceOut = dist > company.geofenceRadiusMeters
+    }
+    return {
+      employeeId: dtr.employeeId,
+      employee: dtr.employee,
+      clockInTime: dtr.timeIn,
+      clockOutTime: dtr.timeOut,
+      clockInLat: dtr.clockInLat,
+      clockInLng: dtr.clockInLng,
+      clockInAddress: dtr.clockInAddress,
+      clockInPhoto: dtr.clockInPhoto ?? null,
+      isClockedIn: !dtr.timeOut,
+      geofenceOut,
+      lastPing: ping
+        ? { lat: ping.lat, lng: ping.lng, accuracy: ping.accuracy, recordedAt: ping.recordedAt }
+        : null,
+    }
+  })
+
+  return NextResponse.json({ locations })
+}

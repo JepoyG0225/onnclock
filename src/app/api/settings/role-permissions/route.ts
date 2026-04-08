@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
+import { prisma } from '@/lib/prisma'
+import { UserRole, ROLE_PERMISSIONS, Permission } from '@/lib/auth/permissions'
+
+// GET /api/settings/role-permissions
+// Returns the effective permissions for every role for this company.
+// Company Admin only.
+export async function GET() {
+  const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
+  if (error) return error
+
+  const stored = await prisma.companyRolePermission.findMany({
+    where: { companyId: ctx.companyId },
+  })
+
+  const storedMap = new Map(stored.map(r => [r.role as UserRole, r.permissions as Permission[]]))
+
+  const roles: UserRole[] = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'EMPLOYEE']
+
+  const result: Record<UserRole, Permission[]> = {} as Record<UserRole, Permission[]>
+  for (const role of roles) {
+    result[role] = storedMap.get(role) ?? ROLE_PERMISSIONS[role]
+  }
+
+  return NextResponse.json(result)
+}
+
+// PUT /api/settings/role-permissions
+// Body: { role: UserRole, permissions: Permission[] }
+// Updates the permissions for a single role for this company.
+export async function PUT(req: NextRequest) {
+  const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
+  if (error) return error
+
+  const body = await req.json()
+  const { role, permissions } = body as { role: UserRole; permissions: Permission[] }
+
+  if (!role || !Array.isArray(permissions)) {
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+  }
+
+  await prisma.companyRolePermission.upsert({
+    where:  { companyId_role: { companyId: ctx.companyId, role } },
+    create: { companyId: ctx.companyId, role, permissions },
+    update: { permissions },
+  })
+
+  return NextResponse.json({ success: true, role, permissions })
+}
+
+// DELETE /api/settings/role-permissions?role=HR_MANAGER
+// Resets a role back to its hardcoded defaults by removing the DB override.
+export async function DELETE(req: NextRequest) {
+  const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
+  if (error) return error
+
+  const role = new URL(req.url).searchParams.get('role') as UserRole | null
+  if (!role) return NextResponse.json({ error: 'role param required' }, { status: 400 })
+
+  await prisma.companyRolePermission.deleteMany({
+    where: { companyId: ctx.companyId, role },
+  })
+
+  return NextResponse.json({ success: true, role, permissions: ROLE_PERMISSIONS[role] })
+}

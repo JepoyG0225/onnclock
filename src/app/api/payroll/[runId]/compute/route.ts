@@ -1,0 +1,347 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
+import { prisma } from '@/lib/prisma'
+import { computePayroll } from '@/lib/payroll/engine'
+import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ runId: string }> }
+) {
+  const { runId } = await params
+  const { ctx, error } = await requireAuth()
+  if (error) return error
+
+  const run = await prisma.payrollRun.findFirst({
+    where: { id: runId, companyId: ctx.companyId },
+    include: { company: { include: { contributionConfig: true } } },
+  })
+
+  if (!run) return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 })
+  if (run.status === 'LOCKED') {
+    return NextResponse.json({ error: 'Payroll run is locked and cannot be recomputed' }, { status: 400 })
+  }
+
+  const workingDays = getWorkingDays(run.periodStart, run.periodEnd)
+  const firstCutoff = isFirstCutoff(run.periodStart)
+
+  // Fetch all active employees with their active loans
+  const employees = await prisma.employee.findMany({
+    where: { companyId: ctx.companyId, isActive: true },
+    include: {
+      loans: { where: { status: 'ACTIVE' } },
+    },
+  })
+
+  // Fetch all company holidays for the pay period
+  const companyHolidays = await prisma.holiday.findMany({
+    where: { companyId: ctx.companyId, date: { gte: run.periodStart, lte: run.periodEnd } }
+  })
+  // Build a quick lookup: "YYYY-MM-DD" -> holiday
+  const holidayMap = new Map(
+    companyHolidays.map(h => [h.date.toISOString().split('T')[0], h])
+  )
+
+  // ── Build payslip input data for each employee ─────────────────────────────
+  type PayslipBuildItem = {
+    employeeId: string
+    data: Parameters<typeof prisma.payslip.create>[0]['data']
+    loanDeductions: { id: string; amount: number }[]
+  }
+
+  const builds: PayslipBuildItem[] = []
+  let totalBasic = 0, totalGross = 0, totalDeductions = 0, totalNetPay = 0
+  let totalSssEr = 0, totalPhEr = 0, totalPagibigEr = 0
+
+  for (const emp of employees) {
+    const dtrRecords = await prisma.dTRRecord.findMany({
+      where: {
+        employeeId: emp.id,
+        date: { gte: run.periodStart, lte: run.periodEnd },
+      },
+    })
+
+    // Enhance each DTR record:
+    // 1. Auto-detect holiday from company calendar (overrides whatever was stored)
+    // 2. Auto-compute OT/regular hours from timeIn/timeOut if missing
+    const enhancedDtr = dtrRecords.map(d => {
+      const dateKey = new Date(d.date).toISOString().split('T')[0]
+      const holiday = holidayMap.get(dateKey)
+
+      // Recompute hours from timestamps if timeIn+timeOut are present
+      // but overtimeHours wasn't stored (manual DTR entries)
+      let overtimeHours = d.overtimeHours?.toNumber() ?? 0
+      let nightDiffHours = d.nightDiffHours?.toNumber() ?? 0
+
+      if (d.timeIn && d.timeOut && !d.overtimeHours) {
+        const totalMinutes = Math.max(0, (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60) // minus 60 min break
+        const otMinutes = Math.max(0, totalMinutes - 480) // beyond 8 hours
+        overtimeHours = Math.round((otMinutes / 60) * 100) / 100
+
+        // Night diff: count minutes between 10PM-6AM
+        let nightMins = 0
+        let cursor = new Date(d.timeIn)
+        while (cursor < d.timeOut) {
+          const h = cursor.getHours()
+          if (h >= 22 || h < 6) nightMins++
+          cursor = new Date(cursor.getTime() + 60_000)
+        }
+        nightDiffHours = Math.round((nightMins / 60) * 100) / 100
+      }
+
+      return {
+        ...d,
+        isHoliday: !!holiday,
+        holidayType: holiday?.type ?? d.holidayType,
+        overtimeHours,
+        nightDiffHours,
+      }
+    })
+
+    const hasDtr = enhancedDtr.length > 0
+    const dtrWorked = enhancedDtr.filter(d => !d.isAbsent && (!d.isLeave || d.isLeavePaid)).length
+    const daysWorked = emp.trackTime
+      ? dtrWorked
+      : (hasDtr ? dtrWorked : workingDays)
+
+    const regularOtHours = emp.trackTime || hasDtr
+      ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
+      : 0
+    const nightDiffHours = emp.trackTime || hasDtr
+      ? enhancedDtr.reduce((s, d) => s + d.nightDiffHours, 0)
+      : 0
+    const lateMinutes = emp.trackTime || hasDtr
+      ? enhancedDtr.reduce((s, d) => s + (d.lateMinutes ?? 0), 0)
+      : 0
+    const undertimeMinutes = emp.trackTime || hasDtr
+      ? enhancedDtr.reduce((s, d) => s + (d.undertimeMinutes ?? 0), 0)
+      : 0
+    const dtrAbsent = enhancedDtr.filter(d => d.isAbsent).length
+    // If trackTime is enabled, basic pay is already pro-rated by daysWorked,
+    // so do not apply absence deductions again.
+    const absentDays = emp.trackTime ? 0 : dtrAbsent
+    const regularHolidaysWorked  = enhancedDtr.filter(d => d.isHoliday && d.holidayType === 'REGULAR'             && !d.isAbsent).length
+    const specialHolidaysWorked  = enhancedDtr.filter(d => d.isHoliday && d.holidayType === 'SPECIAL_NON_WORKING' && !d.isAbsent).length
+
+    // Regular holidays in the period where the employee had NO attendance or was absent
+    // Only relevant for DAILY/HOURLY rate employees (monthly salary already covers holidays)
+    let regularHolidayNonWorkDays = 0
+    if (emp.rateType === 'DAILY' || emp.rateType === 'HOURLY') {
+      const regularHolidayDates = companyHolidays
+        .filter(h => h.type === 'REGULAR')
+        .map(h => h.date.toISOString().split('T')[0])
+
+      for (const hDate of regularHolidayDates) {
+        const dtr = enhancedDtr.find(d => new Date(d.date).toISOString().split('T')[0] === hDate)
+        // Employee didn't work this regular holiday (no DTR, or marked absent/leave)
+        if (!dtr || dtr.isAbsent || (dtr.isLeave && !dtr.isLeavePaid)) {
+          regularHolidayNonWorkDays++
+        }
+      }
+    }
+
+    // YTD from previous payslips this year
+    const yearStart = new Date(run.periodStart.getFullYear(), 0, 1)
+    const ytdData = await prisma.payslip.aggregate({
+      where: {
+        employeeId: emp.id,
+        payrollRunId: { not: runId },
+        payrollRun: {
+          periodStart: { gte: yearStart, lt: run.periodStart },
+          companyId: ctx.companyId,
+        },
+      },
+      _sum: {
+        grossPay: true,
+        taxableIncome: true,
+        withholdingTax: true,
+        thirteenthMonthContribution: true,
+      },
+    })
+
+    const dailyRate  = emp.dailyRate?.toNumber()  ?? emp.basicSalary.toNumber() / 22
+    const hourlyRate = emp.hourlyRate?.toNumber() ?? dailyRate / 8
+
+    // ── Loan deductions: cap each at remaining balance ─────────────────────
+    // For semi-monthly, deduct half the monthly amortization each period
+    const periodDivisor = run.payFrequency === 'SEMI_MONTHLY' ? 2 : 1
+    const loanDeductions = emp.loans.map(loan => {
+      const periodAmount = loan.monthlyAmortization.toNumber() / periodDivisor
+      // Never deduct more than the remaining balance
+      const amount = Math.min(periodAmount, loan.balance.toNumber())
+      return { id: loan.id, type: loan.loanType, amount }
+    }).filter(l => l.amount > 0)
+
+    const result = computePayroll({
+      employee: {
+        id: emp.id,
+        basicSalary:         emp.basicSalary.toNumber(),
+        dailyRate,
+        hourlyRate,
+        rateType:            emp.rateType,
+        payFrequency:        run.payFrequency === 'SEMI_MONTHLY' ? 'SEMI_MONTHLY' : 'MONTHLY',
+        isMinimumWageEarner: emp.isMinimumWageEarner,
+        isExemptFromTax:     emp.isExemptFromTax,
+      },
+      period: {
+        start:        run.periodStart,
+        end:          run.periodEnd,
+        workingDays,
+        payFrequency: run.payFrequency === 'SEMI_MONTHLY' ? 'SEMI_MONTHLY' : 'MONTHLY',
+        isFirstCutoff: firstCutoff,
+      },
+      attendance: {
+        daysWorked,
+        regularHours:          daysWorked * 8,
+        regularOtHours,
+        restDayOtHours:        0,
+        regularHolidayOtHours: 0,
+        specialHolidayOtHours: 0,
+        nightDiffHours,
+        lateMinutes,
+        undertimeMinutes,
+        absentDays,
+        regularHolidaysWorked,
+        specialHolidaysWorked,
+        regularHolidayNonWorkDays,
+      },
+      loans: loanDeductions,
+      deMinimis:  { riceSubsidy: 0, clothing: 0, medical: 0, laundry: 0, meal: 0, other: 0 },
+      allowances: { rice: 0, clothing: 0, medical: 0, transportation: 0, other: 0 },
+      ytd: {
+        grossPay:               ytdData._sum.grossPay?.toNumber()                    ?? 0,
+        taxableIncome:          ytdData._sum.taxableIncome?.toNumber()               ?? 0,
+        withholdingTax:         ytdData._sum.withholdingTax?.toNumber()              ?? 0,
+        thirteenthMonthContrib: ytdData._sum.thirteenthMonthContribution?.toNumber() ?? 0,
+      },
+    })
+
+    const sssLoans     = loanDeductions.filter(l => l.type.startsWith('SSS')        ).reduce((s, l) => s + l.amount, 0)
+    const pagibigLoans = loanDeductions.filter(l => l.type.startsWith('PAGIBIG')    ).reduce((s, l) => s + l.amount, 0)
+    const companyLoans = loanDeductions.filter(l => l.type === 'COMPANY_LOAN'       ).reduce((s, l) => s + l.amount, 0)
+    const otherLoans   = loanDeductions.filter(l => !l.type.startsWith('SSS') && !l.type.startsWith('PAGIBIG') && l.type !== 'COMPANY_LOAN').reduce((s, l) => s + l.amount, 0)
+
+    builds.push({
+      employeeId: emp.id,
+      loanDeductions: loanDeductions.map(l => ({ id: l.id, amount: l.amount })),
+      data: {
+        payrollRunId:               runId,
+        employeeId:                 emp.id,
+        basicSalary:                result.basicPay,
+        dailyRate,
+        daysWorked,
+        hoursWorked:                daysWorked * 8,
+        regularOtHours,
+        regularOtAmount:            result.regularOtAmount,
+        restDayOtHours:             0,
+        restDayOtAmount:            result.restDayOtAmount,
+        holidayOtHours:             0,
+        holidayOtAmount:            result.holidayOtAmount,
+        nightDiffHours,
+        nightDiffAmount:            result.nightDiffAmount,
+        holidayPayAmount:           result.holidayPayAmount,
+        grossPay:                   result.grossPay,
+        sssEmployee:                result.sssEmployee,
+        sssEc:                      result.sssEc,
+        philhealthEmployee:         result.philhealthEmployee,
+        pagibigEmployee:            result.pagibigEmployee,
+        withholdingTax:             result.withholdingTax,
+        sssEmployer:                result.sssEmployer,
+        philhealthEmployer:         result.philhealthEmployer,
+        pagibigEmployer:            result.pagibigEmployer,
+        sssLoanDeduction:           sssLoans,
+        pagibigLoan:                pagibigLoans,
+        companyLoan:                companyLoans + otherLoans,
+        lateDeduction:              result.lateDeduction,
+        undertimeDeduction:         result.undertimeDeduction,
+        absenceDeduction:           result.absenceDeduction,
+        totalDeductions:            result.totalDeductions,
+        netPay:                     result.netPay,
+        thirteenthMonthContribution:result.thirteenthMonthContribution,
+        taxableIncome:              result.taxableIncome,
+        nonTaxableIncome:           result.nonTaxableIncome,
+        ytdGrossPay:                result.ytdGrossPay,
+        ytdTaxableIncome:           result.ytdTaxableIncome,
+        ytdWithholdingTax:          result.ytdWithholdingTax,
+      },
+    })
+
+    totalBasic       += result.basicPay
+    totalGross       += result.grossPay
+    totalDeductions  += result.totalDeductions
+    totalNetPay      += result.netPay
+    totalSssEr       += result.sssEmployer
+    totalPhEr        += result.philhealthEmployer
+    totalPagibigEr   += result.pagibigEmployer
+  }
+
+  // ── Persist everything in a transaction ───────────────────────────────────
+  // Step 1: delete old payslip loan deductions + payslips (recompute-safe)
+  await prisma.$transaction([
+    prisma.payslipLoanDeduction.deleteMany({
+      where: { payslip: { payrollRunId: runId } },
+    }),
+    prisma.payslip.deleteMany({ where: { payrollRunId: runId } }),
+  ])
+
+  // Step 2: create new payslips individually so we get their IDs back,
+  //         then create PayslipLoanDeduction ledger records
+  // Track total deducted per loan across all payslips
+  const loanTotalsDeducted = new Map<string, number>()
+
+  for (const build of builds) {
+    const payslip = await prisma.payslip.create({ data: build.data })
+
+    if (build.loanDeductions.length > 0) {
+      await prisma.payslipLoanDeduction.createMany({
+        data: build.loanDeductions.map(ld => ({
+          payslipId: payslip.id,
+          loanId:    ld.id,
+          amount:    ld.amount,
+        })),
+      })
+      for (const ld of build.loanDeductions) {
+        loanTotalsDeducted.set(ld.id, (loanTotalsDeducted.get(ld.id) ?? 0) + ld.amount)
+      }
+    }
+  }
+
+  // Step 3: update each loan's balance; mark PAID when fully settled
+  for (const [loanId, deducted] of loanTotalsDeducted) {
+    const loan = await prisma.employeeLoan.findUnique({ where: { id: loanId } })
+    if (!loan) continue
+
+    const newBalance = parseFloat(Math.max(0, loan.balance.toNumber() - deducted).toFixed(2))
+    await prisma.employeeLoan.update({
+      where: { id: loanId },
+      data: {
+        balance:  newBalance,
+        status:   newBalance <= 0 ? 'FULLY_PAID' : 'ACTIVE',
+        endDate:  newBalance <= 0 ? run.periodEnd : loan.endDate,
+      },
+    })
+  }
+
+  // Step 4: update payroll run totals
+  await prisma.payrollRun.update({
+    where: { id: runId },
+    data: {
+      status: 'COMPUTED',
+      totalBasic,
+      totalGross,
+      totalDeductions,
+      totalNetPay,
+      totalSssEr,
+      totalPhEr,
+      totalPagibigEr,
+    },
+  })
+
+  return NextResponse.json({
+    success:       true,
+    employeeCount: employees.length,
+    totalGross,
+    totalNetPay,
+    loansUpdated:  loanTotalsDeducted.size,
+  })
+}

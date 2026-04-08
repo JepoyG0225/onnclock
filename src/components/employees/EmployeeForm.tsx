@@ -1,0 +1,747 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { toast } from 'sonner'
+import { Loader2, Save, CalendarDays } from 'lucide-react'
+import { DatePicker } from '@/components/ui/date-picker'
+import { EmployeePortalAccess } from '@/components/employees/EmployeePortalAccess'
+
+const employeeSchema = z.object({
+  employeeNo: z.string().min(1, 'Required'),
+  lastName: z.string().min(1, 'Required'),
+  firstName: z.string().min(1, 'Required'),
+  middleName: z.string().optional(),
+  suffix: z.string().optional(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']),
+  birthDate: z.string().min(1, 'Required'),
+  birthPlace: z.string().optional(),
+  civilStatus: z.enum(['SINGLE', 'MARRIED', 'WIDOWED', 'LEGALLY_SEPARATED']).optional().default('SINGLE'),
+  nationality: z.string().optional().default('Filipino'),
+  religion: z.string().optional(),
+  personalEmail: z.string().email().optional().or(z.literal('')),
+  workEmail: z.string().email().optional().or(z.literal('')),
+  mobileNo: z.string().optional(),
+  phoneNo: z.string().optional(),
+  presentAddress: z.string().optional(),
+  permanentAddress: z.string().optional(),
+  sssNo: z.string().optional(),
+  tinNo: z.string().optional(),
+  philhealthNo: z.string().optional(),
+  pagibigNo: z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactRelation: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  departmentId: z.string().optional(),
+  positionId: z.string().optional(),
+  directManagerId: z.string().optional(),
+  employmentStatus: z.enum(['PROBATIONARY', 'REGULAR', 'CONTRACTUAL', 'PROJECT_BASED', 'PART_TIME', 'RESIGNED', 'TERMINATED', 'RETIRED']).default('PROBATIONARY'),
+  employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACTUAL']).default('FULL_TIME'),
+  hireDate: z.string().min(1, 'Required'),
+  regularizationDate: z.string().optional(),
+  rateType: z.enum(['MONTHLY', 'DAILY', 'HOURLY']).default('MONTHLY'),
+  basicSalary: z.coerce.number().positive('Must be positive'),
+  payFrequency: z.enum(['SEMI_MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY']).default('SEMI_MONTHLY'),
+  workScheduleId: z.string().optional(),
+  dayOffDays: z.array(z.number().int().min(0).max(6)).optional(),
+  bankName: z.string().optional(),
+  bankAccountNo: z.string().optional(),
+  isExemptFromTax: z.boolean().default(false),
+  isMinimumWageEarner: z.boolean().default(false),
+  trackTime: z.boolean().default(false),
+  notes: z.string().optional(),
+})
+
+type EmployeeFormData = z.infer<typeof employeeSchema>
+type EmployeeFormInput = z.input<typeof employeeSchema>
+
+interface Props {
+  departments: { id: string; name: string }[]
+  positions: { id: string; title: string }[]
+  workSchedules: { id: string; name: string }[]
+  defaultValues?: Partial<EmployeeFormData>
+  employeeId?: string
+  hasPortalUser?: boolean
+}
+
+export function EmployeeForm({ departments, positions, workSchedules, defaultValues, employeeId, hasPortalUser = false }: Props) {
+  const router = useRouter()
+  const [saving, setSaving] = useState(false)
+  const [managers, setManagers] = useState<{ id: string; firstName: string; lastName: string; employeeNo: string }[]>([])
+  const isCreate = !employeeId
+
+  const tabs = useMemo(() => {
+    if (isCreate) {
+      return [
+        { value: 'personal', label: 'Personal' },
+        { value: 'employment', label: 'Employment' },
+        { value: 'compensation', label: 'Compensation' },
+        { value: 'government', label: "Gov't IDs" },
+        { value: 'emergency', label: 'Emergency' },
+        { value: 'settings', label: 'Settings' },
+      ]
+    }
+
+    return [
+      { value: 'personal', label: 'Personal' },
+      { value: 'employment', label: 'Employment' },
+      { value: 'compensation', label: 'Compensation' },
+      { value: 'government', label: "Gov't IDs" },
+      { value: 'emergency', label: 'Emergency' },
+      { value: 'leaves', label: 'Leaves' },
+      { value: 'settings', label: 'Settings' },
+    ]
+  }, [isCreate])
+
+  const [activeTab, setActiveTab] = useState(tabs[0]?.value ?? 'personal')
+const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
+  const DAY_OPTIONS = [
+    { value: 0, label: 'Sun' },
+    { value: 1, label: 'Mon' },
+    { value: 2, label: 'Tue' },
+    { value: 3, label: 'Wed' },
+    { value: 4, label: 'Thu' },
+    { value: 5, label: 'Fri' },
+    { value: 6, label: 'Sat' },
+  ] as const
+
+  // Leave allocations state
+  interface LeaveTypeItem { id: string; name: string; code: string; daysEntitled: number; isMandatory: boolean; genderRestriction?: string | null }
+  interface LeaveBalanceItem { id: string; leaveTypeId: string; entitled: number; used: number; pending: number }
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeItem[]>([])
+  const [leaveAllocations, setLeaveAllocations] = useState<Record<string, { enabled: boolean; entitled: number }>>({})
+  const [leavesLoading, setLeavesLoading] = useState(false)
+  const [leavesSaving, setLeavesSaving] = useState(false)
+  const [leavesLoaded, setLeavesLoaded] = useState(false)
+
+  function shouldDisableLeaveByGender(lt: { code: string; name: string; genderRestriction?: string | null }, gender?: EmployeeFormData['gender']) {
+    if (!gender) return false
+    if (lt.genderRestriction && lt.genderRestriction !== gender) return true
+    const code = (lt.code || '').toLowerCase()
+    const name = (lt.name || '').toLowerCase()
+    const isVawc = code.includes('vawc') || name.includes('vawc')
+    const isMaternity = code.includes('maternity') || name.includes('maternity')
+    const isPaternity = code.includes('paternity') || name.includes('paternity')
+
+    if (gender === 'MALE') return isVawc || isMaternity
+    if (gender === 'FEMALE') return isPaternity
+    return false
+  }
+
+  async function loadLeaveAllocations() {
+    if (!employeeId || leavesLoaded) return
+    setLeavesLoading(true)
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/leave-balances`)
+      const data = await res.json()
+      setLeaveTypes(data.leaveTypes ?? [])
+      const hasAnyBalance = (data.balances ?? []).length > 0
+      const map: Record<string, { enabled: boolean; entitled: number }> = {}
+      for (const lt of (data.leaveTypes ?? [])) {
+        const bal = (data.balances ?? []).find((b: LeaveBalanceItem) => b.leaveTypeId === lt.id)
+        map[lt.id] = bal
+          ? { enabled: true, entitled: Number(bal.entitled) }
+          : {
+              enabled: hasAnyBalance ? false : !shouldDisableLeaveByGender(lt, watch('gender')),
+              entitled: lt.daysEntitled,
+            }
+      }
+      setLeaveAllocations(map)
+      setLeavesLoaded(true)
+    } finally {
+      setLeavesLoading(false)
+    }
+  }
+
+  async function saveLeaveAllocations() {
+    if (!employeeId) return
+    setLeavesSaving(true)
+    try {
+      const allocations = Object.entries(leaveAllocations).map(([leaveTypeId, v]) => ({
+        leaveTypeId,
+        entitled: v.entitled,
+        enabled: v.enabled,
+      }))
+      const res = await fetch(`/api/employees/${employeeId}/leave-balances`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allocations }),
+      })
+      if (res.ok) {
+        toast.success('Leave allocations saved')
+        setLeavesLoaded(false)
+        await loadLeaveAllocations()
+      } else {
+        toast.error('Failed to save leave allocations')
+      }
+    } finally {
+      setLeavesSaving(false)
+    }
+  }
+
+  const form = useForm<EmployeeFormData, unknown, EmployeeFormInput>({
+    resolver: zodResolver(employeeSchema) as never,
+    defaultValues: {
+      nationality: 'Filipino',
+      civilStatus: 'SINGLE',
+      gender: 'MALE',
+      employmentStatus: 'PROBATIONARY',
+      employmentType: 'FULL_TIME',
+      rateType: 'MONTHLY',
+      payFrequency: 'SEMI_MONTHLY',
+      isExemptFromTax: false,
+      isMinimumWageEarner: false,
+      trackTime: false,
+      ...defaultValues,
+    },
+  })
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = form
+
+  useEffect(() => {
+    let active = true
+    async function loadManagers() {
+      try {
+        const res = await fetch('/api/employees?limit=200')
+        const data = await res.json()
+        const list = (data.employees ?? []) as { id: string; firstName: string; lastName: string; employeeNo: string }[]
+        const filtered = employeeId ? list.filter(e => e.id !== employeeId) : list
+        if (active) setManagers(filtered)
+      } catch {
+        // ignore
+      }
+    }
+    loadManagers()
+    return () => { active = false }
+  }, [employeeId])
+
+  async function onSubmit(data: EmployeeFormData) {
+    setSaving(true)
+    try {
+      const url = employeeId ? `/api/employees/${employeeId}` : '/api/employees'
+      const method = employeeId ? 'PATCH' : 'POST'
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.error || 'Failed to save employee')
+        return
+      }
+
+      const result = await res.json()
+      toast.success(employeeId ? 'Employee updated!' : 'Employee created!')
+      router.push(`/employees/${result.employee?.id || employeeId}`)
+    } catch {
+      toast.error('An error occurred')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">{label}</Label>
+        {children}
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit as never)}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className={`grid w-full ${isCreate ? 'grid-cols-6' : 'grid-cols-7'}`}>
+          {tabs.map(tab => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              onClick={tab.value === 'leaves' ? loadLeaveAllocations : undefined}
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {/* PERSONAL INFO */}
+        <TabsContent value="personal">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Personal Information</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field label="Last Name *" error={errors.lastName?.message}>
+                <Input {...register('lastName')} placeholder="dela Cruz" />
+              </Field>
+              <Field label="First Name *" error={errors.firstName?.message}>
+                <Input {...register('firstName')} placeholder="Juan" />
+              </Field>
+              <Field label="Middle Name">
+                <Input {...register('middleName')} placeholder="Santos" />
+              </Field>
+              <Field label="Suffix">
+                <Input {...register('suffix')} placeholder="Jr., Sr., III" />
+              </Field>
+              <Field label="Gender *" error={errors.gender?.message}>
+                <Select
+                  defaultValue={defaultValues?.gender || 'MALE'}
+                  onValueChange={v => setValue('gender', v as 'MALE' | 'FEMALE' | 'OTHER')}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MALE">Male</SelectItem>
+                    <SelectItem value="FEMALE">Female</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Civil Status">
+                <Select
+                  defaultValue={defaultValues?.civilStatus || 'SINGLE'}
+                  onValueChange={v => setValue('civilStatus', v as EmployeeFormData['civilStatus'])}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SINGLE">Single</SelectItem>
+                    <SelectItem value="MARRIED">Married</SelectItem>
+                    <SelectItem value="WIDOWED">Widowed</SelectItem>
+                    <SelectItem value="LEGALLY_SEPARATED">Legally Separated</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Birth Date *" error={errors.birthDate?.message}>
+                <DatePicker
+                  value={watch('birthDate')}
+                  onChange={(v) => setValue('birthDate', v)}
+                />
+                <input type="hidden" {...register('birthDate')} value={watch('birthDate')} />
+              </Field>
+              <Field label="Birth Place">
+                <Input {...register('birthPlace')} placeholder="Manila" />
+              </Field>
+              <Field label="Nationality">
+                <Input {...register('nationality')} placeholder="Filipino" />
+              </Field>
+              <Field label="Religion">
+                <Input {...register('religion')} placeholder="Roman Catholic" />
+              </Field>
+              <Field label="Personal Email">
+                <Input type="email" {...register('personalEmail')} placeholder="juan@email.com" />
+              </Field>
+              <Field label="Work Email">
+                <Input type="email" {...register('workEmail')} placeholder="juan@company.com" />
+              </Field>
+              <Field label="Mobile Number">
+                <Input {...register('mobileNo')} placeholder="09XX-XXX-XXXX" />
+              </Field>
+              <Field label="Present Address">
+                <Input {...register('presentAddress')} placeholder="123 Street, Barangay, City" />
+              </Field>
+              <Field label="Permanent Address">
+                <Input {...register('permanentAddress')} placeholder="Same as present or different" />
+              </Field>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* EMPLOYMENT INFO */}
+        <TabsContent value="employment">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Employment Information</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field label="Employee Number *" error={errors.employeeNo?.message}>
+                <Input {...register('employeeNo')} placeholder="EMP-001" />
+              </Field>
+              <Field label="Department">
+                <Select
+                  defaultValue={defaultValues?.departmentId}
+                  onValueChange={v => setValue('departmentId', v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                  <SelectContent>
+                    {departments.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Position">
+                <Select
+                  defaultValue={defaultValues?.positionId}
+                  onValueChange={v => setValue('positionId', v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger>
+                  <SelectContent>
+                    {positions.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Reports To">
+                <Select
+                  defaultValue={defaultValues?.directManagerId || ''}
+                  onValueChange={v => setValue('directManagerId', v === '__none__' ? undefined : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {managers.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.lastName}, {m.firstName} ({m.employeeNo})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Employment Status">
+                <Select
+                  defaultValue={defaultValues?.employmentStatus || 'PROBATIONARY'}
+                  onValueChange={v => setValue('employmentStatus', v as EmployeeFormData['employmentStatus'])}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PROBATIONARY">Probationary</SelectItem>
+                    <SelectItem value="REGULAR">Regular</SelectItem>
+                    <SelectItem value="CONTRACTUAL">Contractual</SelectItem>
+                    <SelectItem value="PROJECT_BASED">Project-Based</SelectItem>
+                    <SelectItem value="PART_TIME">Part-Time</SelectItem>
+                    <SelectItem value="RESIGNED">Resigned</SelectItem>
+                    <SelectItem value="TERMINATED">Terminated</SelectItem>
+                    <SelectItem value="RETIRED">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Employment Type">
+                <Select
+                  defaultValue={defaultValues?.employmentType || 'FULL_TIME'}
+                  onValueChange={v => setValue('employmentType', v as EmployeeFormData['employmentType'])}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FULL_TIME">Full-Time</SelectItem>
+                    <SelectItem value="PART_TIME">Part-Time</SelectItem>
+                    <SelectItem value="CONTRACTUAL">Contractual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Work Schedule">
+                <Select
+                  defaultValue={defaultValues?.workScheduleId}
+                  onValueChange={v => setValue('workScheduleId', v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select schedule" /></SelectTrigger>
+                  <SelectContent>
+                    {workSchedules.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <div className="md:col-span-2 space-y-2">
+                <Label className="text-sm font-medium">Day Off Selection</Label>
+                <div className="flex flex-wrap gap-2">
+                  {DAY_OPTIONS.map(day => {
+                    const selected = (watch('dayOffDays') ?? []).includes(day.value)
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => {
+                          const current = watch('dayOffDays') ?? []
+                          const next = selected
+                            ? current.filter(d => d !== day.value)
+                            : [...current, day.value]
+                          setValue('dayOffDays', next.sort((a, b) => a - b), { shouldDirty: true })
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                          selected
+                            ? 'bg-orange-50 text-orange-700 border-orange-300'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {day.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Selected days are treated as weekly day offs for this employee.
+                </p>
+              </div>
+              <Field label="Date Hired *" error={errors.hireDate?.message}>
+                <DatePicker
+                  value={watch('hireDate')}
+                  onChange={(v) => setValue('hireDate', v)}
+                />
+                <input type="hidden" {...register('hireDate')} value={watch('hireDate')} />
+              </Field>
+              <Field label="Regularization Date">
+                <DatePicker
+                  value={watch('regularizationDate')}
+                  onChange={(v) => setValue('regularizationDate', v)}
+                />
+                <input type="hidden" {...register('regularizationDate')} value={watch('regularizationDate')} />
+              </Field>
+              <Field label="Notes">
+                <Input {...register('notes')} placeholder="Additional notes..." />
+              </Field>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* COMPENSATION */}
+        <TabsContent value="compensation">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Compensation & Pay</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field label="Rate Type">
+                <Select
+                  defaultValue={defaultValues?.rateType || 'MONTHLY'}
+                  onValueChange={v => setValue('rateType', v as EmployeeFormData['rateType'])}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="DAILY">Daily</SelectItem>
+                    <SelectItem value="HOURLY">Hourly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Basic Salary / Rate *" error={errors.basicSalary?.message}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...register('basicSalary', { valueAsNumber: true })}
+                  placeholder="30000.00"
+                />
+              </Field>
+              <Field label="Pay Frequency">
+                <Select
+                  defaultValue={defaultValues?.payFrequency || 'SEMI_MONTHLY'}
+                  onValueChange={v => setValue('payFrequency', v as EmployeeFormData['payFrequency'])}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SEMI_MONTHLY">Semi-Monthly (1st & 15th)</SelectItem>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="WEEKLY">Weekly</SelectItem>
+                    <SelectItem value="DAILY">Daily</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Bank Name">
+                <Input {...register('bankName')} placeholder="BDO, BPI, Metrobank..." />
+              </Field>
+              <Field label="Bank Account Number">
+                <Input {...register('bankAccountNo')} placeholder="1234-5678-9012" />
+              </Field>
+              {/* Toggles — single row spanning full width */}
+              <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium">Minimum Wage Earner</p>
+                    <p className="text-xs text-gray-500">Exempt from income tax</p>
+                  </div>
+                  <Switch
+                    checked={watch('isMinimumWageEarner')}
+                    onCheckedChange={v => setValue('isMinimumWageEarner', v)}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium">Tax Exempt</p>
+                    <p className="text-xs text-gray-500">No withholding tax deduction</p>
+                  </div>
+                  <Switch
+                    checked={watch('isExemptFromTax')}
+                    onCheckedChange={v => setValue('isExemptFromTax', v)}
+                  />
+                </div>
+                <div
+                  className="flex items-center justify-between p-3 rounded-lg border-2"
+                  style={{
+                    background: watch('trackTime') ? 'rgba(250,94,1,0.06)' : '#f9fafb',
+                    borderColor: watch('trackTime') ? 'rgba(250,94,1,0.3)' : 'transparent',
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium">Track Time (DTR-Based Pay)</p>
+                    <p className="text-xs text-gray-500">Payroll computed from daily attendance records</p>
+                  </div>
+                  <Switch
+                    checked={watch('trackTime')}
+                    onCheckedChange={v => setValue('trackTime', v)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* GOVERNMENT IDs */}
+        <TabsContent value="government">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Government IDs & Numbers</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="SSS Number">
+                <Input {...register('sssNo')} placeholder="XX-XXXXXXX-X" />
+              </Field>
+              <Field label="TIN Number">
+                <Input {...register('tinNo')} placeholder="XXX-XXX-XXX-XXX" />
+              </Field>
+              <Field label="PhilHealth Number">
+                <Input {...register('philhealthNo')} placeholder="XXXXXXXXXXXX" />
+              </Field>
+              <Field label="Pag-IBIG / HDMF Number">
+                <Input {...register('pagibigNo')} placeholder="XXXX-XXXX-XXXX" />
+              </Field>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* EMERGENCY CONTACT */}
+        <TabsContent value="emergency">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Emergency Contact</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field label="Contact Name">
+                <Input {...register('emergencyContactName')} placeholder="Maria dela Cruz" />
+              </Field>
+              <Field label="Relationship">
+                <Input {...register('emergencyContactRelation')} placeholder="Spouse, Parent, Sibling..." />
+              </Field>
+              <Field label="Contact Number">
+                <Input {...register('emergencyContactPhone')} placeholder="09XX-XXX-XXXX" />
+              </Field>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* LEAVE ALLOCATIONS */}
+        {employeeId && (
+          <TabsContent value="leaves">
+            <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4" />
+                  Leave Entitlements — {new Date().getFullYear()}
+                </CardTitle>
+                <Button type="button" size="sm" onClick={saveLeaveAllocations} disabled={leavesSaving || leavesLoading}>
+                  {leavesSaving ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</> : <><Save className="w-3.5 h-3.5 mr-1.5" />Save Leaves</>}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {leavesLoading ? (
+                <div className="space-y-3 py-2">
+                  {[1,2,3,4].map(i => <div key={i} className="h-14 rounded-xl animate-pulse bg-gray-100" />)}
+                </div>
+              ) : leaveTypes.length === 0 ? (
+                <p className="text-sm text-gray-400 py-4 text-center">No leave types configured. Add leave types in Leave Types settings first.</p>
+              ) : (
+                <div className="space-y-2">
+                  {leaveTypes.map(lt => {
+                    const alloc = leaveAllocations[lt.id] ?? { enabled: false, entitled: lt.daysEntitled }
+                    return (
+                      <div key={lt.id} className="flex items-center gap-4 p-3 rounded-xl border transition-colors"
+                        style={{ background: alloc.enabled ? 'rgba(250,94,1,0.04)' : '#f9fafb', borderColor: alloc.enabled ? 'rgba(250,94,1,0.25)' : '#e2e8f0' }}>
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 accent-orange-500"
+                          checked={alloc.enabled}
+                          onChange={e => setLeaveAllocations(prev => ({ ...prev, [lt.id]: { ...alloc, enabled: e.target.checked } }))}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(14,166,240,0.1)', color: '#0ea6f0' }}>{lt.code}</span>
+                            <span className="text-sm font-medium text-gray-800">{lt.name}</span>
+                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(250,94,1,0.1)', color: '#fa5e01' }}>Dole-Mandated</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-gray-500">Days entitled:</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={365}
+                            value={alloc.entitled}
+                            disabled={!alloc.enabled}
+                            onChange={e => setLeaveAllocations(prev => ({ ...prev, [lt.id]: { ...alloc, entitled: Number(e.target.value) } }))}
+                            className="w-16 border rounded-lg px-2 py-1 text-sm text-center font-medium outline-none disabled:opacity-40 focus:border-orange-400"
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          </TabsContent>
+        )}
+
+        {/* SETTINGS */}
+        <TabsContent value="settings">
+          {isCreate ? (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Portal Settings</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-xs text-gray-500">
+                  Portal access and biometric settings are available after saving the employee record.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <EmployeePortalAccess
+              employeeId={employeeId!}
+              workEmail={watch('workEmail') || null}
+              personalEmail={watch('personalEmail') || null}
+              hasUser={hasPortalUser}
+              editable
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Save Button */}
+      <div className="flex justify-end mt-6">
+        {isCreate && activeTab !== lastTab ? (
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => {
+              const idx = tabs.findIndex(t => t.value === activeTab)
+              const next = tabs[Math.min(idx + 1, tabs.length - 1)]
+              if (next) setActiveTab(next.value)
+            }}
+          >
+            Next
+          </Button>
+        ) : (
+          <Button type="submit" disabled={saving} size="lg">
+            {saving ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+            ) : (
+              <><Save className="mr-2 h-4 w-4" /> Save Employee</>
+            )}
+          </Button>
+        )}
+      </div>
+    </form>
+  )
+}
