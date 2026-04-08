@@ -21,6 +21,8 @@ import {
   CalendarRange,
   Users,
   CheckCheck,
+  FileDown,
+  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -146,6 +148,8 @@ export default function DTRPage() {
   const [deleteInput, setDeleteInput] = useState('')
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [approvingAll, setApprovingAll] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [showTardiness, setShowTardiness] = useState(false)
   const portalTarget = typeof document !== 'undefined' ? document.body : null
 
   const [form, setForm] = useState({
@@ -375,6 +379,26 @@ export default function DTRPage() {
     }
   }
 
+  async function exportPdf() {
+    if (!selectedWeek) return
+    setExportingPdf(true)
+    try {
+      const ws = parseISO(selectedWeek)
+      const we = endOfWeek(ws, { weekStartsOn: 1 })
+      const url = `/api/dtr/tardiness-report?weekStart=${format(ws, 'yyyy-MM-dd')}&weekEnd=${format(we, 'yyyy-MM-dd')}`
+      const res = await fetch(url)
+      if (!res.ok) { toast.error('Failed to generate report'); return }
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `tardiness-${format(ws, 'yyyy-MM-dd')}.pdf`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   function requestDelete(id: string) {
     setDeleteId(id)
     setDeleteInput('')
@@ -403,6 +427,28 @@ export default function DTRPage() {
   function toggleExpand(key: string) {
     setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
   }
+
+  const tardinessRows = useMemo(() => {
+    return groups
+      .map(g => {
+        const tardyDays = g.records.filter(r => Number(r.lateMinutes ?? 0) > 0 && !r.isAbsent)
+        const totalLate = g.records.reduce((s, r) => s + Number(r.lateMinutes ?? 0), 0)
+        const totalUndertime = g.records.reduce((s, r) => s + Number(r.undertimeMinutes ?? 0), 0)
+        const absentDays = g.records.filter(r => r.isAbsent).length
+        return {
+          key: g.key,
+          employeeName: g.employeeName,
+          employeeNo: g.employeeNo,
+          department: g.department,
+          tardyDays: tardyDays.length,
+          totalLate,
+          totalUndertime,
+          absentDays,
+        }
+      })
+      .filter(r => r.tardyDays > 0 || r.absentDays > 0)
+      .sort((a, b) => b.totalLate - a.totalLate)
+  }, [groups])
 
   const totalPendingWeeks = groups.filter(g => g.pendingCount > 0).length
   const selectedWeekLabel = useMemo(() => {
@@ -555,6 +601,96 @@ export default function DTRPage() {
             </div>
           </div>
         </CardContent>
+      </Card>
+
+      {/* Tardiness Summary Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4 text-red-500" />
+              Tardiness Summary
+              {tardinessRows.length > 0 && (
+                <Badge className="bg-red-100 text-red-700">{tardinessRows.length} employee{tardinessRows.length !== 1 ? 's' : ''}</Badge>
+              )}
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
+                disabled={exportingPdf || !selectedWeek}
+                onClick={exportPdf}
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                {exportingPdf ? 'Generating...' : 'Export PDF'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowTardiness(v => !v)}>
+                {showTardiness ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                {showTardiness ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        {showTardiness && (
+          <CardContent className="p-0">
+            {tardinessRows.length === 0 ? (
+              <div className="p-6 text-center text-gray-400 text-sm">No tardiness or absences recorded for this week.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-red-50 border-b">
+                    <tr>
+                      <th className="text-left p-3 font-medium text-gray-600">Employee</th>
+                      <th className="text-left p-3 font-medium text-gray-600">Department</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Tardy Days</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Total Late</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Avg Late/Day</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Undertime</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Absences</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tardinessRows.map(row => (
+                      <tr key={row.key} className="border-b hover:bg-red-50/40">
+                        <td className="p-3">
+                          <div className="font-medium">{row.employeeName}</div>
+                          <div className="text-xs text-gray-400">{row.employeeNo}</div>
+                        </td>
+                        <td className="p-3 text-gray-600">{row.department}</td>
+                        <td className="p-3 text-right">
+                          <span className={`font-semibold ${row.tardyDays >= 3 ? 'text-red-600' : row.tardyDays >= 2 ? 'text-orange-500' : 'text-yellow-600'}`}>
+                            {row.tardyDays}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          {row.totalLate > 0 ? (
+                            <span className={`font-semibold ${row.totalLate >= 60 ? 'text-red-600' : 'text-orange-500'}`}>
+                              {row.totalLate >= 60
+                                ? `${Math.floor(row.totalLate / 60)}h ${row.totalLate % 60}m`
+                                : `${row.totalLate}m`}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="p-3 text-right text-gray-600">
+                          {row.tardyDays > 0 ? `${Math.round(row.totalLate / row.tardyDays)}m` : '—'}
+                        </td>
+                        <td className="p-3 text-right text-gray-600">
+                          {row.totalUndertime > 0 ? `${row.totalUndertime}m` : '—'}
+                        </td>
+                        <td className="p-3 text-right">
+                          {row.absentDays > 0 ? (
+                            <span className="font-semibold text-red-600">{row.absentDays}</span>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       <Card>

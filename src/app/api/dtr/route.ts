@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const periodEnd   = searchParams.get('to')
   const completed   = searchParams.get('completed')
   const page        = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
-  const limit       = Math.min(100, parseInt(searchParams.get('limit') ?? '31'))
+  const limit       = Math.min(2000, parseInt(searchParams.get('limit') ?? '31'))
 
   const where: Record<string, unknown> = {}
 
