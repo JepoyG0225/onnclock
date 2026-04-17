@@ -56,13 +56,15 @@ const NAV_ITEMS: NavItem[] = [
     href: '/employees',
     icon: Users,
     children: [
-      { label: 'All Employees',       href: '/employees',       icon: Users },
-      { label: 'Departments',         href: '/departments',     icon: Building2 },
-      { label: 'Positions',           href: '/positions',       icon: Briefcase },
-      { label: 'Org Chart',           href: '/org-chart',       icon: Building2 },
-      { label: 'Performance Reviews', href: '/performance-reviews', icon: BarChart3 },
-      { label: 'Offboarding',         href: '/offboarding',     icon: UserMinus },
-      { label: 'Disciplinary Records',href: '/disciplinary',    icon: AlertTriangle },
+      { label: 'All Employees',        href: '/employees',          icon: Users },
+      { label: 'Departments',          href: '/departments',        icon: Building2 },
+      { label: 'Positions',            href: '/positions',          icon: Briefcase },
+      { label: 'Org Chart',            href: '/org-chart',          icon: Building2 },
+      { label: 'Jobs',                 href: '/recruitment',        icon: ClipboardList, comingSoon: true },
+      { label: 'Onboarding Tracker',   href: '/onboarding',         icon: CheckCircle,   comingSoon: true },
+      { label: 'Performance Reviews',  href: '/performance-reviews', icon: BarChart3 },
+      { label: 'Offboarding',          href: '/offboarding',        icon: UserMinus },
+      { label: 'Disciplinary Records', href: '/disciplinary',       icon: AlertTriangle },
     ],
   },
   {
@@ -97,16 +99,6 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Payroll Settings', href: '/payroll/settings', icon: Settings },
       { label: '13th Month Pay', href: '/thirteenth-month', icon: Gift },
       { label: 'Loans',          href: '/loans',            icon: CreditCard },
-    ],
-  },
-  {
-    label: 'Recruitment',
-    href: '/recruitment',
-    icon: ClipboardList,
-    comingSoon: true,
-    children: [
-      { label: 'Jobs', href: '/recruitment', icon: Briefcase, comingSoon: true },
-      { label: 'Onboarding Tracker', href: '/onboarding', icon: CheckCircle, comingSoon: true },
     ],
   },
   { label: 'Announcements', href: '/announcements', icon: Megaphone },
@@ -171,7 +163,7 @@ export function AppSidebar({
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl)
   const [userRole] = useState<string | null>(initialUserRole)
   const [expanded, setExpanded] = useState<string[]>([
-    'Employment', 'Time & Attendance', 'Leave Management', 'Recruitment', 'Reports', 'Settings', 'Payroll',
+    'Employment', 'Time & Attendance', 'Leave Management', 'Reports', 'Settings', 'Payroll',
   ])
   const [counts, setCounts] = useState<{ pendingDtr: number; pendingLeaves: number }>(initialCounts)
   const [trialEndsAt] = useState<number | null>(
