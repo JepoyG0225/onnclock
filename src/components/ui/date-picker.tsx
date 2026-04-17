@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 import { format, parseISO, isValid } from 'date-fns'
@@ -25,30 +25,12 @@ export function DatePicker({
   className,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement | null>(null)
 
   const selected = value ? parseISO(value) : undefined
   const selectedLabel = selected && isValid(selected) ? format(selected, 'MMM d, yyyy') : placeholder
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (!ref.current) return
-      if (!ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    function handleTouchOutside(e: TouchEvent) {
-      if (!ref.current) return
-      if (!ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('touchstart', handleTouchOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('touchstart', handleTouchOutside)
-    }
-  }, [])
-
   return (
-    <div className={`relative ${className ?? ''}`} ref={ref}>
+    <div className={`relative ${className ?? ''}`}>
       <button
         type="button"
         disabled={disabled}
@@ -60,8 +42,14 @@ export function DatePicker({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
-          <div className="w-[min(92vw,280px)] rounded-2xl border border-border bg-popover p-3 text-foreground shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-[min(92vw,280px)] rounded-2xl border border-border bg-popover p-3 text-foreground shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
           <DayPicker
             mode="single"
             captionLayout="dropdown-years"
@@ -80,13 +68,15 @@ export function DatePicker({
               ...(min ? [{ before: parseISO(min) }] : []),
               ...(max ? [{ after: parseISO(max) }] : []),
             ]}
-            classNames={{
+              classNames={{
                 months: 'flex flex-col',
                 month: 'relative space-y-3',
-                month_caption: 'flex flex-col items-center justify-center px-2 pt-1 gap-1.5',
-                caption_label: 'text-sm font-semibold text-foreground',
+                month_caption: 'flex items-center justify-center px-2 pt-1 gap-2',
+                caption_label: 'hidden',
                 dropdowns: 'flex items-center gap-2',
-                dropdown: 'h-8 rounded-md border border-gray-300 bg-white px-2 text-sm',
+                dropdown: 'h-8 border-0 bg-transparent px-1 text-sm outline-none focus:outline-none focus:ring-0',
+                months_dropdown: 'hidden',
+                years_dropdown: 'h-8 border-0 bg-transparent px-1 text-sm outline-none focus:outline-none focus:ring-0',
                 nav: 'flex items-center gap-2',
                 button_previous:
                   'absolute left-2 top-1 h-7 w-7 rounded-full text-foreground/80 hover:bg-muted hover:text-foreground flex items-center justify-center',

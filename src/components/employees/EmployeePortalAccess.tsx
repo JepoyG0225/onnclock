@@ -102,7 +102,7 @@ export function EmployeePortalAccess({
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             {biometricStatus?.enrolled
-              ? <Fingerprint className="w-4 h-4 text-teal-600" />
+              ? <Fingerprint className="w-4 h-4 text-[#2E4156]" />
               : <Fingerprint className="w-4 h-4 text-gray-400" />}
             Fingerprint Authentication
           </CardTitle>
@@ -115,7 +115,7 @@ export function EmployeePortalAccess({
           ) : biometricStatus?.enrolled ? (
             <div className="flex items-start gap-4">
               <div className="flex-1 space-y-1">
-                <p className="text-sm font-medium text-teal-700">Fingerprint enrolled</p>
+                <p className="text-sm font-medium text-[#1A2D42]">Fingerprint enrolled</p>
                 <p className="text-xs text-gray-400 mt-1">
                   Employee can use their device&apos;s fingerprint sensor or PIN to clock in and out.
                 </p>
@@ -191,11 +191,6 @@ export function EmployeePortalAccess({
               />
             </div>
           </div>
-          {!editable && (
-            <p className="text-xs text-gray-500">
-              Click <span className="font-medium">Edit Employee</span> to change portal access and biometric settings.
-            </p>
-          )}
           <div className="flex items-center gap-2">
             <Button onClick={save} disabled={!editable || saving || !loginEmail}>
               {saving ? 'Saving...' : hasUser ? 'Update Password' : 'Create Portal Access'}
@@ -206,3 +201,4 @@ export function EmployeePortalAccess({
     </div>
   )
 }
+

@@ -8,6 +8,10 @@ export interface PayrollInput {
     payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
     isMinimumWageEarner: boolean
     isExemptFromTax: boolean
+    sssEnabled: boolean
+    philhealthEnabled: boolean
+    pagibigEnabled: boolean
+    withholdingTaxEnabled: boolean
   }
   period: {
     start: Date
@@ -15,6 +19,7 @@ export interface PayrollInput {
     workingDays: number
     payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
     isFirstCutoff: boolean  // true = 1st–15th, false = 16th–end
+    nightDifferentialRate: number
   }
   attendance: {
     daysWorked: number
@@ -51,6 +56,8 @@ export interface PayrollInput {
     transportation: number
     other: number
   }
+  additionalTaxableIncome: number
+  additionalNonTaxableIncome: number
   ytd: {
     grossPay: number
     taxableIncome: number

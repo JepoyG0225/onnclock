@@ -129,6 +129,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await prisma.employee.update({
       where: { id },
       data: {
+        ...(body.isActive != null ? { isActive: Boolean(body.isActive) } : {}),
         employeeNo:               body.employeeNo,
         firstName:                body.firstName,
         lastName:                 body.lastName,
@@ -168,9 +169,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         payFrequency:             body.payFrequency,
         bankName:                 n(body.bankName),
         bankAccountNo:            n(body.bankAccountNo),
-        isExemptFromTax:          body.isExemptFromTax     != null ? Boolean(body.isExemptFromTax)     : undefined,
-        isMinimumWageEarner:      body.isMinimumWageEarner != null ? Boolean(body.isMinimumWageEarner) : undefined,
-        trackTime:                body.trackTime           != null ? Boolean(body.trackTime)           : undefined,
+        isExemptFromTax:          body.isExemptFromTax          != null ? Boolean(body.isExemptFromTax)          : undefined,
+        isMinimumWageEarner:      body.isMinimumWageEarner      != null ? Boolean(body.isMinimumWageEarner)      : undefined,
+        trackTime:                body.trackTime                != null ? Boolean(body.trackTime)                : undefined,
+        fingerprintExempt:        body.fingerprintExempt        != null ? Boolean(body.fingerprintExempt)        : undefined,
+        geofenceExempt:           body.geofenceExempt           != null ? Boolean(body.geofenceExempt)           : undefined,
+        selfieExempt:             body.selfieExempt             != null ? Boolean(body.selfieExempt)             : undefined,
+        sssEnabled:               body.sssEnabled               != null ? Boolean(body.sssEnabled)               : undefined,
+        philhealthEnabled:        body.philhealthEnabled        != null ? Boolean(body.philhealthEnabled)        : undefined,
+        pagibigEnabled:           body.pagibigEnabled           != null ? Boolean(body.pagibigEnabled)           : undefined,
+        withholdingTaxEnabled:    body.withholdingTaxEnabled    != null ? Boolean(body.withholdingTaxEnabled)    : undefined,
         notes:                    n(body.notes),
       },
     })

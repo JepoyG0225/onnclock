@@ -52,9 +52,9 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
+      className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
       style={{
-        background: 'rgba(34, 127, 132, 0.97)',
+        background: 'rgba(26,45,66,0.97)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -119,9 +119,10 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
                   {items.map(item => (
                     <div key={item.id} className="px-4 py-3 border-b border-gray-100 last:border-b-0">
                       <p className="text-sm text-gray-900 font-medium">{item.title}</p>
-                      <p className={`text-xs mt-0.5 ${
-                        item.status === 'APPROVED' ? 'text-emerald-600' : 'text-red-500'
-                      }`}>
+                      <p
+                        className="text-xs mt-0.5"
+                        style={{ color: item.status === 'APPROVED' ? '#2E4156' : '#ef4444' }}
+                      >
                         {item.status}
                       </p>
                       <p className="text-[10px] text-gray-400">{new Date(item.createdAt).toLocaleString()}</p>
@@ -149,7 +150,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
               <div
                 className="absolute right-0 top-10 z-20 rounded-2xl shadow-2xl overflow-hidden min-w-[180px]"
                 style={{
-                  background: '#227f84',
+                  background: '#2E4156',
                   border: '1px solid rgba(255,255,255,0.12)',
                 }}
               >
@@ -171,3 +172,4 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
     </header>
   )
 }
+

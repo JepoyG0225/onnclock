@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { redirect } from 'next/navigation'
+import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,14 +13,16 @@ import { peso } from '@/lib/utils'
 import { format } from 'date-fns'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { EmployeePortalAccess } from '@/components/employees/EmployeePortalAccess'
-import { EmployeeDeleteButton } from '@/components/employees/EmployeeDeleteButton'
+import { EmployeeStatusButton } from '@/components/employees/EmployeeStatusButton'
+import { EmployeeDocumentsManager } from '@/components/employees/EmployeeDocumentsManager'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await auth()
-  if (!session?.user) return null
+  if (!session?.user) redirect('/login')
 
-  const companyId = session.user.companyId!
+  const companyId = await resolveEffectiveCompanyId(session.user)
+  if (!companyId) redirect('/login')
 
   const employee = await prisma.employee.findFirst({
     where: { id, companyId },
@@ -59,11 +63,11 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     .map(x => x.d)
     .join(', ') || '—'
   const statusColors: Record<string, string> = {
-    PROBATIONARY: 'bg-teal-100 text-teal-700',
+    PROBATIONARY: 'bg-[#C0C8CA] text-[#2E4156]',
     REGULAR:      'bg-green-100 text-green-800',
     CONTRACTUAL:  'bg-yellow-100 text-yellow-800',
     PROJECT_BASED:'bg-orange-100 text-orange-800',
-    PART_TIME:    'bg-cyan-100 text-cyan-700',
+    PART_TIME:    'bg-[#C0C8CA] text-[#2E4156]',
     RESIGNED:     'bg-gray-100 text-gray-600',
     TERMINATED:   'bg-red-100 text-red-800',
     RETIRED:      'bg-purple-100 text-purple-700',
@@ -81,7 +85,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               className="w-12 h-12 rounded-full object-cover border border-gray-200"
             />
           ) : (
-            <div className="w-12 h-12 rounded-full bg-teal-600 flex items-center justify-center text-white font-bold text-lg">
+            <div className="w-12 h-12 rounded-full bg-[#2E4156] flex items-center justify-center text-white font-bold text-lg">
               {initials}
             </div>
           )}
@@ -100,11 +104,20 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           </div>
         </div>
         <div className="ml-auto">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {!employee.isActive && (
+              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 self-center">
+                Inactive
+              </span>
+            )}
             <Link href={`/employees/${id}/edit`}>
-              <Button size="sm" variant="outline">Edit Employee</Button>
+              <Button size="sm" variant="outline">Edit</Button>
             </Link>
-            <EmployeeDeleteButton employeeId={id} />
+            <EmployeeStatusButton
+              employeeId={id}
+              isActive={employee.isActive}
+              employeeName={`${employee.firstName} ${employee.lastName}`}
+            />
           </div>
         </div>
       </div>
@@ -131,6 +144,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="w-3.5 h-3.5" />Settings
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FileText className="w-3.5 h-3.5" />Documents
           </TabsTrigger>
         </TabsList>
 
@@ -192,6 +208,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                 ['Regularization Date', employee.regularizationDate ? format(new Date(employee.regularizationDate), 'MMMM d, yyyy') : '—'],
                 ['Date Resigned', employee.resignationDate ? format(new Date(employee.resignationDate), 'MMMM d, yyyy') : '—'],
                 ['Pay Frequency', employee.payFrequency],
+                ['Fingerprint Requirement', employee.fingerprintExempt ? 'Off for this employee' : 'Inherit company setting'],
+                ['Geofencing Requirement', employee.geofenceExempt ? 'Off for this employee' : 'Inherit company setting'],
+                ['Selfie Requirement', employee.selfieExempt ? 'Off for this employee' : 'Inherit company setting'],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between border-b pb-2">
                   <span className="text-gray-500">{k}</span>
@@ -255,7 +274,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                           <td className="p-3 text-right">{Number(b.entitled)}d</td>
                           <td className="p-3 text-right text-red-600">{Number(b.used)}d</td>
                           <td className="p-3 text-right text-yellow-600">{Number(b.pending)}d</td>
-                          <td className="p-3 text-right font-bold text-teal-700">{available}d</td>
+                          <td className="p-3 text-right font-bold text-[#2E4156]">{available}d</td>
                         </tr>
                       )
                     })}
@@ -273,7 +292,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             workEmail={employee.workEmail ?? null}
             personalEmail={employee.personalEmail ?? null}
             hasUser={Boolean(employee.userId)}
-            editable={false}
+            editable={true}
           />
         </TabsContent>
 
@@ -351,6 +370,16 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                   </tbody>
                 </table>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Documents */}
+        <TabsContent value="documents" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Employee Documents</CardTitle></CardHeader>
+            <CardContent>
+              <EmployeeDocumentsManager employeeId={employee.id} />
             </CardContent>
           </Card>
         </TabsContent>

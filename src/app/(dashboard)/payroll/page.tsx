@@ -1,11 +1,12 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import {Plus} from 'lucide-react'
+import { Plus, Settings } from 'lucide-react'
 import { peso, formatDate, getStatusColor } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollRunRowActions from '@/components/payroll/PayrollRunRowActions'
@@ -14,7 +15,8 @@ export default async function PayrollPage() {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const companyId = session.user.companyId!
+  const companyId = await resolveEffectiveCompanyId(session.user)
+  if (!companyId) redirect('/login')
 
   const runs = await prisma.payrollRun.findMany({
     where: { companyId },
@@ -38,12 +40,20 @@ export default async function PayrollPage() {
           <h1 className="text-2xl font-bold text-gray-900">Payroll</h1>
           <p className="text-gray-500 mt-1">{runs.length} payroll runs</p>
         </div>
-        <Link href="/payroll/new">
-          <Button>
-            <Plus className="mr-2 w-4 h-4" />
-            New Payroll Run
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/payroll/settings">
+            <Button variant="outline">
+              <Settings className="mr-2 w-4 h-4" />
+              Payroll Settings
+            </Button>
+          </Link>
+          <Link href="/payroll/new">
+            <Button>
+              <Plus className="mr-2 w-4 h-4" />
+              New Payroll Run
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
@@ -89,7 +99,7 @@ export default async function PayrollPage() {
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Link href={`/payroll/${run.id}`}>
-                            <Button variant="ghost" size="sm" className="text-teal-600">View</Button>
+                            <Button variant="ghost" size="sm" className="text-[#2E4156] hover:text-white">View</Button>
                           </Link>
                           <PayrollRunRowActions runId={run.id} status={run.status} />
                         </div>
@@ -105,3 +115,4 @@ export default async function PayrollPage() {
     </div>
   )
 }
+

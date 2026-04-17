@@ -3,8 +3,8 @@ import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-const email = 'admin@onclock.om'
-const newPassword = 'Onclock2026!!'
+const email = 'admin@onclockph.com'
+const newPassword = 'OnclockPH2026!!'
 
 const passwordHash = await hash(newPassword, 12)
 

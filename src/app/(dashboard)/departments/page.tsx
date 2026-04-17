@@ -25,7 +25,7 @@ interface Department {
 }
 
 const COLORS = [
-  { hex: '#14b8a6', iconBg: 'bg-teal-50',   iconText: 'text-teal-600',   avatarBg: 'bg-teal-100',   avatarText: 'text-teal-700',   badge: 'bg-teal-100 text-teal-700'   },
+  { hex: '#14b8a6', iconBg: 'bg-[#D4D8DD]',   iconText: 'text-[#2E4156]',   avatarBg: 'bg-[#C0C8CA]',   avatarText: 'text-[#1A2D42]',   badge: 'bg-[#C0C8CA] text-[#1A2D42]'   },
   { hex: '#3b82f6', iconBg: 'bg-blue-50',   iconText: 'text-blue-600',   avatarBg: 'bg-blue-100',   avatarText: 'text-blue-700',   badge: 'bg-blue-100 text-blue-700'   },
   { hex: '#a855f7', iconBg: 'bg-purple-50', iconText: 'text-purple-600', avatarBg: 'bg-purple-100', avatarText: 'text-purple-700', badge: 'bg-purple-100 text-purple-700' },
   { hex: '#f97316', iconBg: 'bg-orange-50', iconText: 'text-orange-600', avatarBg: 'bg-orange-100', avatarText: 'text-orange-700', badge: 'bg-orange-100 text-orange-700' },
@@ -485,3 +485,4 @@ export default function DepartmentsPage() {
     </div>
   )
 }
+

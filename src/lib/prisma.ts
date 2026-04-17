@@ -4,10 +4,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-const baseDbUrl =
-  process.env.NODE_ENV === 'development'
-    ? (process.env.DIRECT_URL || process.env.DATABASE_URL)
-    : process.env.DATABASE_URL
+const baseDbUrl = process.env.DATABASE_URL
 
 function withPgBouncerMode(url?: string) {
   if (!url) return url

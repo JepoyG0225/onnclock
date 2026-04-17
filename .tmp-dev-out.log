@@ -1,0 +1,15 @@
+
+> ph-hrpayroll@0.1.0 dev
+> next dev --port 3001 --port 3333
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3333
+- Network:       http://192.168.254.106:3333
+- Environments: .env.local, .env
+- Experiments (use with caution):
+  · optimizePackageImports
+
+✓ Starting...
+Creating turbopack project { dir: 'C:\\Users\\Admin\\Desktop\\ph-hrpayroll', testMode: true }
+✓ Ready in 1427ms
+ POST /api/quotation 500 in 1617ms (compile: 1193ms, proxy.ts: 230ms, render: 194ms)

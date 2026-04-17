@@ -7,6 +7,7 @@ import { ensureDefaultPaymentMethods } from '@/lib/billing/payment-methods'
 const schema = z.object({
   billingCycle: z.enum(['MONTHLY', 'ANNUAL']),
   seatCount: z.number().int().min(1),
+  pricePerSeat: z.union([z.literal(50), z.literal(70)]).default(50),
   paymentMethodCode: z.string().min(1),
   proofOfPaymentDataUrl: z
     .string()
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (denied) return denied
 
   const body = schema.parse(await req.json())
-  const { billingCycle, seatCount, paymentMethodCode, proofOfPaymentDataUrl } = body
+  const { billingCycle, seatCount, pricePerSeat, paymentMethodCode, proofOfPaymentDataUrl } = body
 
   const employeeCount = await prisma.employee.count({
     where: { companyId: ctx.companyId, isActive: true },
@@ -47,7 +48,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Selected payment method is unavailable.' }, { status: 400 })
   }
 
-  const pricePerSeat = 50
   const isAnnual = billingCycle === 'ANNUAL'
   const discountPct = isAnnual ? 20 : 0
   const discountAmount = isAnnual ? pricePerSeat * billedSeatCount * 12 * 0.2 : 0

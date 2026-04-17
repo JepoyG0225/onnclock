@@ -16,7 +16,7 @@ import {
 const EDITABLE_ROLES: UserRole[] = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']
 
 const ROLE_THEME = {
-  COMPANY_ADMIN:   { bg: 'bg-teal-50',   border: 'border-teal-200',   text: 'text-teal-700',   badge: 'bg-teal-100 text-teal-800' },
+  COMPANY_ADMIN:   { bg: 'bg-[#D4D8DD]',   border: 'border-[#AAB7B7]',   text: 'text-[#1A2D42]',   badge: 'bg-[#C0C8CA] text-[#1A2D42]' },
   HR_MANAGER:      { bg: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-700',  badge: 'bg-green-100 text-green-800' },
   PAYROLL_OFFICER: { bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700',  badge: 'bg-amber-100 text-amber-800' },
   EMPLOYEE:        { bg: 'bg-gray-50',   border: 'border-gray-200',   text: 'text-gray-700',   badge: 'bg-gray-100 text-gray-700' },
@@ -117,7 +117,7 @@ export default function PermissionsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#227f84' }}>Role Permissions</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Role Permissions</h1>
           <p className="text-slate-500 text-sm mt-1">
             Configure what each role can see and do. Changes take effect on next login.
           </p>
@@ -149,7 +149,7 @@ export default function PermissionsPage() {
       </div>
 
       {/* Info banner */}
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-teal-50 border border-teal-200 text-sm text-teal-700">
+      <div className="flex items-start gap-3 p-3 rounded-xl bg-[#D4D8DD] border border-[#AAB7B7] text-sm text-[#1A2D42]">
         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <div>
           Permissions marked with <span className="font-semibold">●</span> are active for that role.
@@ -171,7 +171,7 @@ export default function PermissionsPage() {
                 <span className={`text-xs font-semibold ${theme.text}`}>{ROLE_LABELS[role]}</span>
                 {isDirty && <span className="text-xs text-orange-500 font-medium">● unsaved</span>}
               </div>
-              <p className="text-2xl font-bold" style={{ color: '#227f84' }}>{counts[role]}</p>
+              <p className="text-2xl font-bold" style={{ color: '#2E4156' }}>{counts[role]}</p>
               <p className="text-xs text-gray-500">permissions granted</p>
             </div>
           )
@@ -245,7 +245,7 @@ export default function PermissionsPage() {
               return (
                 <div
                   key={page.key}
-                  className={`grid hover:bg-teal-50/40 transition-colors ${rowBorder}`}
+                  className={`grid hover:bg-[#D4D8DD]/40 transition-colors ${rowBorder}`}
                   style={{ gridTemplateColumns: '220px repeat(3, 1fr)' }}
                 >
                   {/* Feature label */}
@@ -288,7 +288,7 @@ export default function PermissionsPage() {
       {dirty.size > 0 && (
         <div
           className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-2xl shadow-2xl border z-50"
-          style={{ background: '#227f84', borderColor: 'rgba(255,255,255,0.1)' }}
+          style={{ background: '#2E4156', borderColor: 'rgba(255,255,255,0.1)' }}
         >
           <span className="text-white text-sm font-medium">
             {dirty.size} role{dirty.size > 1 ? 's' : ''} with unsaved changes
@@ -312,4 +312,5 @@ export default function PermissionsPage() {
     </div>
   )
 }
+
 

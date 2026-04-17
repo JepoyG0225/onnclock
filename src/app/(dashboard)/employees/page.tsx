@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { EmployeeDeleteButton } from '@/components/employees/EmployeeDeleteButton'
@@ -19,7 +20,8 @@ export default async function EmployeesPage({
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const companyId = session.user.companyId!
+  const companyId = await resolveEffectiveCompanyId(session.user)
+  if (!companyId) redirect('/login')
   const search = params.search || ''
   const departmentId = params.department || undefined
   const status = params.status || undefined
@@ -85,13 +87,13 @@ export default async function EmployeesPage({
                 name="search"
                 placeholder="Search by name or employee no..."
                 defaultValue={search}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
               />
             </div>
             <select
               name="department"
               defaultValue={departmentId}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
             >
               <option value="">All Departments</option>
               {departments.map(d => (
@@ -101,7 +103,7 @@ export default async function EmployeesPage({
             <select
               name="status"
               defaultValue={status}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
             >
               <option value="">All Status</option>
               <option value="PROBATIONARY">Probationary</option>
@@ -152,7 +154,7 @@ export default async function EmployeesPage({
                               className="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0"
                             />
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700 flex-shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-[#C0C8CA] flex items-center justify-center text-xs font-bold text-[#1A2D42] flex-shrink-0">
                               {emp.firstName[0]}{emp.lastName[0]}
                             </div>
                           )}
@@ -178,7 +180,7 @@ export default async function EmployeesPage({
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Link href={`/employees/${emp.id}`}>
-                            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-800">
+                            <Button variant="ghost" size="sm" className="text-[#2E4156] hover:text-[#1A2D42]">
                               View
                             </Button>
                           </Link>
@@ -217,3 +219,4 @@ export default async function EmployeesPage({
     </div>
   )
 }
+

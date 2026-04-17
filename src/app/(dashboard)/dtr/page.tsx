@@ -52,6 +52,11 @@ interface DTRRecord {
     employeeNo: string
     department: { name: string } | null
   }
+  screenCaptures?: {
+    id: string
+    imageDataUrl: string
+    capturedAt: string
+  }[]
 }
 
 interface Employee {
@@ -84,6 +89,11 @@ interface WeekOption {
   end: string
   recordCount: number
   employeeCount: number
+}
+
+interface CompanyOption {
+  id: string
+  name: string
 }
 
 const STATUS_BADGE: Record<WeeklyGroup['status'], string> = {
@@ -134,6 +144,10 @@ function formatTime(dt: string | null): string {
 
 export default function DTRPage() {
   const now = new Date()
+  const initialWeekStart = useMemo(() => format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), [])
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false)
+  const [companies, setCompanies] = useState<CompanyOption[]>([])
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([])
   const [selectedWeek, setSelectedWeek] = useState('')
   const [records, setRecords] = useState<DTRRecord[]>([])
@@ -141,6 +155,7 @@ export default function DTRPage() {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [expandedCaptureRows, setExpandedCaptureRows] = useState<Record<string, boolean>>({})
 
   const [showForm, setShowForm] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
@@ -151,6 +166,14 @@ export default function DTRPage() {
   const [exportingPdf, setExportingPdf] = useState(false)
   const [showTardiness, setShowTardiness] = useState(false)
   const portalTarget = typeof document !== 'undefined' ? document.body : null
+  const companyQuery = useMemo(
+    () => (selectedCompanyId ? `companyId=${encodeURIComponent(selectedCompanyId)}` : ''),
+    [selectedCompanyId]
+  )
+  const withCompanyQuery = useCallback(
+    (url: string) => (companyQuery ? `${url}${url.includes('?') ? '&' : '?'}${companyQuery}` : url),
+    [companyQuery]
+  )
 
   const [form, setForm] = useState({
     employeeId: '',
@@ -189,8 +212,42 @@ export default function DTRPage() {
     setForm(prev => (prev.overtimeHours === ot ? prev : { ...prev, overtimeHours: ot }))
   }, [form.timeIn, form.timeOut, form.regularHours])
 
+  useEffect(() => {
+    let active = true
+    async function bootstrap() {
+      try {
+        const meRes = await fetch('/api/users/me')
+        const meData = await meRes.json().catch(() => ({}))
+        const actorRole = String(meData.actorRole ?? meData.role ?? '')
+        const systemAdmin = actorRole === 'SUPER_ADMIN'
+        if (!active) return
+        setIsSystemAdmin(systemAdmin)
+        if (!systemAdmin) return
+
+        const companiesRes = await fetch('/api/admin/companies')
+        const companiesData = await companiesRes.json().catch(() => ({}))
+        const rows = ((companiesData.companies ?? []) as Array<{ id: string; name: string }>)
+          .map(c => ({ id: c.id, name: c.name }))
+        if (!active) return
+        setCompanies(rows)
+        setSelectedCompanyId(prev => prev || rows[0]?.id || '')
+      } catch {
+        // no-op
+      }
+    }
+    void bootstrap()
+    return () => {
+      active = false
+    }
+  }, [])
+
   const loadWeeks = useCallback(async (preferredWeek?: string) => {
-    const res = await fetch('/api/dtr/weeks?completed=1')
+    if (isSystemAdmin && !selectedCompanyId) {
+      setWeekOptions([])
+      setSelectedWeek('')
+      return
+    }
+    const res = await fetch(withCompanyQuery('/api/dtr/weeks?completed=1'))
     const data = await res.json().catch(() => ({}))
     const weeks = (data.weeks ?? []) as WeekOption[]
     setWeekOptions(weeks)
@@ -202,10 +259,10 @@ export default function DTRPage() {
     if (nextWeek !== selectedWeek) {
       setSelectedWeek(nextWeek)
     }
-  }, [selectedWeek])
+  }, [isSystemAdmin, selectedCompanyId, selectedWeek, withCompanyQuery])
 
   const load = useCallback(async () => {
-    if (!selectedWeek) {
+    if (!selectedWeek || (isSystemAdmin && !selectedCompanyId)) {
       setRecords([])
       return
     }
@@ -215,32 +272,35 @@ export default function DTRPage() {
       const we = endOfWeek(ws, { weekStartsOn: 1 })
       const from = format(ws, 'yyyy-MM-dd')
       const to = format(we, 'yyyy-MM-dd')
-      const res = await fetch(`/api/dtr?from=${from}&to=${to}&limit=1000&completed=1`)
+      const res = await fetch(withCompanyQuery(`/api/dtr?from=${from}&to=${to}&limit=1000&completed=1`))
       const data = await res.json().catch(() => ({}))
       setRecords((data.records ?? []) as DTRRecord[])
     } finally {
       setLoading(false)
     }
-  }, [selectedWeek])
+  }, [isSystemAdmin, selectedCompanyId, selectedWeek, withCompanyQuery])
 
   async function loadEmployees() {
-    const res = await fetch('/api/employees?limit=200')
+    if (isSystemAdmin && !selectedCompanyId) {
+      setEmployees([])
+      return
+    }
+    const res = await fetch(withCompanyQuery('/api/employees?limit=200'))
     const data = await res.json().catch(() => ({}))
     setEmployees(data.employees ?? [])
   }
 
   useEffect(() => {
-    void loadWeeks(format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    void loadWeeks(initialWeekStart)
+  }, [initialWeekStart, loadWeeks])
 
   useEffect(() => {
     void load()
   }, [load])
 
   useEffect(() => {
-    loadEmployees()
-  }, [])
+    void loadEmployees()
+  }, [isSystemAdmin, selectedCompanyId, withCompanyQuery])
 
   const groups = useMemo(() => {
     const map = new Map<string, WeeklyGroup>()
@@ -306,7 +366,7 @@ export default function DTRPage() {
       toast.error('Select an employee')
       return
     }
-    const res = await fetch('/api/dtr', {
+    const res = await fetch(withCompanyQuery('/api/dtr'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
@@ -325,7 +385,7 @@ export default function DTRPage() {
   async function approveRecord(id: string, action: 'APPROVED' | 'REJECTED') {
     setApprovingId(id)
     try {
-      const res = await fetch(`/api/dtr/${id}/approve`, {
+      const res = await fetch(withCompanyQuery(`/api/dtr/${id}/approve`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
@@ -338,7 +398,7 @@ export default function DTRPage() {
   }
 
   async function approveEmployeeWeek(group: WeeklyGroup, action: 'APPROVED' | 'REJECTED') {
-    const res = await fetch('/api/dtr/weekly-approve', {
+    const res = await fetch(withCompanyQuery('/api/dtr/weekly-approve'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -361,7 +421,7 @@ export default function DTRPage() {
     try {
       const ws = parseISO(selectedWeek)
       const we = endOfWeek(ws, { weekStartsOn: 1 })
-      const res = await fetch('/api/dtr/approve-all', {
+      const res = await fetch(withCompanyQuery('/api/dtr/approve-all'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -386,7 +446,7 @@ export default function DTRPage() {
       const ws = parseISO(selectedWeek)
       const we = endOfWeek(ws, { weekStartsOn: 1 })
       const url = `/api/dtr/tardiness-report?weekStart=${format(ws, 'yyyy-MM-dd')}&weekEnd=${format(we, 'yyyy-MM-dd')}`
-      const res = await fetch(url)
+      const res = await fetch(withCompanyQuery(url))
       if (!res.ok) { toast.error('Failed to generate report'); return }
       const blob = await res.blob()
       const a = document.createElement('a')
@@ -411,7 +471,7 @@ export default function DTRPage() {
       toast.error('Please type DELETE to confirm')
       return
     }
-    const res = await fetch(`/api/dtr/${deleteId}`, { method: 'DELETE' })
+    const res = await fetch(withCompanyQuery(`/api/dtr/${deleteId}`), { method: 'DELETE' })
     if (res.ok) {
       toast.success('DTR record deleted')
       setShowDelete(false)
@@ -426,6 +486,10 @@ export default function DTRPage() {
 
   function toggleExpand(key: string) {
     setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function toggleCaptureRow(recordId: string) {
+    setExpandedCaptureRows(prev => ({ ...prev, [recordId]: !prev[recordId] }))
   }
 
   const tardinessRows = useMemo(() => {
@@ -464,7 +528,7 @@ export default function DTRPage() {
           <h1 className="text-2xl font-bold text-gray-900">Weekly Time Sheets</h1>
           <p className="text-gray-500 text-sm mt-1">Grouped by employee and week with weekly approval</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => setShowForm(true)} disabled={isSystemAdmin && !selectedCompanyId}>
           <Plus className="w-4 h-4 mr-2" />
           Add DTR Entry
         </Button>
@@ -473,7 +537,7 @@ export default function DTRPage() {
       {showForm && portalTarget && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <Card className="relative w-full max-w-4xl border-teal-200 shadow-2xl">
+          <Card className="relative w-full max-w-4xl border-[#AAB7B7] shadow-2xl">
             <CardHeader>
               <CardTitle className="text-base">New DTR Entry</CardTitle>
             </CardHeader>
@@ -578,6 +642,21 @@ export default function DTRPage() {
 
       <Card>
         <CardContent className="p-4 flex flex-wrap gap-4 items-end">
+          {isSystemAdmin && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Company</label>
+              <select
+                value={selectedCompanyId}
+                onChange={e => setSelectedCompanyId(e.target.value)}
+                className="w-72 border rounded px-3 py-2 text-sm bg-white"
+              >
+                {companies.length === 0 && <option value="">No companies found</option>}
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1">Week</label>
             <select
@@ -808,38 +887,73 @@ export default function DTRPage() {
                                     {group.records.map(r => {
                                       const st = dailyStatus(r)
                                       const isApproving = approvingId === r.id
+                                      const captureCount = r.screenCaptures?.length ?? 0
+                                      const showCaptures = !!expandedCaptureRows[r.id]
                                       return (
-                                        <tr key={r.id} className="border-t border-gray-200/70">
-                                          <td className="py-2">{format(new Date(r.date), 'EEE, MMM d')}</td>
-                                          <td className="py-2 font-mono">
-                                            {r.isAbsent
-                                              ? <span className="text-red-600">ABSENT</span>
-                                              : `${formatTime(r.timeIn)} / ${formatTime(r.timeOut)}`}
-                                          </td>
-                                          <td className="py-2 text-right">{Number(r.regularHours ?? 0).toFixed(2)}h</td>
-                                          <td className="py-2 text-right">{Number(r.overtimeHours ?? 0) > 0 ? `${Number(r.overtimeHours).toFixed(2)}h` : '-'}</td>
-                                          <td className="py-2 text-right">{Number(r.lateMinutes ?? 0) > 0 ? `${r.lateMinutes}m` : '-'}</td>
-                                          <td className="py-2 text-center">
-                                            <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${DAILY_STATUS_BADGE[st]}`}>{st}</span>
-                                          </td>
-                                          <td className="py-2 text-center">
-                                            <div className="flex items-center justify-center gap-1">
-                                              {st !== 'APPROVED' && (
-                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-green-600 hover:bg-green-50" disabled={isApproving} onClick={() => approveRecord(r.id, 'APPROVED')}>
-                                                  <Check className="w-3 h-3" />
-                                                </Button>
+                                        <Fragment key={r.id}>
+                                          <tr className="border-t border-gray-200/70">
+                                            <td className="py-2">{format(new Date(r.date), 'EEE, MMM d')}</td>
+                                            <td className="py-2 font-mono">
+                                              {r.isAbsent
+                                                ? <span className="text-red-600">ABSENT</span>
+                                                : `${formatTime(r.timeIn)} / ${formatTime(r.timeOut)}`}
+                                              {captureCount > 0 && (
+                                                <div className="mt-1">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => toggleCaptureRow(r.id)}
+                                                    className="text-[11px] font-semibold text-[#2E4156] underline"
+                                                  >
+                                                    {showCaptures ? 'Hide screenshots' : `View screenshots (${captureCount})`}
+                                                  </button>
+                                                </div>
                                               )}
-                                              {st !== 'REJECTED' && (
-                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50" disabled={isApproving} onClick={() => approveRecord(r.id, 'REJECTED')}>
-                                                  <X className="w-3 h-3" />
+                                            </td>
+                                            <td className="py-2 text-right">{Number(r.regularHours ?? 0).toFixed(2)}h</td>
+                                            <td className="py-2 text-right">{Number(r.overtimeHours ?? 0) > 0 ? `${Number(r.overtimeHours).toFixed(2)}h` : '-'}</td>
+                                            <td className="py-2 text-right">{Number(r.lateMinutes ?? 0) > 0 ? `${r.lateMinutes}m` : '-'}</td>
+                                            <td className="py-2 text-center">
+                                              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${DAILY_STATUS_BADGE[st]}`}>{st}</span>
+                                            </td>
+                                            <td className="py-2 text-center">
+                                              <div className="flex items-center justify-center gap-1">
+                                                {st !== 'APPROVED' && (
+                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-green-600 hover:bg-green-50" disabled={isApproving} onClick={() => approveRecord(r.id, 'APPROVED')}>
+                                                    <Check className="w-3 h-3" />
+                                                  </Button>
+                                                )}
+                                                {st !== 'REJECTED' && (
+                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50" disabled={isApproving} onClick={() => approveRecord(r.id, 'REJECTED')}>
+                                                    <X className="w-3 h-3" />
+                                                  </Button>
+                                                )}
+                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" onClick={() => requestDelete(r.id)}>
+                                                  <Trash2 className="w-3 h-3" />
                                                 </Button>
-                                              )}
-                                              <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" onClick={() => requestDelete(r.id)}>
-                                                <Trash2 className="w-3 h-3" />
-                                              </Button>
-                                            </div>
-                                          </td>
-                                        </tr>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                          {showCaptures && captureCount > 0 && (
+                                            <tr className="border-t border-gray-200/70 bg-white/70">
+                                              <td colSpan={7} className="py-2 px-2">
+                                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                                  {(r.screenCaptures ?? []).map(sc => (
+                                                    <div key={sc.id} className="rounded-lg border border-gray-200 bg-white p-1">
+                                                      <img
+                                                        src={sc.imageDataUrl}
+                                                        alt={`Screenshot ${format(new Date(sc.capturedAt), 'hh:mm a')}`}
+                                                        className="w-full h-20 object-cover rounded"
+                                                      />
+                                                      <p className="text-[10px] text-gray-500 mt-1 text-center">
+                                                        {format(new Date(sc.capturedAt), 'hh:mm a')}
+                                                      </p>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </Fragment>
                                       )
                                     })}
                                   </tbody>
@@ -860,3 +974,4 @@ export default function DTRPage() {
     </div>
   )
 }
+

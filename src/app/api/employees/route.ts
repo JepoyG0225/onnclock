@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
@@ -46,6 +46,9 @@ const createEmployeeSchema = z.object({
   bankAccountNo: z.string().optional(),
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
+  fingerprintExempt: z.boolean().default(false),
+  geofenceExempt: z.boolean().default(false),
+  selfieExempt: z.boolean().default(false),
   notes: z.string().optional(),
 })
 
@@ -109,6 +112,10 @@ async function resolveCustomScheduleId(params: {
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  const companyId = resolveCompanyIdForRequest(ctx, req)
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
 
   const { searchParams } = new URL(req.url)
   const org = searchParams.get('org') === '1'
@@ -120,7 +127,7 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
 
   const where: Record<string, unknown> = {
-    companyId: ctx.companyId,
+    companyId,
     ...(departmentId && { departmentId }),
     ...(status && { employmentStatus: status }),
     ...(search && {

@@ -41,8 +41,8 @@ const LOAN_TYPE_OPTIONS = [
 ]
 
 const TYPE_COLORS: Record<string, string> = {
-  SSS_SALARY_LOAN:       'bg-teal-100 text-teal-800',
-  SSS_CALAMITY_LOAN:     'bg-teal-100 text-teal-800',
+  SSS_SALARY_LOAN:       'bg-[#C0C8CA] text-[#1A2D42]',
+  SSS_CALAMITY_LOAN:     'bg-[#C0C8CA] text-[#1A2D42]',
   PAGIBIG_MULTI_PURPOSE: 'bg-yellow-100 text-yellow-800',
   PAGIBIG_CALAMITY:      'bg-yellow-100 text-yellow-800',
   COMPANY_LOAN:          'bg-purple-100 text-purple-800',
@@ -156,7 +156,7 @@ export default function LoansPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#227f84' }}>Loans</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Loans</h1>
           <p className="text-slate-500 text-sm mt-1">
             SSS, Pag-IBIG, and company loans — deductions applied automatically each payroll run
           </p>
@@ -171,7 +171,7 @@ export default function LoansPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Active Loans</p>
-            <p className="text-2xl font-bold" style={{ color: '#227f84' }}>{activeLoans.length}</p>
+            <p className="text-2xl font-bold" style={{ color: '#2E4156' }}>{activeLoans.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -189,7 +189,7 @@ export default function LoansPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Semi-Monthly / Payslip</p>
-            <p className="text-xl font-bold text-teal-700">{peso(totalMonthly / 2)}</p>
+            <p className="text-xl font-bold text-[#1A2D42]">{peso(totalMonthly / 2)}</p>
           </CardContent>
         </Card>
       </div>
@@ -198,7 +198,7 @@ export default function LoansPage() {
       {showForm && (
         <Card className="border-orange-200">
           <CardHeader>
-            <CardTitle className="text-base" style={{ color: '#227f84' }}>New Loan</CardTitle>
+            <CardTitle className="text-base" style={{ color: '#2E4156' }}>New Loan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -292,7 +292,7 @@ export default function LoansPage() {
             variant={statusFilter === val ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(val)}
-            style={statusFilter === val ? { background: '#227f84' } : {}}
+            style={statusFilter === val ? { background: '#2E4156' } : {}}
           >
             {label}
           </Button>
@@ -370,7 +370,7 @@ export default function LoansPage() {
                           <td className="p-3 text-right font-medium" style={{ color: '#fa5e01' }}>
                             {peso(Number(l.monthlyAmortization))}
                           </td>
-                          <td className="p-3 text-right text-teal-700">
+                          <td className="p-3 text-right text-[#1A2D42]">
                             {peso(Number(l.monthlyAmortization) / 2)}
                           </td>
                           <td className="p-3 text-xs text-gray-600">
@@ -421,11 +421,11 @@ export default function LoansPage() {
 
                         {/* Deduction history row */}
                         {isExpanded && (
-                          <tr key={`${l.id}-history`} className="bg-teal-50 border-b">
+                          <tr key={`${l.id}-history`} className="bg-[#D4D8DD] border-b">
                             <td colSpan={9} className="px-6 py-3">
                               <div className="flex items-center gap-2 mb-2">
-                                <History className="w-3.5 h-3.5 text-teal-600" />
-                                <span className="text-xs font-semibold text-teal-700">Deduction History</span>
+                                <History className="w-3.5 h-3.5 text-[#2E4156]" />
+                                <span className="text-xs font-semibold text-[#1A2D42]">Deduction History</span>
                               </div>
                               {!loanDetail || loanDetail.id !== l.id ? (
                                 <p className="text-xs text-gray-400">Loading...</p>
@@ -476,3 +476,4 @@ export default function LoansPage() {
     </div>
   )
 }
+

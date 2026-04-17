@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { toast } from 'sonner'
 import { Loader2, Mail, Lock } from 'lucide-react'
@@ -27,7 +26,6 @@ export default function PortalLoginPage() {
   const [isStandalone, setIsStandalone] = useState(false)
   const [isIos, setIsIos] = useState(false)
   const [isAndroid, setIsAndroid] = useState(false)
-  const router = useRouter()
 
   useEffect(() => {
     const standalone =
@@ -101,19 +99,20 @@ export default function PortalLoginPage() {
     setLoading(true)
     try {
       const result = await signIn('credentials', {
-        email,
+        email: email.trim().toLowerCase(),
         password,
         redirect: false,
-        callbackUrl: '/portal',
       })
-      if (result?.error) {
+      if (result?.error || !result?.ok) {
         toast.error('Invalid email or password')
         return
       }
       document.cookie = 'portal_session=1; path=/; SameSite=Lax'
-      toast.success('Welcome back!')
-      router.push('/portal')
-      router.refresh()
+      // Hard redirect — ensures the browser sends the new session cookie in a
+      // full HTTP request so the server-side auth() call in the layout can
+      // read it. router.push() with router.refresh() can race against the
+      // Set-Cookie being committed, causing an auth loop.
+      window.location.assign('/portal/clock')
     } catch {
       toast.error('An unexpected error occurred.')
     } finally {
@@ -155,12 +154,12 @@ export default function PortalLoginPage() {
         >
           <form onSubmit={handleLogin} className="px-8 py-8 space-y-5">
             <div>
-              <h2 className="text-xl font-black" style={{ color: '#227f84' }}>Sign In</h2>
+              <h2 className="text-xl font-black" style={{ color: '#2E4156' }}>Sign In</h2>
               <p className="text-sm text-slate-400 mt-0.5">Use your employee email and password</p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#227f84' }}>
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#2E4156' }}>
                 Email Address
               </label>
               <div className="relative">
@@ -173,15 +172,15 @@ export default function PortalLoginPage() {
                   required
                   autoComplete="email"
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all border-2"
-                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#227f84' }}
-                  onFocus={e => { e.target.style.borderColor = '#227f84'; e.target.style.boxShadow = '0 0 0 4px rgba(34,127,132,0.08)' }}
+                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#2E4156' }}
+                  onFocus={e => { e.target.style.borderColor = '#2E4156'; e.target.style.boxShadow = '0 0 0 4px rgba(46,65,86,0.12)' }}
                   onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#227f84' }}>
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#2E4156' }}>
                 Password
               </label>
               <div className="relative">
@@ -194,8 +193,8 @@ export default function PortalLoginPage() {
                   required
                   autoComplete="current-password"
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all border-2"
-                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#227f84' }}
-                  onFocus={e => { e.target.style.borderColor = '#227f84'; e.target.style.boxShadow = '0 0 0 4px rgba(34,127,132,0.08)' }}
+                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#2E4156' }}
+                  onFocus={e => { e.target.style.borderColor = '#2E4156'; e.target.style.boxShadow = '0 0 0 4px rgba(46,65,86,0.12)' }}
                   onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
                 />
               </div>
@@ -206,7 +205,7 @@ export default function PortalLoginPage() {
               disabled={loading}
               className="w-full py-3.5 rounded-xl text-sm font-black tracking-wide text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
               style={{
-                background: loading ? '#227f84' : 'linear-gradient(135deg, #227f84, #1b6a6e)',
+                background: loading ? '#2E4156' : 'linear-gradient(135deg, #2E4156, #1b6a6e)',
                 boxShadow: '0 6px 20px rgba(34,127,132,0.35)',
               }}
             >
@@ -221,8 +220,8 @@ export default function PortalLoginPage() {
                 disabled={!installReady}
                 className="w-full py-3 rounded-xl text-sm font-bold border-2 transition-all disabled:cursor-not-allowed"
                 style={{
-                  borderColor: '#227f84',
-                  color: installReady ? '#227f84' : '#6b7280',
+                  borderColor: '#2E4156',
+                  color: installReady ? '#2E4156' : '#6b7280',
                   background: installReady ? '#eef6f7' : '#f3f4f6',
                 }}
               >
@@ -255,3 +254,4 @@ export default function PortalLoginPage() {
     </div>
   )
 }
+

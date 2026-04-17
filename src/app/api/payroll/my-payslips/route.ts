@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const payslips = await prisma.payslip.findMany({
     where: {
       employeeId: employee.id,
-      payrollRun: { status: { in: ['LOCKED', 'APPROVED'] } },
+      payrollRun: { status: { in: ['APPROVED', 'LOCKED'] } },
     },
     include: {
       payrollRun: {

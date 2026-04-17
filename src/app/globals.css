@@ -49,8 +49,8 @@
 
   /* Brand palette utilities */
   --color-brand-orange: #fa5e01;
-  --color-brand-teal: #0a353b;
-  --color-brand-blue: #43a8da;
+  --color-brand-teal: #1A2D42;
+  --color-brand-blue: #2E4156;
 }
 
 :root {
@@ -58,23 +58,23 @@
 
   /* Brand colors */
   --brand-orange: #fa5e01;
-  --brand-teal: #0a353b;
-  --brand-blue: #43a8da;
+  --brand-teal: #1A2D42;
+  --brand-blue: #2E4156;
 
   /* Semantic tokens */
   --background: #f8fafc;
-  --foreground: #0a353b;
+  --foreground: #1A2D42;
   --card: #ffffff;
-  --card-foreground: #0a353b;
+  --card-foreground: #1A2D42;
   --popover: #ffffff;
-  --popover-foreground: #0a353b;
+  --popover-foreground: #1A2D42;
   --primary: #fa5e01;
   --primary-foreground: #ffffff;
-  --secondary: #e8f4f8;
-  --secondary-foreground: #0a353b;
+  --secondary: #D4D8DD;
+  --secondary-foreground: #1A2D42;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #43a8da;
+  --accent: #2E4156;
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
   --border: #e2e8f0;
@@ -83,13 +83,13 @@
 
   /* Charts */
   --chart-1: #fa5e01;
-  --chart-2: #43a8da;
-  --chart-3: #0a353b;
+  --chart-2: #2E4156;
+  --chart-3: #1A2D42;
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
 
   /* Sidebar (admin) */
-  --sidebar: #0a353b;
+  --sidebar: #1A2D42;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #fa5e01;
   --sidebar-primary-foreground: #ffffff;
@@ -100,30 +100,30 @@
 }
 
 .dark {
-  --background: #0d1b1e;
+  --background: #1A2D42;
   --foreground: #f0f9ff;
-  --card: #1a2e32;
+  --card: #2E4156;
   --card-foreground: #f0f9ff;
-  --popover: #1a2e32;
+  --popover: #2E4156;
   --popover-foreground: #f0f9ff;
   --primary: #fa5e01;
   --primary-foreground: #ffffff;
-  --secondary: #1e3a40;
+  --secondary: #2E4156;
   --secondary-foreground: #f0f9ff;
-  --muted: #1e3a40;
+  --muted: #2E4156;
   --muted-foreground: #94a3b8;
-  --accent: #43a8da;
+  --accent: #C0C8CA;
   --accent-foreground: #ffffff;
   --destructive: #f87171;
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
   --ring: #fa5e01;
   --chart-1: #fa5e01;
-  --chart-2: #43a8da;
+  --chart-2: #2E4156;
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #061f23;
+  --sidebar: #1A2D42;
   --sidebar-foreground: #f0f9ff;
   --sidebar-primary: #fa5e01;
   --sidebar-primary-foreground: #ffffff;

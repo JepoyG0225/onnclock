@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { format, differenceInSeconds } from 'date-fns'
-import { MapPin, Clock, CheckCircle, AlertCircle, Loader2, RefreshCw, Calendar, Coffee } from 'lucide-react'
+import { MapPin, Clock, CheckCircle, AlertCircle, Loader2, RefreshCw, Calendar, Coffee, Monitor } from 'lucide-react'
 import { toast } from 'sonner'
 import { PortalLocationMap } from '@/components/employee/PortalLocationMap'
 
@@ -45,6 +45,16 @@ interface AttendanceLog {
   holidayType: string | null
 }
 
+interface ScreenCaptureFeature {
+  entitled: boolean
+  requiredPricePerSeat: number
+  currentPricePerSeat: number
+  enabled: boolean
+  frequencyMinutes: number
+  desktopOnlyRequired: boolean
+  isMobileDevice: boolean
+}
+
 function getGreeting(now: Date | null) {
   if (!now) return 'Hello'
   const h = now.getHours()
@@ -78,6 +88,15 @@ export default function ClockPage() {
   const [employeeName, setEmployeeName] = useState('Employee')
   const [selfieRequired, setSelfieRequired] = useState(false)
   const [selfiePhoto, setSelfiePhoto] = useState<string | null>(null)
+  const [screenCaptureFeature, setScreenCaptureFeature] = useState<ScreenCaptureFeature | null>(null)
+  const [screenCaptureBlocked, setScreenCaptureBlocked] = useState(false)
+  const [screenCaptureUnavailable, setScreenCaptureUnavailable] = useState(false)
+  const [lastCapturedAt, setLastCapturedAt] = useState<Date | null>(null)
+  const [captureCount, setCaptureCount] = useState(0)
+  const screenCaptureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const screenCaptureStreamRef = useRef<MediaStream | null>(null)
+  const screenCaptureVideoRef = useRef<HTMLVideoElement | null>(null)
+  const screenCaptureInFlightRef = useRef(false)
   // Holds the clock action to auto-execute after biometric verification
   const pendingActionRef = useRef<(() => Promise<void>) | null>(null)
 
@@ -143,6 +162,118 @@ export default function ClockPage() {
     }
   }, [])
 
+  const stopScreenCaptureLoop = useCallback(() => {
+    if (screenCaptureIntervalRef.current) {
+      clearInterval(screenCaptureIntervalRef.current)
+      screenCaptureIntervalRef.current = null
+    }
+    if (screenCaptureStreamRef.current) {
+      for (const track of screenCaptureStreamRef.current.getTracks()) track.stop()
+      screenCaptureStreamRef.current = null
+    }
+    screenCaptureVideoRef.current = null
+    screenCaptureInFlightRef.current = false
+  }, [])
+
+  const ensureScreenCaptureStream = useCallback(async () => {
+    if (screenCaptureStreamRef.current) return screenCaptureStreamRef.current
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      throw new Error('Screen capture is not supported on this browser.')
+    }
+
+    // Request full screen/window capture.
+    // displaySurface:'monitor' hints the browser to pre-select the entire screen
+    // in the picker (user still confirms). Once granted the stream stays alive
+    // and we draw frames from it on a canvas at each capture interval.
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        displaySurface: 'monitor',
+        frameRate: 1,          // 1 fps is enough — we only need still frames
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      audio: false,
+    })
+    const track = stream.getVideoTracks()[0]
+    track?.addEventListener('ended', () => {
+      stopScreenCaptureLoop()
+      setScreenCaptureUnavailable(true)
+      toast.warning('Screen monitoring stopped. Please clock out and back in to resume.')
+    })
+
+    const video = document.createElement('video')
+    video.srcObject = stream
+    video.muted = true
+    video.playsInline = true
+    await video.play()
+
+    screenCaptureStreamRef.current = stream
+    screenCaptureVideoRef.current = video
+    return stream
+  }, [stopScreenCaptureLoop])
+
+  const captureAndUploadScreen = useCallback(async () => {
+    if (screenCaptureInFlightRef.current) return
+    if (!record?.id) return
+    if (!screenCaptureFeature?.enabled || screenCaptureBlocked || screenCaptureUnavailable) return
+
+    screenCaptureInFlightRef.current = true
+    try {
+      await ensureScreenCaptureStream()
+      const video = screenCaptureVideoRef.current
+      if (!video) throw new Error('Screen stream unavailable')
+
+      // Wait for video dimensions to populate if the stream just started
+      if (!video.videoWidth || !video.videoHeight) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      // Capture at full native resolution, then downscale to max 1920px wide
+      // to keep file size reasonable while preserving full-screen fidelity.
+      const srcW = video.videoWidth  || 1920
+      const srcH = video.videoHeight || 1080
+      const scale = Math.min(1, 1920 / srcW)
+      const width  = Math.max(1, Math.round(srcW * scale))
+      const height = Math.max(1, Math.round(srcH * scale))
+
+      const canvas = document.createElement('canvas')
+      canvas.width  = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Unable to get canvas context')
+      ctx.drawImage(video, 0, 0, width, height)
+
+      // JPEG at 0.75 quality — good balance of clarity vs payload size
+      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75)
+
+      const res = await fetch('/api/attendance/screen-captures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dtrRecordId: record.id, imageDataUrl }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || 'Failed to upload screenshot')
+      }
+
+      // Update status badge
+      setLastCapturedAt(new Date())
+      setCaptureCount(c => c + 1)
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'NotAllowedError') {
+        setScreenCaptureUnavailable(true)
+        toast.error('Screen capture permission denied. This is required by your company attendance policy.')
+      } else {
+        const message = e instanceof Error ? e.message : 'Screen capture failed'
+        setScreenCaptureUnavailable(true)
+        toast.error(message)
+      }
+      stopScreenCaptureLoop()
+    } finally {
+      screenCaptureInFlightRef.current = false
+    }
+  }, [record?.id, screenCaptureFeature?.enabled, screenCaptureBlocked, screenCaptureUnavailable, ensureScreenCaptureStream, stopScreenCaptureLoop])
+
   useEffect(() => {
     loadRecord()
     loadLogs()
@@ -154,12 +285,21 @@ export default function ClockPage() {
         if (!e) return
         const name = [e.firstName, e.lastName].filter(Boolean).join(' ').trim()
         if (name) setEmployeeName(name)
-        setSelfieRequired(!!e.workSchedule?.requireSelfieOnClockIn)
+        setSelfieRequired(!!e.selfieRequired)
       })
       .catch(() => null)
     fetch('/api/attendance/geofence')
       .then(r => r.json())
       .then(d => setGeofence(d))
+      .catch(() => null)
+    fetch('/api/attendance/security')
+      .then(r => r.json())
+      .then(d => {
+        const feature = d?.feature ?? null
+        if (!feature) return
+        setScreenCaptureFeature(feature)
+        setScreenCaptureBlocked(Boolean(feature.desktopOnlyRequired && feature.isMobileDevice))
+      })
       .catch(() => null)
   }, [loadRecord, loadLogs, loadBiometricStatus])
 
@@ -325,6 +465,7 @@ export default function ClockPage() {
       if (!res.ok) throw new Error(data.error ?? 'Clock out failed')
       if (data.geofenceWarning) toast.warning(data.geofenceWarning)
       toast.success('Clocked out successfully!')
+      stopScreenCaptureLoop()
       await loadRecord()
       await loadLogs()
     } catch (e: unknown) {
@@ -337,6 +478,10 @@ export default function ClockPage() {
   const handleClockIn = async () => {
     setPulse('in')
     setTimeout(() => setPulse(null), 320)
+    if (screenCaptureBlocked) {
+      toast.error('You can only clock in using a laptop or desktop device.')
+      return
+    }
     const pos = await ensureLocation()
     if (!pos) { toast.error('Unable to capture location'); return }
     if (!checkGeofence(pos)) {
@@ -457,6 +602,29 @@ export default function ClockPage() {
     !!geofence?.configured &&
     (!geoPos || !geofenceStatus || !geofenceStatus.inside)
 
+  useEffect(() => {
+    if (!isClockedIn || !screenCaptureFeature?.enabled || screenCaptureBlocked || screenCaptureUnavailable) {
+      stopScreenCaptureLoop()
+      return
+    }
+
+    void captureAndUploadScreen()
+    const intervalMs = Math.max(1, Number(screenCaptureFeature.frequencyMinutes || 5)) * 60 * 1000
+    screenCaptureIntervalRef.current = setInterval(() => {
+      void captureAndUploadScreen()
+    }, intervalMs)
+
+    return () => stopScreenCaptureLoop()
+  }, [
+    isClockedIn,
+    screenCaptureFeature?.enabled,
+    screenCaptureFeature?.frequencyMinutes,
+    screenCaptureBlocked,
+    screenCaptureUnavailable,
+    captureAndUploadScreen,
+    stopScreenCaptureLoop,
+  ])
+
   const elapsedSeconds = isClockedIn && record?.timeIn && currentTime
     ? Math.max(0, differenceInSeconds(currentTime, new Date(record.timeIn)))
     : 0
@@ -479,15 +647,15 @@ export default function ClockPage() {
   void pendingActionRef
 
   return (
-    <div className="max-w-md mx-auto px-4 py-5 space-y-5">
+    <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
       {/* Top Time */}
       <div className="text-center space-y-1">
         <p className="text-sm font-semibold text-slate-500">{getGreeting(currentTime)},</p>
-        <p className="text-xl font-black" style={{ color: '#227f84' }}>{employeeName}</p>
+        <p className="text-xl font-black" style={{ color: '#2E4156' }}>{employeeName}</p>
       </div>
 
       <div className="text-center">
-        <div className="font-black tabular-nums leading-none" style={{ fontSize: '2.75rem', color: '#227f84' }}>
+        <div className="font-black tabular-nums leading-none" style={{ fontSize: '2.75rem', color: '#2E4156' }}>
           {currentTime ? format(currentTime, 'HH:mm:ss') : '--:--:--'}
         </div>
         <div className="text-xs text-slate-400 font-semibold mt-1">
@@ -501,6 +669,66 @@ export default function ClockPage() {
           <div>
             <p className="font-semibold text-red-600">Fingerprint setup required</p>
             <p className="text-xs text-red-500">Go to Profile {'>'} Portal Access to enroll your fingerprint before clocking in/out.</p>
+          </div>
+        </div>
+      )}
+
+      {!!screenCaptureFeature?.enabled && (
+        <div
+          className="rounded-2xl px-4 py-3 text-sm border"
+          style={{
+            background: screenCaptureBlocked
+              ? '#fff5f5'
+              : screenCaptureUnavailable
+                ? '#fffbeb'
+                : isClockedIn && lastCapturedAt
+                  ? 'rgba(22,163,74,0.07)'
+                  : 'rgba(46,65,86,0.08)',
+            borderColor: screenCaptureBlocked
+              ? '#fecaca'
+              : screenCaptureUnavailable
+                ? '#fde68a'
+                : isClockedIn && lastCapturedAt
+                  ? 'rgba(22,163,74,0.3)'
+                  : 'rgba(46,65,86,0.2)',
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <Monitor className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+              screenCaptureBlocked ? 'text-red-500'
+              : screenCaptureUnavailable ? 'text-amber-500'
+              : isClockedIn && lastCapturedAt ? 'text-green-600'
+              : 'text-[#2E4156]'
+            }`} />
+            <div className="flex-1 min-w-0">
+              <p className={`font-semibold ${
+                screenCaptureBlocked ? 'text-red-700'
+                : screenCaptureUnavailable ? 'text-amber-700'
+                : isClockedIn && lastCapturedAt ? 'text-green-700'
+                : 'text-[#1A2D42]'
+              }`}>
+                {screenCaptureBlocked
+                  ? 'Desktop/laptop required'
+                  : screenCaptureUnavailable
+                    ? 'Screen capture stopped'
+                    : isClockedIn && lastCapturedAt
+                      ? `Screenshot taken · ${captureCount} capture${captureCount !== 1 ? 's' : ''} this session`
+                      : 'Full-screen monitoring enabled'}
+              </p>
+              <p className={`text-xs mt-0.5 leading-relaxed ${
+                screenCaptureBlocked ? 'text-red-600'
+                : screenCaptureUnavailable ? 'text-amber-600'
+                : 'text-slate-500'
+              }`}>
+                {screenCaptureBlocked
+                  ? 'Screen monitoring requires a desktop or laptop computer.'
+                  : screenCaptureUnavailable
+                    ? 'Permission was revoked or the stream ended. Clock out and in again to resume monitoring.'
+                    : isClockedIn && lastCapturedAt
+                      ? `Last captured at ${lastCapturedAt.toLocaleTimeString()} — next in ${screenCaptureFeature.frequencyMinutes} min`
+                      : `Your full screen will be captured every ${screenCaptureFeature.frequencyMinutes} minute(s) while clocked in. When prompted, select "Entire Screen".`}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -532,7 +760,7 @@ export default function ClockPage() {
           ) : null}
           <label
             className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
-            style={{ background: 'rgba(34,127,132,0.12)', color: '#227f84' }}
+            style={{ background: 'rgba(46,65,86,0.12)', color: '#2E4156' }}
           >
             Capture Selfie
             <input
@@ -550,9 +778,9 @@ export default function ClockPage() {
       {geofence?.enabled && geofence.configured && geoPos && geofenceStatus?.inside && (
         <div
           className="rounded-2xl px-4 py-2.5 text-xs font-semibold flex items-center gap-2"
-          style={{ background: 'rgba(16,185,129,0.1)', color: '#059669' }}
+          style={{ background: 'rgba(46,65,86,0.12)', color: '#1A2D42' }}
         >
-          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-emerald-500" />
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#2E4156' }} />
           {`Inside allowed zone (${geofenceStatus.dist}m from office)`}
         </div>
       )}
@@ -596,14 +824,22 @@ export default function ClockPage() {
 
       {/* Main Action Circle */}
       <div className="flex justify-center">
-        {!loading && !isClockedOut && !isClockedIn ? (
+        {loading && !record ? (
+          <div
+            className="w-40 h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
+            style={{ background: 'rgba(46,65,86,0.12)', color: '#1A2D42' }}
+          >
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#2E4156' }} />
+            Loading...
+          </div>
+        ) : !isClockedOut && !isClockedIn ? (
           <button
             onClick={handleClockIn}
-            disabled={actionLoading || loading || geoLoading || geofenceActionBlocked}
+            disabled={actionLoading || loading || geoLoading || geofenceActionBlocked || screenCaptureBlocked}
             className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
-              background: '#0b4a3b',
-              boxShadow: '0 0 0 10px rgba(34,127,132,0.15), 0 10px 24px rgba(0,0,0,0.18)',
+              background: '#1A2D42',
+              boxShadow: '0 0 0 10px rgba(46,65,86,0.2), 0 10px 24px rgba(0,0,0,0.18)',
             }}
           >
             {actionLoading || geoLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
@@ -611,11 +847,13 @@ export default function ClockPage() {
               ? 'Processing'
               : geoLoading
                 ? 'Refreshing Location'
+                : screenCaptureBlocked
+                  ? 'Desktop Only'
                 : geofenceActionBlocked
                   ? 'Outside Zone'
                   : 'Clock In'}
           </button>
-        ) : !loading && isClockedIn ? (
+        ) : isClockedIn ? (
           <div className="flex flex-col items-center gap-4">
             <button
               onClick={handleClockOut}
@@ -641,7 +879,7 @@ export default function ClockPage() {
                   className="absolute h-9 w-9 rounded-full bg-white shadow flex items-center justify-center transition-all duration-300"
                   style={{
                     border: '2px solid #ffffff',
-                    background: isOnBreak ? '#ff5c5c' : '#66bb6a',
+                    background: isOnBreak ? '#ff5c5c' : '#2E4156',
                     left: isOnBreak ? 'calc(100% - 42px)' : '6px',
                     boxShadow: '0 6px 12px rgba(0,0,0,0.18), inset 0 2px 3px rgba(255,255,255,0.7)',
                   }}
@@ -659,10 +897,10 @@ export default function ClockPage() {
           </div>
         ) : (
           <div
-            className="w-40 h-40 rounded-full text-emerald-700 text-sm font-bold flex flex-col items-center justify-center gap-2"
-            style={{ background: 'rgba(16,185,129,0.1)' }}
+            className="w-40 h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
+            style={{ background: 'rgba(46,65,86,0.12)', color: '#1A2D42' }}
           >
-            <CheckCircle className="w-7 h-7 text-emerald-500" />
+            <CheckCircle className="w-7 h-7" style={{ color: '#2E4156' }} />
             Done Today
           </div>
         )}
@@ -671,8 +909,8 @@ export default function ClockPage() {
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-4 text-center">
         <div className="flex flex-col items-center gap-1">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,127,132,0.12)' }}>
-            <Clock className="w-5 h-5" style={{ color: '#227f84' }} />
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
+            <Clock className="w-5 h-5" style={{ color: '#2E4156' }} />
           </div>
           <div className="text-xs font-bold text-slate-700">
             {record?.timeIn ? format(new Date(record.timeIn), 'hh:mm a') : '--'}
@@ -680,8 +918,8 @@ export default function ClockPage() {
           <div className="text-[10px] text-slate-400">Clock In</div>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,127,132,0.12)' }}>
-            <Clock className="w-5 h-5" style={{ color: '#227f84' }} />
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
+            <Clock className="w-5 h-5" style={{ color: '#2E4156' }} />
           </div>
           <div className="text-xs font-bold text-slate-700">
             {record?.timeOut ? format(new Date(record.timeOut), 'hh:mm a') : '--'}
@@ -715,8 +953,8 @@ export default function ClockPage() {
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" style={{ color: '#227f84' }} />
-            <p className="text-sm font-bold" style={{ color: '#227f84' }}>Attendance History</p>
+            <Calendar className="w-4 h-4" style={{ color: '#2E4156' }} />
+            <p className="text-sm font-bold" style={{ color: '#2E4156' }}>Attendance History</p>
           </div>
         </div>
 
@@ -740,7 +978,7 @@ export default function ClockPage() {
                   style={{ background: '#f8fafc' }}
                 >
                   <div>
-                    <p className="text-xs font-bold" style={{ color: '#227f84' }}>
+                    <p className="text-xs font-bold" style={{ color: '#2E4156' }}>
                       {format(new Date(log.date), 'EEE, MMM d')}
                     </p>
                     <p className="text-[11px] text-slate-500 font-medium">
@@ -748,7 +986,7 @@ export default function ClockPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-bold" style={{ color: '#227f84' }}>
+                    <p className="text-xs font-bold" style={{ color: '#2E4156' }}>
                       {log.regularHours ?? 0}h
                     </p>
                     {(log.lateMinutes ?? 0) > 0 && (
@@ -767,14 +1005,14 @@ export default function ClockPage() {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-24">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" style={{ color: '#227f84' }} />
-              <p className="text-sm font-bold" style={{ color: '#227f84' }}>Current Location</p>
+              <MapPin className="w-4 h-4" style={{ color: '#2E4156' }} />
+              <p className="text-sm font-bold" style={{ color: '#2E4156' }}>Current Location</p>
             </div>
             <button
               onClick={requestLocation}
               disabled={geoLoading}
               className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors"
-              style={{ background: 'rgba(34,127,132,0.12)', color: '#227f84' }}
+              style={{ background: 'rgba(46,65,86,0.12)', color: '#2E4156' }}
             >
               <RefreshCw className={`w-3 h-3 ${geoLoading ? 'animate-spin' : ''}`} />
               Refresh

@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Clock, FileText, CreditCard, User } from 'lucide-react'
+import { Clock, FileText, CreditCard, User, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_TABS = [
-  { href: '/portal/clock', label: 'Attendance', icon: Clock, exact: false },
-  { href: '/portal/leaves', label: 'Leave', icon: FileText, exact: false },
-  { href: '/portal/payslips', label: 'Payslips', icon: CreditCard, exact: false },
-  { href: '/portal/profile', label: 'Profile', icon: User, exact: false },
+  { href: '/portal/clock',   label: 'Attendance', icon: Clock,     exact: false },
+  { href: '/portal/leaves',  label: 'Leave',      icon: FileText,  exact: false },
+  { href: '/portal/payslips',label: 'Payslips',   icon: CreditCard,exact: false },
+  { href: '/portal/reviews', label: 'Reviews',    icon: BarChart3, exact: false },
+  { href: '/portal/profile', label: 'Profile',    icon: User,      exact: false },
 ]
 
 export function PortalBottomNav() {
@@ -17,14 +18,14 @@ export function PortalBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
     >
       {/* Frosted glass pill dock */}
       <div
-        className="flex items-stretch justify-around rounded-2xl shadow-2xl mx-auto max-w-md"
+        className="flex items-stretch justify-around rounded-2xl shadow-2xl mx-auto max-w-lg"
         style={{
-          background: 'rgba(34, 127, 132, 0.96)',
+          background: 'rgba(26,45,66,0.96)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           border: '1px solid rgba(255,255,255,0.12)',
@@ -38,11 +39,7 @@ export function PortalBottomNav() {
               key={tab.href}
               href={tab.href}
               className="flex flex-col items-center justify-center gap-1 flex-1 py-1 px-2 rounded-xl transition-all duration-200 min-w-0"
-              style={
-                isActive
-                  ? { background: 'rgba(250,94,1,0.18)' }
-                  : undefined
-              }
+              style={isActive ? { background: 'rgba(250,94,1,0.18)' } : undefined}
             >
               <div
                 className={cn(

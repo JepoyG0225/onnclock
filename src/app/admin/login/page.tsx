@@ -19,7 +19,7 @@ export default function AdminLoginPage() {
     setLoading(true)
     try {
       const result = await signIn('credentials', {
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
         redirect: false,
       })
@@ -27,8 +27,7 @@ export default function AdminLoginPage() {
         setError('Invalid credentials. Make sure you are using a system admin account.')
         return
       }
-      router.push('/admin/companies')
-      router.refresh()
+      window.location.href = '/admin/companies'
     } finally {
       setLoading(false)
     }
@@ -39,8 +38,8 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 mb-4">
-            <ShieldCheck className="w-7 h-7 text-cyan-400" />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#2E4156]/10 border border-[#2E4156]/20 mb-4">
+            <ShieldCheck className="w-7 h-7 text-[#C0C8CA]" />
           </div>
           <h1 className="text-xl font-black text-white tracking-tight">System Admin</h1>
           <p className="text-sm text-slate-400 mt-1">Onclock Control Panel</p>
@@ -57,10 +56,10 @@ export default function AdminLoginPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="admin@onclock.com"
+                placeholder="admin@onclockph.com"
                 required
                 autoFocus
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#2E4156] focus:ring-1 focus:ring-[#2E4156]/30"
               />
             </div>
 
@@ -75,7 +74,7 @@ export default function AdminLoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••••"
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 pr-10 text-sm placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 pr-10 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#2E4156] focus:ring-1 focus:ring-[#2E4156]/30"
                 />
                 <button
                   type="button"
@@ -96,7 +95,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full rounded-xl bg-[#2E4156] hover:bg-[#2E4156] disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition-colors flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {loading ? 'Signing in…' : 'Sign In'}
@@ -111,3 +110,4 @@ export default function AdminLoginPage() {
     </div>
   )
 }
+

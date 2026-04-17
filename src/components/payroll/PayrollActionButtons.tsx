@@ -89,23 +89,29 @@ export default function PayrollActionButtons({
             disabled={!!loading}
             variant="outline"
             size="sm"
-            className="border-teal-300 text-teal-700 hover:bg-teal-50"
+            className="border-[#AAB7B7] text-[#1A2D42] hover:bg-[#D4D8DD]"
           >
             <Send className="w-4 h-4 mr-1" />
             {loading === 'submit' ? 'Submitting...' : 'Submit for Approval'}
           </Button>
         )}
         {status === 'FOR_APPROVAL' && (
-          <Button
-            onClick={() => action('approve')}
-            disabled={!!loading || !canApprove}
-            title={!canApprove ? (approveDisabledReason ?? 'Approval not available yet') : undefined}
-            className="bg-green-600 hover:bg-green-700"
-            size="sm"
-          >
-            <CheckCircle className="w-4 h-4 mr-1" />
-            {loading === 'approve' ? 'Approving...' : 'Approve'}
-          </Button>
+          loading === 'approve' ? (
+            <div className="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white">
+              Approving...
+            </div>
+          ) : (
+            <Button
+              onClick={() => action('approve')}
+              disabled={!!loading || !canApprove}
+              title={!canApprove ? (approveDisabledReason ?? 'Approval not available yet') : undefined}
+              className="bg-green-600 hover:bg-green-700"
+              size="sm"
+            >
+              <CheckCircle className="w-4 h-4 mr-1" />
+              Approve
+            </Button>
+          )
         )}
         {status === 'APPROVED' && (
           <Button
@@ -248,3 +254,4 @@ export default function PayrollActionButtons({
     </>
   )
 }
+

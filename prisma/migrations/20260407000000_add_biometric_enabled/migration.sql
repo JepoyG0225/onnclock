@@ -1,3 +1,3 @@
 -- AlterTable
 ALTER TABLE "companies"
-ADD COLUMN "fingerprintRequired" BOOLEAN NOT NULL DEFAULT true;
+ADD COLUMN IF NOT EXISTS "fingerprintRequired" BOOLEAN NOT NULL DEFAULT true;

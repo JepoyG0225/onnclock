@@ -69,7 +69,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
 function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all bg-white placeholder:text-slate-300 ${className}`}
+      className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] transition-all bg-white placeholder:text-slate-300 ${className}`}
       {...props}
     />
   )
@@ -78,7 +78,7 @@ function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInput
 function Textarea({ className = '', ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all bg-white placeholder:text-slate-300 resize-none ${className}`}
+      className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] transition-all bg-white placeholder:text-slate-300 resize-none ${className}`}
       {...props}
     />
   )
@@ -161,7 +161,7 @@ export default function QuotationPage() {
           <div className="h-6 w-px bg-slate-200" />
           <div>
             <h1 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-teal-600" />
+              <FileText className="w-4 h-4 text-[#2E4156]" />
               Quotation Generator
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">Create and download a professional pricing quotation for a client.</p>
@@ -183,7 +183,7 @@ export default function QuotationPage() {
           {/* Quotation Meta */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <p className="text-sm font-black text-slate-800 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-teal-600" /> Quotation Details
+              <FileText className="w-4 h-4 text-[#2E4156]" /> Quotation Details
             </p>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Quotation No.">
@@ -207,7 +207,7 @@ export default function QuotationPage() {
           {/* Client Info */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <p className="text-sm font-black text-slate-800 flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-teal-600" /> Client Information
+              <Building2 className="w-4 h-4 text-[#2E4156]" /> Client Information
             </p>
             <div className="grid grid-cols-1 gap-4">
               <Field label="Company Name *">
@@ -252,7 +252,7 @@ export default function QuotationPage() {
           {/* Plan + Seats */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <p className="text-sm font-black text-slate-800 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-teal-600" /> Plan Selection
+              <Zap className="w-4 h-4 text-[#2E4156]" /> Plan Selection
             </p>
 
             {/* Plan cards */}
@@ -261,15 +261,15 @@ export default function QuotationPage() {
               <button
                 type="button"
                 onClick={() => set('plan', 'MONTHLY')}
-                className={`rounded-xl border-2 p-4 text-left transition-all ${form.plan === 'MONTHLY' ? 'border-teal-500 bg-teal-50/50' : 'border-slate-200 hover:border-teal-300'}`}
+                className={`rounded-xl border-2 p-4 text-left transition-all ${form.plan === 'MONTHLY' ? 'border-[#2E4156] bg-[#D4D8DD]/50' : 'border-slate-200 hover:border-[#AAB7B7]'}`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-black text-slate-900">Monthly</span>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${form.plan === 'MONTHLY' ? 'border-teal-500' : 'border-slate-300'}`}>
-                    {form.plan === 'MONTHLY' && <div className="w-2 h-2 rounded-full bg-teal-500" />}
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${form.plan === 'MONTHLY' ? 'border-[#2E4156]' : 'border-slate-300'}`}>
+                    {form.plan === 'MONTHLY' && <div className="w-2 h-2 rounded-full bg-[#2E4156]" />}
                   </div>
                 </div>
-                <p className="text-xl font-black text-teal-700">₱50</p>
+                <p className="text-xl font-black text-[#1A2D42]">₱50</p>
                 <p className="text-xs text-slate-500">per seat / month</p>
                 <p className="text-xs text-slate-400 mt-1">Billed monthly</p>
               </button>
@@ -277,16 +277,16 @@ export default function QuotationPage() {
               <button
                 type="button"
                 onClick={() => set('plan', 'ANNUAL')}
-                className={`rounded-xl border-2 p-4 text-left transition-all relative overflow-hidden ${form.plan === 'ANNUAL' ? 'border-teal-500 bg-teal-50/50' : 'border-slate-200 hover:border-teal-300'}`}
+                className={`rounded-xl border-2 p-4 text-left transition-all relative overflow-hidden ${form.plan === 'ANNUAL' ? 'border-[#2E4156] bg-[#D4D8DD]/50' : 'border-slate-200 hover:border-[#AAB7B7]'}`}
               >
                 <div className="absolute top-2 right-2 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">SAVE 20%</div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-black text-slate-900">Annual</span>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${form.plan === 'ANNUAL' ? 'border-teal-500' : 'border-slate-300'}`}>
-                    {form.plan === 'ANNUAL' && <div className="w-2 h-2 rounded-full bg-teal-500" />}
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${form.plan === 'ANNUAL' ? 'border-[#2E4156]' : 'border-slate-300'}`}>
+                    {form.plan === 'ANNUAL' && <div className="w-2 h-2 rounded-full bg-[#2E4156]" />}
                   </div>
                 </div>
-                <p className="text-xl font-black text-teal-700">₱40</p>
+                <p className="text-xl font-black text-[#1A2D42]">₱40</p>
                 <p className="text-xs text-slate-500">per seat / month</p>
                 <p className="text-xs text-emerald-600 font-bold mt-1">₱480/seat/year</p>
               </button>
@@ -319,15 +319,15 @@ export default function QuotationPage() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-black text-slate-800 flex items-center gap-2">
-                <Tag className="w-4 h-4 text-teal-600" /> Optional Add-ons
+                <Tag className="w-4 h-4 text-[#2E4156]" /> Optional Add-ons
               </p>
             </div>
-            <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${form.includeSetup ? 'border-teal-500 bg-teal-50/40' : 'border-slate-200 hover:border-teal-300'}`}>
+            <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${form.includeSetup ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 hover:border-[#AAB7B7]'}`}>
               <input
                 type="checkbox"
                 checked={form.includeSetup}
                 onChange={e => set('includeSetup', e.target.checked)}
-                className="mt-0.5 accent-teal-600 w-4 h-4"
+                className="mt-0.5 accent-[#2E4156] w-4 h-4"
               />
               <div className="flex-1">
                 <p className="text-sm font-bold text-slate-800">One-time Setup & Onboarding Fee</p>
@@ -354,7 +354,7 @@ export default function QuotationPage() {
           {/* Notes */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <p className="text-sm font-black text-slate-800 flex items-center gap-2">
-              <Info className="w-4 h-4 text-teal-600" /> Notes & Terms
+              <Info className="w-4 h-4 text-[#2E4156]" /> Notes & Terms
             </p>
             <Field label="Additional Notes (optional)">
               <Textarea
@@ -393,7 +393,7 @@ export default function QuotationPage() {
             </div>
 
             {/* Total */}
-            <div className="mx-6 mb-2 rounded-xl p-4" style={{ background: 'linear-gradient(135deg, #0b4a3b, #227f84)' }}>
+            <div className="mx-6 mb-2 rounded-xl p-4" style={{ background: 'linear-gradient(135deg, #1A2D42, #2E4156)' }}>
               <p className="text-xs text-white/60 font-semibold">TOTAL AMOUNT DUE</p>
               <p className="text-2xl font-black text-white mt-1">{fmt(total)}</p>
               {form.plan === 'ANNUAL' && (
@@ -429,7 +429,7 @@ export default function QuotationPage() {
                   'Admin Dashboard & Analytics',
                 ].map(f => (
                   <div key={f} className="flex items-center gap-2">
-                    <CheckCircle className="w-3 h-3 text-teal-500 flex-shrink-0" />
+                    <CheckCircle className="w-3 h-3 text-[#2E4156] flex-shrink-0" />
                     <span className="text-xs text-slate-600">{f}</span>
                   </div>
                 ))}
@@ -442,7 +442,7 @@ export default function QuotationPage() {
                 onClick={generate}
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-black text-white transition-all disabled:opacity-60"
-                style={{ background: loading ? '#94a3b8' : 'linear-gradient(135deg, #0b4a3b, #227f84)' }}
+                style={{ background: loading ? '#94a3b8' : 'linear-gradient(135deg, #1A2D42, #2E4156)' }}
               >
                 {loading
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating PDF…</>
@@ -457,3 +457,4 @@ export default function QuotationPage() {
     </div>
   )
 }
+

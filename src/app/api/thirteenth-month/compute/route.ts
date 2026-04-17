@@ -22,6 +22,26 @@ export async function POST(req: NextRequest) {
 
   const { year } = await req.json()
   const targetYear = year ?? new Date().getFullYear()
+  const company = await prisma.company.findUnique({
+    where: { id: ctx.companyId },
+    select: {
+      thirteenthPayStartMonth: true,
+      thirteenthPayStartDay: true,
+      thirteenthPayEndMonth: true,
+      thirteenthPayEndDay: true,
+    },
+  })
+  const coverageStartMonth = company?.thirteenthPayStartMonth ?? 1
+  const coverageStartDay = company?.thirteenthPayStartDay ?? 1
+  const coverageEndMonth = company?.thirteenthPayEndMonth ?? 12
+  const coverageEndDay = company?.thirteenthPayEndDay ?? 31
+  const wrapsAcrossYear =
+    coverageStartMonth > coverageEndMonth ||
+    (coverageStartMonth === coverageEndMonth && coverageStartDay > coverageEndDay)
+  const coverageStartYear = wrapsAcrossYear ? targetYear - 1 : targetYear
+  const coverageEndYear = targetYear
+  const coverageStart = new Date(Date.UTC(coverageStartYear, coverageStartMonth - 1, coverageStartDay))
+  const coverageEnd = new Date(Date.UTC(coverageEndYear, coverageEndMonth - 1, coverageEndDay, 23, 59, 59))
 
   const employees = await prisma.employee.findMany({
     where: { companyId: ctx.companyId, isActive: true },
@@ -34,16 +54,23 @@ export async function POST(req: NextRequest) {
     const monthData = {} as Record<MonthField, number>
 
     for (let month = 1; month <= 12; month++) {
-      const startDate = new Date(Date.UTC(targetYear, month - 1, 1))
-      const lastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate()
-      const endDate = new Date(Date.UTC(targetYear, month - 1, lastDay, 23, 59, 59))
+      const monthYear = wrapsAcrossYear && month >= coverageStartMonth ? targetYear - 1 : targetYear
+      const startDate = new Date(Date.UTC(monthYear, month - 1, 1))
+      const lastDay = new Date(Date.UTC(monthYear, month, 0)).getUTCDate()
+      const endDate = new Date(Date.UTC(monthYear, month - 1, lastDay, 23, 59, 59))
+      if (endDate < coverageStart || startDate > coverageEnd) {
+        monthData[MONTH_FIELDS[month - 1]] = 0
+        continue
+      }
+      const windowStart = startDate < coverageStart ? coverageStart : startDate
+      const windowEnd = endDate > coverageEnd ? coverageEnd : endDate
 
       const payslips = await prisma.payslip.findMany({
         where: {
           employeeId: emp.id,
           payrollRun: {
-            periodStart: { gte: startDate },
-            periodEnd: { lte: endDate },
+            periodStart: { gte: windowStart },
+            periodEnd: { lte: windowEnd },
             status: { in: ['COMPUTED', 'FOR_APPROVAL', 'APPROVED', 'LOCKED'] },
           },
         },
@@ -79,6 +106,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     computed: results.length,
     year: targetYear,
+    coverage: {
+      start: coverageStart.toISOString(),
+      end: coverageEnd.toISOString(),
+    },
     totalAmount: results.reduce((sum, r) => sum + r.monthData.thirteenthAmount, 0),
   })
 }

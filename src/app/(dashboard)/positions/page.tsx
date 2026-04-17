@@ -74,7 +74,7 @@ export default function PositionsPage() {
       </div>
 
       {showForm && (
-        <Card className="border-teal-200">
+        <Card className="border-[#AAB7B7]">
           <CardHeader><CardTitle className="text-base">New Position</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -147,3 +147,4 @@ export default function PositionsPage() {
     </div>
   )
 }
+

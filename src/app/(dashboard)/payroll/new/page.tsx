@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,8 @@ import { Loader2 } from 'lucide-react'
 export default function NewPayrollRunPage() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [loadingDefaults, setLoadingDefaults] = useState(true)
+  const [payDateDelayDays, setPayDateDelayDays] = useState(5)
   const [formData, setFormData] = useState({
     periodStart: '',
     periodEnd: '',
@@ -21,6 +23,45 @@ export default function NewPayrollRunPage() {
     payDate: '',
     notes: '',
   })
+
+  useEffect(() => {
+    let active = true
+    async function loadDefaults() {
+      setLoadingDefaults(true)
+      try {
+        const res = await fetch('/api/payroll/settings')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !active) return
+        const next = data.nextPeriod
+        const settings = data.settings
+        if (next && settings) {
+          setPayDateDelayDays(Number(settings.defaultPayDelayDays ?? 5))
+          setFormData(prev => ({
+            ...prev,
+            payFrequency: settings.payFrequency ?? prev.payFrequency,
+            periodStart: next.periodStart ?? prev.periodStart,
+            periodEnd: next.periodEnd ?? prev.periodEnd,
+            payDate: next.payDate ?? prev.payDate,
+          }))
+        }
+      } finally {
+        if (active) setLoadingDefaults(false)
+      }
+    }
+    void loadDefaults()
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!formData.periodEnd) return
+    const end = new Date(formData.periodEnd)
+    if (Number.isNaN(end.getTime())) return
+    const payDate = new Date(end)
+    payDate.setDate(payDate.getDate() + payDateDelayDays)
+    const nextPayDate = payDate.toISOString().slice(0, 10)
+    if (formData.payDate === nextPayDate) return
+    setFormData(prev => ({ ...prev, payDate: nextPayDate }))
+  }, [formData.periodEnd, payDateDelayDays, formData.payDate])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -63,6 +104,7 @@ export default function NewPayrollRunPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Payroll Period</CardTitle></CardHeader>
         <CardContent>
+          {loadingDefaults && <p className="text-xs text-gray-500 mb-3">Loading payroll cycle defaults...</p>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

@@ -148,7 +148,7 @@ export default function NewLeavePage() {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Type</label>
           <select
             {...register('leaveTypeId')}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#227f84]"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
           >
             <option value="">Select leave type...</option>
             {leaveTypes.map(lt => (
@@ -196,7 +196,7 @@ export default function NewLeavePage() {
 
         {/* Days Preview */}
         {days > 0 && (
-          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(34,127,132,0.10)', border: '1px solid rgba(34,127,132,0.25)', color: '#227f84' }}>
+          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: '#2E4156' }}>
             <strong>{days} working day{days !== 1 ? 's' : ''}</strong> from {format(parseISO(startDate), 'MMM d')} to {format(parseISO(endDate), 'MMM d, yyyy')}
             {selectedBalance !== undefined && selectedBalance.balance < days && (
               <p className="text-red-600 mt-1"> Insufficient balance. You have {selectedBalance.balance.toFixed(1)} day(s) available.</p>
@@ -211,7 +211,7 @@ export default function NewLeavePage() {
             {...register('reason')}
             rows={3}
             placeholder="Please state your reason for filing this leave..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#227f84] resize-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156] resize-none"
           />
           {errors.reason && <p className="text-red-500 text-xs mt-1">{errors.reason.message}</p>}
         </div>
@@ -226,7 +226,7 @@ export default function NewLeavePage() {
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 py-2.5 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={{ background: '#227f84' }}
+            className="flex-1 py-2.5 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={{ background: '#2E4156' }}
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Submit Request
@@ -236,3 +236,4 @@ export default function NewLeavePage() {
     </div>
   )
 }
+

@@ -6,19 +6,32 @@ export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId, companyId: ctx.companyId },
-    include: {
-      department: { select: { name: true } },
-      position: { select: { title: true } },
-      workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true } },
-    },
-  })
+  const [employee, company] = await Promise.all([
+    prisma.employee.findFirst({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      include: {
+        department: { select: { name: true } },
+        position: { select: { title: true } },
+        workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true } },
+      },
+    }),
+    prisma.company.findUnique({
+      where: { id: ctx.companyId },
+      select: { selfieRequired: true },
+    }),
+  ])
 
   if (!employee) return NextResponse.json({ employee: null }, { status: 404 })
 
+  const selfieRequired =
+    !employee.selfieExempt &&
+    ((company?.selfieRequired ?? false) || !!employee.workSchedule?.requireSelfieOnClockIn)
+
   return NextResponse.json({
-    employee,
+    employee: {
+      ...employee,
+      selfieRequired,
+    },
   })
 }
 

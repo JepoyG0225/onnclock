@@ -103,7 +103,7 @@ export default function MyLeavesPage() {
                   </div>
                   <p className="text-xs text-gray-500 mb-1">{b.leaveType.name}</p>
                   <div className="flex items-end gap-1">
-                    <span className="text-2xl font-bold text-teal-700">{available}</span>
+                    <span className="text-2xl font-bold text-[#1A2D42]">{available}</span>
                     <span className="text-xs text-gray-400 mb-0.5">/ {b.entitled + b.carriedOver} days</span>
                   </div>
                   {b.pending > 0 && <p className="text-xs text-yellow-600 mt-1">{b.pending} pending</p>}
@@ -116,7 +116,7 @@ export default function MyLeavesPage() {
 
       {/* File Leave Form */}
       {showForm && (
-        <Card className="border-teal-200">
+        <Card className="border-[#AAB7B7]">
           <CardHeader><CardTitle className="text-base">File Leave Request</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -141,7 +141,7 @@ export default function MyLeavesPage() {
               </div>
             </div>
             {totalDays > 0 && (
-              <div className="bg-teal-50 rounded p-3 text-sm text-teal-800">
+              <div className="bg-[#D4D8DD] rounded p-3 text-sm text-[#1A2D42]">
                 <Calendar className="inline w-4 h-4 mr-1" />
                 <strong>{totalDays} business day{totalDays !== 1 ? 's' : ''}</strong>
               </div>
@@ -210,3 +210,4 @@ export default function MyLeavesPage() {
     </div>
   )
 }
+

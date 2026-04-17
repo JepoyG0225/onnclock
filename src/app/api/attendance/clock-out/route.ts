@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       lastName: true,
       employeeNo: true,
       photoUrl: true,
+      geofenceExempt: true,
       department: { select: { name: true } },
       position: { select: { title: true } },
     },
@@ -73,9 +74,11 @@ export async function POST(req: NextRequest) {
     where: { id: ctx.companyId },
     select: { geofenceEnabled: true, geofenceLat: true, geofenceLng: true, geofenceRadiusMeters: true },
   })
+  const geofenceEnabled = (company?.geofenceEnabled ?? false) && !employee.geofenceExempt
   let geofenceWarning: string | null = null
-  if (company?.geofenceEnabled) {
+  if (geofenceEnabled) {
     if (
+      !company ||
       company.geofenceLat == null ||
       company.geofenceLng == null ||
       company.geofenceRadiusMeters == null
@@ -150,28 +153,24 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  const companyGeo = await prisma.company.findUnique({
-    where: { id: ctx.companyId },
-    select: { geofenceEnabled: true, geofenceLat: true, geofenceLng: true, geofenceRadiusMeters: true },
-  })
   let geofenceOut: boolean | null = null
   if (
-    companyGeo?.geofenceEnabled &&
-    companyGeo.geofenceLat != null &&
-    companyGeo.geofenceLng != null &&
-    companyGeo.geofenceRadiusMeters != null
+    geofenceEnabled &&
+    company?.geofenceLat != null &&
+    company.geofenceLng != null &&
+    company.geofenceRadiusMeters != null
   ) {
     const toRad = (d: number) => (d * Math.PI) / 180
     const R = 6371000
-    const dLat = toRad(lat - companyGeo.geofenceLat)
-    const dLng = toRad(lng - companyGeo.geofenceLng)
+    const dLat = toRad(lat - company.geofenceLat)
+    const dLng = toRad(lng - company.geofenceLng)
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(companyGeo.geofenceLat)) * Math.cos(toRad(lat)) *
+      Math.cos(toRad(company.geofenceLat)) * Math.cos(toRad(lat)) *
       Math.sin(dLng / 2) * Math.sin(dLng / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     const dist = R * c
-    geofenceOut = dist > companyGeo.geofenceRadiusMeters
+    geofenceOut = dist > company.geofenceRadiusMeters
   }
 
   const broadcaster = (globalThis as { __wsBroadcast?: (payload: unknown) => void }).__wsBroadcast

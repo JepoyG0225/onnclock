@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 type WeekBucket = {
@@ -13,13 +13,17 @@ type WeekBucket = {
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  const companyId = resolveCompanyIdForRequest(ctx, req)
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
 
   const { searchParams } = new URL(req.url)
   const completed = searchParams.get('completed')
 
   const rows = await prisma.dTRRecord.findMany({
     where: {
-      employee: { companyId: ctx.companyId },
+      employee: { companyId },
       ...(completed === '1' || completed === 'true' ? { timeOut: { not: null } } : {}),
     },
     select: { date: true, employeeId: true },

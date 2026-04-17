@@ -85,14 +85,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
+        const normalizedEmail = String(credentials.email).trim().toLowerCase()
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email: normalizedEmail },
           include: {
             companies: {
               where: { isActive: true },
               include: { company: { select: { id: true, name: true, portalSubdomain: true } } },
-              orderBy: { createdAt: 'asc' },
-              take: 1,
             },
           },
         })
@@ -108,16 +108,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           data: { lastLoginAt: new Date() },
         }).catch(() => null)
 
-        const primaryCompany = user.companies[0]
-        if (!primaryCompany) return null
+        if (!user.companies.length) return null
+
+        // Pick the highest-privilege role — prevents SUPER_ADMIN being downgraded
+        // if they also have an older EMPLOYEE entry in a company.
+        const ROLE_PRIORITY: Record<string, number> = {
+          SUPER_ADMIN: 0, COMPANY_ADMIN: 1, HR_MANAGER: 2, PAYROLL_OFFICER: 3, EMPLOYEE: 4,
+        }
+        const primaryCompany = [...user.companies].sort(
+          (a, b) => (ROLE_PRIORITY[a.role] ?? 9) - (ROLE_PRIORITY[b.role] ?? 9)
+        )[0]
 
         return {
           id: user.id,
           email: user.email,
           name: user.name ?? user.email,
-          role: primaryCompany?.role ?? 'EMPLOYEE',
-          companyId: primaryCompany?.companyId ?? null,
-          portalSubdomain: primaryCompany?.company?.portalSubdomain ?? null,
+          role: primaryCompany.role ?? 'EMPLOYEE',
+          companyId: primaryCompany.companyId ?? null,
+          portalSubdomain: primaryCompany.company?.portalSubdomain ?? null,
         }
       },
     }),

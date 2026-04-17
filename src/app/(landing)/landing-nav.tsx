@@ -19,10 +19,10 @@ export function LandingNav() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-            <a href="#features" className="hover:text-teal-700 transition-colors">Features</a>
-            <a href="#compliance" className="hover:text-teal-700 transition-colors">Compliance</a>
-            <a href="#how-it-works" className="hover:text-teal-700 transition-colors">How It Works</a>
-            <a href="#testimonials" className="hover:text-teal-700 transition-colors">Testimonials</a>
+            <a href="#features" className="hover:text-[#1A2D42] transition-colors">Features</a>
+            <a href="#compliance" className="hover:text-[#1A2D42] transition-colors">Compliance</a>
+            <a href="#how-it-works" className="hover:text-[#1A2D42] transition-colors">How It Works</a>
+            <a href="#testimonials" className="hover:text-[#1A2D42] transition-colors">Testimonials</a>
           </nav>
 
           {/* Desktop CTA */}
@@ -68,3 +68,4 @@ export function LandingNav() {
     </header>
   )
 }
+

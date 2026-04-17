@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { format, differenceInMinutes } from 'date-fns'
+import { format, differenceInMinutes, formatDistanceToNowStrict } from 'date-fns'
 
 // Fix default Leaflet marker icons (broken in bundlers)
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
@@ -17,7 +17,7 @@ L.Icon.Default.mergeOptions({
 function clockedInIcon(photoUrl?: string | null, initials?: string) {
   const avatar = photoUrl
     ? `<img src="${photoUrl}" alt="profile" style="width:100%;height:100%;object-fit:cover;" />`
-    : `<span style="color:#0a353b;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
+    : `<span style="color:#1A2D42;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
   const content = `
     <div style="position:relative;width:40px;height:50px;">
       <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.25));">
@@ -39,7 +39,7 @@ function clockedInIcon(photoUrl?: string | null, initials?: string) {
 function clockedOutIcon(photoUrl?: string | null, initials?: string) {
   const avatar = photoUrl
     ? `<img src="${photoUrl}" alt="profile" style="width:100%;height:100%;object-fit:cover;filter:grayscale(100%);" />`
-    : `<span style="color:#0a353b;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
+    : `<span style="color:#1A2D42;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
   const content = `
     <div style="position:relative;width:40px;height:50px;">
       <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.2));">
@@ -80,6 +80,12 @@ interface EmployeeLocation {
     accuracy: number | null
     recordedAt: string
   } | null
+}
+
+interface LatestCapture {
+  id: string
+  imageDataUrl: string
+  capturedAt: string
 }
 
 function FitBounds({ locations }: { locations: EmployeeLocation[] }) {
@@ -130,10 +136,12 @@ function getPositionBadgeStyle(title?: string | null) {
 
 export default function LiveMapInner({
   locations,
+  latestCaptures = {},
   selectedEmployeeId,
   onSelectEmployee,
 }: {
   locations: EmployeeLocation[]
+  latestCaptures?: Record<string, LatestCapture>
   selectedEmployeeId?: string | null
   onSelectEmployee?: (id: string) => void
 }) {
@@ -187,6 +195,7 @@ export default function LiveMapInner({
         const pos = total > 1 ? offsetLatLng(loc.lastPing.lat, loc.lastPing.lng, angle, radiusMeters) : loc.lastPing
         const positionTitle = loc.employee.position?.title ?? null
         const positionStyle = getPositionBadgeStyle(positionTitle)
+        const capture = latestCaptures[loc.employeeId] ?? null
         return (
           <Marker
             key={loc.employeeId}
@@ -204,71 +213,79 @@ export default function LiveMapInner({
               if (m) markerRefs.current[loc.employeeId] = m
             }}
           >
-            <Popup>
-              <div className="text-sm min-w-[180px] font-sans">
-                <div className="flex flex-col items-center text-center gap-1">
+            <Popup minWidth={240} maxWidth={320}>
+              <div className="text-sm font-sans" style={{ minWidth: 240 }}>
+                {/* Employee header */}
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
                   {loc.employee.photoUrl ? (
                     <img
                       src={loc.employee.photoUrl}
                       alt={`${loc.employee.firstName} ${loc.employee.lastName}`}
-                      className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                      style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb', flexShrink: 0 }}
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gray-200 text-gray-600 text-sm font-semibold flex items-center justify-center">
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', color: '#475569', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {loc.employee.firstName[0]}{loc.employee.lastName[0]}
                     </div>
                   )}
-                  <div className="min-w-0 -mt-0.5">
-                    <p className="font-semibold text-gray-900 truncate">
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontWeight: 600, color: '#111827', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {loc.employee.firstName} {loc.employee.lastName}
                     </p>
                     {positionTitle && positionStyle && (
-                      <span
-                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold mt-1"
-                        style={{ background: positionStyle.bg, color: positionStyle.text, borderColor: positionStyle.border }}
-                      >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 9999, border: `1px solid ${positionStyle.border}`, padding: '1px 7px', fontSize: 10, fontWeight: 600, background: positionStyle.bg, color: positionStyle.text, marginTop: 2 }}>
                         {positionTitle}
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="border-t border-gray-100 mt-2 pt-2 space-y-0.5">
-                  <p className="text-xs">
-                    <span className="text-gray-400">Status: </span>
-                    <span className={loc.isClockedIn ? 'text-teal-600 font-medium' : 'text-gray-500'}>
-                      {loc.isClockedIn ? '🟢 Clocked In' : '⚪ Clocked Out'}
-                    </span>
+
+                {/* Status details */}
+                <div style={{ paddingTop: 6, paddingBottom: capture ? 6 : 0 }}>
+                  <p style={{ fontSize: 11, margin: '2px 0', color: loc.isClockedIn ? '#1A2D42' : '#6b7280', fontWeight: loc.isClockedIn ? 600 : 400 }}>
+                    {loc.isClockedIn ? '🟢 Clocked In' : '⚪ Clocked Out'}
+                    {loc.isClockedIn && loc.clockInTime && ` · ${formatDuration(loc.clockInTime)}`}
                   </p>
                   {loc.geofenceOut && (
-                    <p className="text-xs text-amber-600 font-medium">
-                      ⚠ Outside geo-fence
-                    </p>
+                    <p style={{ fontSize: 11, color: '#d97706', fontWeight: 600, margin: '2px 0' }}>⚠ Outside geo-fence</p>
                   )}
-                  <p className="text-xs text-gray-500">
-                    Running: {formatDuration(loc.clockInTime)}
-                  </p>
                   {loc.clockInTime && (
-                    <p className="text-xs text-gray-500">
+                    <p style={{ fontSize: 11, color: '#6b7280', margin: '1px 0' }}>
                       In: {format(new Date(loc.clockInTime), 'hh:mm a')}
+                      {loc.clockOutTime && ` · Out: ${format(new Date(loc.clockOutTime), 'hh:mm a')}`}
                     </p>
                   )}
-                  {loc.clockOutTime && (
-                    <p className="text-xs text-gray-500">
-                      Out: {format(new Date(loc.clockOutTime), 'hh:mm a')}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400">
+                  <p style={{ fontSize: 10, color: '#9ca3af', margin: '2px 0' }}>
                     Last ping: {format(new Date(loc.lastPing.recordedAt), 'hh:mm:ss a')}
+                    {loc.lastPing.accuracy ? ` ±${Math.round(loc.lastPing.accuracy)}m` : ''}
                   </p>
-                  {loc.lastPing.accuracy && (
-                    <p className="text-xs text-gray-400">±{Math.round(loc.lastPing.accuracy)}m accuracy</p>
-                  )}
                   {loc.clockInAddress && (
-                    <p className="text-xs text-gray-400 mt-1 leading-relaxed line-clamp-2">
+                    <p style={{ fontSize: 10, color: '#9ca3af', margin: '3px 0 0', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       📍 {loc.clockInAddress}
                     </p>
                   )}
                 </div>
+
+                {/* Latest screenshot */}
+                {capture && (
+                  <div style={{ marginTop: 8, borderTop: '1px solid #f3f4f6', paddingTop: 8 }}>
+                    <p style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                      Latest Screenshot
+                    </p>
+                    <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                      <img
+                        src={capture.imageDataUrl}
+                        alt="Latest screenshot"
+                        style={{ width: '100%', height: 110, objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+                      />
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.55)', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>
+                          🖥 {formatDistanceToNowStrict(new Date(capture.capturedAt), { addSuffix: true })} · {format(new Date(capture.capturedAt), 'h:mm:ss a')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Popup>
           </Marker>
@@ -278,3 +295,4 @@ export default function LiveMapInner({
     </MapContainer>
   )
 }
+

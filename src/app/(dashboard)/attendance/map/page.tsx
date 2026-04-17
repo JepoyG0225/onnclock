@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
-import { MapPin, Users, RefreshCw, Clock } from 'lucide-react'
+import { MapPin, Users, RefreshCw, Clock, Monitor } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const LiveMapInner = dynamic(() => import('@/components/map/LiveMapInner'), {
@@ -10,7 +10,7 @@ const LiveMapInner = dynamic(() => import('@/components/map/LiveMapInner'), {
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-gray-100 rounded-xl">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+        <div className="w-8 h-8 border-2 border-[#2E4156] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
         <p className="text-sm text-gray-500">Loading map...</p>
       </div>
     </div>
@@ -39,6 +39,12 @@ interface EmployeeLocation {
   } | null
 }
 
+interface LatestCapture {
+  id: string
+  imageDataUrl: string
+  capturedAt: string
+}
+
 const POSITION_BADGE_PALETTE = [
   { bg: '#ecfeff', text: '#0f766e', border: '#99f6e4' },
   { bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd' },
@@ -57,12 +63,25 @@ function getPositionBadgeStyle(title?: string | null) {
   return POSITION_BADGE_PALETTE[hash % POSITION_BADGE_PALETTE.length]
 }
 
+function resolveWsBaseUrl(): string | null {
+  const explicit = process.env.NEXT_PUBLIC_WS_BASE_URL?.trim()
+  if (explicit) return explicit.replace(/\/+$/, '')
+  if (typeof window === 'undefined') return null
+  const host = window.location.hostname.toLowerCase()
+  const isLocal = host === 'localhost' || host === '127.0.0.1'
+  if (!isLocal) return null
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  return `${proto}://${window.location.host}`
+}
+
 export default function AttendanceMapPage() {
   const [locations, setLocations] = useState<EmployeeLocation[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
+  // employeeId → latest screenshot
+  const [latestCaptures, setLatestCaptures] = useState<Record<string, LatestCapture>>({})
 
   const fetchLocations = useCallback(async () => {
     try {
@@ -77,11 +96,29 @@ export default function AttendanceMapPage() {
     }
   }, [])
 
+  const fetchScreenshots = useCallback(async () => {
+    try {
+      const res = await fetch('/api/attendance/screen-captures/latest')
+      if (!res.ok) return
+      const data = await res.json().catch(() => ({}))
+      if (data.captures) setLatestCaptures(data.captures)
+    } catch {
+      // silent — screenshot feature may not be enabled
+    }
+  }, [])
+
   useEffect(() => {
     fetchLocations()
-    const interval = setInterval(fetchLocations, 60_000) // fallback refresh
+    const interval = setInterval(fetchLocations, 60_000)
     return () => clearInterval(interval)
   }, [fetchLocations])
+
+  // Poll screenshots every 2 minutes — slightly offset from location poll
+  useEffect(() => {
+    fetchScreenshots()
+    const interval = setInterval(fetchScreenshots, 120_000)
+    return () => clearInterval(interval)
+  }, [fetchScreenshots])
 
   useEffect(() => {
     let active = true
@@ -99,8 +136,9 @@ export default function AttendanceMapPage() {
 
   useEffect(() => {
     if (!companyId) return
-    const wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const wsUrl = `${wsProto}://${window.location.host}/ws?companyId=${encodeURIComponent(companyId)}`
+    const wsBase = resolveWsBaseUrl()
+    if (!wsBase) return
+    const wsUrl = `${wsBase}/ws?companyId=${encodeURIComponent(companyId)}`
     const ws = new WebSocket(wsUrl)
 
     ws.onmessage = (event) => {
@@ -138,7 +176,7 @@ export default function AttendanceMapPage() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-teal-600" /> Live Attendance Map
+            <MapPin className="w-5 h-5 text-[#2E4156]" /> Live Attendance Map
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Real-time GPS tracking — <span suppressHydrationWarning>{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>
@@ -146,13 +184,13 @@ export default function AttendanceMapPage() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 text-sm">
-            <span className="flex items-center gap-1.5 text-teal-600 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse" />
+            <span className="flex items-center gap-1.5 text-[#2E4156] font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2E4156] animate-pulse" />
               {clockedIn.length} clocked in
             </span>
           </div>
           <button
-            onClick={fetchLocations}
+            onClick={() => { fetchLocations(); fetchScreenshots() }}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 transition-colors"
           >
@@ -186,14 +224,14 @@ export default function AttendanceMapPage() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                {/* Clocked In */}
                 {clockedIn.length > 0 && (
                   <>
-                    <p className="text-xs font-medium text-teal-600 px-1 mt-3 mb-1">Clocked In ({clockedIn.length})</p>
+                    <p className="text-xs font-medium text-[#2E4156] px-1 mt-3 mb-1">Clocked In ({clockedIn.length})</p>
                     {clockedIn.map(loc => (
                       <EmployeeCard
                         key={loc.employeeId}
                         loc={loc}
+                        capture={latestCaptures[loc.employeeId] ?? null}
                         onSelect={(id) => setSelectedEmployeeId(id)}
                       />
                     ))}
@@ -219,63 +257,73 @@ export default function AttendanceMapPage() {
           ) : (
             <LiveMapInner
               locations={locations}
+              latestCaptures={latestCaptures}
               selectedEmployeeId={selectedEmployeeId}
               onSelectEmployee={(id) => setSelectedEmployeeId(id)}
             />
           )}
         </div>
       </div>
+
     </div>
   )
 }
 
 function EmployeeCard({
   loc,
+  capture,
   onSelect,
 }: {
   loc: EmployeeLocation
+  capture: LatestCapture | null
   onSelect: (id: string) => void
 }) {
   const positionTitle = loc.employee.position?.title ?? null
   const positionStyle = getPositionBadgeStyle(positionTitle)
+  const fullName = `${loc.employee.firstName} ${loc.employee.lastName}`
 
   return (
-    <div className={`p-3 rounded-lg border text-sm cursor-pointer hover:shadow-sm transition-shadow ${
-      loc.isClockedIn ? 'bg-teal-50 border-teal-100' : 'bg-gray-50 border-gray-100'
-    }`} onClick={() => onSelect(loc.employeeId)}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-medium text-gray-900 truncate">
-            {loc.employee.firstName} {loc.employee.lastName}
-          </p>
-          {positionTitle && positionStyle && (
-            <span
-              className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold mt-1"
-              style={{ background: positionStyle.bg, color: positionStyle.text, borderColor: positionStyle.border }}
-            >
-              {positionTitle}
-            </span>
-          )}
-        </div>
-        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-          loc.isClockedIn ? 'bg-teal-500 animate-pulse' : 'bg-gray-300'
-        }`} />
-      </div>
-      <div className="flex items-start gap-2 mt-1.5">
-        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-          <div className="flex items-center gap-3 text-xs text-gray-400">
-            {loc.clockInTime && (
-              <span>In: {format(new Date(loc.clockInTime), 'hh:mm a')}</span>
+    <div
+      className={`rounded-lg border text-sm cursor-pointer hover:shadow-sm transition-shadow ${
+        loc.isClockedIn ? 'bg-[#D4D8DD] border-[#C0C8CA]' : 'bg-gray-50 border-gray-100'
+      }`}
+      onClick={() => onSelect(loc.employeeId)}
+    >
+      <div className="p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-medium text-gray-900 truncate">{fullName}</p>
+            {positionTitle && positionStyle && (
+              <span
+                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold mt-1"
+                style={{ background: positionStyle.bg, color: positionStyle.text, borderColor: positionStyle.border }}
+              >
+                {positionTitle}
+              </span>
             )}
-            {loc.clockOutTime && (
-              <span>Out: {format(new Date(loc.clockOutTime), 'hh:mm a')}</span>
-            )}
-            {!loc.lastPing && <span className="text-amber-500">No GPS data</span>}
           </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {capture && (
+              <Monitor className="w-3.5 h-3.5 text-[#2E4156] opacity-70" aria-label="Screenshot available" />
+            )}
+            <span className={`w-2.5 h-2.5 rounded-full ${
+              loc.isClockedIn ? 'bg-[#2E4156] animate-pulse' : 'bg-gray-300'
+            }`} />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-gray-400 mt-1.5">
+          {loc.clockInTime && (
+            <span>In: {format(new Date(loc.clockInTime), 'hh:mm a')}</span>
+          )}
+          {loc.clockOutTime && (
+            <span>Out: {format(new Date(loc.clockOutTime), 'hh:mm a')}</span>
+          )}
+          {!loc.lastPing && <span className="text-amber-500">No GPS data</span>}
         </div>
       </div>
     </div>
   )
 }
+
 
 

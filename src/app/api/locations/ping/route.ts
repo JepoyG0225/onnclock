@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getManilaDateOnly } from '@/lib/date-manila'
 
 const pingSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -34,12 +35,11 @@ export async function POST(req: NextRequest) {
   const { lat, lng, accuracy } = parsed.data
 
   // Only accept pings if employee is currently clocked in
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const manilaDate = getManilaDateOnly()
   const dtrRecord = await prisma.dTRRecord.findFirst({
     where: {
       employeeId: employee.id,
-      date: today,
+      date: manilaDate,
       timeIn: { not: null },
       timeOut: null, // still clocked in
     },

@@ -2,12 +2,14 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { EmployeeForm } from '@/components/employees/EmployeeForm'
+import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 
 export default async function NewEmployeePage() {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const companyId = session.user.companyId!
+  const companyId = await resolveEffectiveCompanyId(session.user)
+  if (!companyId) redirect('/login')
 
   const [departments, positions, workSchedules] = await Promise.all([
     prisma.department.findMany({

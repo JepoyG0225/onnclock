@@ -33,11 +33,18 @@ interface LeaveRequest {
 function statusBadge(status: string) {
   const map: Record<string, string> = {
     PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
-    APPROVED: 'bg-green-50 text-green-700 border-green-200',
+    APPROVED: 'border',
     REJECTED: 'bg-red-50 text-red-700 border-red-200',
     CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
   }
-  return <Badge className={map[status] ?? ''}>{status}</Badge>
+  return (
+    <Badge
+      className={map[status] ?? ''}
+      style={status === 'APPROVED' ? { background: 'rgba(46,65,86,0.12)', color: '#2E4156', borderColor: 'rgba(170,183,183,0.45)' } : undefined}
+    >
+      {status}
+    </Badge>
+  )
 }
 
 export default function LeavesPage() {
@@ -68,7 +75,7 @@ export default function LeavesPage() {
   }, [])
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">My Leaves</h1>
@@ -146,7 +153,7 @@ export default function LeavesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-400">Remaining</p>
-                      <p className="text-xl font-black" style={{ color: '#227f84' }}>
+                      <p className="text-xl font-black" style={{ color: '#2E4156' }}>
                         {remaining.toFixed(1)}
                       </p>
                     </div>
@@ -225,3 +232,4 @@ export default function LeavesPage() {
     </div>
   )
 }
+

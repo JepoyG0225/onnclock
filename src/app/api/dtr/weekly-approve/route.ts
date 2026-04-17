@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 const schema = z.object({
@@ -13,6 +13,10 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  const companyId = resolveCompanyIdForRequest(ctx, req)
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
 
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
   endPlus.setDate(endPlus.getDate() + 1)
 
   const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, companyId: ctx.companyId },
+    where: { id: employeeId, companyId },
     select: { id: true },
   })
   if (!employee) {

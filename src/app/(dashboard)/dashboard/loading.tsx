@@ -3,7 +3,7 @@ export default function DashboardLoading() {
     <div className="space-y-6 animate-pulse">
 
       {/* Welcome banner skeleton */}
-      <div className="rounded-2xl h-24 bg-gradient-to-br from-teal-600/80 via-teal-700/80 to-teal-900/80" />
+      <div className="rounded-2xl h-24 bg-gradient-to-br from-[#2E4156]/80 via-[#2E4156]/80 to-[#1A2D42]/80" />
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -55,3 +55,4 @@ export default function DashboardLoading() {
     </div>
   )
 }
+

@@ -6,7 +6,7 @@ import { FileText, Download, Building, Receipt } from 'lucide-react'
 const REPORTS = [
   {
     category: 'SSS',
-    color: 'bg-teal-600',
+    color: 'bg-[#2E4156]',
     reports: [
       {
         title: 'SSS R3 — Contribution Collection List',
@@ -102,7 +102,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {section.reports.map((report) => (
                 <Link key={report.href} href={report.href}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-teal-300">
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-[#AAB7B7]">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
@@ -141,7 +141,7 @@ export default function ReportsPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="space-y-1">
-              <p className="font-semibold text-teal-700">SSS</p>
+              <p className="font-semibold text-[#1A2D42]">SSS</p>
               <p className="text-gray-600">Last working day of the following month</p>
               <p className="text-xs text-gray-400">e.g., January contributions → Feb 28/29</p>
             </div>
@@ -161,3 +161,4 @@ export default function ReportsPage() {
     </div>
   )
 }
+

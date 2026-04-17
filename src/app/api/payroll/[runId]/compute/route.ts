@@ -3,6 +3,102 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { computePayroll } from '@/lib/payroll/engine'
 import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
+import { z } from 'zod'
+
+const variableIncomeEntrySchema = z.object({
+  employeeId: z.string().min(1),
+  incomeTypeId: z.string().min(1),
+  amount: z.coerce.number().min(0),
+})
+
+const computePayloadSchema = z.object({
+  variableIncomeEntries: z.array(variableIncomeEntrySchema).optional().default([]),
+})
+
+function countNightMinutes(params: {
+  timeIn: Date
+  timeOut: Date
+  startMinutes: number
+  endMinutes: number
+}) {
+  let minutes = 0
+  const crossesMidnight = params.startMinutes > params.endMinutes
+  let cursor = new Date(params.timeIn)
+  while (cursor < params.timeOut) {
+    const currentMinutes = cursor.getHours() * 60 + cursor.getMinutes()
+    const inWindow = crossesMidnight
+      ? currentMinutes >= params.startMinutes || currentMinutes < params.endMinutes
+      : currentMinutes >= params.startMinutes && currentMinutes < params.endMinutes
+    if (inWindow) minutes += 1
+    cursor = new Date(cursor.getTime() + 60_000)
+  }
+  return minutes
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ runId: string }> }
+) {
+  const { runId } = await params
+  const { ctx, error } = await requireAuth()
+  if (error) return error
+
+  const run = await prisma.payrollRun.findFirst({
+    where: { id: runId, companyId: ctx.companyId },
+  })
+  if (!run) return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 })
+
+  const entries = await prisma.payrollRunIncomeEntry.findMany({
+    where: { payrollRunId: runId },
+    select: { employeeId: true, incomeTypeId: true, amount: true },
+  })
+
+  const employees = await prisma.employee.findMany({
+    where: { companyId: ctx.companyId, isActive: true },
+    select: {
+      id: true,
+      employeeNo: true,
+      firstName: true,
+      lastName: true,
+      incomeAssignments: {
+        where: { isActive: true, incomeType: { isActive: true, mode: 'VARIABLE' } },
+        select: {
+          incomeTypeId: true,
+          incomeType: {
+            select: { id: true, name: true, isTaxable: true },
+          },
+        },
+      },
+    },
+    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+  })
+
+  const existingMap = new Map(
+    entries.map(e => [`${e.employeeId}:${e.incomeTypeId}`, e.amount.toNumber()])
+  )
+
+  const variableIncomeRequirements = employees
+    .map(emp => {
+      const items = emp.incomeAssignments.map(a => {
+        const amount = existingMap.get(`${emp.id}:${a.incomeTypeId}`) ?? 0
+        return {
+          incomeTypeId: a.incomeType.id,
+          name: a.incomeType.name,
+          isTaxable: a.incomeType.isTaxable,
+          amount,
+        }
+      })
+      return {
+        employeeId: emp.id,
+        employeeNo: emp.employeeNo,
+        employeeName: `${emp.lastName}, ${emp.firstName}`,
+        incomes: items,
+      }
+    })
+    .filter(row => row.incomes.length > 0)
+
+  return NextResponse.json({ variableIncomeRequirements })
+}
 
 export async function POST(
   req: NextRequest,
@@ -22,16 +118,68 @@ export async function POST(
     return NextResponse.json({ error: 'Payroll run is locked and cannot be recomputed' }, { status: 400 })
   }
 
+  const rawBody = await req.json().catch(() => ({}))
+  const parsedPayload = computePayloadSchema.safeParse(rawBody)
+  if (!parsedPayload.success) {
+    return NextResponse.json({ error: 'Invalid computation payload' }, { status: 422 })
+  }
+  const variableIncomeEntriesInput = parsedPayload.data.variableIncomeEntries
+
   const workingDays = getWorkingDays(run.periodStart, run.periodEnd)
   const firstCutoff = isFirstCutoff(run.periodStart)
+  const nightDiffRate = 0.1
+  const nightDiffStartMinutes = 22 * 60
+  const nightDiffEndMinutes = 6 * 60
 
   // Fetch all active employees with their active loans
   const employees = await prisma.employee.findMany({
     where: { companyId: ctx.companyId, isActive: true },
     include: {
       loans: { where: { status: 'ACTIVE' } },
+      incomeAssignments: {
+        where: { isActive: true, incomeType: { isActive: true } },
+        include: { incomeType: true },
+      },
     },
   })
+
+  const variableAssignmentKeys = new Set<string>()
+  for (const emp of employees) {
+    for (const assignment of emp.incomeAssignments) {
+      if (assignment.incomeType.mode === 'VARIABLE') {
+        variableAssignmentKeys.add(`${emp.id}:${assignment.incomeTypeId}`)
+      }
+    }
+  }
+
+  for (const entry of variableIncomeEntriesInput) {
+    const key = `${entry.employeeId}:${entry.incomeTypeId}`
+    if (!variableAssignmentKeys.has(key)) {
+      return NextResponse.json(
+        { error: 'Invalid variable income entry submitted for payroll run' },
+        { status: 422 }
+      )
+    }
+  }
+
+  const submittedKeys = new Set(
+    variableIncomeEntriesInput.map(entry => `${entry.employeeId}:${entry.incomeTypeId}`)
+  )
+  const missingRequiredEntries = Array.from(variableAssignmentKeys).filter(key => !submittedKeys.has(key))
+  if (missingRequiredEntries.length > 0) {
+    return NextResponse.json(
+      { error: 'Please enter variable income amounts for all required employees before computing payroll' },
+      { status: 422 }
+    )
+  }
+
+  const variableIncomeEntriesByKey = new Map<string, number>()
+  for (const entry of variableIncomeEntriesInput) {
+    variableIncomeEntriesByKey.set(
+      `${entry.employeeId}:${entry.incomeTypeId}`,
+      parseFloat(entry.amount.toFixed(2))
+    )
+  }
 
   // Fetch all company holidays for the pay period
   const companyHolidays = await prisma.holiday.findMany({
@@ -47,6 +195,7 @@ export async function POST(
     employeeId: string
     data: Parameters<typeof prisma.payslip.create>[0]['data']
     loanDeductions: { id: string; amount: number }[]
+    incomes: { incomeTypeId: string; typeName: string; amount: number; isTaxable: boolean }[]
   }
 
   const builds: PayslipBuildItem[] = []
@@ -73,19 +222,20 @@ export async function POST(
       let overtimeHours = d.overtimeHours?.toNumber() ?? 0
       let nightDiffHours = d.nightDiffHours?.toNumber() ?? 0
 
-      if (d.timeIn && d.timeOut && !d.overtimeHours) {
-        const totalMinutes = Math.max(0, (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60) // minus 60 min break
-        const otMinutes = Math.max(0, totalMinutes - 480) // beyond 8 hours
-        overtimeHours = Math.round((otMinutes / 60) * 100) / 100
-
-        // Night diff: count minutes between 10PM-6AM
-        let nightMins = 0
-        let cursor = new Date(d.timeIn)
-        while (cursor < d.timeOut) {
-          const h = cursor.getHours()
-          if (h >= 22 || h < 6) nightMins++
-          cursor = new Date(cursor.getTime() + 60_000)
+      if (d.timeIn && d.timeOut) {
+        if (!d.overtimeHours) {
+          const totalMinutes = Math.max(0, (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60) // minus 60 min break
+          const otMinutes = Math.max(0, totalMinutes - 480) // beyond 8 hours
+          overtimeHours = Math.round((otMinutes / 60) * 100) / 100
         }
+
+        // Always auto-calculate night differential from 10:00 PM–6:00 AM window.
+        const nightMins = countNightMinutes({
+          timeIn: d.timeIn,
+          timeOut: d.timeOut,
+          startMinutes: nightDiffStartMinutes,
+          endMinutes: nightDiffEndMinutes,
+        })
         nightDiffHours = Math.round((nightMins / 60) * 100) / 100
       }
 
@@ -172,6 +322,31 @@ export async function POST(
       return { id: loan.id, type: loan.loanType, amount }
     }).filter(l => l.amount > 0)
 
+    const incomeBreakdown = emp.incomeAssignments
+      .map(assignment => {
+        const type = assignment.incomeType
+        const key = `${emp.id}:${type.id}`
+        const amount = type.mode === 'VARIABLE'
+          ? (variableIncomeEntriesByKey.get(key) ?? 0)
+          : Number(assignment.fixedAmount ?? type.defaultAmount)
+
+        return {
+          incomeTypeId: type.id,
+          typeName: type.name,
+          amount: parseFloat(amount.toFixed(2)),
+          isTaxable: type.isTaxable,
+        }
+      })
+      .filter(item => item.amount > 0)
+
+    const additionalTaxableIncome = incomeBreakdown
+      .filter(item => item.isTaxable)
+      .reduce((sum, item) => sum + item.amount, 0)
+    const additionalNonTaxableIncome = incomeBreakdown
+      .filter(item => !item.isTaxable)
+      .reduce((sum, item) => sum + item.amount, 0)
+    const totalOtherIncome = additionalTaxableIncome + additionalNonTaxableIncome
+
     const result = computePayroll({
       employee: {
         id: emp.id,
@@ -180,8 +355,12 @@ export async function POST(
         hourlyRate,
         rateType:            emp.rateType,
         payFrequency:        run.payFrequency === 'SEMI_MONTHLY' ? 'SEMI_MONTHLY' : 'MONTHLY',
-        isMinimumWageEarner: emp.isMinimumWageEarner,
-        isExemptFromTax:     emp.isExemptFromTax,
+        isMinimumWageEarner:   emp.isMinimumWageEarner,
+        isExemptFromTax:       emp.isExemptFromTax,
+        sssEnabled:            emp.sssEnabled,
+        philhealthEnabled:     emp.philhealthEnabled,
+        pagibigEnabled:        emp.pagibigEnabled,
+        withholdingTaxEnabled: emp.withholdingTaxEnabled,
       },
       period: {
         start:        run.periodStart,
@@ -189,6 +368,7 @@ export async function POST(
         workingDays,
         payFrequency: run.payFrequency === 'SEMI_MONTHLY' ? 'SEMI_MONTHLY' : 'MONTHLY',
         isFirstCutoff: firstCutoff,
+        nightDifferentialRate: nightDiffRate,
       },
       attendance: {
         daysWorked,
@@ -208,6 +388,8 @@ export async function POST(
       loans: loanDeductions,
       deMinimis:  { riceSubsidy: 0, clothing: 0, medical: 0, laundry: 0, meal: 0, other: 0 },
       allowances: { rice: 0, clothing: 0, medical: 0, transportation: 0, other: 0 },
+      additionalTaxableIncome,
+      additionalNonTaxableIncome,
       ytd: {
         grossPay:               ytdData._sum.grossPay?.toNumber()                    ?? 0,
         taxableIncome:          ytdData._sum.taxableIncome?.toNumber()               ?? 0,
@@ -240,6 +422,8 @@ export async function POST(
         nightDiffHours,
         nightDiffAmount:            result.nightDiffAmount,
         holidayPayAmount:           result.holidayPayAmount,
+        otherAllowances:            additionalNonTaxableIncome,
+        otherEarnings:              totalOtherIncome,
         grossPay:                   result.grossPay,
         sssEmployee:                result.sssEmployee,
         sssEc:                      result.sssEc,
@@ -264,6 +448,7 @@ export async function POST(
         ytdTaxableIncome:           result.ytdTaxableIncome,
         ytdWithholdingTax:          result.ytdWithholdingTax,
       },
+      incomes: incomeBreakdown,
     })
 
     totalBasic       += result.basicPay
@@ -274,6 +459,27 @@ export async function POST(
     totalPhEr        += result.philhealthEmployer
     totalPagibigEr   += result.pagibigEmployer
   }
+
+  await prisma.$transaction(async tx => {
+    await tx.payrollRunIncomeEntry.deleteMany({
+      where: {
+        payrollRunId: runId,
+        incomeType: { mode: 'VARIABLE' },
+      },
+    })
+    if (variableIncomeEntriesInput.length > 0) {
+      await tx.payrollRunIncomeEntry.createMany({
+        data: variableIncomeEntriesInput
+          .filter(entry => entry.amount > 0)
+          .map(entry => ({
+            payrollRunId: runId,
+            employeeId: entry.employeeId,
+            incomeTypeId: entry.incomeTypeId,
+            amount: parseFloat(entry.amount.toFixed(2)),
+          })),
+      })
+    }
+  })
 
   // ── Persist everything in a transaction ───────────────────────────────────
   // Step 1: delete old payslip loan deductions + payslips (recompute-safe)
@@ -303,6 +509,18 @@ export async function POST(
       for (const ld of build.loanDeductions) {
         loanTotalsDeducted.set(ld.id, (loanTotalsDeducted.get(ld.id) ?? 0) + ld.amount)
       }
+    }
+
+    if (build.incomes.length > 0) {
+      await prisma.payslipIncome.createMany({
+        data: build.incomes.map(income => ({
+          payslipId: payslip.id,
+          incomeTypeId: income.incomeTypeId,
+          typeName: income.typeName,
+          amount: income.amount,
+          isTaxable: income.isTaxable,
+        })),
+      })
     }
   }
 

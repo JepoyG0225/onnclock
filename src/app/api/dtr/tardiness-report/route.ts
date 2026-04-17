@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { TardinessReportDocument } from '@/lib/pdf/tardiness-report-template'
 import { registerPdfFonts } from '@/lib/pdf/register-pdf-fonts'
 import { format } from 'date-fns'
-import React from 'react'
 
 export async function GET(req: NextRequest) {
   registerPdfFonts()
 
   const { ctx, error } = await requireAuth()
   if (error) return error
+  const companyId = resolveCompanyIdForRequest(ctx, req)
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
 
   const { searchParams } = new URL(req.url)
   const weekStart = searchParams.get('weekStart')
@@ -22,7 +25,7 @@ export async function GET(req: NextRequest) {
   }
 
   const company = await prisma.company.findUnique({
-    where: { id: ctx.companyId },
+    where: { id: companyId },
     select: { name: true },
   })
 
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
 
   const records = await prisma.dTRRecord.findMany({
     where: {
-      employee: { companyId: ctx.companyId },
+      employee: { companyId },
       date: { gte: start, lt: endPlus },
     },
     include: {
@@ -89,7 +92,7 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => b.totalLate - a.totalLate)
 
-  const doc = React.createElement(TardinessReportDocument, {
+  const doc = TardinessReportDocument({
     companyName: company?.name ?? 'Company',
     weekStart: format(start, 'MMM d, yyyy'),
     weekEnd: format(end, 'MMM d, yyyy'),
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
 
   const buffer = await renderToBuffer(doc)
 
-  return new NextResponse(buffer, {
+  return new Response(new Uint8Array(buffer), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',

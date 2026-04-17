@@ -5,6 +5,14 @@ import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
+const companyModelFields = new Set(
+  (Prisma.dmmf.datamodel.models.find((m) => m.name === 'Company')?.fields ?? []).map((f) => f.name)
+)
+
+function companyFieldSupported(field: string): boolean {
+  return companyModelFields.has(field)
+}
+
 const companySchema = z.object({
   name: z.string().min(2).optional(),
   industry: z.string().optional().nullable(),
@@ -20,10 +28,20 @@ const companySchema = z.object({
   pagibigNo: z.string().optional().nullable(),
   birNo: z.string().optional().nullable(),
   fingerprintRequired: z.boolean().optional(),
+  selfieRequired: z.boolean().optional(),
+  screenCaptureEnabled: z.boolean().optional(),
+  screenCaptureFrequencyMinutes: z.number().int().min(1).max(60).optional(),
   geofenceEnabled: z.boolean().optional(),
   geofenceLat: z.number().optional().nullable(),
   geofenceLng: z.number().optional().nullable(),
   geofenceRadiusMeters: z.number().int().optional().nullable(),
+  careerBannerUrl: z.string().max(1_500_000).optional().nullable(),
+  careerTagline: z.string().max(200).optional().nullable(),
+  careerDescription: z.string().max(2000).optional().nullable(),
+  careerSocialFacebook: z.string().max(300).optional().nullable(),
+  careerSocialLinkedin: z.string().max(300).optional().nullable(),
+  careerSocialTwitter: z.string().max(300).optional().nullable(),
+  careerSocialInstagram: z.string().max(300).optional().nullable(),
 })
 
 function isDataImageUrl(value: string): boolean {
@@ -51,6 +69,34 @@ async function persistLogo(companyId: string, dataUrl: string): Promise<string> 
   const ext = getImageExtension(mime)
   const bucket = process.env.SUPABASE_LOGO_BUCKET || 'company-logos'
   const objectPath = `companies/${companyId}/logo.${ext}`
+
+  const supabase = getSupabaseAdmin()
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(objectPath, buffer, { contentType: mime, upsert: true })
+
+  if (error) throw new Error(`Storage upload failed: ${error.message}`)
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath)
+  if (!data?.publicUrl) throw new Error('Storage public URL not available')
+
+  return `${data.publicUrl}?v=${Date.now()}`
+}
+
+async function persistBanner(companyId: string, dataUrl: string): Promise<string> {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl)
+  if (!match) throw new Error('Invalid image data URL')
+
+  const mime = match[1]
+  const base64 = match[2]
+  const buffer = Buffer.from(base64, 'base64')
+
+  const maxBytes = 4 * 1024 * 1024
+  if (buffer.length > maxBytes) throw new Error('Banner exceeds 4MB limit')
+
+  const ext = getImageExtension(mime)
+  const bucket = process.env.SUPABASE_LOGO_BUCKET || 'company-logos'
+  const objectPath = `companies/${companyId}/career-banner.${ext}`
 
   const supabase = getSupabaseAdmin()
   const { error } = await supabase.storage
@@ -100,6 +146,18 @@ export async function PATCH(req: NextRequest) {
     const parsed = companySchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
+    const subscription = await prisma.subscription.findUnique({
+      where: { companyId: ctx.companyId },
+      select: { pricePerSeat: true },
+    })
+    const isScreenCaptureEntitled = Number(subscription?.pricePerSeat ?? 0) >= 70
+    if ((parsed.data.screenCaptureEnabled ?? false) && !isScreenCaptureEntitled) {
+      return NextResponse.json(
+        { error: 'Screen capture security requires the Php 70 per employee plan.' },
+        { status: 403 }
+      )
+    }
+
     let nextLogoUrl: string | null | undefined = parsed.data.logoUrl ?? null
     if (typeof nextLogoUrl === 'string' && isDataImageUrl(nextLogoUrl)) {
       try {
@@ -111,28 +169,73 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    const companyUpdateData: Record<string, unknown> = {
+      name: parsed.data.name,
+      industry: parsed.data.industry ?? null,
+      address: parsed.data.address ?? null,
+      phone: parsed.data.phone ?? null,
+      email: parsed.data.email ?? null,
+      website: parsed.data.website ?? null,
+      portalUrl: parsed.data.portalUrl ?? undefined,
+      logoUrl: nextLogoUrl ?? null,
+      tin: parsed.data.tinNo ?? null,
+      sssRegistrationNo: parsed.data.sssNo ?? null,
+      philhealthNo: parsed.data.philhealthNo ?? null,
+      pagibigNo: parsed.data.pagibigNo ?? null,
+      birNo: parsed.data.birNo ?? null,
+    }
+
+    if (companyFieldSupported('fingerprintRequired')) {
+      companyUpdateData.fingerprintRequired = parsed.data.fingerprintRequired ?? true
+    }
+    if (companyFieldSupported('selfieRequired')) {
+      companyUpdateData.selfieRequired = parsed.data.selfieRequired ?? false
+    }
+    if (companyFieldSupported('screenCaptureEnabled')) {
+      companyUpdateData.screenCaptureEnabled = isScreenCaptureEntitled
+        ? (parsed.data.screenCaptureEnabled ?? false)
+        : false
+    }
+    if (companyFieldSupported('screenCaptureFrequencyMinutes')) {
+      companyUpdateData.screenCaptureFrequencyMinutes = parsed.data.screenCaptureFrequencyMinutes ?? 5
+    }
+    if (companyFieldSupported('geofenceEnabled')) {
+      companyUpdateData.geofenceEnabled = parsed.data.geofenceEnabled ?? false
+    }
+    if (companyFieldSupported('geofenceLat')) {
+      companyUpdateData.geofenceLat = parsed.data.geofenceLat ?? null
+    }
+    if (companyFieldSupported('geofenceLng')) {
+      companyUpdateData.geofenceLng = parsed.data.geofenceLng ?? null
+    }
+    if (companyFieldSupported('geofenceRadiusMeters')) {
+      companyUpdateData.geofenceRadiusMeters = parsed.data.geofenceRadiusMeters ?? null
+    }
+
+    // Career page branding
+    if (companyFieldSupported('careerBannerUrl') && 'careerBannerUrl' in parsed.data) {
+      const rawBanner = parsed.data.careerBannerUrl ?? null
+      if (typeof rawBanner === 'string' && isDataImageUrl(rawBanner)) {
+        try {
+          companyUpdateData.careerBannerUrl = await persistBanner(ctx.companyId, rawBanner)
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Banner upload failed'
+          return NextResponse.json({ error: msg }, { status: 400 })
+        }
+      } else {
+        companyUpdateData.careerBannerUrl = rawBanner
+      }
+    }
+    if (companyFieldSupported('careerTagline')) companyUpdateData.careerTagline = parsed.data.careerTagline ?? null
+    if (companyFieldSupported('careerDescription')) companyUpdateData.careerDescription = parsed.data.careerDescription ?? null
+    if (companyFieldSupported('careerSocialFacebook')) companyUpdateData.careerSocialFacebook = parsed.data.careerSocialFacebook ?? null
+    if (companyFieldSupported('careerSocialLinkedin')) companyUpdateData.careerSocialLinkedin = parsed.data.careerSocialLinkedin ?? null
+    if (companyFieldSupported('careerSocialTwitter')) companyUpdateData.careerSocialTwitter = parsed.data.careerSocialTwitter ?? null
+    if (companyFieldSupported('careerSocialInstagram')) companyUpdateData.careerSocialInstagram = parsed.data.careerSocialInstagram ?? null
+
     const updated = await prisma.company.update({
       where: { id: ctx.companyId },
-      data: {
-        name: parsed.data.name,
-        industry: parsed.data.industry ?? null,
-        address: parsed.data.address ?? null,
-        phone: parsed.data.phone ?? null,
-        email: parsed.data.email ?? null,
-        website: parsed.data.website ?? null,
-        portalUrl: parsed.data.portalUrl ?? undefined,
-        logoUrl: nextLogoUrl ?? null,
-        tin: parsed.data.tinNo ?? null,
-        sssRegistrationNo: parsed.data.sssNo ?? null,
-        philhealthNo: parsed.data.philhealthNo ?? null,
-        pagibigNo: parsed.data.pagibigNo ?? null,
-        birNo: parsed.data.birNo ?? null,
-        fingerprintRequired: parsed.data.fingerprintRequired ?? true,
-        geofenceEnabled: parsed.data.geofenceEnabled ?? false,
-        geofenceLat: parsed.data.geofenceLat ?? null,
-        geofenceLng: parsed.data.geofenceLng ?? null,
-        geofenceRadiusMeters: parsed.data.geofenceRadiusMeters ?? null,
-      },
+      data: companyUpdateData,
     })
 
     return NextResponse.json({

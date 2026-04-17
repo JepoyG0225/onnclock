@@ -1,338 +1,392 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  Document, Page, Text, View, StyleSheet, Image, renderToBuffer, Font,
-} from '@react-pdf/renderer'
-import React from 'react'
-import path from 'path'
+import { PDFDocument, PDFFont, StandardFonts, rgb } from 'pdf-lib'
 import fs from 'fs'
+import path from 'path'
 
 const MONTHLY_PRICE = 50
 const ANNUAL_PRICE_PER_MONTH = 40
-const montserratRegularPath = path.join(process.cwd(), 'public', 'fonts', 'montserrat', 'static', 'Montserrat-Regular.ttf')
-const montserratBoldPath = path.join(process.cwd(), 'public', 'fonts', 'montserrat', 'static', 'Montserrat-Bold.ttf')
-const hasMontserrat = fs.existsSync(montserratRegularPath) && fs.existsSync(montserratBoldPath)
-const PDF_FONT_FAMILY = hasMontserrat ? 'Montserrat' : 'Helvetica'
-const PDF_FONT_BOLD = hasMontserrat ? 'MontserratBold' : 'Helvetica-Bold'
 
-if (hasMontserrat) {
-  const regularSrc = `data:font/ttf;base64,${fs.readFileSync(montserratRegularPath).toString('base64')}`
-  const boldSrc = `data:font/ttf;base64,${fs.readFileSync(montserratBoldPath).toString('base64')}`
-  Font.register({ family: 'Montserrat', src: regularSrc })
-  Font.register({ family: 'MontserratBold', src: boldSrc })
+const THEME = {
+  deep: rgb(0.10, 0.18, 0.26), // #1A2D42
+  base: rgb(0.18, 0.25, 0.34), // #2E4156
+  mid: rgb(0.67, 0.72, 0.72),  // #AAB7B7
+  light: rgb(0.83, 0.85, 0.87), // #D4D8DD
+  white: rgb(1, 1, 1),
+  text: rgb(0.14, 0.16, 0.20),
+  muted: rgb(0.38, 0.43, 0.49),
+  successBg: rgb(0.93, 0.97, 0.94),
+  successText: rgb(0.12, 0.44, 0.26),
 }
 
-const c = {
-  teal:      '#0b4a3b',
-  tealLight: '#227f84',
-  orange:    '#fa5e01',
-  slate:     '#1e293b',
-  muted:     '#64748b',
-  border:    '#e2e8f0',
-  bg:        '#f8fafc',
-  white:     '#ffffff',
-  green:     '#16a34a',
-  red:       '#dc2626',
-}
-
-const s = StyleSheet.create({
-  page:         { fontFamily: PDF_FONT_FAMILY, backgroundColor: c.white, padding: 0, position: 'relative' },
-  header:       { backgroundColor: c.teal, paddingHorizontal: 40, paddingVertical: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerLeft:   { flexDirection: 'column' },
-  logo:         { width: 120, height: 36, objectFit: 'contain' },
-  headerLabel:  { color: c.white, fontFamily: PDF_FONT_BOLD, fontSize: 10, marginTop: 4 },
-  headerRight:  { alignItems: 'flex-end' },
-  quotationNo:  { color: c.white, fontFamily: PDF_FONT_BOLD, fontSize: 20 },
-  quotationSub: { color: c.white, fontFamily: PDF_FONT_BOLD, fontSize: 9, marginTop: 2 },
-  body:         { paddingHorizontal: 40, paddingVertical: 28, paddingBottom: 24 },
-  row:          { flexDirection: 'row', gap: 16, marginBottom: 20 },
-  infoBox:      { flex: 1, backgroundColor: c.bg, borderRadius: 8, padding: 14, border: `1px solid ${c.border}` },
-  infoLabel:    { fontFamily: PDF_FONT_BOLD, fontSize: 8, color: '#1f2937', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
-  infoValue:    { fontFamily: PDF_FONT_BOLD, fontSize: 12, color: '#0f172a' },
-  infoSub:      { fontFamily: PDF_FONT_BOLD, fontSize: 10, color: '#1f2937', marginTop: 2 },
-  sectionTitle: { fontFamily: PDF_FONT_BOLD, fontSize: 12, color: c.teal, marginBottom: 10, borderBottom: `2px solid ${c.teal}`, paddingBottom: 5 },
-  tableHead:    { flexDirection: 'row', backgroundColor: c.teal, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 2 },
-  tableHeadTxt: { color: c.white, fontFamily: PDF_FONT_BOLD, fontSize: 9 },
-  tableRow:     { flexDirection: 'row', paddingVertical: 9, paddingHorizontal: 12, borderBottom: `1px solid ${c.border}` },
-  tableRowAlt:  { flexDirection: 'row', paddingVertical: 9, paddingHorizontal: 12, borderBottom: `1px solid ${c.border}`, backgroundColor: c.bg },
-  tableTxt:     { fontFamily: PDF_FONT_BOLD, fontSize: 10, color: '#0f172a' },
-  tableTxtMuted:{ fontFamily: PDF_FONT_BOLD, fontSize: 9, color: '#1f2937' },
-  col1:         { flex: 3 },
-  col2:         { flex: 1, textAlign: 'center' },
-  col3:         { flex: 1, textAlign: 'right' },
-  col4:         { flex: 1.2, textAlign: 'right' },
-  totalBox:     { backgroundColor: c.teal, borderRadius: 8, padding: 16, marginTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  totalLabel:   { color: c.white, fontFamily: PDF_FONT_BOLD, fontSize: 10 },
-  totalAmt:     { color: c.white, fontFamily: PDF_FONT_BOLD, fontSize: 20 },
-  savingsBadge: { backgroundColor: c.orange, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4, alignSelf: 'flex-start' },
-  savingsTxt:   { color: c.white, fontFamily: PDF_FONT_BOLD, fontSize: 9 },
-  notesBox:     { backgroundColor: '#fffbeb', borderRadius: 8, padding: 14, marginTop: 16, border: `1px solid #fde68a` },
-  notesTxt:     { fontFamily: PDF_FONT_BOLD, fontSize: 9, color: '#7c2d12', lineHeight: 1.6 },
-  footer:       { borderTop: `1px solid ${c.border}`, marginTop: 24, paddingTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  footerTxt:    { fontFamily: PDF_FONT_BOLD, fontSize: 8.5, color: '#1f2937', lineHeight: 1.5 },
-  badge:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  badgeItem:    { backgroundColor: c.bg, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, border: `1px solid ${c.border}` },
-  badgeTxt:     { fontFamily: PDF_FONT_BOLD, fontSize: 8, color: '#475569' },
-  featureGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  featureCard:  { width: '47%', backgroundColor: c.bg, borderRadius: 6, padding: 10, border: `1px solid ${c.border}` },
-  featureTitle: { fontFamily: PDF_FONT_BOLD, fontSize: 9.5, color: '#0f172a', marginBottom: 3 },
-  featureTxt:   { fontFamily: PDF_FONT_BOLD, fontSize: 8.5, color: '#1f2937', lineHeight: 1.5 },
-  bullet:       { fontSize: 7.5, color: c.muted, marginBottom: 2 },
-  highlight:    { color: c.tealLight, fontWeight: 700 },
-  pageNum:      { fontFamily: PDF_FONT_BOLD, fontSize: 8, color: '#1f2937', textAlign: 'right', marginTop: 8 },
-  stripe:       { height: 4, backgroundColor: c.orange },
-  bottomStripe: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: c.tealLight },
-})
-
-function fmt(n: number) {
-  return '\u20B1 ' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+type Plan = 'MONTHLY' | 'ANNUAL'
 
 interface QuotationInput {
-  plan: 'MONTHLY' | 'ANNUAL'
-  seats: number
-  clientName: string
-  clientCompany: string
-  clientEmail: string
-  validDays: number
-  quotationNo: string
-  issuedDate: string
-  includeSetup: boolean
-  setupFee: number
-  notes: string
+  plan?: Plan
+  seats?: number
+  clientName?: string
+  clientCompany?: string
+  clientEmail?: string
+  validDays?: number
+  quotationNo?: string
+  issuedDate?: string
+  includeSetup?: boolean
+  setupFee?: number
+  notes?: string
 }
 
-function QuotationPDF({ q }: { q: QuotationInput }) {
-  const pricePerSeat = q.plan === 'ANNUAL' ? ANNUAL_PRICE_PER_MONTH : MONTHLY_PRICE
-  const billingLabel = q.plan === 'ANNUAL' ? 'Annual (billed yearly)' : 'Monthly (billed monthly)'
-  const periods      = q.plan === 'ANNUAL' ? 12 : 1
-  const periodLabel  = q.plan === 'ANNUAL' ? 'year' : 'month'
-  const subtotal     = pricePerSeat * q.seats * periods
-  const setupFee     = q.includeSetup ? q.setupFee : 0
-  const total        = subtotal + setupFee
-  const savings      = q.plan === 'ANNUAL' ? MONTHLY_PRICE * 12 * q.seats - subtotal : 0
-  const validUntil   = new Date(q.issuedDate)
-  validUntil.setDate(validUntil.getDate() + q.validDays)
+function toNumber(v: unknown, fallback = 0) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function cleanText(v: unknown, fallback = '-') {
+  const s = String(v ?? '').trim()
+  return s || fallback
+}
+
+function safeDate(input: string) {
+  const d = new Date(input)
+  if (Number.isNaN(d.getTime())) return new Date()
+  return d
+}
+
+function peso(n: number) {
+  return `PHP ${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function wrapText(text: string, maxChars = 76) {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let cur = ''
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word
+    if (next.length > maxChars && cur) {
+      lines.push(cur)
+      cur = word
+    } else {
+      cur = next
+    }
+  }
+  if (cur) lines.push(cur)
+  return lines.length ? lines : ['-']
+}
+
+async function embedLogo(pdf: PDFDocument) {
+  try {
+    const logoPath = path.join(process.cwd(), 'public', 'invoice-logo.png')
+    if (!fs.existsSync(logoPath)) return null
+    const bytes = fs.readFileSync(logoPath)
+    return await pdf.embedPng(bytes)
+  } catch {
+    return null
+  }
+}
+
+async function embedTextFonts(pdf: PDFDocument): Promise<{ regular: PDFFont; bold: PDFFont }> {
+  try {
+    const regularPath = path.join(process.cwd(), 'public', 'fonts', 'montserrat', 'static', 'Montserrat-Regular.ttf')
+    const boldPath = path.join(process.cwd(), 'public', 'fonts', 'montserrat', 'static', 'Montserrat-Bold.ttf')
+    if (fs.existsSync(regularPath) && fs.existsSync(boldPath)) {
+      const [regularBytes, boldBytes] = await Promise.all([
+        fs.promises.readFile(regularPath),
+        fs.promises.readFile(boldPath),
+      ])
+      return {
+        regular: await pdf.embedFont(regularBytes),
+        bold: await pdf.embedFont(boldBytes),
+      }
+    }
+  } catch {
+    // Fallback below
+  }
+  return {
+    regular: await pdf.embedFont(StandardFonts.Helvetica),
+    bold: await pdf.embedFont(StandardFonts.HelveticaBold),
+  }
+}
+
+async function buildPdf(q: Required<QuotationInput>) {
+  const pdf = await PDFDocument.create()
+  const { regular: font, bold } = await embedTextFonts(pdf)
+  const logo = await embedLogo(pdf)
 
   const features = [
-    { title: 'Attendance & Time Tracking', desc: 'Fingerprint clock-in, GPS geofencing, facial recognition, and real-time attendance monitoring.' },
-    { title: 'Automated Payroll', desc: 'Semi-monthly, monthly, and daily payroll processing with full Philippine deductions.' },
-    { title: 'Government Compliance', desc: 'Auto-compute SSS, PhilHealth, Pag-IBIG, and BIR withholding tax with ready-to-file reports.' },
-    { title: 'Employee Self-Service Portal', desc: 'Employees can clock in/out, view payslips, file leaves, and track balances on mobile.' },
-    { title: 'Leave Management', desc: 'Configurable leave types, approval workflows, and automatic balance tracking.' },
-    { title: 'Loan & Deduction Tracking', desc: 'Salary loans and deductions automatically amortized across payroll runs.' },
-    { title: 'Government Reports', desc: 'BIR Alphalist, 2316, SSS R3, PhilHealth RF-1, and Pag-IBIG MCRF — print-ready.' },
-    { title: 'Admin Dashboard', desc: 'Company-wide analytics, department breakdown, and real-time workforce overview.' },
+    ['Attendance & Time Tracking', 'Fingerprint clock-in, GPS geofencing, facial recognition, and real-time attendance monitoring.'],
+    ['Automated Payroll', 'Semi-monthly, monthly, and daily payroll processing with full Philippine deductions.'],
+    ['Government Compliance', 'Auto-compute SSS, PhilHealth, Pag-IBIG, and BIR withholding tax with ready-to-file reports.'],
+    ['Employee Self-Service Portal', 'Employees can clock in/out, view payslips, file leaves, and track balances on mobile.'],
+    ['Leave Management', 'Configurable leave types, approval workflows, and automatic balance tracking.'],
+    ['Loan & Deduction Tracking', 'Salary loans and deductions automatically amortized across payroll runs.'],
+    ['Government Reports', 'BIR Alphalist, 2316, SSS R3, PhilHealth RF-1, and Pag-IBIG MCRF print-ready.'],
+    ['Admin Dashboard', 'Company-wide analytics, department breakdown, and real-time workforce overview.'],
   ]
 
-  const logoPath = path.join(process.cwd(), 'public', 'invoice-logo.png')
-  const logoSrc  = fs.existsSync(logoPath)
-    ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
-    : ''
+  const issued = safeDate(q.issuedDate)
+  const validUntil = new Date(issued)
+  validUntil.setDate(validUntil.getDate() + q.validDays)
 
-  return (
-    <Document title={`Onclock Quotation — ${q.clientCompany}`}>
+  const pricePerSeat = q.plan === 'ANNUAL' ? ANNUAL_PRICE_PER_MONTH : MONTHLY_PRICE
+  const periods = q.plan === 'ANNUAL' ? 12 : 1
+  const subtotal = pricePerSeat * q.seats * periods
+  const setupFee = q.includeSetup ? q.setupFee : 0
+  const total = subtotal + setupFee
+  const savings = q.plan === 'ANNUAL' ? MONTHLY_PRICE * 12 * q.seats - subtotal : 0
 
-      {/* ── PAGE 1: Summary ── */}
-      <Page size="LETTER" style={s.page}>
-        <View style={s.stripe} />
+  const drawBox = (
+    page: ReturnType<PDFDocument['addPage']>,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    color = THEME.white,
+    border = THEME.light,
+  ) => {
+    page.drawRectangle({ x, y, width: w, height: h, color, borderColor: border, borderWidth: 1 })
+  }
 
-        {/* Header */}
-        <View style={s.header}>
-          <View style={s.headerLeft}>
-            {logoSrc ? (
-              <Image src={logoSrc} style={s.logo} />
-            ) : (
-              <Text style={{ color: c.white, fontSize: 18, fontWeight: 900 }}>Onclock</Text>
-            )}
-            <Text style={s.headerLabel}>Helping Businesses Scale with Modern Web Solutions</Text>
-          </View>
-          <View style={s.headerRight}>
-            <Text style={s.quotationNo}>QUOTATION</Text>
-            <Text style={s.quotationSub}>#{q.quotationNo}</Text>
-            <Text style={[s.quotationSub, { marginTop: 6 }]}>Issued: {q.issuedDate}</Text>
-            <Text style={s.quotationSub}>Valid until: {validUntil.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
-          </View>
-        </View>
+  const drawText = (
+    page: ReturnType<PDFDocument['addPage']>,
+    txt: string,
+    x: number,
+    y: number,
+    size = 10,
+    isBold = false,
+    color = THEME.text,
+  ) => {
+    page.drawText(txt, { x, y, size, font: isBold ? bold : font, color })
+  }
 
-        <View style={s.body}>
+  const drawRightText = (
+    page: ReturnType<PDFDocument['addPage']>,
+    txt: string,
+    rightX: number,
+    y: number,
+    size = 10,
+    isBold = false,
+    color = THEME.text,
+  ) => {
+    const activeFont = isBold ? bold : font
+    const textWidth = activeFont.widthOfTextAtSize(txt, size)
+    page.drawText(txt, { x: rightX - textWidth, y, size, font: activeFont, color })
+  }
 
-          {/* Client + Issuer Info */}
-          <View style={s.row}>
-            <View style={s.infoBox}>
-              <Text style={s.infoLabel}>Prepared For</Text>
-              <Text style={s.infoValue}>{q.clientName || '—'}</Text>
-              <Text style={s.infoSub}>{q.clientCompany || '—'}</Text>
-              {q.clientEmail && <Text style={s.infoSub}>{q.clientEmail}</Text>}
-            </View>
-            <View style={s.infoBox}>
-              <Text style={s.infoLabel}>Issued By</Text>
-              <Text style={s.infoValue}>JCG Web App Solutions</Text>
-            </View>
-            <View style={s.infoBox}>
-              <Text style={s.infoLabel}>Selected Plan</Text>
-              <Text style={s.infoValue}>{billingLabel}</Text>
-              <Text style={s.infoSub}>{q.seats} employee seat{q.seats !== 1 ? 's' : ''}</Text>
-              <Text style={[s.infoSub, { color: c.tealLight, fontWeight: 700, marginTop: 4 }]}>
-                {fmt(pricePerSeat)} / seat / month
-              </Text>
-            </View>
-          </View>
+  const drawWrapped = (
+    page: ReturnType<PDFDocument['addPage']>,
+    txt: string,
+    x: number,
+    y: number,
+    size = 9,
+    isBold = false,
+    color = THEME.text,
+    maxChars = 72,
+    lineH = 12,
+  ) => {
+    let cy = y
+    for (const line of wrapText(txt, maxChars)) {
+      drawText(page, line, x, cy, size, isBold, color)
+      cy -= lineH
+    }
+    return cy
+  }
 
-          {/* Line Items Table */}
-          <Text style={s.sectionTitle}>Pricing Breakdown</Text>
-          <View style={s.tableHead}>
-            <Text style={[s.tableHeadTxt, s.col1]}>Description</Text>
-            <Text style={[s.tableHeadTxt, s.col2]}>Qty</Text>
-            <Text style={[s.tableHeadTxt, s.col3]}>Unit Price</Text>
-            <Text style={[s.tableHeadTxt, s.col4]}>Amount</Text>
-          </View>
+  const page1 = pdf.addPage([612, 792]) // LETTER
+  page1.drawRectangle({ x: 0, y: 0, width: 612, height: 3, color: THEME.mid })
+  page1.drawRectangle({ x: 0, y: 788, width: 612, height: 4, color: THEME.base })
+  page1.drawRectangle({ x: 0, y: 700, width: 612, height: 88, color: THEME.deep })
 
-          {/* Row 1: Subscription */}
-          <View style={s.tableRow}>
-            <View style={s.col1}>
-              <Text style={s.tableTxt}>Onclock {q.plan === 'ANNUAL' ? 'Annual' : 'Monthly'} Subscription</Text>
-              <Text style={s.tableTxtMuted}>
-                {q.seats} seats × {fmt(pricePerSeat)}/mo × {periods} {periods > 1 ? 'months' : 'month'}
-              </Text>
-            </View>
-            <Text style={[s.tableTxt, s.col2]}>{q.seats}</Text>
-            <Text style={[s.tableTxt, s.col3]}>{fmt(pricePerSeat * periods)}</Text>
-            <Text style={[s.tableTxt, s.col4, { fontWeight: 700 }]}>{fmt(subtotal)}</Text>
-          </View>
+  if (logo) {
+    page1.drawImage(logo, { x: 40, y: 734, width: 120, height: 36 })
+  } else {
+    drawText(page1, 'Onclock', 40, 748, 20, true, THEME.white)
+  }
+  drawText(page1, 'Helping Businesses Scale with Modern Web Solutions', 40, 720, 9, true, THEME.white)
+  drawText(page1, 'QUOTATION', 430, 754, 20, true, THEME.white)
+  drawText(page1, `#${q.quotationNo}`, 430, 738, 10, true, THEME.white)
+  drawText(page1, `Issued: ${q.issuedDate}`, 430, 724, 9, true, THEME.white)
+  drawText(page1, `Valid until: ${validUntil.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`, 430, 710, 9, true, THEME.white)
 
-          {/* Row 2: Setup fee (conditional) */}
-          {q.includeSetup && (
-            <View style={s.tableRowAlt}>
-              <View style={s.col1}>
-                <Text style={s.tableTxt}>One-time Setup & Onboarding Fee</Text>
-                <Text style={s.tableTxtMuted}>Account configuration, data import, and 1-hour orientation</Text>
-              </View>
-              <Text style={[s.tableTxt, s.col2]}>1</Text>
-              <Text style={[s.tableTxt, s.col3]}>{fmt(setupFee)}</Text>
-              <Text style={[s.tableTxt, s.col4, { fontWeight: 700 }]}>{fmt(setupFee)}</Text>
-            </View>
-          )}
+  drawBox(page1, 40, 608, 170, 76)
+  drawBox(page1, 221, 608, 170, 76)
+  drawBox(page1, 402, 608, 170, 76)
 
-          {/* Savings row */}
-          {savings > 0 && (
-            <View style={[s.tableRowAlt, { backgroundColor: '#f0fdf4' }]}>
-              <View style={s.col1}>
-                <Text style={[s.tableTxt, { color: c.green }]}>Annual Plan Discount (20% off monthly rate)</Text>
-                <Text style={[s.tableTxtMuted]}>vs. paying {'\u20B1'}{(MONTHLY_PRICE * 12 * q.seats).toLocaleString()} monthly</Text>
-              </View>
-              <Text style={[s.tableTxt, s.col2]}>—</Text>
-              <Text style={[s.tableTxt, s.col3]}>—</Text>
-              <Text style={[s.tableTxt, s.col4, { color: c.green, fontWeight: 700 }]}>−{fmt(savings)}</Text>
-            </View>
-          )}
+  drawText(page1, 'PREPARED FOR', 50, 670, 8, true, THEME.base)
+  drawText(page1, q.clientName || '-', 50, 654, 11, true, THEME.deep)
+  drawText(page1, q.clientCompany || '-', 50, 640, 9, true, THEME.base)
+  if (q.clientEmail !== '-') drawText(page1, q.clientEmail, 50, 628, 9, true, THEME.base)
 
-          {/* Total */}
-          <View style={s.totalBox}>
-            <View>
-              <Text style={s.totalLabel}>TOTAL DUE ({q.plan === 'ANNUAL' ? '1 year' : '1 month'})</Text>
-              {savings > 0 && (
-                <View style={s.savingsBadge}>
-                  <Text style={s.savingsTxt}>You save {fmt(savings)} vs. monthly</Text>
-                </View>
-              )}
-            </View>
-            <Text style={s.totalAmt}>{fmt(total)}</Text>
-          </View>
+  drawText(page1, 'ISSUED BY', 231, 670, 8, true, THEME.base)
+  drawText(page1, 'JCG Web App Solutions', 231, 654, 11, true, THEME.deep)
 
-          {/* Notes */}
-          {q.notes && (
-            <View style={s.notesBox}>
-              <Text style={[s.notesTxt, { fontWeight: 700, marginBottom: 3 }]}>Notes</Text>
-              <Text style={s.notesTxt}>{q.notes}</Text>
-            </View>
-          )}
+  drawText(page1, 'SELECTED PLAN', 412, 670, 8, true, THEME.base)
+  drawText(page1, q.plan === 'ANNUAL' ? 'Annual (billed yearly)' : 'Monthly (billed monthly)', 412, 654, 10, true, THEME.deep)
+  drawText(page1, `${q.seats} employee seat${q.seats !== 1 ? 's' : ''}`, 412, 640, 9, true, THEME.base)
+  drawText(page1, `${peso(pricePerSeat)} / seat / month`, 412, 628, 9, true, THEME.base)
 
-          {/* Footer */}
-          <View style={s.footer}>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.footerTxt, { fontWeight: 700, color: c.slate, marginBottom: 2 }]}>Terms</Text>
-              <Text style={s.footerTxt}>• Payment is due within {q.validDays} days from quotation date.</Text>
-              <Text style={s.footerTxt}>• Pricing is in Philippine Peso ({'\u20B1'}), inclusive of all platform fees.</Text>
-              <Text style={s.footerTxt}>• Government taxes (VAT) not included unless otherwise stated.</Text>
-              <Text style={s.footerTxt}>• Subscription auto-renews unless cancelled 7 days before period end.</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={s.footerTxt}>Compliant with:</Text>
-              <View style={s.badge}>
-                {['BIR', 'SSS', 'PhilHealth', 'Pag-IBIG', 'DOLE'].map(a => (
-                  <View key={a} style={s.badgeItem}>
-                    <Text style={s.badgeTxt}>{a}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-          <Text style={s.pageNum}>Page 1 of 2 · Onclock HR & Payroll Platform · onclockph.com</Text>
-        </View>
-        <View style={s.bottomStripe} fixed />
-      </Page>
+  drawText(page1, 'Pricing Breakdown', 40, 586, 12, true, THEME.deep)
+  page1.drawLine({ start: { x: 40, y: 582 }, end: { x: 220, y: 582 }, thickness: 2, color: THEME.base })
 
-      {/* ── PAGE 2: Features ── */}
-      <Page size="LETTER" style={s.page}>
-        <View style={s.stripe} />
-        <View style={s.body}>
-          <Text style={[s.sectionTitle, { marginTop: 8 }]}>What&apos;s Included in Your Plan</Text>
-          <Text style={[s.footerTxt, { marginBottom: 2 }]}>
-            All plans include access to the full Onclock platform. Below is a summary of features available to your team.
-          </Text>
-          <View style={s.featureGrid}>
-            {features.map((f) => (
-              <View key={f.title} style={s.featureCard}>
-                <Text style={s.featureTitle}>{f.title}</Text>
-                <Text style={s.featureTxt}>{f.desc}</Text>
-              </View>
-            ))}
-          </View>
+  page1.drawRectangle({ x: 40, y: 556, width: 532, height: 22, color: THEME.base })
+  drawText(page1, 'Description', 48, 563, 9, true, THEME.white)
+  drawText(page1, 'Qty', 335, 563, 9, true, THEME.white)
+  drawText(page1, 'Unit Price', 405, 563, 9, true, THEME.white)
+  drawText(page1, 'Amount', 515, 563, 9, true, THEME.white)
 
-          {/* Support */}
-          <View style={[s.notesBox, { marginTop: 20, backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }]}>
-            <Text style={[s.notesTxt, { fontWeight: 700, color: '#0369a1', marginBottom: 4 }]}>Included Support</Text>
-            <Text style={[s.notesTxt, { color: '#0369a1' }]}>• Email and chat support during business hours (Mon–Fri, 8AM–5PM)</Text>
-            <Text style={[s.notesTxt, { color: '#0369a1' }]}>• Free onboarding assistance and payroll setup walkthrough</Text>
-            <Text style={[s.notesTxt, { color: '#0369a1' }]}>• Software updates and new feature releases at no extra cost</Text>
-            <Text style={[s.notesTxt, { color: '#0369a1' }]}>• Data export in Excel/CSV format at any time</Text>
-          </View>
+  const drawTableRow = (y: number, alt: boolean, title: string, sub: string, qty: string, unit: string, amt: string, subColor = THEME.base) => {
+    if (alt) page1.drawRectangle({ x: 40, y: y - 34, width: 532, height: 34, color: rgb(0.97, 0.98, 0.99) })
+    page1.drawLine({ start: { x: 40, y: y - 34 }, end: { x: 572, y: y - 34 }, thickness: 1, color: THEME.light })
+    drawText(page1, title, 48, y - 13, 10, true, THEME.deep)
+    drawText(page1, sub, 48, y - 26, 8.5, true, subColor)
+    drawRightText(page1, qty, 367, y - 20, 10, true)
+    drawRightText(page1, unit, 482, y - 20, 10, true)
+    drawRightText(page1, amt, 562, y - 20, 10, true)
+  }
 
-          {/* CTA */}
-          <View style={[s.totalBox, { marginTop: 20, flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
-            <Text style={[s.totalLabel, { fontSize: 11, fontWeight: 900, color: c.white }]}>Ready to get started?</Text>
-            <Text style={[s.footerTxt, { color: c.white }]}>
-              Visit onclockph.com to register your company for free. Your {q.validDays}-day trial starts immediately —
-              no credit card required. Upgrade anytime to unlock full payroll and government report generation.
-            </Text>
-          </View>
-
-          <View style={[s.footer, { marginTop: 20 }]}>
-            <View>
-              <Text style={[s.footerTxt, { fontWeight: 700, color: c.slate }]}>JCG Web App Solutions</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={s.footerTxt}>Quotation #{q.quotationNo}</Text>
-              <Text style={s.footerTxt}>Valid until {validUntil.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
-            </View>
-          </View>
-          <Text style={s.pageNum}>Page 2 of 2 · Onclock HR & Payroll Platform · onclockph.com</Text>
-        </View>
-        <View style={s.bottomStripe} fixed />
-      </Page>
-    </Document>
+  let tableY = 556
+  drawTableRow(
+    tableY,
+    false,
+    `Onclock ${q.plan === 'ANNUAL' ? 'Annual' : 'Monthly'} Subscription`,
+    `${q.seats} seats x ${peso(pricePerSeat)}/mo x ${periods} ${periods > 1 ? 'months' : 'month'}`,
+    String(q.seats),
+    peso(pricePerSeat * periods),
+    peso(subtotal),
   )
+  tableY -= 34
+
+  if (q.includeSetup) {
+    drawTableRow(
+      tableY,
+      true,
+      'One-time Setup and Onboarding Fee',
+      'Account configuration, data import, and 1-hour orientation',
+      '1',
+      peso(setupFee),
+      peso(setupFee),
+    )
+    tableY -= 34
+  }
+
+  if (savings > 0) {
+    page1.drawRectangle({ x: 40, y: tableY - 34, width: 532, height: 34, color: THEME.successBg })
+    page1.drawLine({ start: { x: 40, y: tableY - 34 }, end: { x: 572, y: tableY - 34 }, thickness: 1, color: THEME.light })
+    drawText(page1, 'Annual Plan Discount (20% off monthly rate)', 48, tableY - 13, 10, true, THEME.successText)
+    drawText(page1, `vs. paying PHP ${(MONTHLY_PRICE * 12 * q.seats).toLocaleString()} monthly`, 48, tableY - 26, 8.5, true, THEME.base)
+    drawRightText(page1, '-', 367, tableY - 20, 10, true)
+    drawRightText(page1, '-', 482, tableY - 20, 10, true)
+    drawRightText(page1, `-${peso(savings)}`, 562, tableY - 20, 10, true, THEME.successText)
+    tableY -= 34
+  }
+
+  page1.drawRectangle({ x: 40, y: tableY - 74, width: 532, height: 74, color: THEME.deep })
+  drawText(page1, `TOTAL DUE (${q.plan === 'ANNUAL' ? '1 year' : '1 month'})`, 50, tableY - 25, 10, true, THEME.white)
+  if (savings > 0) {
+    page1.drawRectangle({ x: 50, y: tableY - 48, width: 180, height: 16, color: THEME.base })
+    drawText(page1, `You save ${peso(savings)} vs. monthly`, 56, tableY - 43, 8, true, THEME.white)
+  }
+  drawRightText(page1, peso(total), 562, tableY - 38, 20, true, THEME.white)
+
+  let afterTotalY = tableY - 90
+  if (q.notes !== '-') {
+    drawBox(page1, 40, afterTotalY - 64, 532, 64, rgb(0.97, 0.98, 0.99), THEME.light)
+    drawText(page1, 'Notes', 50, afterTotalY - 18, 9, true, THEME.base)
+    drawWrapped(page1, q.notes, 50, afterTotalY - 32, 9, true, THEME.base, 90, 11)
+    afterTotalY -= 74
+  }
+
+  page1.drawLine({ start: { x: 40, y: afterTotalY - 8 }, end: { x: 572, y: afterTotalY - 8 }, thickness: 1, color: THEME.light })
+  drawText(page1, 'Terms', 40, afterTotalY - 22, 8.5, true, THEME.text)
+  drawText(page1, `- Payment is due within ${q.validDays} days from quotation date.`, 40, afterTotalY - 34, 8.5, true, THEME.base)
+  drawText(page1, '- Pricing is in Philippine Peso (PHP), inclusive of platform fees.', 40, afterTotalY - 45, 8.5, true, THEME.base)
+  drawText(page1, '- Government taxes (VAT) not included unless otherwise stated.', 40, afterTotalY - 56, 8.5, true, THEME.base)
+  drawText(page1, '- Subscription auto-renews unless cancelled 7 days before period end.', 40, afterTotalY - 67, 8.5, true, THEME.base)
+
+  drawText(page1, 'Compliant with:', 450, afterTotalY - 22, 8.5, true, THEME.base)
+  const badges = ['BIR', 'SSS', 'PhilHealth', 'Pag-IBIG', 'DOLE']
+  let bx = 450
+  let by = afterTotalY - 36
+  for (const b of badges) {
+    const w = Math.max(34, bold.widthOfTextAtSize(b, 8) + 12)
+    if (bx + w > 572) {
+      bx = 450
+      by -= 16
+    }
+    page1.drawRectangle({ x: bx, y: by, width: w, height: 13, color: rgb(0.97, 0.98, 0.99), borderColor: THEME.light, borderWidth: 1 })
+    drawText(page1, b, bx + 6, by + 3, 8, true, THEME.base)
+    bx += w + 6
+  }
+  drawText(page1, 'Page 1 of 2 - Onclock HR and Payroll Platform - onclockph.com', 345, 22, 8, true, THEME.base)
+
+  const page2 = pdf.addPage([612, 792])
+  page2.drawRectangle({ x: 0, y: 0, width: 612, height: 3, color: THEME.mid })
+  page2.drawRectangle({ x: 0, y: 788, width: 612, height: 4, color: THEME.base })
+
+  drawText(page2, 'What is Included in Your Plan', 40, 742, 12, true, THEME.deep)
+  page2.drawLine({ start: { x: 40, y: 738 }, end: { x: 248, y: 738 }, thickness: 2, color: THEME.base })
+  drawText(page2, 'All plans include access to the full Onclock platform. Below is a summary of features available to your team.', 40, 724, 8.5, true, THEME.base)
+
+  let fx = 40
+  let fy = 688
+  const cardW = 255
+  const cardH = 62
+  for (let i = 0; i < features.length; i++) {
+    const [title, desc] = features[i]
+    drawBox(page2, fx, fy - cardH, cardW, cardH, rgb(0.97, 0.98, 0.99), THEME.light)
+    drawText(page2, title, fx + 10, fy - 18, 9.5, true, THEME.deep)
+    drawWrapped(page2, desc, fx + 10, fy - 31, 8.5, true, THEME.base, 43, 10)
+
+    if (i % 2 === 0) {
+      fx = 317
+    } else {
+      fx = 40
+      fy -= 72
+    }
+  }
+
+  drawBox(page2, 40, 242, 532, 74, rgb(0.97, 0.98, 0.99), THEME.light)
+  drawText(page2, 'Included Support', 50, 300, 9.5, true, THEME.deep)
+  drawText(page2, '- Email and chat support during business hours (Mon-Fri, 8AM-5PM)', 50, 286, 8.5, true, THEME.base)
+  drawText(page2, '- Free onboarding assistance and payroll setup walkthrough', 50, 274, 8.5, true, THEME.base)
+  drawText(page2, '- Software updates and new feature releases at no extra cost', 50, 262, 8.5, true, THEME.base)
+  drawText(page2, '- Data export in Excel/CSV format at any time', 50, 250, 8.5, true, THEME.base)
+
+  page2.drawRectangle({ x: 40, y: 154, width: 532, height: 74, color: THEME.deep })
+  drawText(page2, 'Ready to get started?', 50, 206, 11, true, THEME.white)
+  const cta = 'Visit onclockph.com to register your company for free. Your 7-day trial starts immediately - no credit card required. Upgrade anytime to unlock full payroll and government report generation.'
+  drawWrapped(page2, cta, 50, 192, 8.5, true, THEME.white, 90, 11)
+
+  page2.drawLine({ start: { x: 40, y: 138 }, end: { x: 572, y: 138 }, thickness: 1, color: THEME.light })
+  drawText(page2, 'JCG Web App Solutions', 40, 124, 8.5, true, THEME.text)
+  drawText(page2, `Quotation #${q.quotationNo}`, 448, 124, 8.5, true, THEME.base)
+  drawText(page2, `Valid until ${validUntil.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}`, 390, 112, 8.5, true, THEME.base)
+  drawText(page2, 'Page 2 of 2 - Onclock HR and Payroll Platform - onclockph.com', 345, 22, 8, true, THEME.base)
+
+  return Buffer.from(await pdf.save())
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as QuotationInput
-    const pdfBuffer = await renderToBuffer(<QuotationPDF q={body} />)
+    const raw = (await req.json()) as QuotationInput
+
+    const payload: Required<QuotationInput> = {
+      plan: raw.plan === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY',
+      seats: Math.max(1, Math.floor(toNumber(raw.seats, 1))),
+      clientName: cleanText(raw.clientName),
+      clientCompany: cleanText(raw.clientCompany),
+      clientEmail: cleanText(raw.clientEmail),
+      validDays: Math.max(1, Math.floor(toNumber(raw.validDays, 7))),
+      quotationNo: cleanText(raw.quotationNo, 'Q-NA'),
+      issuedDate: cleanText(raw.issuedDate, '1970-01-01'),
+      includeSetup: Boolean(raw.includeSetup),
+      setupFee: Math.max(0, toNumber(raw.setupFee, 0)),
+      notes: cleanText(raw.notes, '-'),
+    }
+
+    const pdfBuffer = await buildPdf(payload)
 
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Onclock-Quotation-${body.quotationNo}.pdf"`,
+        'Content-Disposition': `attachment; filename="Onclock-Quotation-${payload.quotationNo}.pdf"`,
       },
     })
   } catch (err) {
@@ -340,4 +394,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 })
   }
 }
-

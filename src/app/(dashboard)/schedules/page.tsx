@@ -340,8 +340,8 @@ export default function SchedulesPage() {
                       onClick={() => toggleCreateDay(idx)}
                       className={`px-2.5 py-1 rounded-full text-xs border transition ${
                         form.workDays.includes(idx)
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-white text-gray-600 border-gray-300 hover:border-teal-400'
+                          ? 'bg-[#2E4156] text-white border-[#2E4156]'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-[#2E4156]'
                       }`}
                     >
                       {label}
@@ -475,8 +475,8 @@ export default function SchedulesPage() {
                               onClick={() => toggleEditDay(idx)}
                               className={`px-2.5 py-1 rounded-full text-xs border transition ${
                                 editForm.workDays.includes(idx)
-                                  ? 'bg-teal-600 text-white border-teal-600'
-                                  : 'bg-white text-gray-600 border-gray-300 hover:border-teal-400'
+                                  ? 'bg-[#2E4156] text-white border-[#2E4156]'
+                                  : 'bg-white text-gray-600 border-gray-300 hover:border-[#2E4156]'
                               }`}
                             >
                               {label}
@@ -553,10 +553,10 @@ export default function SchedulesPage() {
         </CardContent>
       </Card>
 
-      <Card className="bg-teal-50 border-teal-200">
-        <CardContent className="p-4 text-sm text-teal-800 space-y-1">
+      <Card className="bg-[#D4D8DD] border-[#AAB7B7]">
+        <CardContent className="p-4 text-sm text-[#1A2D42] space-y-1">
           <p className="font-semibold">DOLE Compressed Work Week Requirements</p>
-          <ul className="list-disc list-inside space-y-0.5 text-xs text-teal-700">
+          <ul className="list-disc list-inside space-y-0.5 text-xs text-[#1A2D42]">
             <li>Maximum 12 hours per day for compressed work week</li>
             <li>OT starts after 8 hours for regular employees (unless CWW is approved)</li>
             <li>Night differential applies for hours worked 10:00 PM - 6:00 AM</li>
@@ -567,3 +567,4 @@ export default function SchedulesPage() {
     </div>
   )
 }
+

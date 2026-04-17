@@ -8,8 +8,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const email = 'admin@onclock.om'
-  const password = 'Onclock2026!!'
+  const email = 'admin@onclockph.com'
+  const password = 'OnclockPH2026!!'
   const now = new Date()
 
   let systemCompany = await prisma.company.findFirst({
@@ -74,4 +74,3 @@ export async function POST(req: Request) {
     companyId: systemCompany.id,
   })
 }
-

@@ -56,9 +56,9 @@ export function computeHolidayPayAdditional(
 /**
  * Night differential: +10% for each hour worked between 10pm–6am
  */
-export function computeNightDifferential(hourlyRate: number, nightHours: number): number {
+export function computeNightDifferential(hourlyRate: number, nightHours: number, rate: number = OT_RATES.NIGHT_DIFFERENTIAL): number {
   if (nightHours <= 0) return 0
-  return parseFloat((hourlyRate * OT_RATES.NIGHT_DIFFERENTIAL * nightHours).toFixed(2))
+  return parseFloat((hourlyRate * rate * nightHours).toFixed(2))
 }
 
 /**

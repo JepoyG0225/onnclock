@@ -59,7 +59,7 @@ function FormSection({
   isEdit: boolean
 }) {
   const inputClass = "w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none transition-all border-2"
-  const inputStyle = { background: '#f8fafc', border: '2px solid #e2e8f0', color: '#227f84' }
+  const inputStyle = { background: '#f8fafc', border: '2px solid #e2e8f0', color: '#2E4156' }
 
   return (
     <div
@@ -72,7 +72,7 @@ function FormSection({
           <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: '#fa5e01' }}>
             {isEdit ? <Edit2 className="w-3.5 h-3.5 text-white" /> : <Plus className="w-3.5 h-3.5 text-white" />}
           </div>
-          <h3 className="text-sm font-bold" style={{ color: '#227f84' }}>
+          <h3 className="text-sm font-bold" style={{ color: '#2E4156' }}>
             {isEdit ? 'Edit Leave Type' : 'New Leave Type'}
           </h3>
         </div>
@@ -317,7 +317,7 @@ export default function LeaveTypesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#227f84' }}>Leave Types</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Leave Types</h1>
           <p className="text-sm text-slate-400 mt-0.5 font-medium">
             Configure DOLE-mandated and company leave policies
           </p>
@@ -396,7 +396,7 @@ export default function LeaveTypesPage() {
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span
                           className="text-xs font-black tracking-wider px-2.5 py-1 rounded-lg"
-                          style={{ background: 'rgba(67,168,218,0.1)', color: '#227f84' }}
+                          style={{ background: 'rgba(67,168,218,0.1)', color: '#2E4156' }}
                         >
                           {t.code}
                         </span>
@@ -410,7 +410,7 @@ export default function LeaveTypesPage() {
                             className="text-xs font-bold px-2.5 py-1 rounded-lg"
                             style={{
                               background: t.genderRestriction === 'FEMALE' ? 'rgba(236,72,153,0.1)' : 'rgba(67,168,218,0.1)',
-                              color: t.genderRestriction === 'FEMALE' ? '#db2777' : '#227f84',
+                              color: t.genderRestriction === 'FEMALE' ? '#db2777' : '#2E4156',
                             }}
                           >
                             {GENDER_LABELS[t.genderRestriction]}
@@ -418,13 +418,13 @@ export default function LeaveTypesPage() {
                         )}
                       </div>
 
-                      <h3 className="font-bold text-sm" style={{ color: '#227f84' }}>{t.name}</h3>
+                      <h3 className="font-bold text-sm" style={{ color: '#2E4156' }}>{t.name}</h3>
 
                       {/* Stats row */}
                       <div className="flex flex-wrap gap-3 mt-2">
                         <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#227f84' }} />
-                          <span className="text-xs font-bold" style={{ color: '#227f84' }}>{t.daysEntitled} days/yr</span>
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2E4156' }} />
+                          <span className="text-xs font-bold" style={{ color: '#2E4156' }}>{t.daysEntitled} days/yr</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className="w-1.5 h-1.5 rounded-full" style={{ background: t.isWithPay ? '#10b981' : '#ef4444' }} />
@@ -434,8 +434,8 @@ export default function LeaveTypesPage() {
                         </div>
                         {t.carryOver && (
                           <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#227f84' }} />
-                            <span className="text-xs font-semibold" style={{ color: '#227f84' }}>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2E4156' }} />
+                            <span className="text-xs font-semibold" style={{ color: '#2E4156' }}>
                               Carry Over{t.maxCarryOver ? ` (max ${t.maxCarryOver}d)` : ''}
                             </span>
                           </div>
@@ -458,7 +458,7 @@ export default function LeaveTypesPage() {
                       <button
                         onClick={() => startEdit(t)}
                         className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-                        style={{ background: 'rgba(67,168,218,0.1)', color: '#227f84' }}
+                        style={{ background: 'rgba(67,168,218,0.1)', color: '#2E4156' }}
                         title="Edit leave type"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -484,3 +484,4 @@ export default function LeaveTypesPage() {
     </div>
   )
 }
+

@@ -9,7 +9,7 @@ export async function GET() {
   const [employee, company] = await Promise.all([
     prisma.employee.findFirst({
       where: { userId: ctx.userId, companyId: ctx.companyId },
-      select: { biometricCredential: true },
+      select: { biometricCredential: true, fingerprintExempt: true },
     }),
     prisma.company.findUnique({
       where: { id: ctx.companyId },
@@ -19,6 +19,6 @@ export async function GET() {
 
   return NextResponse.json({
     enrolled: !!employee?.biometricCredential,
-    required: company?.fingerprintRequired ?? true,
+    required: (company?.fingerprintRequired ?? true) && !employee?.fingerprintExempt,
   })
 }

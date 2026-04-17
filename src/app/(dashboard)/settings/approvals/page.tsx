@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN:     'bg-red-100 text-red-700',
   COMPANY_ADMIN:   'bg-purple-100 text-purple-700',
-  HR_MANAGER:      'bg-teal-100 text-teal-700',
+  HR_MANAGER:      'bg-[#C0C8CA] text-[#1A2D42]',
   PAYROLL_OFFICER: 'bg-orange-100 text-orange-700',
 }
 
@@ -200,7 +200,7 @@ export default function ApprovalWorkflowsPage() {
     const entries = getApproversFor(type)
     const icon    = type === 'PAYROLL'
       ? <CheckCircle className="w-4 h-4 text-green-600" />
-      : <FileText className="w-4 h-4 text-teal-600" />
+      : <FileText className="w-4 h-4 text-[#2E4156]" />
     const title   = type === 'PAYROLL' ? 'Payroll Approval Workflow' : 'Leave Request Approval Workflow'
 
     return (
@@ -265,8 +265,8 @@ export default function ApprovalWorkflowsPage() {
 
       <Card>
         <CardContent className="p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-teal-50">
-            <Users className="w-5 h-5 text-teal-500" />
+          <div className="p-2 rounded-lg bg-[#D4D8DD]">
+            <Users className="w-5 h-5 text-[#2E4156]" />
           </div>
           <p className="text-sm text-gray-600">
             Approvals are processed in order — the <strong>1st Approver</strong> must approve before the 2nd, and so on.
@@ -278,3 +278,4 @@ export default function ApprovalWorkflowsPage() {
     </div>
   )
 }
+

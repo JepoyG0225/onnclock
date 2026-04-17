@@ -43,7 +43,7 @@ const TYPE_LABELS: Record<PaymentMethodType, string> = {
 const TYPE_COLORS: Record<PaymentMethodType, string> = {
   GCASH: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
   BANK_TRANSFER: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
-  E_WALLET: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
+  E_WALLET: 'bg-[#2E4156]/10 text-[#C0C8CA] border-[#2E4156]/20',
   OTHER: 'bg-slate-700/50 text-slate-400 border-slate-600',
 }
 
@@ -157,15 +157,15 @@ export default function AdminPaymentMethodsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-cyan-400/70 font-semibold">System Admin</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[#C0C8CA]/70 font-semibold">System Admin</p>
           <h1 className="text-2xl font-black text-white mt-1 flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-cyan-400" /> Payment Methods
+            <Wallet className="w-6 h-6 text-[#C0C8CA]" /> Payment Methods
           </h1>
           <p className="text-sm text-slate-400 mt-1">Configure payment channels available to companies for billing</p>
         </div>
         <button
           onClick={() => setShowAdd(v => !v)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2E4156] hover:bg-[#2E4156] text-white text-sm font-semibold transition-colors"
         >
           <Plus className="w-4 h-4" />
           {showAdd ? 'Cancel' : 'Add Method'}
@@ -174,8 +174,8 @@ export default function AdminPaymentMethodsPage() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="rounded-2xl border border-cyan-500/20 bg-slate-900 p-5 space-y-4">
-          <p className="text-sm font-semibold text-cyan-300">New Payment Method</p>
+        <div className="rounded-2xl border border-[#2E4156]/20 bg-slate-900 p-5 space-y-4">
+          <p className="text-sm font-semibold text-[#C0C8CA]">New Payment Method</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-[11px] text-slate-500 mb-1 uppercase tracking-wide">Code *</label>
@@ -183,7 +183,7 @@ export default function AdminPaymentMethodsPage() {
                 value={newMethod.code}
                 onChange={e => setNewMethod(p => ({ ...p, code: e.target.value.toUpperCase() }))}
                 placeholder="e.g. GCASH_MAIN"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               />
             </div>
             <div>
@@ -192,7 +192,7 @@ export default function AdminPaymentMethodsPage() {
                 value={newMethod.label}
                 onChange={e => setNewMethod(p => ({ ...p, label: e.target.value }))}
                 placeholder="e.g. GCash (Main)"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               />
             </div>
             <div>
@@ -200,7 +200,7 @@ export default function AdminPaymentMethodsPage() {
               <select
                 value={newMethod.type}
                 onChange={e => setNewMethod(p => ({ ...p, type: e.target.value as PaymentMethodType }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               >
                 {(Object.keys(TYPE_LABELS) as PaymentMethodType[]).map(k => (
                   <option key={k} value={k}>{TYPE_LABELS[k]}</option>
@@ -213,7 +213,7 @@ export default function AdminPaymentMethodsPage() {
                 value={newMethod.bankName ?? ''}
                 onChange={e => setNewMethod(p => ({ ...p, bankName: e.target.value }))}
                 placeholder="Optional"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               />
             </div>
             <div>
@@ -222,7 +222,7 @@ export default function AdminPaymentMethodsPage() {
                 value={newMethod.accountName ?? ''}
                 onChange={e => setNewMethod(p => ({ ...p, accountName: e.target.value }))}
                 placeholder="Optional"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               />
             </div>
             <div>
@@ -231,7 +231,7 @@ export default function AdminPaymentMethodsPage() {
                 value={newMethod.accountNumber ?? ''}
                 onChange={e => setNewMethod(p => ({ ...p, accountNumber: e.target.value }))}
                 placeholder="Optional"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               />
             </div>
             <div>
@@ -240,7 +240,7 @@ export default function AdminPaymentMethodsPage() {
                 value={newMethod.qrImageUrl ?? ''}
                 onChange={e => setNewMethod(p => ({ ...p, qrImageUrl: e.target.value }))}
                 placeholder="https://…"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               />
             </div>
             <div>
@@ -250,7 +250,7 @@ export default function AdminPaymentMethodsPage() {
                 min={0}
                 value={newMethod.sortOrder}
                 onChange={e => setNewMethod(p => ({ ...p, sortOrder: Number(e.target.value) || 100 }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
               />
             </div>
           </div>
@@ -261,14 +261,14 @@ export default function AdminPaymentMethodsPage() {
               value={newMethod.instructions ?? ''}
               onChange={e => setNewMethod(p => ({ ...p, instructions: e.target.value }))}
               placeholder="Payment instructions shown to companies…"
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 resize-none"
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156] resize-none"
             />
           </div>
           <div className="flex justify-end">
             <button
               onClick={addMethod}
               disabled={adding}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold disabled:opacity-60 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2E4156] hover:bg-[#2E4156] text-white text-sm font-semibold disabled:opacity-60 transition-colors"
             >
               {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Add Method
@@ -280,7 +280,7 @@ export default function AdminPaymentMethodsPage() {
       {/* Methods list */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#C0C8CA]" />
         </div>
       ) : methods.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-800 py-16 text-center text-slate-500 text-sm">
@@ -317,7 +317,7 @@ export default function AdminPaymentMethodsPage() {
                   <input
                     value={method.label}
                     onChange={e => updateMethod(method.id, { label: e.target.value })}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                   />
                 </div>
                 <div>
@@ -325,7 +325,7 @@ export default function AdminPaymentMethodsPage() {
                   <select
                     value={method.type}
                     onChange={e => updateMethod(method.id, { type: e.target.value as PaymentMethodType })}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                   >
                     {(Object.keys(TYPE_LABELS) as PaymentMethodType[]).map(k => (
                       <option key={k} value={k}>{TYPE_LABELS[k]}</option>
@@ -339,7 +339,7 @@ export default function AdminPaymentMethodsPage() {
                     min={0}
                     value={method.sortOrder}
                     onChange={e => updateMethod(method.id, { sortOrder: Number(e.target.value) || 0 })}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                   />
                 </div>
                 <div>
@@ -347,7 +347,7 @@ export default function AdminPaymentMethodsPage() {
                   <input
                     value={method.bankName ?? ''}
                     onChange={e => updateMethod(method.id, { bankName: e.target.value })}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     placeholder="—"
                   />
                 </div>
@@ -356,7 +356,7 @@ export default function AdminPaymentMethodsPage() {
                   <input
                     value={method.accountName ?? ''}
                     onChange={e => updateMethod(method.id, { accountName: e.target.value })}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     placeholder="—"
                   />
                 </div>
@@ -365,7 +365,7 @@ export default function AdminPaymentMethodsPage() {
                   <input
                     value={method.accountNumber ?? ''}
                     onChange={e => updateMethod(method.id, { accountNumber: e.target.value })}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     placeholder="—"
                   />
                 </div>
@@ -374,7 +374,7 @@ export default function AdminPaymentMethodsPage() {
                   <input
                     value={method.qrImageUrl ?? ''}
                     onChange={e => updateMethod(method.id, { qrImageUrl: e.target.value })}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     placeholder="https://…"
                   />
                 </div>
@@ -386,7 +386,7 @@ export default function AdminPaymentMethodsPage() {
                   rows={2}
                   value={method.instructions ?? ''}
                   onChange={e => updateMethod(method.id, { instructions: e.target.value })}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 resize-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156] resize-none"
                   placeholder="—"
                 />
               </div>
@@ -403,7 +403,7 @@ export default function AdminPaymentMethodsPage() {
                 <button
                   onClick={() => saveMethod(method)}
                   disabled={savingId === method.id}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold disabled:opacity-60 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#2E4156] hover:bg-[#2E4156] text-white text-xs font-semibold disabled:opacity-60 transition-colors"
                 >
                   {savingId === method.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Save
@@ -416,3 +416,4 @@ export default function AdminPaymentMethodsPage() {
     </div>
   )
 }
+

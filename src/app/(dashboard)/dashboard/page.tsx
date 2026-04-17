@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 
 const getSession = cache(auth)
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,19 +11,116 @@ import { Users, CalendarDays, TrendingUp, AlertCircle, UserCheck, Cake, PlaneTak
 import { peso } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 
+type BirthdayEmployee = {
+  id: string
+  firstName: string
+  lastName: string
+  birthDate: Date | null
+  position: { title: string } | null
+}
+
+type LeaveEmployeeSummary = {
+  firstName: string
+  lastName: string
+  position: { title: string } | null
+}
+
+type LeaveTodayItem = {
+  id: string
+  employee: LeaveEmployeeSummary
+  leaveType: { name: string }
+}
+
 export default async function DashboardPage() {
   const session = await getSession()
   if (!session?.user) redirect('/login')
 
-  const companyId = session.user.companyId
+  const companyId = await resolveEffectiveCompanyId(session.user)
   if (!companyId) redirect('/login')
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999)
 
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { name: true },
-  })
+  let company: { name: string } | null = null
+  let totalEmployees = 0
+  let activeEmployees = 0
+  let pendingLeaves = 0
+  let lastPayrollRun: Awaited<ReturnType<typeof prisma.payrollRun.findFirst>> = null
+  let clockedInToday = 0
+  let upcomingHolidays: Awaited<ReturnType<typeof prisma.holiday.findMany>> = []
+  let allEmployeesWithBirthday: BirthdayEmployee[] = []
+  let onLeaveToday: LeaveTodayItem[] = []
+
+  try {
+    const result = await prisma.$transaction([
+      prisma.company.findUnique({
+        where: { id: companyId },
+        select: { name: true },
+      }),
+      prisma.employee.count({ where: { companyId } }),
+      prisma.employee.count({ where: { companyId, isActive: true } }),
+      prisma.leaveRequest.count({
+        where: { status: 'PENDING', employee: { companyId } },
+      }),
+      prisma.payrollRun.findFirst({
+        where: { companyId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.dTRRecord.count({
+        where: {
+          employee: { companyId },
+          date: { gte: todayStart, lte: todayEnd },
+          timeIn: { not: null },
+        },
+      }),
+      prisma.holiday.findMany({
+        where: { companyId, date: { gte: todayStart } },
+        orderBy: { date: 'asc' },
+        take: 5,
+      }),
+      prisma.employee.findMany({
+        where: { companyId, isActive: true, birthDate: { not: undefined } },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          birthDate: true,
+          position: { select: { title: true } },
+        },
+      }),
+      prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          startDate: { lte: todayEnd },
+          endDate: { gte: todayStart },
+          employee: { companyId, isActive: true },
+        },
+        include: {
+          employee: {
+            select: {
+              firstName: true,
+              lastName: true,
+              position: { select: { title: true } },
+            },
+          },
+          leaveType: { select: { name: true } },
+        },
+        orderBy: { startDate: 'asc' },
+        take: 5,
+      }),
+    ])
+
+    company = result[0]
+    totalEmployees = result[1]
+    activeEmployees = result[2]
+    pendingLeaves = result[3]
+    lastPayrollRun = result[4]
+    clockedInToday = result[5]
+    upcomingHolidays = result[6]
+    allEmployeesWithBirthday = result[7]
+    onLeaveToday = result[8]
+  } catch (error) {
+    console.error('Dashboard load failed', error)
+  }
 
   if (!company) {
     return (
@@ -35,69 +133,6 @@ export default async function DashboardPage() {
       </div>
     )
   }
-
-  const [
-    totalEmployees,
-    activeEmployees,
-    pendingLeaves,
-    lastPayrollRun,
-    clockedInToday,
-    upcomingHolidays,
-    allEmployeesWithBirthday,
-    onLeaveToday,
-  ] = await Promise.all([
-    prisma.employee.count({ where: { companyId } }),
-    prisma.employee.count({ where: { companyId, isActive: true } }),
-    prisma.leaveRequest.count({
-      where: { status: 'PENDING', employee: { companyId } },
-    }),
-    prisma.payrollRun.findFirst({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.dTRRecord.count({
-      where: {
-        employee: { companyId },
-        date: { gte: todayStart, lte: todayEnd },
-        timeIn: { not: null },
-      },
-    }),
-    prisma.holiday.findMany({
-      where: { companyId, date: { gte: todayStart } },
-      orderBy: { date: 'asc' },
-      take: 5,
-    }),
-    prisma.employee.findMany({
-      where: { companyId, isActive: true, birthDate: { not: undefined } },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        birthDate: true,
-        position: { select: { title: true } },
-      },
-    }),
-    prisma.leaveRequest.findMany({
-      where: {
-        status: 'APPROVED',
-        startDate: { lte: todayEnd },
-        endDate: { gte: todayStart },
-        employee: { companyId, isActive: true },
-      },
-      include: {
-        employee: {
-          select: {
-            firstName: true,
-            lastName: true,
-            position: { select: { title: true } },
-          },
-        },
-        leaveType: { select: { name: true } },
-      },
-      orderBy: { startDate: 'asc' },
-      take: 5,
-    }),
-  ])
 
   const in30Days = new Date(todayStart)
   in30Days.setDate(in30Days.getDate() + 30)
@@ -124,20 +159,24 @@ export default async function DashboardPage() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening'
+  const userName = session.user.name?.split(' ')[0] ?? session.user.email?.split('@')[0] ?? ''
+
   return (
     <div className="space-y-6">
 
       {/* ── Welcome Banner ── */}
-      <div className="rounded-2xl bg-gradient-to-br from-teal-600 via-teal-700 to-teal-900 p-6 text-white relative overflow-hidden">
+      <div className="rounded-2xl bg-gradient-to-br from-[#1A2D42] via-[#2E4156] to-[#1A2D42] p-6 text-white relative overflow-hidden">
         {/* decorative circles */}
         <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/5" />
         <div className="absolute right-8 top-12 w-24 h-24 rounded-full bg-white/5" />
         <div className="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-white/5" />
 
         <div className="relative">
-          <p className="text-teal-200 text-sm">{todayLabel}</p>
-          <h1 className="text-2xl font-bold mt-0.5">Dashboard</h1>
-          <p className="text-teal-100 text-sm mt-0.5">{company.name}</p>
+          <p className="text-[#C0C8CA] text-sm">{todayLabel}</p>
+          <h1 className="text-2xl font-bold mt-0.5">{greeting}{userName ? `, ${userName}!` : '!'}</h1>
+          <p className="text-[#D4D8DD] text-sm mt-0.5">{company.name}</p>
 
         </div>
       </div>
@@ -150,15 +189,15 @@ export default async function DashboardPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-medium text-gray-500">Total Employees</p>
-              <div className="bg-teal-50 p-2 rounded-lg">
-                <Users className="w-4 h-4 text-teal-600" />
+              <div className="bg-[#D4D8DD] p-2 rounded-lg">
+                <Users className="w-4 h-4 text-[#2E4156]" />
               </div>
             </div>
             <p className="text-3xl font-bold text-gray-900">{totalEmployees}</p>
             <p className="text-xs text-gray-400 mt-1.5">
-              <span className="text-teal-600 font-semibold">{activeEmployees}</span> active
+              <span className="text-[#2E4156] font-semibold">{activeEmployees}</span> active
             </p>
-            <div className="absolute bottom-0 right-0 w-20 h-20 bg-teal-50 rounded-tl-full opacity-60" />
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-[#D4D8DD] rounded-tl-full opacity-60" />
           </CardContent>
         </Card>
 
@@ -290,11 +329,11 @@ export default async function DashboardPage() {
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
-                <div className="bg-teal-50 p-1.5 rounded-lg">
-                  <CalendarDays className="w-3.5 h-3.5 text-teal-500" />
+                <div className="bg-[#D4D8DD] p-1.5 rounded-lg">
+                  <CalendarDays className="w-3.5 h-3.5 text-[#2E4156]" />
                 </div>
                 Upcoming Holidays
-                <Badge className="ml-auto bg-teal-50 text-teal-600 border-0 text-xs font-semibold">
+                <Badge className="ml-auto bg-[#D4D8DD] text-[#2E4156] border-0 text-xs font-semibold">
                   {upcomingHolidays.length}
                 </Badge>
               </CardTitle>
@@ -313,12 +352,12 @@ export default async function DashboardPage() {
                       (hDate.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
                     )
                     return (
-                      <div key={holiday.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-teal-50 transition-colors">
-                        <div className="w-9 h-9 rounded-xl bg-teal-50 flex flex-col items-center justify-center shrink-0">
-                          <span className="text-[9px] font-bold text-teal-500 uppercase leading-none">
+                      <div key={holiday.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#D4D8DD] transition-colors">
+                        <div className="w-9 h-9 rounded-xl bg-[#D4D8DD] flex flex-col items-center justify-center shrink-0">
+                          <span className="text-[9px] font-bold text-[#2E4156] uppercase leading-none">
                             {hDate.toLocaleDateString('en-PH', { month: 'short' })}
                           </span>
-                          <span className="text-sm font-bold text-teal-700 leading-tight">{hDate.getDate()}</span>
+                          <span className="text-sm font-bold text-[#1A2D42] leading-tight">{hDate.getDate()}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{holiday.name}</p>
@@ -326,7 +365,7 @@ export default async function DashboardPage() {
                             className={`mt-0.5 text-[10px] border-0 px-1.5 py-0 h-4 ${
                               holiday.type === 'REGULAR'
                                 ? 'bg-red-100 text-red-600'
-                                : 'bg-teal-100 text-teal-600'
+                                : 'bg-[#C0C8CA] text-[#2E4156]'
                             }`}
                           >
                             {holiday.type === 'REGULAR' ? 'Regular' : 'Special'}
@@ -399,11 +438,11 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="flex gap-3 p-4 rounded-xl bg-teal-50 border border-teal-100">
-              <div className="w-1 rounded-full bg-teal-400 shrink-0" />
+            <div className="flex gap-3 p-4 rounded-xl bg-[#D4D8DD] border border-[#C0C8CA]">
+              <div className="w-1 rounded-full bg-[#2E4156] shrink-0" />
               <div>
-                <p className="text-sm font-bold text-teal-800">SSS</p>
-                <p className="text-xs text-teal-600 mt-0.5 font-medium">Due: Last day of following month</p>
+                <p className="text-sm font-bold text-[#1A2D42]">SSS</p>
+                <p className="text-xs text-[#2E4156] mt-0.5 font-medium">Due: Last day of following month</p>
                 <p className="text-xs text-gray-500 mt-2">R3 Form — Monthly contribution collection list</p>
               </div>
             </div>

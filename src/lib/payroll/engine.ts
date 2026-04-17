@@ -83,7 +83,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     : 0
   const holidayOtAmount = regularHolidayOt + specialHolidayOt
 
-  const nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours)
+  const nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours, period.nightDifferentialRate)
 
   // Holiday pay premium (additional on top of basic)
   const regularHolidayPremium = computeHolidayPayAdditional(
@@ -111,6 +111,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
   const allowancesTotal = allowances.rice + allowances.clothing +
     allowances.medical + allowances.transportation + allowances.other
+  const otherEarnings = input.additionalTaxableIncome + input.additionalNonTaxableIncome
 
   // ── 5. GROSS PAY ──────────────────────────────
   // Gross includes all earnings + allowances before deductions
@@ -124,26 +125,39 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     + regularHolidayNonWorkPay
     + allowancesTotal
     + deMinimisTotal
+    + otherEarnings
   ).toFixed(2))
 
   // ── 6. GOVERNMENT CONTRIBUTIONS ───────────────
   const monthlySalary = employee.basicSalary
 
-  const sss = getSSSForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
-  const ph = getPhilHealthForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
-  const pagibig = getPagIBIGForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
+  const sssRaw = getSSSForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
+  const phRaw = getPhilHealthForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
+  const pagibigRaw = getPagIBIGForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
+
+  // Apply per-employee deduction toggles
+  const sss = employee.sssEnabled
+    ? sssRaw
+    : { employee: 0, ec: 0, employer: 0 }
+  const ph = employee.philhealthEnabled
+    ? phRaw
+    : { employee: 0, employer: 0 }
+  const pagibig = employee.pagibigEnabled
+    ? pagibigRaw
+    : { employee: 0, employer: 0 }
 
   // ── 7. WITHHOLDING TAX ────────────────────────
   const taxResult = computeWithholdingTax({
     basicAndAllowances: basicPay + allowancesTotal - lateDeduction - undertimeDeduction - absenceDeduction,
     overtimeAndPremium: regularOtAmount + restDayOtAmount + holidayOtAmount + nightDiffAmount + holidayPayAmount,
     deMinimisNonTaxable: deMinimisTotal,
+    additionalNonTaxable: input.additionalNonTaxableIncome,
     sssEmployee: sss.employee,
     philhealthEmployee: ph.employee,
     pagibigEmployee: pagibig.employee,
     ytdWithholdingTax: ytd.withholdingTax,
     payPeriodsInYear,
-    isExempt: employee.isExemptFromTax,
+    isExempt: employee.isExemptFromTax || !employee.withholdingTaxEnabled,
     isMinimumWageEarner: employee.isMinimumWageEarner,
   })
 
@@ -183,7 +197,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     holidayPayAmount: holidayPayAmount + regularHolidayNonWorkPay,
     allowancesTotal,
     deMinimisTotal,
-    otherEarnings: 0,
+    otherEarnings,
     grossPay,
     sssEmployee: sss.employee,
     sssEc: sss.ec,

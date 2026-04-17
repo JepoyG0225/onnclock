@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
 
   const [leaveRequests, dtrPending] = await Promise.all([
     prisma.leaveRequest.findMany({
-      where: { employee: { companyId: ctx.companyId } },
+      where: {
+        employee: { companyId: ctx.companyId },
+        status: 'PENDING',
+      },
       include: {
         employee: { select: { firstName: true, lastName: true, employeeNo: true } },
         leaveType: { select: { name: true } },

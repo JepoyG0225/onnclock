@@ -300,7 +300,7 @@ export async function GET(req: NextRequest) {
         ps.riceAllowance.toNumber() +
         ps.clothingAllowance.toNumber() +
         ps.medicalAllowance.toNumber() +
-        ps.otherAllowances.toNumber()
+        ps.otherEarnings.toNumber()
       const loanDeductions =
         ps.sssLoanDeduction.toNumber() +
         ps.pagibigLoan.toNumber() +

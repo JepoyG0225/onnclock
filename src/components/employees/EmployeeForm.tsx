@@ -59,6 +59,13 @@ const employeeSchema = z.object({
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
   trackTime: z.boolean().default(false),
+  fingerprintExempt: z.boolean().default(false),
+  geofenceExempt: z.boolean().default(false),
+  selfieExempt: z.boolean().default(false),
+  sssEnabled: z.boolean().default(true),
+  philhealthEnabled: z.boolean().default(true),
+  pagibigEnabled: z.boolean().default(true),
+  withholdingTaxEnabled: z.boolean().default(true),
   notes: z.string().optional(),
 })
 
@@ -72,6 +79,19 @@ interface Props {
   defaultValues?: Partial<EmployeeFormData>
   employeeId?: string
   hasPortalUser?: boolean
+}
+
+// Defined outside EmployeeForm so its identity is stable across re-renders.
+// Defining it inside would cause React to unmount/remount inputs on every
+// keystroke (new function ref = new component type = focus lost).
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">{label}</Label>
+      {children}
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  )
 }
 
 export function EmployeeForm({ departments, positions, workSchedules, defaultValues, employeeId, hasPortalUser = false }: Props) {
@@ -123,6 +143,19 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
   const [leavesLoading, setLeavesLoading] = useState(false)
   const [leavesSaving, setLeavesSaving] = useState(false)
   const [leavesLoaded, setLeavesLoaded] = useState(false)
+  type IncomeTypeItem = {
+    id: string
+    name: string
+    code?: string | null
+    mode: 'FIXED' | 'VARIABLE'
+    isTaxable: boolean
+    defaultAmount: number
+    assigned?: boolean
+    fixedAmount?: number
+  }
+  const [companyIncomeTypes, setCompanyIncomeTypes] = useState<IncomeTypeItem[]>([])
+  const [incomeAssignments, setIncomeAssignments] = useState<Record<string, { assigned: boolean; fixedAmount: number }>>({})
+  const [incomeAssignmentsLoading, setIncomeAssignmentsLoading] = useState(false)
 
   function shouldDisableLeaveByGender(lt: { code: string; name: string; genderRestriction?: string | null }, gender?: EmployeeFormData['gender']) {
     if (!gender) return false
@@ -189,6 +222,49 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     }
   }
 
+  async function loadIncomeAssignments() {
+    if (!employeeId) return
+    setIncomeAssignmentsLoading(true)
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/income-assignments`)
+      if (!res.ok) {
+        setIncomeAssignments({})
+        return
+      }
+      const data = await res.json()
+      const types = (data.incomeTypes ?? []) as IncomeTypeItem[]
+      setCompanyIncomeTypes(types)
+      const map: Record<string, { assigned: boolean; fixedAmount: number }> = {}
+      for (const type of types) {
+        map[type.id] = {
+          assigned: Boolean(type.assigned),
+          fixedAmount: Number(type.fixedAmount ?? type.defaultAmount ?? 0),
+        }
+      }
+      setIncomeAssignments(map)
+    } finally {
+      setIncomeAssignmentsLoading(false)
+    }
+  }
+
+  async function persistIncomeAssignments(targetEmployeeId: string) {
+    if (companyIncomeTypes.length === 0) return
+    const assignments = companyIncomeTypes.map(type => ({
+      incomeTypeId: type.id,
+      isActive: Boolean(incomeAssignments[type.id]?.assigned),
+      fixedAmount: type.mode === 'FIXED' ? Number(incomeAssignments[type.id]?.fixedAmount ?? type.defaultAmount ?? 0) : null,
+    }))
+    const res = await fetch(`/api/employees/${targetEmployeeId}/income-assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignments }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || 'Failed to save employee income setup')
+    }
+  }
+
   const form = useForm<EmployeeFormData, unknown, EmployeeFormInput>({
     resolver: zodResolver(employeeSchema) as never,
     defaultValues: {
@@ -202,6 +278,13 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       isExemptFromTax: false,
       isMinimumWageEarner: false,
       trackTime: false,
+      fingerprintExempt: false,
+      geofenceExempt: false,
+      selfieExempt: false,
+      sssEnabled: true,
+      philhealthEnabled: true,
+      pagibigEnabled: true,
+      withholdingTaxEnabled: true,
       ...defaultValues,
     },
   })
@@ -225,6 +308,11 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     return () => { active = false }
   }, [employeeId])
 
+  useEffect(() => {
+    if (employeeId) void loadIncomeAssignments()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId])
+
   async function onSubmit(data: EmployeeFormData) {
     setSaving(true)
     try {
@@ -244,23 +332,19 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       }
 
       const result = await res.json()
+      const targetEmployeeId = (result.employee?.id as string | undefined) || employeeId
+      if (targetEmployeeId) {
+        await persistIncomeAssignments(targetEmployeeId)
+      }
+
       toast.success(employeeId ? 'Employee updated!' : 'Employee created!')
-      router.push(`/employees/${result.employee?.id || employeeId}`)
-    } catch {
-      toast.error('An error occurred')
+      router.push(targetEmployeeId ? `/employees/${targetEmployeeId}` : '/employees')
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'An error occurred'
+      toast.error(message)
     } finally {
       setSaving(false)
     }
-  }
-
-  function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{label}</Label>
-        {children}
-        {error && <p className="text-xs text-red-500">{error}</p>}
-      </div>
-    )
   }
 
   return (
@@ -499,13 +583,51 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               <Field label="Notes">
                 <Input {...register('notes')} placeholder="Additional notes..." />
               </Field>
+              <div className="md:col-span-3 mt-1 space-y-2">
+                <Label className="text-sm font-medium">Attendance Overrides</Label>
+                <p className="text-xs text-gray-500">
+                  Turn off company attendance requirements for this employee only.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">Disable Fingerprint</p>
+                      <p className="text-xs text-gray-500">Exempt employee from fingerprint requirement</p>
+                    </div>
+                    <Switch
+                      checked={watch('fingerprintExempt')}
+                      onCheckedChange={v => setValue('fingerprintExempt', v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">Disable Geofencing</p>
+                      <p className="text-xs text-gray-500">Allow clock in/out outside geofence</p>
+                    </div>
+                    <Switch
+                      checked={watch('geofenceExempt')}
+                      onCheckedChange={v => setValue('geofenceExempt', v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">Disable Selfie</p>
+                      <p className="text-xs text-gray-500">Exempt employee from selfie on clock-in</p>
+                    </div>
+                    <Switch
+                      checked={watch('selfieExempt')}
+                      onCheckedChange={v => setValue('selfieExempt', v)}
+                    />
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* COMPENSATION */}
         <TabsContent value="compensation">
-          <Card>
+          <Card className="mb-4">
             <CardHeader><CardTitle className="text-base">Compensation & Pay</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Rate Type">
@@ -590,6 +712,104 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </div>
             </CardContent>
           </Card>
+
+          {/* Mandatory Deductions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Mandatory Deductions</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Disable a deduction to exclude it from this employee&apos;s payroll computation.
+              </p>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                { field: 'sssEnabled', label: 'SSS', desc: 'Social Security System contribution' },
+                { field: 'philhealthEnabled', label: 'PhilHealth', desc: 'Philippine Health Insurance contribution' },
+                { field: 'pagibigEnabled', label: 'Pag-IBIG / HDMF', desc: 'Home Development Mutual Fund contribution' },
+                { field: 'withholdingTaxEnabled', label: 'Withholding Tax', desc: 'BIR income tax withholding' },
+              ] as const).map(({ field, label, desc }) => (
+                <div key={field} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-gray-500">{desc}</p>
+                  </div>
+                  <Switch
+                    checked={watch(field)}
+                    onCheckedChange={v => setValue(field, v)}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {employeeId ? (
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-base">Employee Other Income Setup</CardTitle>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Assign income types to this employee. These are saved together when you click Save Employee.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {incomeAssignmentsLoading ? (
+                  <p className="text-sm text-gray-400">Loading employee income setup...</p>
+                ) : companyIncomeTypes.length === 0 ? (
+                  <p className="text-sm text-gray-400">Create an income type first.</p>
+                ) : (
+                  companyIncomeTypes.map(type => {
+                    const state = incomeAssignments[type.id] ?? { assigned: false, fixedAmount: Number(type.defaultAmount ?? 0) }
+                    return (
+                      <div key={type.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center border rounded-lg px-3 py-2">
+                        <div className="md:col-span-5">
+                          <p className="text-sm font-medium">{type.name}</p>
+                          <p className="text-xs text-gray-500">{type.mode === 'FIXED' ? 'Fixed' : 'Variable'} • {type.isTaxable ? 'Taxable' : 'Non-taxable'}</p>
+                        </div>
+                        <div className="md:col-span-2 flex items-center gap-2">
+                          <Switch
+                            checked={state.assigned}
+                            onCheckedChange={v =>
+                              setIncomeAssignments(prev => ({
+                                ...prev,
+                                [type.id]: { ...state, assigned: v },
+                              }))
+                            }
+                          />
+                          <span className="text-xs text-gray-600">Assigned</span>
+                        </div>
+                        <div className="md:col-span-5">
+                          {type.mode === 'FIXED' ? (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              disabled={!state.assigned}
+                              value={state.fixedAmount}
+                              onChange={e =>
+                                setIncomeAssignments(prev => ({
+                                  ...prev,
+                                  [type.id]: { ...state, fixedAmount: Number(e.target.value || 0) },
+                                }))
+                              }
+                            />
+                          ) : (
+                            <p className="text-xs text-gray-500">Amount is entered during payroll run.</p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="mt-4">
+              <CardContent className="py-4">
+                <p className="text-xs text-gray-500">
+                  Save this employee first to assign other income types.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* GOVERNMENT IDs */}

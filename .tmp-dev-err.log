@@ -1,0 +1,11 @@
+[quotation] PDF error: SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at async POST (src\app\api\quotation\route.tsx:159:18)
+  157 | export async function POST(req: NextRequest) {
+  158 |   try {
+> 159 |     const raw = (await req.json()) as QuotationInput
+      |                  ^
+  160 |
+  161 |     const payload: Required<QuotationInput> = {
+  162 |       plan: raw.plan === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY',
+^C

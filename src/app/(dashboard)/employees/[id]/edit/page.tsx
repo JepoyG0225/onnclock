@@ -3,13 +3,15 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { EmployeeForm } from '@/components/employees/EmployeeForm'
 import { format } from 'date-fns'
+import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 
 export default async function EditEmployeePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const companyId = session.user.companyId!
+  const companyId = await resolveEffectiveCompanyId(session.user)
+  if (!companyId) redirect('/login')
 
   const [employee, departments, positions, workSchedules] = await Promise.all([
     prisma.employee.findFirst({
@@ -86,6 +88,13 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     isExemptFromTax: employee.isExemptFromTax,
     isMinimumWageEarner: employee.isMinimumWageEarner,
     trackTime: employee.trackTime,
+    fingerprintExempt: employee.fingerprintExempt ?? false,
+    geofenceExempt: employee.geofenceExempt ?? false,
+    selfieExempt: employee.selfieExempt ?? false,
+    sssEnabled: employee.sssEnabled ?? true,
+    philhealthEnabled: employee.philhealthEnabled ?? true,
+    pagibigEnabled: employee.pagibigEnabled ?? true,
+    withholdingTaxEnabled: employee.withholdingTaxEnabled ?? true,
     notes: employee.notes ?? '',
   }
 
@@ -93,7 +102,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: '#227f84' }}>Edit Employee</h1>
+        <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Edit Employee</h1>
         <div className="flex items-center gap-2 flex-wrap text-sm text-slate-500 mt-1">
           <span>{employee.lastName}, {employee.firstName} {employee.middleName ?? ''}</span>
           <span>Â·</span>

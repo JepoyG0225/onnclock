@@ -28,7 +28,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
           Click the button below to set a new password. This link expires in <strong>1 hour</strong>.
         </p>
         <a href="${resetUrl}"
-           style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#227f84,#0b4a3b);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#2E4156,#1A2D42);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Reset Password
         </a>
         <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
@@ -43,3 +43,4 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     text: `Reset your Onclock password\n\nClick the link below to reset your password (expires in 1 hour):\n\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
   })
 }
+

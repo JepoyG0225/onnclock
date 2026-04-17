@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { HolidayType } from '@prisma/client'
 import { z } from 'zod'
@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
   if (error) return error
 
   const { searchParams } = new URL(req.url)
+  const companyId = resolveCompanyIdForRequest(ctx, req)
   const employeeId  = searchParams.get('employeeId')
   const periodStart = searchParams.get('from')
   const periodEnd   = searchParams.get('to')
@@ -34,12 +35,12 @@ export async function GET(req: NextRequest) {
   const limit       = Math.min(2000, parseInt(searchParams.get('limit') ?? '31'))
 
   const where: Record<string, unknown> = {}
-
-  if (employeeId) {
-    where.employeeId = employeeId
-  } else {
-    // Filter by company via employee relation
-    where.employee = { companyId: ctx.companyId }
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
+  where.employee = {
+    companyId,
+    ...(employeeId ? { id: employeeId } : {}),
   }
 
   if (periodStart && periodEnd) {
@@ -70,6 +71,15 @@ export async function GET(req: NextRequest) {
             workSchedule: { select: { workDays: true } },
           },
         },
+        screenCaptures: {
+          select: {
+            id: true,
+            imageDataUrl: true,
+            capturedAt: true,
+          },
+          orderBy: { capturedAt: 'desc' },
+          take: 100,
+        },
       },
       orderBy: [{ date: 'desc' }, { employee: { lastName: 'asc' } }],
       skip: (page - 1) * limit,
@@ -84,6 +94,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  const companyId = resolveCompanyIdForRequest(ctx, req)
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
 
   const body = await req.json()
   const parsed = dtrSchema.safeParse(body)
@@ -93,7 +107,7 @@ export async function POST(req: NextRequest) {
 
   // Verify employee belongs to same company
   const employee = await prisma.employee.findFirst({
-    where: { id: data.employeeId, companyId: ctx.companyId },
+    where: { id: data.employeeId, companyId },
   })
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 

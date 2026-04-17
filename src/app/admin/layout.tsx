@@ -3,6 +3,8 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 
+const ADMIN_BG = '#D4D8DD'
+
 export default async function AdminLayout({
   children,
 }: {
@@ -21,7 +23,7 @@ export default async function AdminLayout({
   if (session.user.role !== 'SUPER_ADMIN') redirect('/dashboard')
 
   return (
-    <div className="min-h-screen bg-slate-950 flex">
+    <div className="min-h-screen flex" style={{ background: ADMIN_BG }}>
       <AdminSidebar />
       <main className="flex-1 ml-[60px] min-h-screen overflow-y-auto">
         {children}

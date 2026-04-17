@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 const schema = z.object({
@@ -11,6 +11,10 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  const companyId = resolveCompanyIdForRequest(ctx, req)
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
 
   if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER'].includes(ctx.role)) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
@@ -30,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   // Get all employee IDs for this company
   const employees = await prisma.employee.findMany({
-    where: { companyId: ctx.companyId, isActive: true },
+    where: { companyId, isActive: true },
     select: { id: true },
   })
   const employeeIds = employees.map(e => e.id)

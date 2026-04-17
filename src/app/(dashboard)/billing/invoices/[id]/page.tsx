@@ -79,7 +79,7 @@ export default function InvoicePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-[#2E4156]" />
       </div>
     )
   }
@@ -89,7 +89,7 @@ export default function InvoicePage() {
       <div className="text-center py-24 text-slate-400">
         <AlertCircle className="w-8 h-8 mx-auto mb-3" />
         <p className="font-medium">Invoice not found.</p>
-        <Link href="/settings/billing" className="text-teal-600 text-sm mt-2 inline-block hover:underline">
+        <Link href="/settings/billing" className="text-[#2E4156] text-sm mt-2 inline-block hover:underline">
           ← Back to Billing
         </Link>
       </div>
@@ -130,13 +130,13 @@ export default function InvoicePage() {
     <>
       {/* Print/action bar — hidden in print */}
       <div className="no-print flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 sticky top-0 z-10">
-        <Link href="/settings/billing" className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-teal-700 transition-colors">
+        <Link href="/settings/billing" className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#2E4156] transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Billing
         </Link>
         <button
           onClick={() => window.print()}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-sm shadow-md hover:shadow-lg transition-all"
-          style={{ background: 'linear-gradient(135deg, #227f84, #0b4a3b)' }}
+          style={{ background: 'linear-gradient(135deg, #2E4156, #1A2D42)' }}
         >
           <Printer className="w-4 h-4" /> Download / Print PDF
         </button>
@@ -146,17 +146,17 @@ export default function InvoicePage() {
       <div className="invoice-document max-w-3xl mx-auto my-8 px-4 no-print-margin">
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
           {/* Header band */}
-          <div className="px-10 pt-10 pb-8" style={{ background: 'linear-gradient(135deg, #0b4a3b, #227f84)' }}>
+          <div className="px-10 pt-10 pb-8" style={{ background: 'linear-gradient(135deg, #1A2D42, #2E4156)' }}>
             <div className="flex items-start justify-between">
               <div>
                 <Image src="/onclock-logo.png" alt="Onclock" width={140} height={46} className="object-contain brightness-0 invert mb-4" />
-                <p className="text-teal-200 text-xs font-semibold">Philippine HR & Payroll Platform</p>
-                <p className="text-teal-300 text-xs mt-1">hello@onclock.ph · onclock.ph</p>
+                <p className="text-[#C0C8CA] text-xs font-semibold">Philippine HR & Payroll Platform</p>
+                <p className="text-[#C0C8CA] text-xs mt-1">hello@onclock.ph · onclock.ph</p>
               </div>
               <div className="text-right">
                 <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">Invoice</p>
                 <p className="text-white font-black text-2xl">{invoice.invoiceNo}</p>
-                <p className="text-teal-200 text-xs mt-2">
+                <p className="text-[#C0C8CA] text-xs mt-2">
                   Issued: {format(new Date(invoice.createdAt), 'MMMM dd, yyyy')}
                 </p>
                 {/* Status stamp */}
@@ -251,7 +251,7 @@ export default function InvoicePage() {
               </div>
               <div className="flex justify-between pt-3 border-t-2 border-slate-200">
                 <span className="font-black text-slate-900 text-base">Total Due</span>
-                <span className="font-black text-xl" style={{ color: '#227f84' }}>{fmt(invoice.total)}</span>
+                <span className="font-black text-xl" style={{ color: '#2E4156' }}>{fmt(invoice.total)}</span>
               </div>
             </div>
           </div>

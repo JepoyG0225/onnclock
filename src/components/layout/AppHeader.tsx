@@ -66,7 +66,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
       } catch { /* ignore */ }
     }
     loadCounts()
-    const id = window.setInterval(loadCounts, 30000)
+    const id = window.setInterval(loadCounts, 60000)
     return () => {
       active = false
       window.clearInterval(id)
@@ -133,7 +133,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2">
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-teal-600 text-white text-sm">
+                <AvatarFallback className="text-white text-sm" style={{ background: '#2E4156' }}>
                   {initials}
                 </AvatarFallback>
               </Avatar>

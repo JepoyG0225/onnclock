@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       <div className="space-y-6 text-center">
         <div className="flex justify-center">
           <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,127,132,0.1)' }}>
-            <CheckCircle className="w-8 h-8" style={{ color: '#227f84' }} />
+            <CheckCircle className="w-8 h-8" style={{ color: '#2E4156' }} />
           </div>
         </div>
         <div>
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
         <Link
           href="/login"
           className="flex items-center justify-center gap-2 text-sm font-semibold"
-          style={{ color: '#227f84' }}
+          style={{ color: '#2E4156' }}
         >
           <ArrowLeft className="w-4 h-4" /> Back to sign in
         </Link>
@@ -77,7 +77,7 @@ export default function ForgotPasswordPage() {
               placeholder="you@company.com"
               required
               autoComplete="email"
-              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-[#2E4156] focus:ring-4 focus:ring-[#2E4156]/10"
             />
           </div>
         </div>
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
           disabled={loading}
           className="w-full py-3.5 rounded-xl text-sm font-black tracking-wide text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
           style={{
-            background: 'linear-gradient(135deg, #227f84, #0b4a3b)',
+            background: 'linear-gradient(135deg, #2E4156, #1A2D42)',
             boxShadow: '0 6px 20px rgba(34,127,132,0.35)',
           }}
         >
@@ -98,10 +98,11 @@ export default function ForgotPasswordPage() {
       <Link
         href="/login"
         className="flex items-center justify-center gap-2 text-sm font-semibold"
-        style={{ color: '#227f84' }}
+        style={{ color: '#2E4156' }}
       >
         <ArrowLeft className="w-4 h-4" /> Back to sign in
       </Link>
     </div>
   )
 }
+

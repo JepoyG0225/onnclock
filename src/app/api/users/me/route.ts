@@ -21,5 +21,6 @@ export async function GET() {
     user,
     company,
     role: ctx.role,
+    actorRole: ctx.actorRole ?? ctx.role,
   })
 }

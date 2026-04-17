@@ -7,9 +7,9 @@ registerPdfFonts()
 
 // ─── Brand Colors ────────────────────────────────────────────────────────────
 const ORANGE = '#fa5e01'
-const TEAL   = '#0a353b'
-const BLUE   = '#43a8da'
-const LIGHT  = '#f0f7fa'
+const TEAL   = '#1A2D42'
+const BLUE   = '#2E4156'
+const LIGHT  = '#D4D8DD'
 const MUTED  = '#64748b'
 const BORDER = '#e2e8f0'
 

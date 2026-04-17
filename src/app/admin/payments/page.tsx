@@ -98,9 +98,9 @@ export default function AdminPaymentsPage() {
     <div className="p-6 md:p-8 space-y-6">
       {/* Header */}
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-cyan-400/70 font-semibold">System Admin</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-[#C0C8CA]/70 font-semibold">System Admin</p>
         <h1 className="text-2xl font-black text-white mt-1 flex items-center gap-2">
-          <Receipt className="w-6 h-6 text-cyan-400" /> Payments
+          <Receipt className="w-6 h-6 text-[#C0C8CA]" /> Payments
         </h1>
         <p className="text-sm text-slate-400 mt-1">Review payment submissions and invoice tracking</p>
       </div>
@@ -111,7 +111,7 @@ export default function AdminPaymentsPage() {
           { label: 'Total Invoices', value: summary.total, color: 'text-slate-100' },
           { label: 'Pending Review', value: summary.unpaid, color: 'text-amber-300' },
           { label: 'Confirmed Paid', value: summary.paid, color: 'text-emerald-300' },
-          { label: 'Revenue Collected', value: fmt(summary.revenue), color: 'text-cyan-300' },
+          { label: 'Revenue Collected', value: fmt(summary.revenue), color: 'text-[#C0C8CA]' },
         ].map(s => (
           <div key={s.label} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
             <p className="text-[11px] text-slate-500 uppercase tracking-wide">{s.label}</p>
@@ -127,7 +127,7 @@ export default function AdminPaymentsPage() {
             key={f.key}
             onClick={() => setFilter(f.key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              filter === f.key ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              filter === f.key ? 'bg-[#2E4156] text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
             {f.label}
@@ -141,7 +141,7 @@ export default function AdminPaymentsPage() {
       {/* Payment list */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#C0C8CA]" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-800 py-16 text-center text-slate-500 text-sm">
@@ -157,7 +157,7 @@ export default function AdminPaymentsPage() {
                   {/* Proof thumbnail */}
                   <button
                     onClick={() => setPreviewUrl(payment.proofOfPaymentDataUrl)}
-                    className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-700 overflow-hidden bg-slate-950 hover:border-cyan-500/50 transition-colors relative group"
+                    className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-700 overflow-hidden bg-slate-950 hover:border-[#2E4156]/50 transition-colors relative group"
                   >
                     <img
                       src={payment.proofOfPaymentDataUrl}
@@ -255,3 +255,4 @@ export default function AdminPaymentsPage() {
     </div>
   )
 }
+

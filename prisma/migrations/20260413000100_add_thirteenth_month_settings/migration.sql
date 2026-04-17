@@ -1,0 +1,5 @@
+ALTER TABLE "companies"
+  ADD COLUMN "thirteenthPayStartMonth" INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN "thirteenthPayStartDay" INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN "thirteenthPayEndMonth" INTEGER NOT NULL DEFAULT 12,
+  ADD COLUMN "thirteenthPayEndDay" INTEGER NOT NULL DEFAULT 31;

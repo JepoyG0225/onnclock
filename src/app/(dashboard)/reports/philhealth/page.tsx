@@ -91,7 +91,7 @@ export default function PhilHealthReportPage() {
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'EE Shares (2.5%)', value: totalEE,     color: 'text-green-700' },
-          { label: 'ER Shares (2.5%)', value: totalER,     color: 'text-teal-700' },
+          { label: 'ER Shares (2.5%)', value: totalER,     color: 'text-[#1A2D42]' },
           { label: 'Total Premium',    value: totalPremium, color: 'text-gray-900' },
         ].map(s => (
           <Card key={s.label}>
@@ -135,7 +135,7 @@ export default function PhilHealthReportPage() {
                       <td className="p-3">{r.lastName}, {r.firstName}</td>
                       <td className="p-3 text-right">{peso(r.basicSalary)}</td>
                       <td className="p-3 text-right text-green-700">{peso(r.employeeShare)}</td>
-                      <td className="p-3 text-right text-teal-700">{peso(r.employerShare)}</td>
+                      <td className="p-3 text-right text-[#1A2D42]">{peso(r.employerShare)}</td>
                       <td className="p-3 text-right font-medium">{peso(r.premiumTotal)}</td>
                     </tr>
                   ))}
@@ -144,7 +144,7 @@ export default function PhilHealthReportPage() {
                   <tr>
                     <td colSpan={3} className="p-3">TOTAL</td>
                     <td className="p-3 text-right text-green-700">{peso(totalEE)}</td>
-                    <td className="p-3 text-right text-teal-700">{peso(totalER)}</td>
+                    <td className="p-3 text-right text-[#1A2D42]">{peso(totalER)}</td>
                     <td className="p-3 text-right">{peso(totalPremium)}</td>
                   </tr>
                 </tfoot>
@@ -163,3 +163,4 @@ export default function PhilHealthReportPage() {
     </div>
   )
 }
+

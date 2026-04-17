@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { getManilaDateOnly } from '@/lib/date-manila'
 
 function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
   const toRad = (d: number) => (d * Math.PI) / 180
@@ -23,10 +24,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const clockedInOnly = searchParams.get('clockedInOnly') === '1'
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  const manilaDate = getManilaDateOnly()
+  const manilaDateNext = new Date(manilaDate)
+  manilaDateNext.setUTCDate(manilaDateNext.getUTCDate() + 1)
 
   const company = await prisma.company.findUnique({
     where: { id: ctx.companyId },
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const activeDTR = await prisma.dTRRecord.findMany({
     where: {
       employee: { companyId: ctx.companyId },
-      date: { gte: today, lt: tomorrow },
+      date: { gte: manilaDate, lt: manilaDateNext },
       timeIn: { not: null },
       ...(clockedInOnly ? { timeOut: null } : {}),
     },
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   const latestPings = await prisma.locationPing.findMany({
     where: {
       employeeId: { in: employeeIds },
-      recordedAt: { gte: today },
+      recordedAt: { gte: manilaDate },
     },
     orderBy: { recordedAt: 'desc' },
   })

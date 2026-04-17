@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
@@ -52,11 +52,11 @@ interface PaymentMethod {
   isActive: boolean
 }
 
-const MONTHLY_PRICE = 50
-const ANNUAL_PRICE_PER_MONTH = 40
+const STANDARD_PRICE = 50
+const PRO_PRICE = 70
 
 function fmt(n: number) {
-  return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return 'â‚±' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default function BillingPage() {
@@ -66,6 +66,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<'MONTHLY' | 'ANNUAL' | null>(null)
+  const [selectedPricePerSeat, setSelectedPricePerSeat] = useState<50 | 70>(STANDARD_PRICE)
   const [seatCount, setSeatCount] = useState(1)
   const [paymentCode, setPaymentCode] = useState<string | null>(null)
   const [proofDataUrl, setProofDataUrl] = useState<string | null>(null)
@@ -92,6 +93,9 @@ export default function BillingPage() {
         const next = await subRes.json()
         setData(next)
         setSeatCount(Math.max(next.employeeCount, next.subscription?.seatCount ?? 1))
+        const currentRate = Number(next.subscription?.pricePerSeat ?? STANDARD_PRICE)
+        if (currentRate >= PRO_PRICE) setSelectedPricePerSeat(PRO_PRICE)
+        else setSelectedPricePerSeat(STANDARD_PRICE)
       }
       if (invRes.ok) setInvoices((await invRes.json()).invoices ?? [])
       if (methodRes.ok) {
@@ -118,6 +122,7 @@ export default function BillingPage() {
         body: JSON.stringify({
           billingCycle: selectedPlan,
           seatCount,
+          pricePerSeat: selectedPricePerSeat,
           paymentMethodCode: paymentCode,
           proofOfPaymentDataUrl: proofDataUrl ?? undefined,
         }),
@@ -139,7 +144,7 @@ export default function BillingPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-[#2E4156]" />
       </div>
     )
   }
@@ -152,9 +157,10 @@ export default function BillingPage() {
   const isAnnual = sub.billingCycle === 'ANNUAL'
 
   const effectiveSeatCount = Math.max(employeeCount, seatCount)
-  const monthlyTotal = MONTHLY_PRICE * effectiveSeatCount
-  const annualTotal = ANNUAL_PRICE_PER_MONTH * 12 * effectiveSeatCount
-  const annualSavings = MONTHLY_PRICE * 12 * effectiveSeatCount - annualTotal
+  const annualPricePerMonth = Math.round(selectedPricePerSeat * 0.8)
+  const monthlyTotal = selectedPricePerSeat * effectiveSeatCount
+  const annualTotal = annualPricePerMonth * 12 * effectiveSeatCount
+  const annualSavings = selectedPricePerSeat * 12 * effectiveSeatCount - annualTotal
 
   const selectedMethod = methods.find((m) => m.code === paymentCode) ?? null
   const selectedTotal = selectedPlan === 'ANNUAL' ? annualTotal : monthlyTotal
@@ -173,13 +179,13 @@ export default function BillingPage() {
 
       {(isOnTrial || isExpired) && (
         <div className={`rounded-2xl px-5 py-4 flex items-start gap-4 border ${
-          isExpired ? 'bg-red-50 border-red-200' : 'bg-teal-50 border-teal-200'
+          isExpired ? 'bg-red-50 border-red-200' : 'bg-[#D4D8DD] border-[#AAB7B7]'
         }`}>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'bg-red-100' : 'bg-teal-100'}`}>
-            {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-teal-600" />}
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'bg-red-100' : 'bg-[#C0C8CA]'}`}>
+            {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-[#2E4156]" />}
           </div>
           <div className="flex-1">
-            <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-teal-700'}`}>
+            <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-[#1A2D42]'}`}>
               {isExpired ? 'Your free trial has ended' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your free trial`}
             </p>
             <p className={`text-xs mt-0.5 ${isExpired ? 'text-red-600' : 'text-slate-600'}`}>
@@ -192,20 +198,20 @@ export default function BillingPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(34,127,132,0.12)' }}>
-              <CreditCard className="w-5 h-5" style={{ color: '#227f84' }} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
+              <CreditCard className="w-5 h-5" style={{ color: '#2E4156' }} />
             </div>
             <div>
               <p className="font-bold text-slate-800">Current Plan</p>
               <p className="text-xs text-slate-400 mt-0.5">
-                {isOnTrial && `Free Trial — expires ${sub.trialEndsAt ? format(new Date(sub.trialEndsAt), 'MMM dd, yyyy') : ''}`}
-                {isActive && sub.currentPeriodEnd && `${isAnnual ? 'Annual' : 'Monthly'} — renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
-                {isExpired && 'Expired — please subscribe'}
+                {isOnTrial && `Free Trial â€” expires ${sub.trialEndsAt ? format(new Date(sub.trialEndsAt), 'MMM dd, yyyy') : ''}`}
+                {isActive && sub.currentPeriodEnd && `${isAnnual ? 'Annual' : 'Monthly'} â€” renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
+                {isExpired && 'Expired â€” please subscribe'}
               </p>
             </div>
           </div>
           <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${
-            isOnTrial ? 'bg-teal-100 text-teal-700' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+            isOnTrial ? 'bg-[#C0C8CA] text-[#1A2D42]' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
           }`}>
             {isOnTrial ? 'Free Trial' : isActive ? (isAnnual ? 'Annual' : 'Monthly') : 'Expired'}
           </span>
@@ -224,36 +230,60 @@ export default function BillingPage() {
           </div>
           <div>
             <p className="text-xs text-slate-400 font-medium mb-1">Rate per Employee</p>
-            <p className="text-xl font-black text-slate-800">{fmt(isAnnual ? ANNUAL_PRICE_PER_MONTH : MONTHLY_PRICE)}<span className="text-xs font-medium text-slate-400">/mo</span></p>
+            <p className="text-xl font-black text-slate-800">{fmt(sub.pricePerSeat)}<span className="text-xs font-medium text-slate-400">/mo</span></p>
           </div>
           <div>
             <p className="text-xs text-slate-400 font-medium mb-1">Est. Monthly Cost</p>
-            <p className="text-xl font-black" style={{ color: '#227f84' }}>{fmt(estimatedMonthly)}</p>
+            <p className="text-xl font-black" style={{ color: '#2E4156' }}>{fmt(estimatedMonthly)}</p>
           </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base font-bold text-slate-800 mb-4">Choose Price Tier</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setSelectedPricePerSeat(STANDARD_PRICE)}
+            className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === STANDARD_PRICE ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
+          >
+            <p className="font-black text-slate-900 text-lg">Basic</p>
+            <p className="text-xs text-slate-500 mt-1">Core HR, payroll, and attendance</p>
+            <p className="mt-3 text-sm font-semibold text-slate-700">Php 50 / employee / month</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedPricePerSeat(PRO_PRICE)}
+            className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === PRO_PRICE ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
+          >
+            <p className="font-black text-slate-900 text-lg">Pro</p>
+            <p className="text-xs text-slate-500 mt-1">Includes screen capture security, recruitment, onboarding tracker, performance reviews, and documents</p>
+            <p className="mt-3 text-sm font-semibold text-slate-700">Php 70 / employee / month</p>
+          </button>
         </div>
       </div>
 
       <div>
         <h2 className="text-base font-bold text-slate-800 mb-4">{isActive ? 'Change Plan' : 'Choose a Plan'}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className={`rounded-2xl border-2 p-6 transition-all ${selectedPlan === 'MONTHLY' ? 'border-teal-400 bg-teal-50/40' : 'border-slate-200 bg-white hover:border-teal-300'}`}>
+          <div className={`rounded-2xl border-2 p-6 transition-all ${selectedPlan === 'MONTHLY' ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}>
             <p className="font-black text-slate-900 text-lg">Monthly</p>
-            <p className="text-xs text-slate-400 mt-1">₱50 / employee / month</p>
+            <p className="text-xs text-slate-400 mt-1">{fmt(selectedPricePerSeat)} / employee / month</p>
             <p className="mt-4 text-sm font-semibold text-slate-700">{fmt(monthlyTotal)} / month</p>
             <button
               onClick={() => setSelectedPlan('MONTHLY')}
               className="mt-5 w-full py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ background: '#227f84' }}
+              style={{ background: '#2E4156' }}
             >
               {selectedPlan === 'MONTHLY' ? 'Selected' : 'Choose Monthly'}
             </button>
           </div>
 
-          <div className={`rounded-2xl border-2 p-6 transition-all ${selectedPlan === 'ANNUAL' ? 'border-teal-400 bg-teal-50/40' : 'border-slate-200 bg-white hover:border-teal-300'}`}>
+          <div className={`rounded-2xl border-2 p-6 transition-all ${selectedPlan === 'ANNUAL' ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}>
             <div className="flex items-center justify-between">
               <p className="font-black text-slate-900 text-lg">Annual</p>
               <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white"
-                style={{ background: 'linear-gradient(135deg, #227f84, #0b4a3b)' }}>
+                style={{ background: 'linear-gradient(135deg, #2E4156, #1A2D42)' }}>
                 <Star className="w-2.5 h-2.5 fill-white" /> BEST VALUE
               </span>
             </div>
@@ -265,7 +295,7 @@ export default function BillingPage() {
             <button
               onClick={() => setSelectedPlan('ANNUAL')}
               className="mt-5 w-full py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #227f84, #0b4a3b)' }}
+              style={{ background: 'linear-gradient(135deg, #2E4156, #1A2D42)' }}
             >
               {selectedPlan === 'ANNUAL' ? 'Selected' : 'Choose Annual'}
             </button>
@@ -291,14 +321,15 @@ export default function BillingPage() {
               </div>
               <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
                 <p className="font-semibold text-slate-700 mb-1">Selected Plan: {selectedPlan}</p>
-                <p>Total: <span className="font-black text-teal-700">{fmt(selectedTotal)}</span></p>
+                <p>Rate: <span className="font-black text-[#1A2D42]">{fmt(selectedPricePerSeat)}</span> / seat / month</p>
+                <p>Total: <span className="font-black text-[#1A2D42]">{fmt(selectedTotal)}</span></p>
                 <p className="text-xs text-slate-500 mt-1">{effectiveSeatCount} seats billed.</p>
               </div>
               <button
                 onClick={confirmPlan}
                 disabled={!paymentCode || !proofDataUrl || upgrading}
                 className="w-full py-3 rounded-xl font-bold text-sm text-white disabled:opacity-60 flex items-center justify-center gap-2"
-                style={{ background: '#227f84' }}
+                style={{ background: '#2E4156' }}
               >
                 {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Confirm Subscription
@@ -402,10 +433,10 @@ export default function BillingPage() {
                       <p className="text-xs text-slate-400 mt-0.5">{format(new Date(invoice.createdAt), 'MMM dd, yyyy')}</p>
                     </td>
                     <td className="px-4 py-4 hidden sm:table-cell text-xs text-slate-600">
-                      {format(new Date(invoice.periodStart), 'MMM dd')} – {format(new Date(invoice.periodEnd), 'MMM dd, yyyy')}
+                      {format(new Date(invoice.periodStart), 'MMM dd')} â€“ {format(new Date(invoice.periodEnd), 'MMM dd, yyyy')}
                     </td>
                     <td className="px-4 py-4 hidden md:table-cell text-xs text-slate-600">
-                      {invoice.paymentMethodLabel ?? '—'}
+                      {invoice.paymentMethodLabel ?? 'â€”'}
                     </td>
                     <td className="px-4 py-4 text-right font-bold text-slate-800">{fmt(invoice.total)}</td>
                     <td className="px-5 py-4 text-right">
@@ -427,3 +458,6 @@ export default function BillingPage() {
     </div>
   )
 }
+
+
+

@@ -1,7 +1,6 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -28,32 +27,42 @@ import {
   Zap,
   Timer,
   Shield,
+  ClipboardList,
+  AlertTriangle,
+  Megaphone,
+  UserMinus,
+  Clock3,
+  TrendingDown,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { useSidebar } from './SidebarContext'
 
-const BRAND = '#227f84'
+const BRAND = '#1A2D42'
 
 interface NavItem {
   label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
   children?: NavItem[]
+  comingSoon?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   {
-    label: 'Employees',
+    label: 'Employment',
     href: '/employees',
     icon: Users,
     children: [
-      { label: 'All Employees', href: '/employees',   icon: Users },
-      { label: 'Departments',  href: '/departments', icon: Building2 },
-      { label: 'Positions',     href: '/positions',   icon: Briefcase },
-      { label: 'Org Chart',     href: '/org-chart', icon: Building2 },
+      { label: 'All Employees',       href: '/employees',       icon: Users },
+      { label: 'Departments',         href: '/departments',     icon: Building2 },
+      { label: 'Positions',           href: '/positions',       icon: Briefcase },
+      { label: 'Org Chart',           href: '/org-chart',       icon: Building2 },
+      { label: 'Performance Reviews', href: '/performance-reviews', icon: BarChart3 },
+      { label: 'Offboarding',         href: '/offboarding',     icon: UserMinus },
+      { label: 'Disciplinary Records',href: '/disciplinary',    icon: AlertTriangle },
     ],
   },
   {
@@ -61,10 +70,13 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dtr',
     icon: Clock,
     children: [
-      { label: 'Weekly Time Sheets', href: '/dtr',             icon: Clock },
-      { label: 'Live GPS Map',      href: '/attendance/map',  icon: MapPin },
-      { label: 'Work Schedules',    href: '/schedules',       icon: Calendar },
-      { label: 'Holidays',          href: '/holidays',        icon: CalendarDays },
+      { label: 'Weekly Time Sheets',  href: '/dtr',                    icon: Clock },
+      { label: 'Live GPS Map',        href: '/attendance/map',         icon: MapPin },
+      { label: 'Tardiness Report',    href: '/attendance/tardiness',   icon: TrendingDown },
+      { label: 'Overtime Requests',   href: '/overtime',               icon: Clock3 },
+      { label: 'Attendance Settings', href: '/attendance/settings',    icon: Settings },
+      { label: 'Work Schedules',      href: '/schedules',              icon: Calendar },
+      { label: 'Holidays',            href: '/holidays',               icon: CalendarDays },
     ],
   },
   {
@@ -82,10 +94,22 @@ const NAV_ITEMS: NavItem[] = [
     icon: PesoIcon,
     children: [
       { label: 'Payroll Runs',  href: '/payroll',          icon: PesoIcon },
+      { label: 'Payroll Settings', href: '/payroll/settings', icon: Settings },
       { label: '13th Month Pay', href: '/thirteenth-month', icon: Gift },
       { label: 'Loans',          href: '/loans',            icon: CreditCard },
     ],
   },
+  {
+    label: 'Recruitment',
+    href: '/recruitment',
+    icon: ClipboardList,
+    comingSoon: true,
+    children: [
+      { label: 'Jobs', href: '/recruitment', icon: Briefcase, comingSoon: true },
+      { label: 'Onboarding Tracker', href: '/onboarding', icon: CheckCircle, comingSoon: true },
+    ],
+  },
+  { label: 'Announcements', href: '/announcements', icon: Megaphone },
   {
     label: 'Reports',
     href: '/reports',
@@ -118,49 +142,46 @@ const SYSTEM_ADMIN_NAV_ITEMS: NavItem[] = [
     icon: Shield,
     children: [
       { label: 'Companies', href: '/admin?tab=companies', icon: Building2 },
+      { label: 'Weekly Time Sheets', href: '/dtr', icon: Clock },
       { label: 'Subscriptions', href: '/admin?tab=subscriptions', icon: CreditCard },
       { label: 'Payments', href: '/admin?tab=payments', icon: FileText },
     ],
   },
 ]
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  initialLogoUrl?: string | null
+  initialUserRole?: string | null
+  initialCounts?: { pendingDtr: number; pendingLeaves: number }
+  initialTrialEndsAt?: string | null
+  isLocal?: boolean
+}
+
+export function AppSidebar({
+  initialLogoUrl = null,
+  initialUserRole = null,
+  initialCounts = { pendingDtr: 0, pendingLeaves: 0 },
+  initialTrialEndsAt = null,
+  isLocal = false,
+}: AppSidebarProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const currentTab = searchParams.get('tab')
   const { collapsed, toggle } = useSidebar()
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl)
+  const [userRole] = useState<string | null>(initialUserRole)
   const [expanded, setExpanded] = useState<string[]>([
-    'Employees', 'Time & Attendance', 'Leave Management', 'Reports', 'Settings',
+    'Employment', 'Time & Attendance', 'Leave Management', 'Recruitment', 'Reports', 'Settings', 'Payroll',
   ])
-  const [counts, setCounts] = useState<{ pendingDtr: number; pendingLeaves: number }>({
-    pendingDtr: 0,
-    pendingLeaves: 0,
-  })
-  const [trialEndsAt, setTrialEndsAt] = useState<number | null>(null)
+  const [counts, setCounts] = useState<{ pendingDtr: number; pendingLeaves: number }>(initialCounts)
+  const [trialEndsAt] = useState<number | null>(
+    initialTrialEndsAt ? new Date(initialTrialEndsAt).getTime() : null
+  )
   const [trialTimeLeft, setTrialTimeLeft] = useState<string>('')
   const [trialMsLeft, setTrialMsLeft] = useState(0)
 
   useEffect(() => {
     let active = true
-    async function loadLogo() {
-      try {
-        const [settingsRes, userRes] = await Promise.all([
-          fetch('/api/settings'),
-          fetch('/api/users/me'),
-        ])
-        if (settingsRes.ok) {
-          const settingsData = await settingsRes.json()
-          if (active) setLogoUrl(settingsData.logoUrl ?? null)
-        }
-        if (userRes.ok) {
-          const userData = await userRes.json()
-          if (active) setUserRole(userData.role ?? null)
-        }
-      } catch { /* ignore */ }
-    }
-    loadLogo()
     function handleLogoUpdate(e: Event) {
       const detail = (e as CustomEvent<{ logoUrl?: string | null }>).detail
       if (active) setLogoUrl(detail?.logoUrl ?? null)
@@ -188,35 +209,13 @@ export function AppSidebar() {
       } catch { /* ignore */ }
     }
     loadCounts()
-    const id = window.setInterval(loadCounts, 30000)
+    const id = window.setInterval(loadCounts, 60000)
     return () => {
       active = false
       window.clearInterval(id)
     }
   }, [])
-
-  // Fetch subscription — only care about TRIAL status
-  useEffect(() => {
-    let active = true
-    async function loadSub() {
-      try {
-        const res = await fetch('/api/billing/subscription')
-        if (!res.ok) return
-        const data = await res.json()
-        if (!active) return
-        if (data.subscription?.status === 'TRIAL' && data.subscription?.trialEndsAt) {
-          setTrialEndsAt(new Date(data.subscription.trialEndsAt).getTime())
-        } else {
-          setTrialEndsAt(null)
-        }
-      } catch { /* ignore */ }
-    }
-    loadSub()
-    const id = window.setInterval(loadSub, 5 * 60 * 1000)
-    return () => { active = false; window.clearInterval(id) }
-  }, [])
-
-  // Live countdown ticker — updates every second
+  // Live countdown ticker updates every second.
   useEffect(() => {
     if (trialEndsAt === null) return
     function tick() {
@@ -249,7 +248,15 @@ export function AppSidebar() {
   }
 
   const isSystemAdmin = userRole === 'SUPER_ADMIN'
-  const navItems = isSystemAdmin ? SYSTEM_ADMIN_NAV_ITEMS : NAV_ITEMS
+  const navItems = isSystemAdmin
+    ? SYSTEM_ADMIN_NAV_ITEMS
+    : isLocal
+      ? NAV_ITEMS.map(item =>
+          item.label === 'Recruitment'
+            ? { ...item, comingSoon: undefined, children: item.children?.map(c => ({ ...c, comingSoon: undefined })) }
+            : item
+        )
+      : NAV_ITEMS
   const trialDaysLeft = Math.max(0, Math.floor(trialMsLeft / 86400000))
   const isTrialUrgent = trialMsLeft < 2 * 86400000
   const trialProgressPct = Math.min(100, Math.max(2, (trialMsLeft / (7 * 86400000)) * 100))
@@ -313,10 +320,10 @@ export function AppSidebar() {
                     color: isTrialUrgent ? '#fca5a5' : '#fdba74',
                   }}
                 >
-                  {trialTimeLeft || '—'}
+                  {trialTimeLeft || 'â€"'}
                 </span>
               </div>
-              {/* Progress bar — 7 day trial */}
+              {/* Progress bar â€" 7 day trial */}
               <div className="h-1 rounded-full mb-2.5" style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <div
                   className="h-1 rounded-full transition-all"
@@ -378,7 +385,7 @@ export function AppSidebar() {
   )
 }
 
-// ─── Tooltip wrapper ────────────────────────────────────────────────────────
+// â"€â"€â"€ Tooltip wrapper â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function Tooltip({
   label,
   children,
@@ -414,7 +421,7 @@ function Tooltip({
   )
 }
 
-// ─── Collapsed flyout (portal-based to escape overflow clip) ─────────────────
+// â"€â"€â"€ Collapsed flyout (portal-based to escape overflow clip) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function CollapsedFlyout({
   item, pathname, currentTab, isActive, activeStyle, baseItemClass, counts,
 }: {
@@ -449,15 +456,30 @@ function CollapsedFlyout({
 
   const SIDEBAR_W = 64 // 4rem = 64px
 
-  function renderBadge(label: string) {
-    if (label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
+  function renderBadge(child: NavItem) {
+    if (child.comingSoon) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-sky-500/80 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          Soon
+        </span>
+      )
+    }
+    const proLabels = new Set(['Performance Reviews'])
+    if (proLabels.has(child.label)) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-amber-500/90 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          PRO
+        </span>
+      )
+    }
+    if (child.label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
           {counts.pendingDtr}
         </span>
       )
     }
-    if (label === 'Leave Requests' && counts.pendingLeaves > 0) {
+    if (child.label === 'Leave Requests' && counts.pendingLeaves > 0) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
           {counts.pendingLeaves}
@@ -473,7 +495,11 @@ function CollapsedFlyout({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className={baseItemClass} style={isActive ? activeStyle : undefined}>
+      <div
+        className={cn(baseItemClass, item.comingSoon && 'opacity-50 cursor-not-allowed')}
+        style={isActive ? activeStyle : undefined}
+        data-tour-item={item.href}
+      >
         <item.icon className="w-4 h-4 flex-shrink-0" />
       </div>
 
@@ -493,10 +519,23 @@ function CollapsedFlyout({
                 const [childPath, query] = child.href.split('?')
                 const childTab = query ? new URLSearchParams(query).get('tab') : null
                 const childActive = childPath === pathname && (childTab ? childTab === currentTab : true)
+                if (child.comingSoon) {
+                  return (
+                    <div
+                      key={child.href}
+                      className="flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed"
+                    >
+                      <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                      {child.label}
+                      {renderBadge(child)}
+                    </div>
+                  )
+                }
                 return (
               <Link
                 key={child.href}
                 href={child.href}
+                data-tour-item={child.href}
                 onClick={() => setOpen(false)}
                 className={cn(
                   'flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium transition-colors',
@@ -508,7 +547,7 @@ function CollapsedFlyout({
               >
                 <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
                 {child.label}
-                {renderBadge(child.label)}
+                {renderBadge(child)}
               </Link>
                 )
               })()
@@ -521,7 +560,7 @@ function CollapsedFlyout({
   )
 }
 
-// ─── Nav item ───────────────────────────────────────────────────────────────
+// â"€â"€â"€ Nav item â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function NavItemComponent({
   item,
   pathname,
@@ -543,22 +582,37 @@ function NavItemComponent({
   const isExpanded = expanded.includes(item.label)
   const hasChildren = item.children && item.children.length > 0
 
-  const activeStyle   = { background: '#fa5e01' }
+  const activeStyle   = { background: '#2E4156' }
   const baseItemClass = cn(
     'flex items-center rounded-xl text-sm font-medium transition-all duration-150 relative',
     isActive ? 'text-white' : 'text-white/70 hover:bg-white/15 hover:text-white',
     collapsed ? 'w-10 h-10 justify-center p-0' : 'px-3 py-2.5 gap-3'
   )
 
-  function renderBadge(label: string) {
-    if (label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
+  function renderBadge(child: NavItem) {
+    if (child.comingSoon) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-sky-500/80 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          Soon
+        </span>
+      )
+    }
+    const proLabels = new Set(['Performance Reviews'])
+    if (proLabels.has(child.label)) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-amber-500/90 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          PRO
+        </span>
+      )
+    }
+    if (child.label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
           {counts.pendingDtr}
         </span>
       )
     }
-    if (label === 'Leave Requests' && counts.pendingLeaves > 0) {
+    if (child.label === 'Leave Requests' && counts.pendingLeaves > 0) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
           {counts.pendingLeaves}
@@ -568,9 +622,18 @@ function NavItemComponent({
     return null
   }
 
-  // ── Collapsed: icon with portal flyout submenu on hover ──
+  // â"€â"€ Collapsed: icon with portal flyout submenu on hover â"€â"€
   if (collapsed) {
     if (hasChildren) {
+      if (item.comingSoon) {
+        return (
+          <Tooltip label={`${item.label} — Coming Soon`} side="right">
+            <div className={cn(baseItemClass, 'opacity-40 cursor-not-allowed')}>
+              <item.icon className="w-4 h-4 flex-shrink-0" />
+            </div>
+          </Tooltip>
+        )
+      }
       return (
         <CollapsedFlyout
           item={item}
@@ -584,29 +647,41 @@ function NavItemComponent({
       )
     }
 
+    if (item.comingSoon) {
+      return (
+        <Tooltip label={`${item.label} — Coming Soon`} side="right">
+          <div className={cn(baseItemClass, 'opacity-40 cursor-not-allowed')}>
+            <item.icon className="w-4 h-4 flex-shrink-0" />
+          </div>
+        </Tooltip>
+      )
+    }
     return (
       <Tooltip label={item.label} side="right">
         <Link
           href={item.href}
+          data-tour-item={item.href}
           className={baseItemClass}
           style={isActive ? activeStyle : undefined}
         >
           <item.icon className="w-4 h-4 flex-shrink-0" />
-          {renderBadge(item.label)}
+          {renderBadge(item)}
         </Link>
       </Tooltip>
     )
   }
 
-  // ── Expanded: group with collapsible children ──
+  // â"€â"€ Expanded: group with collapsible children â"€â"€
   if (hasChildren) {
     return (
-      <div>
+      <div className={item.comingSoon ? 'opacity-50' : undefined}>
         <button
-          onClick={() => onToggle(item.label)}
+          onClick={() => !item.comingSoon && onToggle(item.label)}
+          data-tour-item={item.href}
           className={cn(
             'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-            isActive ? 'text-white' : 'text-white/70 hover:bg-white/15 hover:text-white'
+            isActive ? 'text-white' : 'text-white/70 hover:bg-white/15 hover:text-white',
+            item.comingSoon && 'cursor-not-allowed pointer-events-none'
           )}
           style={isActive ? activeStyle : undefined}
         >
@@ -614,23 +689,36 @@ function NavItemComponent({
             <item.icon className="w-4 h-4 flex-shrink-0" />
             {item.label}
           </span>
-          {renderBadge(item.label)}
-          {isExpanded
+          {renderBadge(item)}
+          {!item.comingSoon && (isExpanded
             ? <ChevronDown  className="w-3.5 h-3.5 opacity-60" />
             : <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-          }
+          )}
         </button>
-        {isExpanded && (
+        {isExpanded && !item.comingSoon && (
           <div className="ml-4 mt-1 mb-1 space-y-0.5 border-l border-white/20 pl-3">
             {item.children!.map(child => (
               (() => {
                 const [childPath, query] = child.href.split('?')
                 const childTab = query ? new URLSearchParams(query).get('tab') : null
                 const childActive = childPath === pathname && (childTab ? childTab === currentTab : true)
+                if (child.comingSoon) {
+                  return (
+                    <div
+                      key={child.href}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed"
+                    >
+                      <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                      {child.label}
+                      {renderBadge(child)}
+                    </div>
+                  )
+                }
                 return (
               <Link
                 key={child.href}
                 href={child.href}
+                data-tour-item={child.href}
                 className={cn(
                   'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150',
                   childActive
@@ -641,7 +729,7 @@ function NavItemComponent({
               >
                 <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
                 {child.label}
-                {renderBadge(child.label)}
+                {renderBadge(child)}
               </Link>
                 )
               })()
@@ -652,16 +740,29 @@ function NavItemComponent({
     )
   }
 
-  // ── Expanded: leaf item ──
+  // â"€â"€ Expanded: leaf item â"€â"€
+  if (item.comingSoon) {
+    return (
+      <div
+        className={cn(baseItemClass, 'opacity-50 cursor-not-allowed pointer-events-none')}
+      >
+        <item.icon className="w-4 h-4 flex-shrink-0" />
+        {item.label}
+        {renderBadge(item)}
+      </div>
+    )
+  }
   return (
     <Link
       href={item.href}
+      data-tour-item={item.href}
       className={baseItemClass}
       style={isActive ? activeStyle : undefined}
     >
       <item.icon className="w-4 h-4 flex-shrink-0" />
       {item.label}
-      {renderBadge(item.label)}
+      {renderBadge(item)}
     </Link>
   )
 }
+

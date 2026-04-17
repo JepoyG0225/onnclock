@@ -143,7 +143,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         {[1, 2, 3].map(i => (
           <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />
         ))}
@@ -153,7 +153,7 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="p-6 text-gray-400 text-center mt-20">
+      <div className="max-w-2xl mx-auto px-4 py-6 text-gray-400 text-center mt-20">
         <User className="w-12 h-12 mx-auto mb-3 opacity-30" />
         <p>Profile not found</p>
       </div>
@@ -290,7 +290,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl space-y-5">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
 
       <Tabs defaultValue="profile" className="space-y-4">
@@ -313,7 +313,7 @@ export default function ProfilePage() {
                 ) : (
                   <div
                     className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-2xl shadow"
-                    style={{ background: 'rgba(34,127,132,0.12)', color: '#227f84' }}
+                    style={{ background: 'rgba(46,65,86,0.12)', color: '#2E4156' }}
                   >
                     {initials}
                   </div>
@@ -344,7 +344,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingPersonal(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#227f84' }}
+                style={{ color: '#2E4156' }}
               >
                 {editingPersonal ? 'Cancel' : 'Edit'}
               </button>
@@ -441,7 +441,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingContact(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#227f84' }}
+                style={{ color: '#2E4156' }}
               >
                 {editingContact ? 'Cancel' : 'Edit'}
               </button>
@@ -506,7 +506,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingGov(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#227f84' }}
+                style={{ color: '#2E4156' }}
               >
                 {editingGov ? 'Cancel' : 'Edit'}
               </button>
@@ -630,8 +630,8 @@ export default function ProfilePage() {
                   <div className="text-sm flex items-center gap-2">
                     {biometricEnrolled ? (
                       <>
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                        <span className="text-emerald-700 font-medium">Fingerprint enrolled</span>
+                        <ShieldCheck className="w-4 h-4" style={{ color: '#2E4156' }} />
+                        <span className="font-medium" style={{ color: '#1A2D42' }}>Fingerprint enrolled</span>
                       </>
                     ) : (
                       <>
@@ -679,3 +679,4 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
     </div>
   )
 }
+

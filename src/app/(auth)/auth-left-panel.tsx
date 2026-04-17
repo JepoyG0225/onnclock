@@ -32,13 +32,13 @@ function ClockScreen({ time }: { time: Date | null }) {
     <div className="flex flex-col h-full px-3 pb-3 pt-2">
       {/* Greeting */}
       <div className="text-center mb-2">
-        <p className="text-[8px] text-teal-300/70 font-semibold">Good morning,</p>
+        <p className="text-[8px] text-[#C0C8CA]/70 font-semibold">Good morning,</p>
         <p className="text-[9px] text-white font-black">Maria R.</p>
       </div>
 
       {/* Live Clock */}
       <div className="text-center mb-1">
-        <p className="text-[26px] font-black text-teal-300 tabular-nums leading-none tracking-tight">
+        <p className="text-[26px] font-black text-[#C0C8CA] tabular-nums leading-none tracking-tight">
           {hh}:{mm}
         </p>
         <p className="text-[7px] text-white/40 mt-0.5">{dateStr}</p>
@@ -50,7 +50,7 @@ function ClockScreen({ time }: { time: Date | null }) {
         <div
           className="w-[70px] h-[70px] rounded-full flex flex-col items-center justify-center"
           style={{
-            background: 'linear-gradient(135deg, #0b4a3b, #227f84)',
+            background: 'linear-gradient(135deg, #1A2D42, #2E4156)',
             boxShadow: '0 0 0 8px rgba(34,127,132,0.15), 0 0 0 16px rgba(34,127,132,0.07), 0 8px 20px rgba(0,0,0,0.5)',
           }}
         >
@@ -62,7 +62,7 @@ function ClockScreen({ time }: { time: Date | null }) {
       {/* Stats row */}
       <div className="flex gap-0 mt-1 bg-white/5 rounded-xl overflow-hidden">
         <div className="flex-1 text-center py-2">
-          <p className="text-[9px] font-black text-teal-300">8:02</p>
+          <p className="text-[9px] font-black text-[#C0C8CA]">8:02</p>
           <p className="text-[7px] text-white/40">Time In</p>
         </div>
         <div className="w-px bg-white/10" />
@@ -92,9 +92,9 @@ function PayslipScreen() {
       <p className="text-[8px] text-white/40 font-semibold uppercase tracking-wide mb-2">Payslip · March 2026</p>
 
       {/* Net Pay */}
-      <div className="bg-gradient-to-br from-teal-600/30 to-teal-800/30 rounded-xl p-2.5 mb-2 text-center">
-        <p className="text-[7px] text-teal-300/70 font-semibold">NET PAY</p>
-        <p className="text-[20px] font-black text-teal-300 leading-tight">₱ 24,850</p>
+      <div className="bg-gradient-to-br from-[#2E4156]/30 to-[#2E4156]/30 rounded-xl p-2.5 mb-2 text-center">
+        <p className="text-[7px] text-[#C0C8CA]/70 font-semibold">NET PAY</p>
+        <p className="text-[20px] font-black text-[#C0C8CA] leading-tight">₱ 24,850</p>
         <p className="text-[7px] text-white/30">After deductions</p>
       </div>
 
@@ -167,8 +167,8 @@ function LeaveScreen() {
       <div className="mt-auto">
         <p className="text-[7px] text-white/30 uppercase tracking-wide mb-1">Latest Request</p>
         <div className="bg-white/5 rounded-xl px-2.5 py-2 flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-teal-500/20 flex items-center justify-center flex-shrink-0">
-            <Calendar className="w-3 h-3 text-teal-300" />
+          <div className="w-6 h-6 rounded-lg bg-[#2E4156]/20 flex items-center justify-center flex-shrink-0">
+            <Calendar className="w-3 h-3 text-[#C0C8CA]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[7px] font-bold text-white truncate">Vacation · Apr 3–4</p>
@@ -228,7 +228,7 @@ export default function AuthLeftPanel() {
   return (
     <div
       className="hidden lg:flex flex-col w-[58%] relative overflow-hidden"
-      style={{ background: 'linear-gradient(150deg, #062d24 0%, #0b4a3b 45%, #227f84 100%)' }}
+      style={{ background: 'linear-gradient(150deg, #062d24 0%, #1A2D42 45%, #2E4156 100%)' }}
     >
       {/* Subtle grid */}
       <div
@@ -241,7 +241,7 @@ export default function AuthLeftPanel() {
 
       {/* Glow orbs */}
       <div className="absolute top-[-80px] right-[-80px] w-96 h-96 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle, #227f84, transparent)' }} />
+        style={{ background: 'radial-gradient(circle, #2E4156, transparent)' }} />
       <div className="absolute bottom-[-60px] left-[-60px] w-72 h-72 rounded-full opacity-15"
         style={{ background: 'radial-gradient(circle, #fa5e01, transparent)' }} />
 
@@ -401,7 +401,7 @@ export default function AuthLeftPanel() {
                   className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'rgba(125,216,219,0.15)', border: '1px solid rgba(125,216,219,0.1)' }}
                 >
-                  <f.icon className="w-4 h-4 text-teal-300" />
+                  <f.icon className="w-4 h-4 text-[#C0C8CA]" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white leading-tight">{f.label}</p>
@@ -453,3 +453,4 @@ export default function AuthLeftPanel() {
     </div>
   )
 }
+

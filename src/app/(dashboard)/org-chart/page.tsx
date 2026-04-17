@@ -28,6 +28,7 @@ type OrgNode = {
   initials: string
   accent: string
   isDept?: boolean
+  isRoot?: boolean
 }
 
 export default function DepartmentsPage() {
@@ -66,16 +67,39 @@ export default function DepartmentsPage() {
       }
     })
 
+    const employeeIds = new Set(base.map(node => node.id))
+    const normalized = base.map(node => ({
+      ...node,
+      parentId:
+        node.parentId && employeeIds.has(node.parentId) && node.parentId !== node.id
+          ? node.parentId
+          : null,
+    }))
+
+    const rootId = '__company_root__'
+    const rootNode: OrgNode = {
+      id: rootId,
+      parentId: null,
+      name: 'Company',
+      position: '',
+      department: 'Company',
+      employeeNo: '',
+      photoUrl: null,
+      initials: '',
+      accent: '#2E4156',
+      isDept: true,
+      isRoot: true,
+    }
+
     const byParent = new Map<string, OrgNode[]>()
-    base.forEach(node => {
-      const key = node.parentId || '__root__'
+    normalized.forEach(node => {
+      const key = node.parentId || rootId
       if (!byParent.has(key)) byParent.set(key, [])
       byParent.get(key)!.push(node)
     })
 
-    const result: OrgNode[] = [...base]
+    const result: OrgNode[] = [rootNode, ...normalized]
     byParent.forEach((children, parentKey) => {
-      if (parentKey === '__root__') return
       const groups = new Map<string, OrgNode[]>()
       children.forEach(child => {
         const key = child.department || 'Unassigned'
@@ -169,7 +193,7 @@ export default function DepartmentsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-teal-600" /> Company Org Chart
+              <Building2 className="w-4 h-4 text-[#2E4156]" /> Company Org Chart
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -250,3 +274,4 @@ function deptColor(name: string) {
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
+

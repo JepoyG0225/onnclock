@@ -125,9 +125,9 @@ export default function AdminSubscriptionsPage() {
     <div className="p-6 md:p-8 space-y-6">
       {/* Header */}
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-cyan-400/70 font-semibold">System Admin</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-[#C0C8CA]/70 font-semibold">System Admin</p>
         <h1 className="text-2xl font-black text-white mt-1 flex items-center gap-2">
-          <CreditCard className="w-6 h-6 text-cyan-400" /> Subscriptions
+          <CreditCard className="w-6 h-6 text-[#C0C8CA]" /> Subscriptions
         </h1>
         <p className="text-sm text-slate-400 mt-1">Manage plans, billing cycles and subscription status per company</p>
       </div>
@@ -155,7 +155,7 @@ export default function AdminSubscriptionsPage() {
             onClick={() => setFilter(f.key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
               filter === f.key
-                ? 'bg-cyan-600 text-white'
+                ? 'bg-[#2E4156] text-white'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
@@ -167,7 +167,7 @@ export default function AdminSubscriptionsPage() {
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#C0C8CA]" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-800 py-16 text-center text-slate-500 text-sm">
@@ -208,7 +208,7 @@ export default function AdminSubscriptionsPage() {
                     <select
                       value={editable.plan}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], plan: e.target.value as SubscriptionPlan } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     >
                       <option value="TRIAL">TRIAL</option>
                       <option value="MONTHLY">MONTHLY</option>
@@ -220,7 +220,7 @@ export default function AdminSubscriptionsPage() {
                     <select
                       value={editable.status}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: e.target.value as SubscriptionStatus } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     >
                       <option value="TRIAL">TRIAL</option>
                       <option value="ACTIVE">ACTIVE</option>
@@ -234,7 +234,7 @@ export default function AdminSubscriptionsPage() {
                     <select
                       value={editable.billingCycle ?? ''}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], billingCycle: (e.target.value || null) as BillingCycle } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     >
                       <option value="">None</option>
                       <option value="MONTHLY">MONTHLY</option>
@@ -248,7 +248,7 @@ export default function AdminSubscriptionsPage() {
                       min={0}
                       value={editable.seatCount}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], seatCount: Number(e.target.value) || 0 } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     />
                   </div>
                   <div>
@@ -259,7 +259,7 @@ export default function AdminSubscriptionsPage() {
                       step={0.01}
                       value={editable.pricePerSeat}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], pricePerSeat: Number(e.target.value) || 0 } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
                     />
                   </div>
                 </div>
@@ -271,7 +271,7 @@ export default function AdminSubscriptionsPage() {
                   <button
                     onClick={() => saveSubscription(company.id)}
                     disabled={savingId === company.id}
-                    className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 text-xs font-semibold disabled:opacity-60 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#2E4156] hover:bg-[#2E4156] text-white px-4 py-2 text-xs font-semibold disabled:opacity-60 transition-colors"
                   >
                     {savingId === company.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     Save
@@ -285,3 +285,4 @@ export default function AdminSubscriptionsPage() {
     </div>
   )
 }
+

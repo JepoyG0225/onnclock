@@ -24,6 +24,10 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) 
   return R * c
 }
 
+function isMobileUserAgent(ua: string): boolean {
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)
+}
+
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
@@ -36,6 +40,8 @@ export async function POST(req: NextRequest) {
       lastName: true,
       employeeNo: true,
       photoUrl: true,
+      selfieExempt: true,
+      geofenceExempt: true,
       workSchedule: { select: { requireSelfieOnClockIn: true } },
       department: { select: { name: true } },
       position: { select: { title: true } },
@@ -48,24 +54,47 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   const { lat, lng, accuracy, address, photo } = parsed.data
-  if (employee.workSchedule?.requireSelfieOnClockIn && !photo) {
-    return NextResponse.json({ error: 'Selfie is required before clocking in for your schedule' }, { status: 400 })
-  }
-  const company = await prisma.company.findUnique({
+  const companyPolicy = await prisma.company.findUnique({
     where: { id: ctx.companyId },
-    select: { geofenceEnabled: true, geofenceLat: true, geofenceLng: true, geofenceRadiusMeters: true },
+    select: {
+      geofenceEnabled: true,
+      geofenceLat: true,
+      geofenceLng: true,
+      geofenceRadiusMeters: true,
+      selfieRequired: true,
+      screenCaptureEnabled: true,
+    },
   })
+  const subscription = await prisma.subscription.findUnique({
+    where: { companyId: ctx.companyId },
+    select: { pricePerSeat: true },
+  })
+
+  const screenCaptureActive =
+    (companyPolicy?.screenCaptureEnabled ?? false) && Number(subscription?.pricePerSeat ?? 0) >= 70
+  if (screenCaptureActive && isMobileUserAgent(req.headers.get('user-agent') ?? '')) {
+    return NextResponse.json({ error: 'You can only clock in on a laptop or desktop device.' }, { status: 403 })
+  }
+
+  const selfieRequired =
+    !employee.selfieExempt &&
+    ((companyPolicy?.selfieRequired ?? false) || !!employee.workSchedule?.requireSelfieOnClockIn)
+  if (selfieRequired && !photo) {
+    return NextResponse.json({ error: 'Selfie is required before clocking in' }, { status: 400 })
+  }
+
+  const geofenceEnabled = (companyPolicy?.geofenceEnabled ?? false) && !employee.geofenceExempt
   let geofenceWarning: string | null = null
-  if (company?.geofenceEnabled) {
+  if (geofenceEnabled) {
     if (
-      company.geofenceLat == null ||
-      company.geofenceLng == null ||
-      company.geofenceRadiusMeters == null
+      companyPolicy?.geofenceLat == null ||
+      companyPolicy.geofenceLng == null ||
+      companyPolicy.geofenceRadiusMeters == null
     ) {
       geofenceWarning = 'Geo-fence is enabled but not configured'
     } else {
-      const dist = distanceMeters(lat, lng, company.geofenceLat, company.geofenceLng)
-      if (dist > company.geofenceRadiusMeters) {
+      const dist = distanceMeters(lat, lng, companyPolicy.geofenceLat, companyPolicy.geofenceLng)
+      if (dist > companyPolicy.geofenceRadiusMeters) {
         return NextResponse.json({ error: 'Outside allowed area for clock in' }, { status: 403 })
       }
     }
@@ -125,28 +154,24 @@ export async function POST(req: NextRequest) {
         },
       })
 
-  const companyGeo = await prisma.company.findUnique({
-    where: { id: ctx.companyId },
-    select: { geofenceEnabled: true, geofenceLat: true, geofenceLng: true, geofenceRadiusMeters: true },
-  })
   let geofenceOut: boolean | null = null
   if (
-    companyGeo?.geofenceEnabled &&
-    companyGeo.geofenceLat != null &&
-    companyGeo.geofenceLng != null &&
-    companyGeo.geofenceRadiusMeters != null
+    geofenceEnabled &&
+    companyPolicy?.geofenceLat != null &&
+    companyPolicy.geofenceLng != null &&
+    companyPolicy.geofenceRadiusMeters != null
   ) {
     const toRad = (d: number) => (d * Math.PI) / 180
     const R = 6371000
-    const dLat = toRad(lat - companyGeo.geofenceLat)
-    const dLng = toRad(lng - companyGeo.geofenceLng)
+    const dLat = toRad(lat - companyPolicy.geofenceLat)
+    const dLng = toRad(lng - companyPolicy.geofenceLng)
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(companyGeo.geofenceLat)) * Math.cos(toRad(lat)) *
+      Math.cos(toRad(companyPolicy.geofenceLat)) * Math.cos(toRad(lat)) *
       Math.sin(dLng / 2) * Math.sin(dLng / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     const dist = R * c
-    geofenceOut = dist > companyGeo.geofenceRadiusMeters
+    geofenceOut = dist > companyPolicy.geofenceRadiusMeters
   }
 
   // Save initial location ping
