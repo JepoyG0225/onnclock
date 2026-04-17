@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const limit = Math.min(50, parseInt(new URL(req.url).searchParams.get('limit') || '20'))
 
-  const [leaveRequests, dtrPending] = await Promise.all([
+  const [leaveRequests, dtrPending, disciplinary] = await Promise.all([
     prisma.leaveRequest.findMany({
       where: {
         employee: { companyId: ctx.companyId },
@@ -35,7 +35,27 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
       take: limit,
     }),
+    prisma.disciplinaryRecord.findMany({
+      where: {
+        companyId: ctx.companyId,
+        status: 'OPEN',
+      },
+      include: {
+        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    }),
   ])
+
+  const TYPE_LABELS: Record<string, string> = {
+    NOTICE_TO_EXPLAIN: 'Notice to Explain',
+    NOTICE_OF_DECISION: 'Notice of Decision',
+    WRITTEN_WARNING: 'Written Warning',
+    SUSPENSION: 'Suspension',
+    DEMOTION: 'Demotion',
+    TERMINATION: 'Termination',
+  }
 
   const items = [
     ...leaveRequests.map(l => ({
@@ -46,15 +66,27 @@ export async function GET(req: NextRequest) {
       title: `${l.leaveType?.name ?? 'Leave'} request`,
       employee: `${l.employee.firstName} ${l.employee.lastName}`,
       employeeNo: l.employee.employeeNo,
+      href: '/leaves',
     })),
     ...dtrPending.map(r => ({
       id: r.id,
       type: 'DTR' as const,
       status: 'PENDING' as const,
       createdAt: r.createdAt,
-      title: 'DTR approval',
+      title: 'DTR approval needed',
       employee: `${r.employee.firstName} ${r.employee.lastName}`,
       employeeNo: r.employee.employeeNo,
+      href: '/dtr',
+    })),
+    ...disciplinary.map(d => ({
+      id: d.id,
+      type: 'DISCIPLINARY' as const,
+      status: d.status,
+      createdAt: d.createdAt,
+      title: `${TYPE_LABELS[d.type] ?? d.type} issued`,
+      employee: `${d.employee.firstName} ${d.employee.lastName}`,
+      employeeNo: d.employee.employeeNo,
+      href: '/disciplinary',
     })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

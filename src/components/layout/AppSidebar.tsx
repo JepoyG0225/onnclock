@@ -60,8 +60,8 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Departments',          href: '/departments',        icon: Building2 },
       { label: 'Positions',            href: '/positions',          icon: Briefcase },
       { label: 'Org Chart',            href: '/org-chart',          icon: Building2 },
-      { label: 'Jobs',                 href: '/recruitment',        icon: ClipboardList, comingSoon: true },
-      { label: 'Onboarding Tracker',   href: '/onboarding',         icon: CheckCircle,   comingSoon: true },
+      { label: 'Jobs',                 href: '/recruitment',        icon: ClipboardList },
+      { label: 'Onboarding Tracker',   href: '/onboarding',         icon: CheckCircle },
       { label: 'Performance Reviews',  href: '/performance-reviews', icon: BarChart3 },
       { label: 'Offboarding',          href: '/offboarding',        icon: UserMinus },
       { label: 'Disciplinary Records', href: '/disciplinary',       icon: AlertTriangle },
@@ -456,7 +456,7 @@ function CollapsedFlyout({
         </span>
       )
     }
-    const proLabels = new Set(['Performance Reviews'])
+    const proLabels = new Set(['Performance Reviews', 'Tardiness Report', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Jobs', 'Onboarding Tracker'])
     if (proLabels.has(child.label)) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-amber-500/90 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
@@ -589,7 +589,7 @@ function NavItemComponent({
         </span>
       )
     }
-    const proLabels = new Set(['Performance Reviews'])
+    const proLabels = new Set(['Performance Reviews', 'Tardiness Report', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Jobs', 'Onboarding Tracker'])
     if (proLabels.has(child.label)) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-amber-500/90 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">

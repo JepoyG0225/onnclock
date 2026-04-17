@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Bell, LogOut, Settings, User } from 'lucide-react'
+import { Bell, LogOut, Settings, User, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSidebar } from './SidebarContext'
 
@@ -28,16 +28,32 @@ interface AppHeaderProps {
 export function AppHeader({ user, companyName }: AppHeaderProps) {
   const router = useRouter()
   const { collapsed } = useSidebar()
-  const [pendingCount, setPendingCount] = useState(0)
-  const [items, setItems] = useState<Array<{
+  const [allItems, setAllItems] = useState<Array<{
     id: string
-    type: 'LEAVE' | 'DTR'
+    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY'
     status: string
     title: string
     employee?: string
     employeeNo?: string
     createdAt: string
+    href?: string
   }>>([])
+  const [dismissed, setDismissed] = useState<string[]>([])
+
+  const DISMISSED_KEY = 'admin_dismissed_notifs'
+
+  useEffect(() => {
+    try { setDismissed(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]')) } catch { /* */ }
+  }, [])
+
+  const items = allItems.filter(i => !dismissed.includes(i.id))
+  const pendingCount = items.length
+
+  function handleClearAll() {
+    const ids = [...dismissed, ...allItems.map(i => i.id)]
+    setDismissed(ids)
+    try { localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids)) } catch { /* */ }
+  }
 
   const displayName = user?.name || user?.email || 'User'
   const initials = displayName.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || 'U'
@@ -57,12 +73,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
         const res = await fetch('/api/notifications/admin?limit=20')
         if (!res.ok) return
         const data = await res.json()
-        const list = (data.items ?? []) as typeof items
-        if (active) {
-          setItems(list)
-          const pending = list.filter(i => i.status === 'PENDING').length
-          setPendingCount(pending)
-        }
+        if (active) setAllItems(data.items ?? [])
       } catch { /* ignore */ }
     }
     loadCounts()
@@ -98,18 +109,34 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <div className="flex items-center justify-between px-2 py-1.5">
+              <DropdownMenuLabel className="py-0">Notifications</DropdownMenuLabel>
+              {items.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  className="text-[11px] text-gray-400 hover:text-gray-600 flex items-center gap-1 px-2 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                  Clear all
+                </button>
+              )}
+            </div>
             <DropdownMenuSeparator />
             {items.length === 0 ? (
-              <div className="px-3 py-3 text-xs text-gray-400">No requests yet</div>
+              <div className="px-3 py-4 text-xs text-gray-400 text-center">
+                <Bell className="w-5 h-5 text-gray-200 mx-auto mb-1.5" />
+                All caught up
+              </div>
             ) : (
               <div className="max-h-80 overflow-auto">
                 {items.map(item => (
                   <DropdownMenuItem
                     key={item.id}
-                    className="flex items-start gap-2 py-2.5 hover:bg-gray-50 focus:bg-gray-50"
+                    className="flex items-start gap-2 py-2.5 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
+                    onClick={() => item.href && router.push(item.href)}
                   >
-                    <span className={`mt-0.5 inline-flex h-2 w-2 rounded-full ${
+                    <span className={`mt-0.5 inline-flex h-2 w-2 rounded-full flex-shrink-0 ${
+                      item.type === 'DISCIPLINARY' ? 'bg-red-500' :
                       item.status === 'PENDING' ? 'bg-orange-500' :
                       item.status === 'APPROVED' ? 'bg-emerald-500' :
                       item.status === 'REJECTED' ? 'bg-red-500' : 'bg-gray-300'

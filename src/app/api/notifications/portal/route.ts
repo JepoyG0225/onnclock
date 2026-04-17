@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
@@ -14,23 +14,49 @@ export async function GET(req: NextRequest) {
   })
   if (!employee) return NextResponse.json({ items: [] })
 
-  const leaves = await prisma.leaveRequest.findMany({
-    where: {
-      employeeId: employee.id,
-      status: { in: ['APPROVED', 'REJECTED'] },
-    },
-    include: { leaveType: { select: { name: true } } },
-    orderBy: { reviewedAt: 'desc' },
-    take: limit,
-  })
+  const [leaves, disciplinary] = await Promise.all([
+    prisma.leaveRequest.findMany({
+      where: { employeeId: employee.id, status: { in: ['APPROVED', 'REJECTED'] } },
+      include: { leaveType: { select: { name: true } } },
+      orderBy: { reviewedAt: 'desc' },
+      take: limit,
+    }),
+    prisma.disciplinaryRecord.findMany({
+      where: { employeeId: employee.id },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    }),
+  ])
 
-  const items = leaves.map(l => ({
-    id: l.id,
-    type: 'LEAVE' as const,
-    status: l.status,
-    createdAt: l.reviewedAt ?? l.updatedAt,
-    title: `${l.leaveType?.name ?? 'Leave'} ${l.status.toLowerCase()}`,
-  }))
+  const TYPE_LABELS: Record<string, string> = {
+    NOTICE_TO_EXPLAIN: 'Notice to Explain',
+    NOTICE_OF_DECISION: 'Notice of Decision',
+    WRITTEN_WARNING: 'Written Warning',
+    SUSPENSION: 'Suspension',
+    DEMOTION: 'Demotion',
+    TERMINATION: 'Termination',
+  }
+
+  const items = [
+    ...leaves.map(l => ({
+      id: l.id,
+      type: 'LEAVE' as const,
+      status: l.status,
+      createdAt: l.reviewedAt ?? l.updatedAt,
+      title: `${l.leaveType?.name ?? 'Leave'} ${l.status === 'APPROVED' ? 'approved' : 'rejected'}`,
+      href: '/portal/leaves',
+    })),
+    ...disciplinary.map(d => ({
+      id: d.id,
+      type: 'DISCIPLINARY' as const,
+      status: d.status,
+      createdAt: d.createdAt,
+      title: `${TYPE_LABELS[d.type] ?? d.type} issued`,
+      href: '/portal/disciplinary',
+    })),
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit)
 
   return NextResponse.json({ items })
 }

@@ -24,12 +24,23 @@ export async function GET(req: NextRequest) {
   const employeeId = searchParams.get('employeeId') || undefined
   const type       = searchParams.get('type') || undefined
 
+  // Employees only see their own records
+  let scopedEmployeeId = employeeId
+  if (ctx.role === 'EMPLOYEE') {
+    const emp = await prisma.employee.findFirst({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: { id: true },
+    })
+    if (!emp) return NextResponse.json({ records: [] })
+    scopedEmployeeId = emp.id
+  }
+
   const records = await prisma.disciplinaryRecord.findMany({
     where: {
       companyId: ctx.companyId,
-      ...(status     && { status:     status     as 'OPEN' | 'RESPONDED' | 'CLOSED' }),
-      ...(employeeId && { employeeId }),
-      ...(type       && { type:       type       as 'NOTICE_TO_EXPLAIN' | 'NOTICE_OF_DECISION' | 'WRITTEN_WARNING' | 'SUSPENSION' | 'DEMOTION' | 'TERMINATION' }),
+      ...(status             && { status:     status     as 'OPEN' | 'RESPONDED' | 'CLOSED' }),
+      ...(scopedEmployeeId   && { employeeId: scopedEmployeeId }),
+      ...(type               && { type:       type       as 'NOTICE_TO_EXPLAIN' | 'NOTICE_OF_DECISION' | 'WRITTEN_WARNING' | 'SUSPENSION' | 'DEMOTION' | 'TERMINATION' }),
     },
     include: {
       employee: {

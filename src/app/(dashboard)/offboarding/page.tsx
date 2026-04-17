@@ -29,6 +29,8 @@ import {
   CalendarDays,
   ClipboardList,
   XCircle,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -82,13 +84,15 @@ const REASON_LABELS: Record<string, string> = {
   REDUNDANCY: 'Redundancy',
 }
 
-const CATEGORY_ORDER = ['HR', 'Finance', 'IT', 'Admin']
+const CATEGORIES = ['HR', 'Finance', 'IT', 'Admin', 'Other']
+const CATEGORY_ORDER = ['HR', 'Finance', 'IT', 'Admin', 'Other']
 
 const CATEGORY_COLORS: Record<string, string> = {
   HR: 'bg-blue-50 border-blue-200 text-blue-700',
   Finance: 'bg-green-50 border-green-200 text-green-700',
   IT: 'bg-purple-50 border-purple-200 text-purple-700',
   Admin: 'bg-orange-50 border-orange-200 text-orange-700',
+  Other: 'bg-gray-50 border-gray-200 text-gray-700',
 }
 
 const CATEGORY_DOT: Record<string, string> = {
@@ -96,6 +100,7 @@ const CATEGORY_DOT: Record<string, string> = {
   Finance: 'bg-green-500',
   IT: 'bg-purple-500',
   Admin: 'bg-orange-500',
+  Other: 'bg-gray-400',
 }
 
 function statusBadge(status: string) {
@@ -171,7 +176,6 @@ export default function OffboardingPage() {
   async function handleToggleItem(item: OffboardingItem) {
     if (!selected) return
     const newDone = !item.isDone
-    // Optimistic update
     setSelected(prev => prev ? {
       ...prev,
       items: prev.items.map(i => i.id === item.id ? { ...i, isDone: newDone } : i),
@@ -185,20 +189,17 @@ export default function OffboardingPage() {
         body: JSON.stringify({ isDone: newDone }),
       })
       if (!res.ok) throw new Error('Failed to update')
-      // Refresh detail silently
       const data = await res.json()
       setSelected(prev => prev ? {
         ...prev,
         items: prev.items.map(i => i.id === item.id ? { ...i, ...data.item } : i),
       } : prev)
-      // Update list summary counts
       setProcesses(prev => prev.map(p => p.id === selected.id ? {
         ...p,
         itemsDone: p.itemsDone + (newDone ? 1 : -1),
       } : p))
     } catch {
       toast.error('Failed to update item')
-      // revert
       await loadDetail(selected.id)
     }
   }
@@ -270,6 +271,16 @@ export default function OffboardingPage() {
     }
   }
 
+  function handleItemsChanged(updatedItems: OffboardingItem[]) {
+    if (!selected) return
+    const done = updatedItems.filter(i => i.isDone).length
+    setSelected(prev => prev ? { ...prev, items: updatedItems, itemsTotal: updatedItems.length, itemsDone: done } : prev)
+    setProcesses(prev => prev.map(p => p.id === selected.id
+      ? { ...p, itemsTotal: updatedItems.length, itemsDone: done }
+      : p
+    ))
+  }
+
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   const tabs = [
@@ -290,10 +301,7 @@ export default function OffboardingPage() {
           </h1>
           <p className="text-gray-500 mt-0.5 text-sm">Manage employee exit processes and clearance checklists</p>
         </div>
-        <Button
-          onClick={handleOpenCreate}
-          className="bg-[#1A2D42] hover:bg-[#243d57] text-white"
-        >
+        <Button onClick={handleOpenCreate} className="bg-[#1A2D42] hover:bg-[#243d57] text-white">
           <Plus className="w-4 h-4 mr-2" />
           Start Offboarding
         </Button>
@@ -375,7 +383,6 @@ export default function OffboardingPage() {
                     </span>
                   </div>
 
-                  {/* Progress bar */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-400">{p.itemsDone}/{p.itemsTotal} items</span>
@@ -416,6 +423,7 @@ export default function OffboardingPage() {
               process={selected}
               onToggleItem={handleToggleItem}
               onUpdateStatus={handleUpdateStatus}
+              onItemsChanged={handleItemsChanged}
             />
           ) : (
             <Card className="h-full">
@@ -463,9 +471,7 @@ export default function OffboardingPage() {
                 Reason <span className="text-red-500">*</span>
               </label>
               <Select value={form.reason} onValueChange={v => setForm(f => ({ ...f, reason: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(REASON_LABELS).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v}</SelectItem>
@@ -517,19 +523,105 @@ function DetailPanel({
   process,
   onToggleItem,
   onUpdateStatus,
+  onItemsChanged,
 }: {
   process: OffboardingDetail
   onToggleItem: (item: OffboardingItem) => void
   onUpdateStatus: (status: 'COMPLETED' | 'CANCELLED') => void
+  onItemsChanged: (items: OffboardingItem[]) => void
 }) {
+  const [itemDialog, setItemDialog] = useState<{
+    open: boolean
+    mode: 'add' | 'edit'
+    item?: OffboardingItem
+    defaultCategory?: string
+  }>({ open: false, mode: 'add' })
+  const [itemForm, setItemForm] = useState({ title: '', description: '', category: 'HR' })
+  const [itemSaving, setItemSaving] = useState(false)
+
   const pct = process.itemsTotal > 0
     ? Math.round((process.itemsDone / process.itemsTotal) * 100)
     : 0
 
-  const grouped = CATEGORY_ORDER.reduce<Record<string, OffboardingItem[]>>((acc, cat) => {
-    acc[cat] = process.items.filter(i => i.category === cat).sort((a, b) => a.sortOrder - b.sortOrder)
+  // Group items — include categories not in CATEGORY_ORDER too
+  const allCategories = Array.from(new Set([
+    ...CATEGORY_ORDER,
+    ...process.items.map(i => i.category),
+  ]))
+
+  const grouped = allCategories.reduce<Record<string, OffboardingItem[]>>((acc, cat) => {
+    const items = process.items.filter(i => i.category === cat).sort((a, b) => a.sortOrder - b.sortOrder)
+    if (items.length > 0) acc[cat] = items
     return acc
   }, {})
+
+  function openAdd(defaultCategory = 'HR') {
+    setItemForm({ title: '', description: '', category: defaultCategory })
+    setItemDialog({ open: true, mode: 'add', defaultCategory })
+  }
+
+  function openEdit(item: OffboardingItem) {
+    setItemForm({ title: item.title, description: item.description ?? '', category: item.category })
+    setItemDialog({ open: true, mode: 'edit', item })
+  }
+
+  async function handleSaveItem() {
+    if (!itemForm.title.trim()) {
+      toast.error('Title is required')
+      return
+    }
+    setItemSaving(true)
+    try {
+      if (itemDialog.mode === 'add') {
+        const res = await fetch(`/api/offboarding/${process.id}/items`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: itemForm.category,
+            title: itemForm.title.trim(),
+            description: itemForm.description.trim() || null,
+          }),
+        })
+        if (!res.ok) throw new Error('Failed to add item')
+        const data = await res.json()
+        onItemsChanged([...process.items, data.item])
+        toast.success('Item added')
+      } else if (itemDialog.item) {
+        const res = await fetch(`/api/offboarding/${process.id}/items/${itemDialog.item.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: itemForm.title.trim(),
+            description: itemForm.description.trim() || null,
+            category: itemForm.category,
+          }),
+        })
+        if (!res.ok) throw new Error('Failed to update item')
+        const data = await res.json()
+        onItemsChanged(process.items.map(i => i.id === data.item.id ? data.item : i))
+        toast.success('Item updated')
+      }
+      setItemDialog({ open: false, mode: 'add' })
+    } catch {
+      toast.error('Failed to save item')
+    } finally {
+      setItemSaving(false)
+    }
+  }
+
+  async function handleDeleteItem(item: OffboardingItem) {
+    if (!confirm(`Delete "${item.title}"?`)) return
+    try {
+      const res = await fetch(`/api/offboarding/${process.id}/items/${item.id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('Failed to delete')
+      onItemsChanged(process.items.filter(i => i.id !== item.id))
+      toast.success('Item deleted')
+    } catch {
+      toast.error('Failed to delete item')
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -566,7 +658,6 @@ function DetailPanel({
               </div>
             </div>
 
-            {/* Action buttons */}
             {process.status === 'IN_PROGRESS' && (
               <div className="flex gap-2 flex-shrink-0">
                 <Button
@@ -590,7 +681,6 @@ function DetailPanel({
             )}
           </div>
 
-          {/* Overall progress */}
           <div className="mt-4 space-y-1.5">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-gray-600">Overall Progress</span>
@@ -612,36 +702,45 @@ function DetailPanel({
       </Card>
 
       {/* Checklist grouped by category */}
-      {CATEGORY_ORDER.map(cat => {
-        const items = grouped[cat]
-        if (!items || items.length === 0) return null
+      {Object.entries(grouped).map(([cat, items]) => {
         const catDone = items.filter(i => i.isDone).length
+        const colorClass = CATEGORY_COLORS[cat] ?? 'bg-gray-50 border-gray-200 text-gray-700'
+        const dotClass = CATEGORY_DOT[cat] ?? 'bg-gray-400'
         return (
           <Card key={cat}>
             <CardContent className="p-0">
-              <div className={`flex items-center justify-between px-4 py-3 border-b ${CATEGORY_COLORS[cat] ?? 'border-gray-200'}`}>
+              <div className={`flex items-center justify-between px-4 py-3 border-b ${colorClass}`}>
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${CATEGORY_DOT[cat] ?? 'bg-gray-400'}`} />
+                  <span className={`w-2 h-2 rounded-full ${dotClass}`} />
                   <span className="font-semibold text-sm">{cat}</span>
                 </div>
-                <span className="text-xs font-medium opacity-75">{catDone}/{items.length}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium opacity-75">{catDone}/{items.length}</span>
+                  {process.status === 'IN_PROGRESS' && (
+                    <button
+                      onClick={() => openAdd(cat)}
+                      className="opacity-60 hover:opacity-100 transition-opacity"
+                      title={`Add item to ${cat}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
               <ul className="divide-y divide-gray-100">
                 {items.map(item => (
-                  <li key={item.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                  <li key={item.id} className="group flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
                     <button
                       onClick={() => process.status === 'IN_PROGRESS' && onToggleItem(item)}
                       disabled={process.status !== 'IN_PROGRESS'}
                       className={`mt-0.5 flex-shrink-0 transition-colors ${
                         process.status !== 'IN_PROGRESS' ? 'cursor-default opacity-60' : 'hover:scale-110'
                       }`}
-                      title={item.isDone ? 'Mark as not done' : 'Mark as done'}
                     >
-                      {item.isDone ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-gray-300" />
-                      )}
+                      {item.isDone
+                        ? <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        : <Circle className="w-5 h-5 text-gray-300" />
+                      }
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm ${item.isDone ? 'line-through text-gray-400' : 'text-gray-700 font-medium'}`}>
@@ -656,13 +755,117 @@ function DetailPanel({
                         </p>
                       )}
                     </div>
+                    {/* Edit / Delete — visible on hover */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <button
+                        onClick={() => openEdit(item)}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Edit item"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItem(item)}
+                        className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
+              {/* Add item inline button */}
+              {process.status === 'IN_PROGRESS' && (
+                <button
+                  onClick={() => openAdd(cat)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors border-t border-gray-100"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add item to {cat}
+                </button>
+              )}
             </CardContent>
           </Card>
         )
       })}
+
+      {/* Add to new category */}
+      {process.status === 'IN_PROGRESS' && (
+        <button
+          onClick={() => openAdd('Other')}
+          className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add custom checklist item
+        </button>
+      )}
+
+      {/* Add / Edit item dialog */}
+      <Dialog open={itemDialog.open} onOpenChange={open => setItemDialog(d => ({ ...d, open }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {itemDialog.mode === 'add' ? 'Add Checklist Item' : 'Edit Checklist Item'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={itemForm.category}
+                onValueChange={v => setItemForm(f => ({ ...f, category: v }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Title <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={itemForm.title}
+                onChange={e => setItemForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Return company laptop"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <Input
+                value={itemForm.description}
+                onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Additional details…"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setItemDialog(d => ({ ...d, open: false }))}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveItem}
+              disabled={itemSaving}
+              className="bg-[#1A2D42] hover:bg-[#243d57] text-white"
+            >
+              {itemSaving ? 'Saving…' : itemDialog.mode === 'add' ? 'Add Item' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

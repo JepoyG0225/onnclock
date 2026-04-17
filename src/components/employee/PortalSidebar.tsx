@@ -7,17 +7,27 @@ import { useEffect, useState, useRef } from 'react'
 import { signOut } from 'next-auth/react'
 import {
   Clock, FileText, CreditCard, User, BarChart3,
-  Bell, LogOut, ChevronDown,
+  Bell, LogOut, ChevronDown, AlertTriangle, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_TABS = [
-  { href: '/portal/clock',    label: 'Attendance', icon: Clock,      exact: false },
-  { href: '/portal/leaves',   label: 'Leave',      icon: FileText,   exact: false },
-  { href: '/portal/payslips', label: 'Payslips',   icon: CreditCard, exact: false },
-  { href: '/portal/reviews',  label: 'Reviews',    icon: BarChart3,  exact: false },
-  { href: '/portal/profile',  label: 'Profile',    icon: User,       exact: false },
+  { href: '/portal/clock',        label: 'Attendance',   icon: Clock,          exact: false },
+  { href: '/portal/leaves',       label: 'Leave',        icon: FileText,       exact: false },
+  { href: '/portal/payslips',     label: 'Payslips',     icon: CreditCard,     exact: false },
+  { href: '/portal/reviews',      label: 'Reviews',      icon: BarChart3,      exact: false },
+  { href: '/portal/disciplinary', label: 'Disciplinary', icon: AlertTriangle,  exact: false },
+  { href: '/portal/profile',      label: 'Profile',      icon: User,           exact: false },
 ]
+
+const DISMISSED_KEY = 'portal_dismissed_notifs'
+
+function getDismissed(): string[] {
+  try { return JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]') } catch { return [] }
+}
+function setDismissed(ids: string[]) {
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids))
+}
 
 interface PortalSidebarProps {
   companyName?: string
@@ -43,10 +53,21 @@ export function PortalSidebar({
   employeeNo,
 }: PortalSidebarProps) {
   const pathname = usePathname()
-  const [notifs, setNotifs] = useState<NotifItem[]>([])
+  const [allNotifs, setAllNotifs] = useState<NotifItem[]>([])
+  const [dismissed, setDismissedState] = useState<string[]>([])
   const [showNotif, setShowNotif] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setDismissedState(getDismissed()) }, [])
+
+  const notifs = allNotifs.filter(n => !dismissed.includes(n.id))
+
+  function handleClearAll() {
+    const ids = [...dismissed, ...allNotifs.map(n => n.id)]
+    setDismissed(ids)
+    setDismissedState(ids)
+  }
 
   // Poll notifications
   useEffect(() => {
@@ -56,7 +77,7 @@ export function PortalSidebar({
         const res = await fetch('/api/notifications/portal?limit=20')
         if (!res.ok) return
         const data = await res.json()
-        if (active) setNotifs(data.items ?? [])
+        if (active) setAllNotifs(data.items ?? [])
       } catch { /* ignore */ }
     }
     load()
@@ -157,35 +178,45 @@ export function PortalSidebar({
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                   <p className="text-gray-900 text-sm font-semibold">Notifications</p>
                   {notifs.length > 0 && (
-                    <span className="text-[11px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
-                      {notifs.length} new
-                    </span>
+                    <button
+                      onClick={handleClearAll}
+                      className="text-[11px] font-semibold text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                      Clear all
+                    </button>
                   )}
                 </div>
                 {notifs.length === 0 ? (
                   <div className="px-4 py-6 text-center">
                     <Bell className="w-6 h-6 text-gray-200 mx-auto mb-2" />
-                    <p className="text-xs text-gray-400">You're all caught up</p>
+                    <p className="text-xs text-gray-400">You&apos;re all caught up</p>
                   </div>
                 ) : (
                   <div className="max-h-64 overflow-auto divide-y divide-gray-50">
-                    {notifs.map(item => (
-                      <div key={item.id} className="px-4 py-3">
-                        <p className="text-sm text-gray-800 font-medium leading-snug">{item.title}</p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span
-                            className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
-                            style={{
-                              background: item.status === 'APPROVED' ? '#dcfce7' : '#fee2e2',
-                              color: item.status === 'APPROVED' ? '#15803d' : '#dc2626',
-                            }}
-                          >
-                            {item.status}
-                          </span>
-                          <p className="text-[10px] text-gray-400">{new Date(item.createdAt).toLocaleString()}</p>
-                        </div>
-                      </div>
-                    ))}
+                    {notifs.map(item => {
+                      const isDisc = item.type === 'DISCIPLINARY'
+                      return (
+                        <a key={item.id} href={(item as {href?: string}).href ?? '#'} className="block px-4 py-3 hover:bg-gray-50 transition-colors">
+                          <p className="text-sm text-gray-800 font-medium leading-snug">{item.title}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span
+                              className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
+                              style={isDisc
+                                ? { background: '#fee2e2', color: '#b91c1c' }
+                                : {
+                                    background: item.status === 'APPROVED' ? '#dcfce7' : '#fee2e2',
+                                    color: item.status === 'APPROVED' ? '#15803d' : '#dc2626',
+                                  }
+                              }
+                            >
+                              {isDisc ? item.status : item.status}
+                            </span>
+                            <p className="text-[10px] text-gray-400">{new Date(item.createdAt).toLocaleString()}</p>
+                          </div>
+                        </a>
+                      )
+                    })}
                   </div>
                 )}
               </div>

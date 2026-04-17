@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Clock, FileText, CreditCard, User, BarChart3 } from 'lucide-react'
+import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_TABS = [
-  { href: '/portal/clock',   label: 'Attendance', icon: Clock,     exact: false },
-  { href: '/portal/leaves',  label: 'Leave',      icon: FileText,  exact: false },
-  { href: '/portal/payslips',label: 'Payslips',   icon: CreditCard,exact: false },
-  { href: '/portal/reviews', label: 'Reviews',    icon: BarChart3, exact: false },
-  { href: '/portal/profile', label: 'Profile',    icon: User,      exact: false },
+  { href: '/portal/clock',        label: 'Attendance',   icon: Clock,         exact: false },
+  { href: '/portal/leaves',       label: 'Leave',        icon: FileText,      exact: false },
+  { href: '/portal/payslips',     label: 'Payslips',     icon: CreditCard,    exact: false },
+  { href: '/portal/disciplinary', label: 'Disciplinary', icon: AlertTriangle, exact: false },
+  { href: '/portal/profile',      label: 'Profile',      icon: User,          exact: false },
 ]
 
 export function PortalBottomNav() {
