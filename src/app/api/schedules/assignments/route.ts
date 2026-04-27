@@ -35,6 +35,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'startDate and endDate are required' }, { status: 400 })
     }
 
+    const employeeSelect = {
+      id: true,
+      employeeNo: true,
+      firstName: true,
+      lastName: true,
+      middleName: true,
+      department: { select: { id: true, name: true } },
+      position: { select: { title: true } },
+      workScheduleId: true,
+      workSchedule: { select: { scheduleType: true } },
+    } as const
+
     // Fetch employees in this company
     let employees = await prisma.employee.findMany({
       where: {
@@ -42,16 +54,7 @@ export async function GET(req: NextRequest) {
         isActive: true,
         ...(deptId ? { departmentId: deptId } : {}),
       },
-      select: {
-        id: true,
-        employeeNo: true,
-        firstName: true,
-        lastName: true,
-        middleName: true,
-        department: { select: { id: true, name: true } },
-        position: { select: { title: true } },
-        workScheduleId: true,
-      },
+      select: employeeSelect,
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     })
 
@@ -62,16 +65,7 @@ export async function GET(req: NextRequest) {
           companyId,
           ...(deptId ? { departmentId: deptId } : {}),
         },
-        select: {
-          id: true,
-          employeeNo: true,
-          firstName: true,
-          lastName: true,
-          middleName: true,
-          department: { select: { id: true, name: true } },
-          position: { select: { title: true } },
-          workScheduleId: true,
-        },
+        select: employeeSelect,
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       })
     }
@@ -180,40 +174,13 @@ export async function GET(req: NextRequest) {
       assignments = []
     }
 
-    // Make FIXED and FLEXIBLE employee lists mutually exclusive.
-    const flexibleEmployeeIds = new Set(assignments.map(a => a.employeeId))
+    // Route employees to the correct tab based on their assigned schedule's type.
+    // Employees with no schedule or a FLEXIBLE schedule → FLEXIBLE tab.
+    // Employees with a FIXED schedule → FIXED tab.
     if (mode === 'FLEXIBLE') {
-      // In flexible tab, hide employees already assigned a fixed schedule.
-      employees = employees.filter(emp => !emp.workScheduleId)
+      employees = employees.filter(emp => emp.workSchedule?.scheduleType !== 'FIXED')
     } else if (mode === 'FIXED') {
-      // In fixed tab, hide employees that have flexible assignments and no fixed schedule.
-      // If workScheduleId is set, keep them in fixed even if assignment rows exist.
-      try {
-        const assignmentModel = (prisma as unknown as {
-          employeeShiftAssignment?: {
-            findMany: (args: unknown) => Promise<Array<{ employeeId: string }>>
-          }
-        }).employeeShiftAssignment
-
-        let allFlexibleIds: Set<string>
-        if (assignmentModel?.findMany) {
-          const rows = await assignmentModel.findMany({
-            where: { companyId },
-            select: { employeeId: true },
-          })
-          allFlexibleIds = new Set(rows.map(r => r.employeeId))
-        } else {
-          const rows = await prisma.$queryRaw<Array<{ employeeId: string }>>`
-            SELECT DISTINCT "employeeId"
-            FROM "employee_shift_assignments"
-            WHERE "companyId" = ${companyId}
-          `
-          allFlexibleIds = new Set(rows.map(r => r.employeeId))
-        }
-        employees = employees.filter(emp => !(allFlexibleIds.has(emp.id) && !emp.workScheduleId))
-      } catch {
-        employees = employees.filter(emp => !(flexibleEmployeeIds.has(emp.id) && !emp.workScheduleId))
-      }
+      employees = employees.filter(emp => emp.workSchedule?.scheduleType === 'FIXED')
     }
 
     return NextResponse.json({ employees, assignments })
