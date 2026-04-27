@@ -307,7 +307,7 @@ function EmployeeCard({
               <Monitor className="w-3.5 h-3.5 text-[#2E4156] opacity-70" aria-label="Screenshot available" />
             )}
             <span className={`w-2.5 h-2.5 rounded-full ${
-              loc.isClockedIn ? 'bg-[#2E4156] animate-pulse' : 'bg-gray-300'
+              loc.isClockedIn ? 'bg-green-500 animate-pulse' : 'bg-gray-300'
             }`} />
           </div>
         </div>
