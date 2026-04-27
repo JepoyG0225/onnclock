@@ -61,7 +61,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Departments',          href: '/departments',        icon: Building2 },
       { label: 'Positions',            href: '/positions',          icon: Briefcase },
       { label: 'Org Chart',            href: '/org-chart',          icon: Building2 },
-      { label: 'Jobs',                 href: '/recruitment',        icon: ClipboardList },
+      { label: 'Recruitment',           href: '/recruitment',        icon: ClipboardList },
       { label: 'Onboarding Tracker',   href: '/onboarding',         icon: CheckCircle },
       { label: 'Performance Reviews',  href: '/performance-reviews', icon: BarChart3 },
       { label: 'Offboarding',          href: '/offboarding',        icon: UserMinus },
@@ -420,7 +420,7 @@ function Tooltip({
 }
 
 // â"€â"€â"€ Collapsed flyout (portal-based to escape overflow clip) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-const PRO_LABELS = new Set(['Performance Reviews', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Jobs', 'Onboarding Tracker'])
+const PRO_LABELS = new Set(['Performance Reviews', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Recruitment', 'Onboarding Tracker'])
 
 function CollapsedFlyout({
   item, pathname, currentTab, isActive, activeStyle, baseItemClass, counts, hrisProEnabled,

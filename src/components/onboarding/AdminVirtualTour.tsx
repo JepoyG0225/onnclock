@@ -40,7 +40,7 @@ const DEFAULT_STEPS: TourStep[] = [
     href: '/org-chart',
   },
   {
-    title: 'Jobs & Recruitment',
+    title: 'Recruitment',
     description: '(Pro) Post job openings with a public application link, track candidates through stages, and convert hires directly into employee records.',
     href: '/recruitment',
   },

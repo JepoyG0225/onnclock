@@ -171,7 +171,13 @@
       "Bash(dir \"C:\\\\Users\\\\Admin\\\\Desktop\\\\ph-hrpayroll\\\\.env*\")",
       "PowerShell(npx vercel env ls 2>&1)",
       "Bash(dir \"C:\\\\Users\\\\Admin\\\\Desktop\\\\ph-hrpayroll\\\\src\\\\app\" /b /ad)",
-      "Bash(set DIRECT_URL=%DATABASE_URL%)"
+      "Bash(set DIRECT_URL=%DATABASE_URL%)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(printenv)",
+      "Bash(psql 'postgresql://postgres.uughscwxexcipojotjzh:!!Clocckon2026**@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1' -c ' *)",
+      "Bash(brew list *)"
     ]
   },
   "disableAllHooks": true
