@@ -2,62 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
-function deriveWorkDaysFromDayOffs(dayOffDays: number[] | undefined): number[] {
-  const fullWeek = [0, 1, 2, 3, 4, 5, 6]
-  const off = new Set((dayOffDays ?? []).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))
-  const workDays = fullWeek.filter(d => !off.has(d))
-  return workDays.length > 0 ? workDays : [1, 2, 3, 4, 5]
-}
-
-async function resolveCustomScheduleId(params: {
-  companyId: string
-  employeeNo: string
-  baseScheduleId?: string | null
-  dayOffDays?: number[]
-}) {
-  if (!params.dayOffDays) return params.baseScheduleId ?? null
-
-  const baseSchedule = params.baseScheduleId
-    ? await prisma.workSchedule.findFirst({
-        where: { id: params.baseScheduleId, companyId: params.companyId },
-      })
-    : null
-
-  const workDays = deriveWorkDaysFromDayOffs(params.dayOffDays)
-  const customName = `${params.employeeNo} - Custom Day Offs`
-  const existing = await prisma.workSchedule.findFirst({
-    where: { companyId: params.companyId, name: customName, isActive: true },
-  })
-
-  const payload = {
-    scheduleType: baseSchedule?.scheduleType ?? 'FIXED',
-    requireSelfieOnClockIn: baseSchedule?.requireSelfieOnClockIn ?? false,
-    workDays,
-    timeIn: baseSchedule?.timeIn ?? '08:00',
-    timeOut: baseSchedule?.timeOut ?? '17:00',
-    breakMinutes: Number(baseSchedule?.breakMinutes ?? 60),
-    workHoursPerDay: baseSchedule?.workHoursPerDay ?? 8,
-    workDaysPerWeek: workDays.length,
-    isActive: true,
-  }
-
-  if (existing) {
-    const updated = await prisma.workSchedule.update({
-      where: { id: existing.id },
-      data: payload,
-    })
-    return updated.id
-  }
-
-  const created = await prisma.workSchedule.create({
-    data: {
-      companyId: params.companyId,
-      name: customName,
-      ...payload,
-    },
-  })
-  return created.id
-}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -107,18 +51,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const n = (v: any) => (v === '' || v === undefined ? null : v)
 
-    const parsedDayOffDays = Array.isArray(body.dayOffDays)
-      ? body.dayOffDays
-          .map((d: unknown) => Number(d))
-          .filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6)
-      : undefined
-
-    const resolvedWorkScheduleId = await resolveCustomScheduleId({
-      companyId: ctx.companyId,
-      employeeNo: body.employeeNo || existing.employeeNo,
-      baseScheduleId: body.workScheduleId ?? existing.workScheduleId,
-      dayOffDays: parsedDayOffDays,
-    })
+    // Use the workScheduleId directly — never auto-create "Custom Day Offs" schedules.
+    // dayOffDays is intentionally ignored: day-off customisation is handled via
+    // shift assignments (EmployeeShiftAssignment), not by spawning extra schedules.
+    const resolvedWorkScheduleId =
+      body.workScheduleId !== undefined
+        ? (body.workScheduleId || null)
+        : existing.workScheduleId
 
     // Relation FK fields require connect/disconnect syntax in Prisma v5 EmployeeUpdateInput
     const deptOp       = body.departmentId   ? { connect: { id: body.departmentId   } } : { disconnect: true }

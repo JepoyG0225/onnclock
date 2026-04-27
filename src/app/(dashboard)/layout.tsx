@@ -10,7 +10,7 @@ import { SidebarProvider } from '@/components/layout/SidebarContext'
 import { MainContent } from '@/components/layout/MainContent'
 import { SubscriptionGate } from '@/components/layout/SubscriptionGate'
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
-import { FloatingChat } from '@/components/chat/FloatingChat'
+import { SubscriptionExpiryNotice } from '@/components/layout/SubscriptionExpiryNotice'
 import { AdminVirtualTour } from '@/components/onboarding/AdminVirtualTour'
 import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
@@ -47,7 +47,7 @@ export default async function DashboardLayout({
   // Keep layout DB work light for faster route transitions.
   let company: Awaited<ReturnType<typeof getCompanyLite>> | null = null
   const counts = { pendingDtr: 0, pendingLeaves: 0 }
-  let sub: { status: string; trialEndsAt: Date | null } | null = null
+  let sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; pricePerSeat?: unknown } | null = null
 
   try {
     if (companyId) {
@@ -56,7 +56,7 @@ export default async function DashboardLayout({
     if (canManageCompanyData) {
       sub = await prisma.subscription.findUnique({
         where: { companyId },
-        select: { status: true, trialEndsAt: true },
+        select: { status: true, trialEndsAt: true, currentPeriodEnd: true, pricePerSeat: true },
       })
     }
   } catch (error) {
@@ -65,6 +65,9 @@ export default async function DashboardLayout({
 
   let subStatus = 'ACTIVE'
   let trialEndsAt: string | null = null
+  let expiryNoticeAt: string | null = null
+  let expiryNoticeIsTrial = true
+  let hrisProEnabled = true // default on for SUPER_ADMIN / no subscription
   if (sub) {
     const computedStatus =
       sub.status === 'TRIAL' && sub.trialEndsAt && sub.trialEndsAt < new Date()
@@ -72,7 +75,20 @@ export default async function DashboardLayout({
         : sub.status
     subStatus = computedStatus
     trialEndsAt = sub.trialEndsAt ? sub.trialEndsAt.toISOString() : null
+    const isTrial = sub.status === 'TRIAL'
+    const pricePerSeat = Number(sub.pricePerSeat ?? 0)
+    hrisProEnabled = isTrial || pricePerSeat >= 100
+
+    // Pick the relevant expiry date for the in-app warning
+    if (isTrial && sub.trialEndsAt) {
+      expiryNoticeAt = sub.trialEndsAt.toISOString()
+      expiryNoticeIsTrial = true
+    } else if (!isTrial && sub.currentPeriodEnd && computedStatus === 'ACTIVE') {
+      expiryNoticeAt = sub.currentPeriodEnd.toISOString()
+      expiryNoticeIsTrial = false
+    }
   }
+  if (session.user.role === 'SUPER_ADMIN') hrisProEnabled = true
 
   return (
     <SidebarProvider>
@@ -80,12 +96,16 @@ export default async function DashboardLayout({
         {impersonating && (
           <ImpersonationBanner companyName={impersonating.companyName} />
         )}
+        {session.user.role !== 'SUPER_ADMIN' && (
+          <SubscriptionExpiryNotice expiresAt={expiryNoticeAt} isTrial={expiryNoticeIsTrial} />
+        )}
         <AppSidebar
           initialLogoUrl={company?.logoUrl ?? null}
           initialUserRole={effectiveRole}
           initialCounts={counts}
           initialTrialEndsAt={trialEndsAt}
           isLocal={process.env.NODE_ENV === 'development'}
+          hrisProEnabled={hrisProEnabled}
         />
         <AppHeader
           user={{ email: session.user.email, name: session.user.name }}
@@ -96,7 +116,6 @@ export default async function DashboardLayout({
             {children}
           </SubscriptionGate>
         </MainContent>
-        <FloatingChat />
         <AdminVirtualTour
           userId={session.user.id}
           role={effectiveRole}

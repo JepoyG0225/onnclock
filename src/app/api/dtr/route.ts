@@ -71,14 +71,10 @@ export async function GET(req: NextRequest) {
             workSchedule: { select: { workDays: true } },
           },
         },
-        screenCaptures: {
+        _count: {
           select: {
-            id: true,
-            imageDataUrl: true,
-            capturedAt: true,
+            screenCaptures: true,
           },
-          orderBy: { capturedAt: 'desc' },
-          take: 100,
         },
       },
       orderBy: [{ date: 'desc' }, { employee: { lastName: 'asc' } }],
@@ -88,7 +84,12 @@ export async function GET(req: NextRequest) {
     prisma.dTRRecord.count({ where }),
   ])
 
-  return NextResponse.json({ records, total, page, limit })
+  const normalized = records.map(({ _count, ...record }) => ({
+    ...record,
+    screenCaptureCount: _count.screenCaptures,
+  }))
+
+  return NextResponse.json({ records: normalized, total, page, limit })
 }
 
 export async function POST(req: NextRequest) {
@@ -111,9 +112,12 @@ export async function POST(req: NextRequest) {
   })
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
-  // Combine date + HH:mm time strings into full DateTime for DB storage
-  const timeIn  = data.timeIn  ? new Date(`${data.date}T${data.timeIn}:00`)  : null
-  const timeOut = data.timeOut ? new Date(`${data.date}T${data.timeOut}:00`) : null
+  // Combine date + HH:mm time strings into full DateTime for DB storage.
+  // Append +08:00 (PST) so Vercel (UTC) stores the correct UTC equivalent.
+  // e.g. "11:46 PH" → 2026-04-17T11:46:00+08:00 → stored as 03:46 UTC
+  // Without this, "11:46" is parsed as UTC and the timesheet displays 19:46 PH.
+  const timeIn  = data.timeIn  ? new Date(`${data.date}T${data.timeIn}:00+08:00`)  : null
+  const timeOut = data.timeOut ? new Date(`${data.date}T${data.timeOut}:00+08:00`) : null
 
   const record = await prisma.dTRRecord.upsert({
     where: {

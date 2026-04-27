@@ -15,6 +15,9 @@ interface InvoiceDetail {
   periodEnd: string
   seatCount: number
   pricePerSeat: number
+  effectiveSeatCount?: number
+  effectivePricePerSeat?: number
+  monthsBilled?: number
   subtotal: number
   discountPct: number
   discountAmount: number
@@ -96,16 +99,20 @@ export default function InvoicePage() {
     )
   }
 
+  const displaySeatCount = Math.max(1, Number(invoice.effectiveSeatCount ?? invoice.seatCount ?? 0))
+  const displayPricePerSeat = Number(invoice.effectivePricePerSeat ?? invoice.pricePerSeat ?? 0)
+  const displayMonthsBilled = Math.max(1, Number(invoice.monthsBilled ?? (invoice.discountPct > 0 ? 12 : 1)))
+
   const lineItems = [
     {
-      description: `${invoice.seatCount} Active Employee${invoice.seatCount !== 1 ? 's' : ''} × ${fmt(invoice.pricePerSeat)}/mo`,
+      description: `${displaySeatCount} Paid Seat${displaySeatCount !== 1 ? 's' : ''} × ${fmt(displayPricePerSeat)}/mo`,
       amount: invoice.subtotal,
     },
   ]
 
   const isAnnual = invoice.discountPct > 0
   if (isAnnual) {
-    lineItems[0].description = `${invoice.seatCount} Active Employee${invoice.seatCount !== 1 ? 's' : ''} × ${fmt(invoice.pricePerSeat)}/mo × 12 months`
+    lineItems[0].description = `${displaySeatCount} Paid Seat${displaySeatCount !== 1 ? 's' : ''} × ${fmt(displayPricePerSeat)}/mo × ${displayMonthsBilled} months`
   }
 
   const statusConfig = {
@@ -310,6 +317,20 @@ export default function InvoicePage() {
       {/* Print styles */}
       <style jsx global>{`
         @media print {
+          /* Print only the invoice content, hide dashboard shell (sidebar/header/chat/etc). */
+          body * {
+            visibility: hidden !important;
+          }
+          .invoice-document,
+          .invoice-document * {
+            visibility: visible !important;
+          }
+          .invoice-document {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+          }
           .no-print { display: none !important; }
           body { background: white !important; }
           .invoice-document {

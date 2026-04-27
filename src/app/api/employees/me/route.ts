@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { resolvePortalEmployeeId } from '@/lib/portal-employee'
 
 export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
+  const employeeId = await resolvePortalEmployeeId(ctx)
+
   const [employee, company] = await Promise.all([
-    prisma.employee.findFirst({
-      where: { userId: ctx.userId, companyId: ctx.companyId },
+    employeeId ? prisma.employee.findUnique({
+      where: { id: employeeId },
       include: {
         department: { select: { name: true } },
         position: { select: { title: true } },
         workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true } },
       },
-    }),
+    }) : Promise.resolve(null),
     prisma.company.findUnique({
       where: { id: ctx.companyId },
       select: { selfieRequired: true },
@@ -57,9 +60,10 @@ export async function PATCH(req: NextRequest) {
     tinNo: body.tinNo ?? null,
   }
 
-  const existing = await prisma.employee.findFirst({
-    where: { userId: ctx.userId, companyId: ctx.companyId },
-  })
+  const employeeId = await resolvePortalEmployeeId(ctx)
+  const existing = employeeId
+    ? await prisma.employee.findUnique({ where: { id: employeeId } })
+    : null
   if (!existing) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
   const updated = await prisma.employee.update({

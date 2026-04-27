@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
 
   const limit = Math.min(50, parseInt(new URL(req.url).searchParams.get('limit') || '20'))
 
-  const [leaveRequests, dtrPending, disciplinary] = await Promise.all([
-    prisma.leaveRequest.findMany({
+  try {
+    const leaveRequests = await prisma.leaveRequest.findMany({
       where: {
         employee: { companyId: ctx.companyId },
         status: 'PENDING',
@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
-    }),
-    prisma.dTRRecord.findMany({
+    })
+
+    const dtrPending = await prisma.dTRRecord.findMany({
       where: {
         employee: { companyId: ctx.companyId },
         timeOut: { not: null },
@@ -34,8 +35,9 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
-    }),
-    prisma.disciplinaryRecord.findMany({
+    })
+
+    const disciplinary = await prisma.disciplinaryRecord.findMany({
       where: {
         companyId: ctx.companyId,
         status: 'OPEN',
@@ -45,8 +47,7 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
-    }),
-  ])
+    })
 
   const TYPE_LABELS: Record<string, string> = {
     NOTICE_TO_EXPLAIN: 'Notice to Explain',
@@ -57,40 +58,50 @@ export async function GET(req: NextRequest) {
     TERMINATION: 'Termination',
   }
 
-  const items = [
-    ...leaveRequests.map(l => ({
-      id: l.id,
-      type: 'LEAVE' as const,
-      status: l.status,
-      createdAt: l.createdAt,
-      title: `${l.leaveType?.name ?? 'Leave'} request`,
-      employee: `${l.employee.firstName} ${l.employee.lastName}`,
-      employeeNo: l.employee.employeeNo,
-      href: '/leaves',
-    })),
-    ...dtrPending.map(r => ({
-      id: r.id,
-      type: 'DTR' as const,
-      status: 'PENDING' as const,
-      createdAt: r.createdAt,
-      title: 'DTR approval needed',
-      employee: `${r.employee.firstName} ${r.employee.lastName}`,
-      employeeNo: r.employee.employeeNo,
-      href: '/dtr',
-    })),
-    ...disciplinary.map(d => ({
-      id: d.id,
-      type: 'DISCIPLINARY' as const,
-      status: d.status,
-      createdAt: d.createdAt,
-      title: `${TYPE_LABELS[d.type] ?? d.type} issued`,
-      employee: `${d.employee.firstName} ${d.employee.lastName}`,
-      employeeNo: d.employee.employeeNo,
-      href: '/disciplinary',
-    })),
-  ]
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, limit)
+    const items = [
+      ...leaveRequests.map(l => ({
+        id: l.id,
+        type: 'LEAVE' as const,
+        status: l.status,
+        createdAt: l.createdAt,
+        title: `${l.leaveType?.name ?? 'Leave'} request`,
+        employee: `${l.employee.firstName} ${l.employee.lastName}`,
+        employeeNo: l.employee.employeeNo,
+        href: '/leaves',
+      })),
+      ...dtrPending.map(r => ({
+        id: r.id,
+        type: 'DTR' as const,
+        status: 'PENDING' as const,
+        createdAt: r.createdAt,
+        title: 'DTR approval needed',
+        employee: `${r.employee.firstName} ${r.employee.lastName}`,
+        employeeNo: r.employee.employeeNo,
+        href: '/dtr',
+      })),
+      ...disciplinary.map(d => ({
+        id: d.id,
+        type: 'DISCIPLINARY' as const,
+        status: d.status,
+        createdAt: d.createdAt,
+        title: `${TYPE_LABELS[d.type] ?? d.type} issued`,
+        employee: `${d.employee.firstName} ${d.employee.lastName}`,
+        employeeNo: d.employee.employeeNo,
+        href: '/disciplinary',
+      })),
+    ]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit)
 
-  return NextResponse.json({ items })
+    return NextResponse.json(
+      { items },
+      { headers: { 'Cache-Control': 'private, max-age=10, stale-while-revalidate=20' } }
+    )
+  } catch (err) {
+    console.error('[/api/notifications/admin]', err)
+    return NextResponse.json(
+      { items: [], degraded: true },
+      { headers: { 'Cache-Control': 'private, max-age=5, stale-while-revalidate=10' } }
+    )
+  }
 }

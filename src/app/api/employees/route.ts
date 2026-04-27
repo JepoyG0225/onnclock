@@ -52,62 +52,6 @@ const createEmployeeSchema = z.object({
   notes: z.string().optional(),
 })
 
-function deriveWorkDaysFromDayOffs(dayOffDays: number[] | undefined): number[] {
-  const fullWeek = [0, 1, 2, 3, 4, 5, 6]
-  const off = new Set((dayOffDays ?? []).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))
-  const workDays = fullWeek.filter(d => !off.has(d))
-  return workDays.length > 0 ? workDays : [1, 2, 3, 4, 5]
-}
-
-async function resolveCustomScheduleId(params: {
-  companyId: string
-  employeeNo: string
-  baseScheduleId?: string
-  dayOffDays?: number[]
-}) {
-  if (!params.dayOffDays) return params.baseScheduleId ?? null
-
-  const baseSchedule = params.baseScheduleId
-    ? await prisma.workSchedule.findFirst({
-        where: { id: params.baseScheduleId, companyId: params.companyId },
-      })
-    : null
-
-  const workDays = deriveWorkDaysFromDayOffs(params.dayOffDays)
-  const customName = `${params.employeeNo} - Custom Day Offs`
-  const existing = await prisma.workSchedule.findFirst({
-    where: { companyId: params.companyId, name: customName, isActive: true },
-  })
-
-  const payload = {
-    scheduleType: baseSchedule?.scheduleType ?? 'FIXED',
-    requireSelfieOnClockIn: baseSchedule?.requireSelfieOnClockIn ?? false,
-    workDays,
-    timeIn: baseSchedule?.timeIn ?? '08:00',
-    timeOut: baseSchedule?.timeOut ?? '17:00',
-    breakMinutes: Number(baseSchedule?.breakMinutes ?? 60),
-    workHoursPerDay: baseSchedule?.workHoursPerDay ?? 8,
-    workDaysPerWeek: workDays.length,
-    isActive: true,
-  }
-
-  if (existing) {
-    const updated = await prisma.workSchedule.update({
-      where: { id: existing.id },
-      data: payload,
-    })
-    return updated.id
-  }
-
-  const created = await prisma.workSchedule.create({
-    data: {
-      companyId: params.companyId,
-      name: customName,
-      ...payload,
-    },
-  })
-  return created.id
-}
 
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
@@ -159,8 +103,27 @@ export async function GET(req: NextRequest) {
   }
 
   if (unlinked) {
+    const reservedMemberships = await prisma.userCompany.findMany({
+      where: {
+        companyId,
+        role: { in: ['COMPANY_ADMIN', 'PAYROLL_OFFICER'] },
+      },
+      select: { userId: true },
+    })
+    const reservedUserIds = reservedMemberships.map(m => m.userId)
+
+    const eligibilityFilter =
+      reservedUserIds.length > 0
+        ? {
+            OR: [
+              { userId: null },
+              { userId: { notIn: reservedUserIds } },
+            ],
+          }
+        : {}
+
     const employees = await prisma.employee.findMany({
-      where: { ...where, userId: null },
+      where: { ...where, ...eligibilityFilter },
       select: {
         id: true,
         firstName: true,
@@ -203,25 +166,20 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parsed.data
-  const { dayOffDays, ...employeeData } = data
+  // dayOffDays is accepted in the schema for backward compat but intentionally ignored —
+  // day-off customisation is handled via shift assignments, not by spawning extra schedules.
+  const { dayOffDays: _dayOffDays, ...employeeData } = data
 
   // Auto-compute daily and hourly rates if not provided
   const dailyRate = employeeData.dailyRate ?? (employeeData.rateType === 'MONTHLY' ? employeeData.basicSalary / 22 : employeeData.basicSalary)
   const hourlyRate = data.hourlyRate ?? dailyRate / 8
 
   try {
-    const resolvedWorkScheduleId = await resolveCustomScheduleId({
-      companyId: ctx.companyId,
-      employeeNo: employeeData.employeeNo,
-      baseScheduleId: employeeData.workScheduleId,
-      dayOffDays,
-    })
-
     const employee = await prisma.employee.create({
       data: {
         companyId: ctx.companyId,
         ...employeeData,
-        workScheduleId: resolvedWorkScheduleId,
+        workScheduleId: employeeData.workScheduleId ?? null,
         birthDate: new Date(employeeData.birthDate),
         hireDate: new Date(employeeData.hireDate),
         regularizationDate: employeeData.regularizationDate ? new Date(employeeData.regularizationDate) : null,

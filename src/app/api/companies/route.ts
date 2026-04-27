@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       })
 
       const trialEndsAt = new Date()
-      trialEndsAt.setDate(trialEndsAt.getDate() + 7)
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14)
       await tx.subscription.create({
         data: {
           id: `sub_${company.id}`,

@@ -70,7 +70,7 @@ export default auth((req) => {
   const isEmployee = effectiveRole === 'EMPLOYEE'
   const hasPortalSession = req.cookies.get('portal_session')?.value === '1'
 
-  const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/portal/login', '/admin/login', '/api/auth', '/api/companies', '/quotation', '/api/quotation', '/apply', '/api/public']
+  const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/portal/login', '/admin/login', '/api/auth', '/api/companies', '/quotation', '/api/quotation', '/apply', '/api/public', '/desktop', '/api/desktop-app/download']
   const isPublic = logicalPath === '/' || publicPaths.some((p) => logicalPath.startsWith(p))
   const isPortal = logicalPath.startsWith('/portal')
 

@@ -32,6 +32,7 @@ interface GeoPosition {
   lng: number
   accuracy: number
   address?: string
+  capturedAt: number
 }
 
 interface AttendanceLog {
@@ -47,12 +48,12 @@ interface AttendanceLog {
 
 interface ScreenCaptureFeature {
   entitled: boolean
-  requiredPricePerSeat: number
-  currentPricePerSeat: number
   enabled: boolean
   frequencyMinutes: number
   desktopOnlyRequired: boolean
+  browserClockBlocked: boolean
   isMobileDevice: boolean
+  isDesktopApp: boolean
 }
 
 function getGreeting(now: Date | null) {
@@ -66,7 +67,10 @@ function getGreeting(now: Date | null) {
 export default function ClockPage() {
   const [record, setRecord] = useState<TodayRecord | null>(null)
   const [loading, setLoading] = useState(true)
+  const [breakMinutes, setBreakMinutes] = useState(60)
   const [actionLoading, setActionLoading] = useState(false)
+  const [scheduleReady, setScheduleReady] = useState(true)
+  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null)
   const [geoPos, setGeoPos] = useState<GeoPosition | null>(null)
   const [geoError, setGeoError] = useState<string | null>(null)
   const [geoLoading, setGeoLoading] = useState(false)
@@ -91,6 +95,7 @@ export default function ClockPage() {
   const [screenCaptureFeature, setScreenCaptureFeature] = useState<ScreenCaptureFeature | null>(null)
   const [screenCaptureBlocked, setScreenCaptureBlocked] = useState(false)
   const [screenCaptureUnavailable, setScreenCaptureUnavailable] = useState(false)
+  const [desktopRequired, setDesktopRequired] = useState(false)
   const [lastCapturedAt, setLastCapturedAt] = useState<Date | null>(null)
   const [captureCount, setCaptureCount] = useState(0)
   const screenCaptureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -127,6 +132,9 @@ export default function ClockPage() {
       const res = await fetch('/api/attendance/today')
       const data = await res.json()
       setRecord(data.record)
+      setScheduleReady(data.scheduleReady !== false)
+      setScheduleMessage(typeof data.scheduleMessage === 'string' ? data.scheduleMessage : null)
+      if (typeof data.breakMinutes === 'number') setBreakMinutes(data.breakMinutes)
     } catch {
       toast.error("Failed to load today's record")
     } finally {
@@ -150,7 +158,7 @@ export default function ClockPage() {
   const loadBiometricStatus = useCallback(async () => {
     setBiometricLoading(true)
     try {
-      const res = await fetch('/api/biometric/status')
+      const res = await fetch('/api/biometric/status', { cache: 'no-store' })
       const data = await res.json()
       setBiometricEnrolled(!!data.enrolled)
       setBiometricRequired(data.required !== false)
@@ -298,7 +306,10 @@ export default function ClockPage() {
         const feature = d?.feature ?? null
         if (!feature) return
         setScreenCaptureFeature(feature)
+        // Blocked on mobile device (can't use desktop app)
         setScreenCaptureBlocked(Boolean(feature.desktopOnlyRequired && feature.isMobileDevice))
+        // Desktop app required: screen capture enabled but user is in browser, not the desktop app
+        setDesktopRequired(Boolean(feature.browserClockBlocked && !feature.isDesktopApp && !feature.isMobileDevice))
       })
       .catch(() => null)
   }, [loadRecord, loadLogs, loadBiometricStatus])
@@ -312,6 +323,7 @@ export default function ClockPage() {
     setGeoError(null)
     const targetAccuracy = 50
     const maxWaitMs = 20000
+    const permissionDeniedMessage = 'Location access is blocked. Enable it in browser site settings, then tap Refresh.'
     return new Promise<GeoPosition | null>((resolve) => {
       let best: GeolocationPosition | null = null
       let done = false
@@ -337,7 +349,7 @@ export default function ClockPage() {
         } catch {
           // address stays undefined
         }
-        const next = { lat: latitude, lng: longitude, accuracy, address }
+        const next = { lat: latitude, lng: longitude, accuracy, address, capturedAt: Date.now() }
         setGeoPos(next)
         setGeoLoading(false)
         resolve(next)
@@ -348,7 +360,11 @@ export default function ClockPage() {
           if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos
           if (pos.coords.accuracy <= targetAccuracy) finish(pos)
         },
-        () => { /* ignore */ },
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) {
+            finish(null, permissionDeniedMessage)
+          }
+        },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       )
 
@@ -356,7 +372,11 @@ export default function ClockPage() {
         (pos) => {
           if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos
         },
-        () => { /* ignore */ },
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) {
+            finish(null, permissionDeniedMessage)
+          }
+        },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       )
 
@@ -369,13 +389,69 @@ export default function ClockPage() {
   }, [])
 
   useEffect(() => {
-    requestLocation()
+    let active = true
+    let permissionStatus: PermissionStatus | null = null
+
+    const run = async () => {
+      // Always call requestLocation on every page load — this triggers the
+      // browser's native permission popup whenever the state is "prompt",
+      // and silently fetches a fresh position when already granted.
+      if (!active) return
+      void requestLocation()
+
+      // Also watch for the user toggling location permission in browser settings.
+      try {
+        if (navigator.permissions?.query) {
+          permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
+          if (!active) return
+          permissionStatus.onchange = () => {
+            if (!active) return
+            if (permissionStatus?.state === 'denied') {
+              setGeoError('Location access is blocked. Enable it in browser site settings, then tap Refresh.')
+            } else {
+              void requestLocation()
+            }
+          }
+        }
+      } catch {
+        // permissions API not supported — already called requestLocation above
+      }
+    }
+
+    void run()
+    return () => {
+      active = false
+      if (permissionStatus) permissionStatus.onchange = null
+    }
   }, [requestLocation])
 
-  const ensureLocation = useCallback(async () => {
-    if (geoPos) return geoPos
-    return await requestLocation()
-  }, [geoPos, requestLocation])
+  const ensureLocation = useCallback(
+    async (opts?: { forceFresh?: boolean; maxAgeMs?: number }) => {
+      const forceFresh = Boolean(opts?.forceFresh)
+      const maxAgeMs = opts?.maxAgeMs ?? 30_000
+      const isFresh =
+        !!geoPos &&
+        Number.isFinite(geoPos.capturedAt) &&
+        (Date.now() - geoPos.capturedAt) <= maxAgeMs
+
+      if (!forceFresh && isFresh) return geoPos
+      return await requestLocation()
+    },
+    [geoPos, requestLocation]
+  )
+
+  useEffect(() => {
+    const onFocus = () => {
+      // Re-request on focus so browser can re-prompt when permission is in prompt state.
+      void ensureLocation({ forceFresh: true })
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [ensureLocation])
 
   // Returns true if inside geofence (or geofence not enforced)
   function checkGeofence(pos: GeoPosition): boolean {
@@ -425,27 +501,41 @@ export default function ClockPage() {
     }
   }
 
-  const executeClockIn = async (pos: GeoPosition) => {
+  const executeClockIn = async (pos: GeoPosition | null) => {
     setActionLoading(true)
     try {
       const res = await fetch('/api/attendance/clock-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lat: pos.lat,
-          lng: pos.lng,
-          accuracy: pos.accuracy,
-          address: pos.address,
+          ...(pos ? { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy, address: pos.address } : {}),
           photo: selfieRequired ? (selfiePhoto ?? undefined) : undefined,
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Clock in failed')
+      if (!res.ok) {
+        if (data.desktopRequired) {
+          setDesktopRequired(true)
+          return
+        }
+        throw new Error(data.error ?? 'Clock in failed')
+      }
       if (data.geofenceWarning) toast.warning(data.geofenceWarning)
       toast.success('Clocked in successfully!')
       setSelfiePhoto(null)
       await loadRecord()
       await loadLogs()
+
+      // Refresh location in the background after clock-in so the live map
+      // stays accurate regardless of whether we used a cached position.
+      requestLocation().then(bgPos => {
+        if (!bgPos) return
+        fetch('/api/locations/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: bgPos.lat, lng: bgPos.lng, accuracy: bgPos.accuracy }),
+        }).catch(() => null)
+      }).catch(() => null)
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to clock in')
     } finally {
@@ -453,16 +543,26 @@ export default function ClockPage() {
     }
   }
 
-  const executeClockOut = async (pos: GeoPosition) => {
+  const executeClockOut = async (pos: GeoPosition | null) => {
     setActionLoading(true)
     try {
       const res = await fetch('/api/attendance/clock-out', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy, address: pos.address }),
+        body: JSON.stringify(
+          pos
+            ? { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy, address: pos.address }
+            : {}
+        ),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Clock out failed')
+      if (!res.ok) {
+        if (data.desktopRequired) {
+          setDesktopRequired(true)
+          return
+        }
+        throw new Error(data.error ?? 'Clock out failed')
+      }
       if (data.geofenceWarning) toast.warning(data.geofenceWarning)
       toast.success('Clocked out successfully!')
       stopScreenCaptureLoop()
@@ -478,16 +578,38 @@ export default function ClockPage() {
   const handleClockIn = async () => {
     setPulse('in')
     setTimeout(() => setPulse(null), 320)
+    if (!scheduleReady) {
+      toast.error(scheduleMessage || 'No schedule is set for you yet.')
+      return
+    }
     if (screenCaptureBlocked) {
       toast.error('You can only clock in using a laptop or desktop device.')
       return
     }
-    const pos = await ensureLocation()
-    if (!pos) { toast.error('Unable to capture location'); return }
-    if (!checkGeofence(pos)) {
-      toast.error('You are outside the allowed clock-in area. Please move closer to the office.')
-      return
+    if (desktopRequired) return
+
+    // Use the already-cached position if it was captured within the last 5 minutes.
+    // This makes clock-in instant — no GPS wait on the critical path.
+    // Only block on a fresh fix when geofencing is active and we have nothing cached.
+    const MAX_CACHED_AGE_MS = 5 * 60 * 1000
+    const cachedFresh = geoPos && (Date.now() - geoPos.capturedAt) <= MAX_CACHED_AGE_MS
+    let pos: GeoPosition | null = cachedFresh ? geoPos : null
+
+    if (geofence?.enabled && geofence.configured) {
+      if (!pos) {
+        // Geofence requires a valid position — wait for one if none cached
+        pos = await ensureLocation({ maxAgeMs: MAX_CACHED_AGE_MS })
+      }
+      if (!pos) {
+        toast.error('Location is required because geo-fencing is enabled. Please allow location access and try again.')
+        return
+      }
+      if (!checkGeofence(pos)) {
+        toast.error('You are outside the allowed clock-in area. Please move closer to the office.')
+        return
+      }
     }
+
     if (biometricRequired && !biometricEnrolled) {
       toast.error('Please enroll your fingerprint in Profile > Portal Access before clocking in.')
       return
@@ -530,11 +652,25 @@ export default function ClockPage() {
   const handleClockOut = async () => {
     setPulse('out')
     setTimeout(() => setPulse(null), 320)
-    const pos = await ensureLocation()
-    if (!pos) { toast.error('Unable to capture location'); return }
-    if (!checkGeofence(pos)) {
-      toast.error('You are outside the allowed clock-out area. Please move closer to the office.')
-      return
+    if (desktopRequired) return
+
+    // Same instant-path logic as clock-in: use cached position rather than blocking on GPS.
+    const MAX_CACHED_AGE_MS = 5 * 60 * 1000
+    const cachedFresh = geoPos && (Date.now() - geoPos.capturedAt) <= MAX_CACHED_AGE_MS
+    let pos: GeoPosition | null = cachedFresh ? geoPos : null
+
+    if (geofence?.enabled && geofence.configured) {
+      if (!pos) {
+        pos = await ensureLocation({ maxAgeMs: MAX_CACHED_AGE_MS })
+      }
+      if (!pos) {
+        toast.error('Location is required because geo-fencing is enabled. Please allow location access and try again.')
+        return
+      }
+      if (!checkGeofence(pos)) {
+        toast.error('You are outside the allowed clock-out area. Please move closer to the office.')
+        return
+      }
     }
     if (biometricRequired && !biometricEnrolled) {
       toast.error('Please enroll your fingerprint in Profile > Portal Access before clocking out.')
@@ -568,7 +704,11 @@ export default function ClockPage() {
       const res = await fetch('/api/attendance/break-end', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to end break')
-      toast.success('Break ended')
+      if (data.overBreakMinutes > 0) {
+        toast.warning(`Break ended — you were ${data.overBreakMinutes} minute${data.overBreakMinutes !== 1 ? 's' : ''} over your allowed break time. This has been recorded.`)
+      } else {
+        toast.success('Break ended')
+      }
       await loadRecord()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to end break')
@@ -578,7 +718,6 @@ export default function ClockPage() {
   }
 
   const isClockedIn = !!record?.timeIn && !record?.timeOut
-  const isClockedOut = !!record?.timeOut
   const isOnBreak = !!record?.breakIn && !record?.breakOut
 
   // Geofence distance check (client-side pre-check)
@@ -643,6 +782,34 @@ export default function ClockPage() {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   })()
 
+  const breakEnabled = breakMinutes > 0
+  const breakElapsedSeconds = (() => {
+    if (!record?.breakIn || !currentTime) return 0
+    const start = new Date(record.breakIn)
+    const end = record.breakOut ? new Date(record.breakOut) : currentTime
+    return Math.max(0, differenceInSeconds(end, start))
+  })()
+  const allowedBreakSeconds = breakMinutes * 60
+  const breakRemainingSeconds = Math.max(0, allowedBreakSeconds - breakElapsedSeconds)
+  const isOverBreak = isOnBreak && breakElapsedSeconds > allowedBreakSeconds
+  const overBreakSeconds = isOverBreak ? breakElapsedSeconds - allowedBreakSeconds : 0
+
+  function formatBreakTimer(secs: number): string {
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  // Which step are we on?
+  // 0 = idle, 1 = clocked in (not on break), 2 = on break, 3 = break done (ready to clock out)
+  // If break disabled, only steps 0 and 3
+  const clockStep = (() => {
+    if (!record?.timeIn || record?.timeOut) return 0
+    if (record.breakIn && record.breakOut) return 3
+    if (record.breakIn && !record.breakOut) return 2
+    return 1
+  })()
+
   // Suppress unused variable lint warning — ref kept for future use
   void pendingActionRef
 
@@ -671,6 +838,52 @@ export default function ClockPage() {
             <p className="text-xs text-red-500">Go to Profile {'>'} Portal Access to enroll your fingerprint before clocking in/out.</p>
           </div>
         </div>
+      )}
+
+      {desktopRequired && (
+        <div
+          className="rounded-2xl px-4 py-4 flex items-start gap-3 border"
+          style={{ background: '#fff7ed', borderColor: '#fed7aa' }}
+        >
+          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: 'rgba(249,115,22,0.12)' }}>
+            <Monitor className="w-4 h-4 text-orange-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-orange-800">Desktop app required</p>
+            <p className="text-xs text-orange-700 mt-0.5 leading-relaxed">
+              Your company has screen monitoring enabled. Clock in and out using the <span className="font-semibold">OnClock Desktop app</span> — browser clock-in is disabled.
+            </p>
+            {process.env.NEXT_PUBLIC_DESKTOP_APP_URL && (
+              <a
+                href={process.env.NEXT_PUBLIC_DESKTOP_APP_URL}
+                download
+                className="inline-flex items-center gap-1.5 mt-2.5 text-xs font-semibold text-white rounded-lg px-3 py-1.5 no-underline"
+                style={{ background: '#1A2D42' }}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                Download OnClock Desktop
+                <span className="opacity-70">↓</span>
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!desktopRequired && !!screenCaptureFeature?.enabled && process.env.NEXT_PUBLIC_DESKTOP_APP_URL && (
+        <a
+          href={process.env.NEXT_PUBLIC_DESKTOP_APP_URL}
+          download
+          className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm border border-[#1A2D42]/20 bg-[#1A2D42]/5 hover:bg-[#1A2D42]/10 transition-colors no-underline"
+        >
+          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#1A2D42] flex items-center justify-center">
+            <Monitor className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-[#1A2D42]">Download OnClock Desktop</p>
+            <p className="text-xs text-slate-500 mt-0.5">Silent, automatic screen monitoring — no browser prompts</p>
+          </div>
+          <span className="text-xs font-semibold text-[#fa5e01] flex-shrink-0">Windows ↓</span>
+        </a>
       )}
 
       {!!screenCaptureFeature?.enabled && (
@@ -733,7 +946,7 @@ export default function ClockPage() {
         </div>
       )}
 
-      {selfieRequired && !isClockedIn && !isClockedOut && (
+      {selfieRequired && !isClockedIn && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
           <div>
             <p className="text-sm font-semibold text-slate-700">Selfie required for this schedule</p>
@@ -822,8 +1035,49 @@ export default function ClockPage() {
         </div>
       )}
 
-      {/* Main Action Circle */}
-      <div className="flex justify-center">
+      {/* Schedule missing / rest day warning */}
+      {!isClockedIn && !scheduleReady && (
+        <div
+          className="rounded-2xl px-4 py-4 flex items-start gap-3 border"
+          style={{ background: '#fff5f5', borderColor: '#fecaca' }}
+        >
+          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: 'rgba(239,68,68,0.12)' }}>
+            <AlertCircle className="w-4 h-4 text-red-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-red-700">
+              {scheduleMessage?.toLowerCase().includes('rest day') ? 'Rest day' : 'No schedule set'}
+            </p>
+            <p className="text-xs text-red-500 mt-0.5 leading-relaxed">
+              {scheduleMessage ?? 'No work schedule is set for you yet. Please contact your admin.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Break Timer */}
+      {clockStep === 2 && breakEnabled && (
+        <div className={`text-center rounded-2xl px-4 py-3 mx-auto max-w-xs ${isOverBreak ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'}`}>
+          {isOverBreak ? (
+            <>
+              <p className="text-xs font-semibold text-red-600 mb-1">OVERBREAK</p>
+              <p className="text-2xl font-black text-red-600 tabular-nums">+{formatBreakTimer(overBreakSeconds)}</p>
+              <p className="text-[10px] text-red-400 mt-0.5">Excess will be recorded as tardy</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-semibold text-amber-700 mb-1">Break Time Remaining</p>
+              <p className="text-2xl font-black text-amber-700 tabular-nums">{formatBreakTimer(breakRemainingSeconds)}</p>
+              <p className="text-[10px] text-amber-500 mt-0.5">
+                Elapsed: {formatBreakTimer(breakElapsedSeconds)} / Allowed: {formatBreakTimer(allowedBreakSeconds)}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Main Action Button */}
+      <div className="flex flex-col items-center gap-3">
         {loading && !record ? (
           <div
             className="w-40 h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
@@ -832,77 +1086,87 @@ export default function ClockPage() {
             <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#2E4156' }} />
             Loading...
           </div>
-        ) : !isClockedOut && !isClockedIn ? (
+        ) : clockStep === 0 ? (
+          /* ── Clock In ── */
           <button
             onClick={handleClockIn}
-            disabled={actionLoading || loading || geoLoading || geofenceActionBlocked || screenCaptureBlocked}
+            disabled={actionLoading || loading || geofenceActionBlocked || screenCaptureBlocked || desktopRequired || !scheduleReady}
             className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
               background: '#1A2D42',
               boxShadow: '0 0 0 10px rgba(46,65,86,0.2), 0 10px 24px rgba(0,0,0,0.18)',
             }}
           >
-            {actionLoading || geoLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
-            {actionLoading
-              ? 'Processing'
-              : geoLoading
-                ? 'Refreshing Location'
-                : screenCaptureBlocked
-                  ? 'Desktop Only'
-                : geofenceActionBlocked
-                  ? 'Outside Zone'
-                  : 'Clock In'}
+            {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : desktopRequired ? <Monitor className="w-6 h-6" /> : !scheduleReady ? <AlertCircle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+            {actionLoading ? 'Processing' : desktopRequired ? 'App Required' : !scheduleReady ? 'No Schedule' : screenCaptureBlocked ? 'Desktop Only' : geofenceActionBlocked ? 'Outside Zone' : 'Clock In'}
           </button>
-        ) : isClockedIn ? (
-          <div className="flex flex-col items-center gap-4">
+        ) : clockStep === 1 && breakEnabled ? (
+          /* ── Start Break ── */
+          <>
             <button
-              onClick={handleClockOut}
-              disabled={actionLoading || loading || isOnBreak || geofenceActionBlocked}
-              className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'out' ? 'clock-pulse' : ''}`}
+              onClick={handleBreakStart}
+              disabled={actionLoading || loading || geofenceActionBlocked || desktopRequired}
+              className="w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                background: '#ef4444',
-                boxShadow: '0 0 0 10px rgba(250,94,1,0.15), 0 10px 24px rgba(0,0,0,0.18)',
+                background: '#d97706',
+                boxShadow: '0 0 0 10px rgba(217,119,6,0.15), 0 10px 24px rgba(0,0,0,0.18)',
               }}
             >
-              {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
-              {actionLoading ? 'Processing' : geofenceActionBlocked ? 'Outside Zone' : 'Clock Out'}
+              {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Coffee className="w-6 h-6" />}
+              {actionLoading ? 'Processing' : 'Start Break'}
             </button>
-            <div className="w-full max-w-xs mt-2">
-              <button
-                type="button"
-                disabled={actionLoading || loading}
-                onClick={() => (isOnBreak ? handleBreakEnd() : handleBreakStart())}
-                className="w-full h-12 rounded-full relative flex items-center transition-all disabled:opacity-60 bg-white"
-                style={{ boxShadow: '0 6px 18px rgba(15,23,42,0.12)' }}
-              >
-                <span
-                  className="absolute h-9 w-9 rounded-full bg-white shadow flex items-center justify-center transition-all duration-300"
-                  style={{
-                    border: '2px solid #ffffff',
-                    background: isOnBreak ? '#ff5c5c' : '#2E4156',
-                    left: isOnBreak ? 'calc(100% - 42px)' : '6px',
-                    boxShadow: '0 6px 12px rgba(0,0,0,0.18), inset 0 2px 3px rgba(255,255,255,0.7)',
-                  }}
-                >
-                  <Coffee className="w-5 h-5 text-white" />
-                </span>
-                <span
-                  className="flex-1 text-[13px] font-semibold text-slate-700"
-                  style={{ textAlign: isOnBreak ? 'left' : 'right', paddingLeft: '18px', paddingRight: '18px' }}
-                >
-                  {isOnBreak ? 'End Break' : 'Start Break'}
-                </span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="w-40 h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
-            style={{ background: 'rgba(46,65,86,0.12)', color: '#1A2D42' }}
+            <button
+              onClick={handleClockOut}
+              disabled={actionLoading || loading || geofenceActionBlocked || desktopRequired}
+              className="text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors underline underline-offset-2"
+            >
+              Skip break & Clock Out
+            </button>
+          </>
+        ) : clockStep === 1 && !breakEnabled ? (
+          /* ── Clock Out (no break) ── */
+          <button
+            onClick={handleClockOut}
+            disabled={actionLoading || loading || geofenceActionBlocked || desktopRequired}
+            className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'out' ? 'clock-pulse' : ''}`}
+            style={{
+              background: '#ef4444',
+              boxShadow: '0 0 0 10px rgba(239,68,68,0.15), 0 10px 24px rgba(0,0,0,0.18)',
+            }}
           >
-            <CheckCircle className="w-7 h-7" style={{ color: '#2E4156' }} />
-            Done Today
-          </div>
+            {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : desktopRequired ? <Monitor className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+            {actionLoading ? 'Processing' : desktopRequired ? 'App Required' : geofenceActionBlocked ? 'Outside Zone' : 'Clock Out'}
+          </button>
+        ) : clockStep === 2 ? (
+          /* ── End Break ── */
+          <button
+            onClick={handleBreakEnd}
+            disabled={actionLoading || loading}
+            className="w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: isOverBreak ? '#ef4444' : '#16a34a',
+              boxShadow: isOverBreak
+                ? '0 0 0 10px rgba(239,68,68,0.2), 0 10px 24px rgba(0,0,0,0.18)'
+                : '0 0 0 10px rgba(22,163,74,0.15), 0 10px 24px rgba(0,0,0,0.18)',
+            }}
+          >
+            {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Coffee className="w-6 h-6" />}
+            {actionLoading ? 'Processing' : 'End Break'}
+          </button>
+        ) : (
+          /* ── Clock Out (step 3) ── */
+          <button
+            onClick={handleClockOut}
+            disabled={actionLoading || loading || geofenceActionBlocked || desktopRequired}
+            className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'out' ? 'clock-pulse' : ''}`}
+            style={{
+              background: '#ef4444',
+              boxShadow: '0 0 0 10px rgba(239,68,68,0.15), 0 10px 24px rgba(0,0,0,0.18)',
+            }}
+          >
+            {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : desktopRequired ? <Monitor className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+            {actionLoading ? 'Processing' : desktopRequired ? 'App Required' : geofenceActionBlocked ? 'Outside Zone' : 'Clock Out'}
+          </button>
         )}
       </div>
 
@@ -1001,7 +1265,7 @@ export default function ClockPage() {
       </div>
 
       {/* Current Location Map at Bottom */}
-      {!isClockedOut && (
+      {(
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-24">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2">

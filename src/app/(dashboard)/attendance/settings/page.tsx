@@ -5,14 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
-import { MapPin, Loader2, Fingerprint, Camera, ShieldCheck, Monitor } from 'lucide-react'
+import { MapPin, Loader2, Fingerprint, Camera, ShieldCheck, Monitor, Download, Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
+
+const DESKTOP_DOWNLOAD_URL =
+  process.env.NEXT_PUBLIC_DESKTOP_APP_URL ||
+  (typeof window !== 'undefined' ? `${window.location.origin}/desktop` : 'https://onclockph.com/desktop')
 
 export default function AttendanceSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [screenCaptureEntitled, setScreenCaptureEntitled] = useState(false)
   const [currentPricePerSeat, setCurrentPricePerSeat] = useState(0)
+  const [urlCopied, setUrlCopied] = useState(false)
   const [form, setForm] = useState({
     fingerprintRequired: true,
     geofenceEnabled: false,
@@ -26,28 +31,43 @@ export default function AttendanceSettingsPage() {
 
   async function load() {
     const [settingsRes, securityRes] = await Promise.all([
-      fetch('/api/settings'),
-      fetch('/api/attendance/security'),
+      fetch('/api/settings', { cache: 'no-store' }),
+      fetch('/api/attendance/security', { cache: 'no-store' }),
     ])
+    if (!settingsRes.ok) {
+      const err = await settingsRes.json().catch(() => ({}))
+      throw new Error(err?.error?.message || err?.error || 'Failed to load attendance settings')
+    }
+    if (!securityRes.ok) {
+      const err = await securityRes.json().catch(() => ({}))
+      throw new Error(err?.error?.message || err?.error || 'Failed to load attendance security feature flags')
+    }
     const data = await settingsRes.json().catch(() => ({}))
     const security = await securityRes.json().catch(() => ({}))
     const feature = security?.feature ?? {}
     setScreenCaptureEntitled(!!feature.entitled)
     setCurrentPricePerSeat(Number(feature.currentPricePerSeat ?? 0))
 
-    setForm({
-      fingerprintRequired: data.fingerprintRequired ?? true,
-      geofenceEnabled: data.geofenceEnabled ?? false,
-      selfieRequired: data.selfieRequired ?? false,
-      screenCaptureEnabled: (data.screenCaptureEnabled ?? false) && !!feature.entitled,
-      screenCaptureFrequencyMinutes: String(data.screenCaptureFrequencyMinutes ?? 5),
+    setForm((prev) => ({
+      fingerprintRequired:
+        typeof data.fingerprintRequired === 'boolean' ? data.fingerprintRequired : prev.fingerprintRequired,
+      geofenceEnabled: typeof data.geofenceEnabled === 'boolean' ? data.geofenceEnabled : prev.geofenceEnabled,
+      selfieRequired: typeof data.selfieRequired === 'boolean' ? data.selfieRequired : prev.selfieRequired,
+      screenCaptureEnabled:
+        (typeof data.screenCaptureEnabled === 'boolean' ? data.screenCaptureEnabled : prev.screenCaptureEnabled)
+        && !!feature.entitled,
+      screenCaptureFrequencyMinutes: String(data.screenCaptureFrequencyMinutes ?? prev.screenCaptureFrequencyMinutes ?? 5),
       geofenceLat: data.geofenceLat != null ? String(data.geofenceLat) : '',
       geofenceLng: data.geofenceLng != null ? String(data.geofenceLng) : '',
       geofenceRadiusMeters: data.geofenceRadiusMeters != null ? String(data.geofenceRadiusMeters) : '',
-    })
+    }))
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    void load().catch((e: unknown) => {
+      toast.error(e instanceof Error ? e.message : 'Failed to load attendance settings')
+    })
+  }, [])
 
   async function save() {
     setSaving(true)
@@ -73,6 +93,7 @@ export default function AttendanceSettingsPage() {
       const res = await fetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify(payload),
       })
       const data = await res.json().catch(() => ({}))
@@ -229,6 +250,53 @@ export default function AttendanceSettingsPage() {
               <p className="text-xs text-gray-500">
                 Employees will be prompted to share their screen from laptop/desktop while clocked in.
               </p>
+            </div>
+          )}
+
+          {form.screenCaptureEnabled && screenCaptureEntitled && (
+            <div className="rounded-xl border border-[#1A2D42]/20 bg-[#1A2D42]/[0.04] px-4 py-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#1A2D42] text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Monitor className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#1A2D42]">Desktop App Required</p>
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                    Employees must install the <strong>OnClock Desktop</strong> app on their Windows PC to enable screen monitoring. Share this download link with your team.
+                  </p>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <code className="flex-1 min-w-0 text-xs bg-white border border-[#1A2D42]/20 rounded-lg px-3 py-2 text-[#1A2D42] font-mono truncate select-all">
+                      {DESKTOP_DOWNLOAD_URL}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(DESKTOP_DOWNLOAD_URL).then(() => {
+                          setUrlCopied(true)
+                          setTimeout(() => setUrlCopied(false), 2000)
+                        })
+                      }}
+                      className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-[#1A2D42]/20 text-[#1A2D42] hover:bg-white transition-colors"
+                    >
+                      {urlCopied
+                        ? <><Check className="w-3 h-3 text-green-600" /><span className="text-green-600">Copied!</span></>
+                        : <><Copy className="w-3 h-3" />Copy</>
+                      }
+                    </button>
+                  </div>
+
+                  <a
+                    href={DESKTOP_DOWNLOAD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#fa5e01] hover:underline"
+                  >
+                    <Download className="w-3 h-3" />
+                    Download installer
+                  </a>
+                </div>
+              </div>
             </div>
           )}
 

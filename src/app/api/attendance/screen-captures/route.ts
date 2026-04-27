@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { getCompanySubscription, hasScreenCaptureFeature } from '@/lib/feature-gates'
 import { z } from 'zod'
-
-const SCREEN_CAPTURE_MIN_PLAN = 70
 
 const payloadSchema = z.object({
   dtrRecordId: z.string().optional(),
@@ -15,14 +14,14 @@ function isMobileUserAgent(ua: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireAuth()
+  const { ctx, error } = await requireAuth(undefined, req)
   if (error) return error
 
   const body = await req.json().catch(() => null)
   const parsed = payloadSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const [employee, company, subscription] = await Promise.all([
+  const [employee, company, sub] = await Promise.all([
     prisma.employee.findFirst({
       where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
       select: { id: true },
@@ -31,18 +30,15 @@ export async function POST(req: NextRequest) {
       where: { id: ctx.companyId },
       select: { screenCaptureEnabled: true },
     }),
-    prisma.subscription.findUnique({
-      where: { companyId: ctx.companyId },
-      select: { pricePerSeat: true },
-    }),
+    getCompanySubscription(ctx.companyId),
   ])
 
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
-  const entitled = Number(subscription?.pricePerSeat ?? 0) >= SCREEN_CAPTURE_MIN_PLAN
-  const enabled = entitled && (company?.screenCaptureEnabled ?? false)
+  const entitled = hasScreenCaptureFeature(sub.pricePerSeat, sub.isTrial)
+  const enabled  = entitled && (company?.screenCaptureEnabled ?? false)
   if (!enabled) {
-    return NextResponse.json({ error: 'Screen capture security is not enabled for this company' }, { status: 403 })
+    return NextResponse.json({ error: 'Screen capture is not enabled for this company' }, { status: 403 })
   }
 
   const ua = req.headers.get('user-agent') ?? ''
@@ -50,31 +46,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Screen capture requires a laptop or desktop device' }, { status: 403 })
   }
 
-  const now = new Date()
-  const manilaOffsetMs = 8 * 60 * 60 * 1000
-  const manila = new Date(now.getTime() + manilaOffsetMs)
-  const yyyy = manila.getUTCFullYear()
-  const mm = String(manila.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(manila.getUTCDate()).padStart(2, '0')
-  const manilaDate = new Date(`${yyyy}-${mm}-${dd}`)
-
   const activeDtr = parsed.data.dtrRecordId
     ? await prisma.dTRRecord.findFirst({
-        where: {
-          id: parsed.data.dtrRecordId,
-          employeeId: employee.id,
-          timeIn: { not: null },
-          timeOut: null,
-        },
+        where: { id: parsed.data.dtrRecordId, employeeId: employee.id, timeIn: { not: null }, timeOut: null },
         select: { id: true },
       })
     : await prisma.dTRRecord.findFirst({
-        where: {
-          employeeId: employee.id,
-          date: manilaDate,
-          timeIn: { not: null },
-          timeOut: null,
-        },
+        where: { employeeId: employee.id, timeIn: { not: null }, timeOut: null },
+        orderBy: { timeIn: 'desc' },
         select: { id: true },
       })
 
@@ -84,9 +63,9 @@ export async function POST(req: NextRequest) {
 
   const screenshot = await prisma.attendanceScreenshot.create({
     data: {
-      companyId: ctx.companyId,
-      employeeId: employee.id,
-      dtrRecordId: activeDtr.id,
+      companyId:    ctx.companyId,
+      employeeId:   employee.id,
+      dtrRecordId:  activeDtr.id,
       imageDataUrl: parsed.data.imageDataUrl,
     },
     select: { id: true, capturedAt: true },

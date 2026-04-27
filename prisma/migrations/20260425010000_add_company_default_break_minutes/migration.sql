@@ -1,0 +1,2 @@
+ALTER TABLE "companies"
+  ADD COLUMN IF NOT EXISTS "defaultBreakMinutes" INTEGER NOT NULL DEFAULT 60;

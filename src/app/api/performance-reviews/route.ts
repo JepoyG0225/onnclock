@@ -94,16 +94,16 @@ export async function POST(req: NextRequest) {
 
   const { cycleLabel, periodStart, periodEnd, reviewerId, employeeIds } = body.data
 
-  // Validate employees belong to company
+  // Validate employees belong to company — also fetch directManagerId for default assignment
   const employees = await prisma.employee.findMany({
     where: { id: { in: employeeIds }, companyId: ctx.companyId, isActive: true },
-    select: { id: true },
+    select: { id: true, directManagerId: true },
   })
   if (employees.length === 0) {
     return NextResponse.json({ error: 'No valid active employees found.' }, { status: 400 })
   }
 
-  // Validate reviewer belongs to company (if provided)
+  // Validate explicit reviewer belongs to company (if provided)
   if (reviewerId) {
     const reviewer = await prisma.employee.findFirst({
       where: { id: reviewerId, companyId: ctx.companyId },
@@ -114,11 +114,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Create one review per employee (skip duplicates for same cycle+employee)
+  // Reviewer priority: explicit reviewerId → employee's directManagerId → null
   const created = await prisma.$transaction(
-    employees.map(emp =>
-      prisma.performanceReview.upsert({
+    employees.map(emp => {
+      const assignedReviewer = reviewerId ?? emp.directManagerId ?? null
+      return prisma.performanceReview.upsert({
         where: {
-          // Use a composite fallback — if review already exists for this cycle+employee, skip
           id: `pr_${ctx.companyId}_${emp.id}_${cycleLabel.replace(/\s+/g, '_')}`,
         },
         update: {},
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
           id: `pr_${ctx.companyId}_${emp.id}_${cycleLabel.replace(/\s+/g, '_')}`,
           companyId: ctx.companyId,
           employeeId: emp.id,
-          reviewerId: reviewerId ?? null,
+          reviewerId: assignedReviewer,
           cycleLabel,
           periodStart: new Date(periodStart),
           periodEnd:   new Date(periodEnd),
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
           competencyScores: {},
         },
       })
-    )
+    })
   )
 
   return NextResponse.json({ created: created.length, reviews: created }, { status: 201 })

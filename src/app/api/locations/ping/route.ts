@@ -11,7 +11,8 @@ const pingSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireAuth()
+  // Pass req so Bearer tokens from the desktop app are accepted
+  const { ctx, error } = await requireAuth(undefined, req)
   if (error) return error
 
   const employee = await prisma.employee.findFirst({

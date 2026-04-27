@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { resolvePortalEmployeeId } from '@/lib/portal-employee'
 
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
@@ -9,9 +10,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const limit = Math.min(30, Math.max(1, parseInt(searchParams.get('limit') ?? '7')))
 
-  const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
-  })
+  const employeeId = await resolvePortalEmployeeId(ctx)
+  const employee = employeeId ? await prisma.employee.findUnique({ where: { id: employeeId } }) : null
   if (!employee) return NextResponse.json({ records: [] })
 
   const records = await prisma.dTRRecord.findMany({

@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 
-const ADMIN_BG = '#D4D8DD'
+const ADMIN_BG = '#F1F5F9'
 
 export default async function AdminLayout({
   children,
@@ -25,7 +25,7 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen flex" style={{ background: ADMIN_BG }}>
       <AdminSidebar />
-      <main className="flex-1 ml-[60px] min-h-screen overflow-y-auto">
+      <main className="flex-1 ml-[240px] min-h-screen overflow-y-auto">
         {children}
       </main>
     </div>

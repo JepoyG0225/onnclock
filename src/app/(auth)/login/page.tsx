@@ -19,6 +19,7 @@ export default function LoginPage() {
       const result = await signIn('credentials', {
         email,
         password,
+        loginType: 'admin',
         redirect: false,
       })
       if (result?.error) {

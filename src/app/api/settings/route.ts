@@ -35,6 +35,7 @@ const companySchema = z.object({
   geofenceLat: z.number().optional().nullable(),
   geofenceLng: z.number().optional().nullable(),
   geofenceRadiusMeters: z.number().int().optional().nullable(),
+  defaultBreakMinutes: z.number().int().min(0).max(720).optional(),
   careerBannerUrl: z.string().max(1_500_000).optional().nullable(),
   careerTagline: z.string().max(200).optional().nullable(),
   careerDescription: z.string().max(2000).optional().nullable(),
@@ -43,6 +44,34 @@ const companySchema = z.object({
   careerSocialTwitter: z.string().max(300).optional().nullable(),
   careerSocialInstagram: z.string().max(300).optional().nullable(),
 })
+
+function normalizeBreakMinutes(value: unknown): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 60
+  return Math.max(0, Math.min(720, Math.round(n)))
+}
+
+async function readCompanyDefaultBreakMinutes(companyId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ defaultBreakMinutes: number | null }>>`
+      SELECT "defaultBreakMinutes"
+      FROM "companies"
+      WHERE "id" = ${companyId}
+      LIMIT 1
+    `
+    return normalizeBreakMinutes(rows?.[0]?.defaultBreakMinutes)
+  } catch {
+    return 60
+  }
+}
+
+async function writeCompanyDefaultBreakMinutes(companyId: string, minutes: number): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE "companies"
+    SET "defaultBreakMinutes" = ${normalizeBreakMinutes(minutes)}
+    WHERE "id" = ${companyId}
+  `
+}
 
 function isDataImageUrl(value: string): boolean {
   return value.startsWith('data:image/')
@@ -123,13 +152,21 @@ export async function GET(req: NextRequest) {
 
   const baseDomain = process.env.PORTAL_BASE_DOMAIN
   const derivedPortalUrl = baseDomain ? `https://${baseDomain}/portal` : null
+  const defaultBreakMinutes = await readCompanyDefaultBreakMinutes(ctx.companyId)
 
   return NextResponse.json({
     ...company,
+    defaultBreakMinutes,
     tinNo: company.tin ?? null,
     sssNo: company.sssRegistrationNo ?? null,
     portalUrl: company.portalUrl ?? derivedPortalUrl,
     portalSubdomain: company.portalSubdomain ?? null,
+  }, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+    },
   })
 }
 
@@ -138,13 +175,19 @@ export async function PATCH(req: NextRequest) {
     const { ctx, error } = await requireAuth()
     if (error) return error
 
-    if (!['COMPANY_ADMIN', 'SUPER_ADMIN'].includes(ctx.role)) {
+    const canManageSettings = ['COMPANY_ADMIN', 'SUPER_ADMIN'].includes(ctx.role) || ctx.actorRole === 'SUPER_ADMIN'
+    if (!canManageSettings) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const body = await req.json()
     const parsed = companySchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    const hasField = (field: keyof z.infer<typeof companySchema>) =>
+      Object.prototype.hasOwnProperty.call(parsed.data, field)
+    const requestedDefaultBreakMinutes = hasField('defaultBreakMinutes')
+      ? normalizeBreakMinutes(parsed.data.defaultBreakMinutes)
+      : undefined
 
     const subscription = await prisma.subscription.findUnique({
       where: { companyId: ctx.companyId },
@@ -158,58 +201,63 @@ export async function PATCH(req: NextRequest) {
       )
     }
 
-    let nextLogoUrl: string | null | undefined = parsed.data.logoUrl ?? null
-    if (typeof nextLogoUrl === 'string' && isDataImageUrl(nextLogoUrl)) {
-      try {
-        const stored = await persistLogo(ctx.companyId, nextLogoUrl)
-        nextLogoUrl = stored
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Logo upload failed'
-        return NextResponse.json({ error: msg }, { status: 400 })
+    const companyUpdateData: Record<string, unknown> = {}
+
+    if (hasField('name')) companyUpdateData.name = parsed.data.name
+    if (hasField('industry')) companyUpdateData.industry = parsed.data.industry ?? null
+    if (hasField('address')) companyUpdateData.address = parsed.data.address ?? null
+    if (hasField('phone')) companyUpdateData.phone = parsed.data.phone ?? null
+    if (hasField('email')) companyUpdateData.email = parsed.data.email ?? null
+    if (hasField('website')) companyUpdateData.website = parsed.data.website ?? null
+    if (hasField('portalUrl')) companyUpdateData.portalUrl = parsed.data.portalUrl ?? null
+    if (hasField('tinNo')) companyUpdateData.tin = parsed.data.tinNo ?? null
+    if (hasField('sssNo')) companyUpdateData.sssRegistrationNo = parsed.data.sssNo ?? null
+    if (hasField('philhealthNo')) companyUpdateData.philhealthNo = parsed.data.philhealthNo ?? null
+    if (hasField('pagibigNo')) companyUpdateData.pagibigNo = parsed.data.pagibigNo ?? null
+    if (hasField('birNo')) companyUpdateData.birNo = parsed.data.birNo ?? null
+
+    if (hasField('logoUrl')) {
+      let nextLogoUrl: string | null | undefined = parsed.data.logoUrl ?? null
+      if (typeof nextLogoUrl === 'string' && isDataImageUrl(nextLogoUrl)) {
+        try {
+          const stored = await persistLogo(ctx.companyId, nextLogoUrl)
+          nextLogoUrl = stored
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Logo upload failed'
+          return NextResponse.json({ error: msg }, { status: 400 })
+        }
       }
+      companyUpdateData.logoUrl = nextLogoUrl ?? null
     }
 
-    const companyUpdateData: Record<string, unknown> = {
-      name: parsed.data.name,
-      industry: parsed.data.industry ?? null,
-      address: parsed.data.address ?? null,
-      phone: parsed.data.phone ?? null,
-      email: parsed.data.email ?? null,
-      website: parsed.data.website ?? null,
-      portalUrl: parsed.data.portalUrl ?? undefined,
-      logoUrl: nextLogoUrl ?? null,
-      tin: parsed.data.tinNo ?? null,
-      sssRegistrationNo: parsed.data.sssNo ?? null,
-      philhealthNo: parsed.data.philhealthNo ?? null,
-      pagibigNo: parsed.data.pagibigNo ?? null,
-      birNo: parsed.data.birNo ?? null,
+    if (companyFieldSupported('fingerprintRequired') && hasField('fingerprintRequired')) {
+      companyUpdateData.fingerprintRequired = parsed.data.fingerprintRequired
     }
-
-    if (companyFieldSupported('fingerprintRequired')) {
-      companyUpdateData.fingerprintRequired = parsed.data.fingerprintRequired ?? true
+    if (companyFieldSupported('selfieRequired') && hasField('selfieRequired')) {
+      companyUpdateData.selfieRequired = parsed.data.selfieRequired
     }
-    if (companyFieldSupported('selfieRequired')) {
-      companyUpdateData.selfieRequired = parsed.data.selfieRequired ?? false
-    }
-    if (companyFieldSupported('screenCaptureEnabled')) {
+    if (companyFieldSupported('screenCaptureEnabled') && hasField('screenCaptureEnabled')) {
       companyUpdateData.screenCaptureEnabled = isScreenCaptureEntitled
-        ? (parsed.data.screenCaptureEnabled ?? false)
+        ? parsed.data.screenCaptureEnabled
         : false
     }
-    if (companyFieldSupported('screenCaptureFrequencyMinutes')) {
-      companyUpdateData.screenCaptureFrequencyMinutes = parsed.data.screenCaptureFrequencyMinutes ?? 5
+    if (companyFieldSupported('screenCaptureFrequencyMinutes') && hasField('screenCaptureFrequencyMinutes')) {
+      companyUpdateData.screenCaptureFrequencyMinutes = parsed.data.screenCaptureFrequencyMinutes
     }
-    if (companyFieldSupported('geofenceEnabled')) {
-      companyUpdateData.geofenceEnabled = parsed.data.geofenceEnabled ?? false
+    if (companyFieldSupported('geofenceEnabled') && hasField('geofenceEnabled')) {
+      companyUpdateData.geofenceEnabled = parsed.data.geofenceEnabled
     }
-    if (companyFieldSupported('geofenceLat')) {
+    if (companyFieldSupported('geofenceLat') && hasField('geofenceLat')) {
       companyUpdateData.geofenceLat = parsed.data.geofenceLat ?? null
     }
-    if (companyFieldSupported('geofenceLng')) {
+    if (companyFieldSupported('geofenceLng') && hasField('geofenceLng')) {
       companyUpdateData.geofenceLng = parsed.data.geofenceLng ?? null
     }
-    if (companyFieldSupported('geofenceRadiusMeters')) {
+    if (companyFieldSupported('geofenceRadiusMeters') && hasField('geofenceRadiusMeters')) {
       companyUpdateData.geofenceRadiusMeters = parsed.data.geofenceRadiusMeters ?? null
+    }
+    if (companyFieldSupported('defaultBreakMinutes') && hasField('defaultBreakMinutes')) {
+      companyUpdateData.defaultBreakMinutes = requestedDefaultBreakMinutes
     }
 
     // Career page branding
@@ -226,20 +274,27 @@ export async function PATCH(req: NextRequest) {
         companyUpdateData.careerBannerUrl = rawBanner
       }
     }
-    if (companyFieldSupported('careerTagline')) companyUpdateData.careerTagline = parsed.data.careerTagline ?? null
-    if (companyFieldSupported('careerDescription')) companyUpdateData.careerDescription = parsed.data.careerDescription ?? null
-    if (companyFieldSupported('careerSocialFacebook')) companyUpdateData.careerSocialFacebook = parsed.data.careerSocialFacebook ?? null
-    if (companyFieldSupported('careerSocialLinkedin')) companyUpdateData.careerSocialLinkedin = parsed.data.careerSocialLinkedin ?? null
-    if (companyFieldSupported('careerSocialTwitter')) companyUpdateData.careerSocialTwitter = parsed.data.careerSocialTwitter ?? null
-    if (companyFieldSupported('careerSocialInstagram')) companyUpdateData.careerSocialInstagram = parsed.data.careerSocialInstagram ?? null
+    if (companyFieldSupported('careerTagline') && hasField('careerTagline')) companyUpdateData.careerTagline = parsed.data.careerTagline ?? null
+    if (companyFieldSupported('careerDescription') && hasField('careerDescription')) companyUpdateData.careerDescription = parsed.data.careerDescription ?? null
+    if (companyFieldSupported('careerSocialFacebook') && hasField('careerSocialFacebook')) companyUpdateData.careerSocialFacebook = parsed.data.careerSocialFacebook ?? null
+    if (companyFieldSupported('careerSocialLinkedin') && hasField('careerSocialLinkedin')) companyUpdateData.careerSocialLinkedin = parsed.data.careerSocialLinkedin ?? null
+    if (companyFieldSupported('careerSocialTwitter') && hasField('careerSocialTwitter')) companyUpdateData.careerSocialTwitter = parsed.data.careerSocialTwitter ?? null
+    if (companyFieldSupported('careerSocialInstagram') && hasField('careerSocialInstagram')) companyUpdateData.careerSocialInstagram = parsed.data.careerSocialInstagram ?? null
 
     const updated = await prisma.company.update({
       where: { id: ctx.companyId },
       data: companyUpdateData,
     })
 
+    if (requestedDefaultBreakMinutes !== undefined && !companyFieldSupported('defaultBreakMinutes')) {
+      await writeCompanyDefaultBreakMinutes(ctx.companyId, requestedDefaultBreakMinutes)
+    }
+
+    const defaultBreakMinutes = requestedDefaultBreakMinutes ?? await readCompanyDefaultBreakMinutes(ctx.companyId)
+
     return NextResponse.json({
       ...updated,
+      defaultBreakMinutes,
       tinNo: updated.tin ?? null,
       sssNo: updated.sssRegistrationNo ?? null,
     })

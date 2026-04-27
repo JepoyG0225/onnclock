@@ -103,7 +103,7 @@ export default function ProfilePage() {
     async function loadBiometricStatus() {
       setBiometricLoading(true)
       try {
-        const res = await fetch('/api/biometric/status')
+        const res = await fetch('/api/biometric/status', { cache: 'no-store' })
         const data = await res.json()
         setBiometricEnrolled(!!data.enrolled)
         setBiometricRequired(data.required !== false)
@@ -679,4 +679,3 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
     </div>
   )
 }
-

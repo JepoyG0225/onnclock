@@ -1,11 +1,14 @@
 /**
  * Shared helpers for authenticating API routes using NextAuth.
  * Replaces the old Supabase createClient() pattern.
+ *
+ * Also supports OnClock Desktop App Bearer tokens via the `req` parameter.
  */
 import { auth } from '@/lib/auth'
 import { NextResponse, type NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
+import { verifyDesktopToken } from '@/lib/desktop-token'
 
 export interface AuthContext {
   userId: string
@@ -19,10 +22,47 @@ export interface AuthContext {
 /**
  * Get the authenticated user context from the current request.
  * Returns null + a 401/403 NextResponse if not authenticated or no company.
+ *
+ * When `req` is provided, also accepts OnClock Desktop App Bearer tokens
+ * in the `Authorization: Bearer <token>` header.
  */
 export async function requireAuth(
-  allowedRoles?: string[]
+  allowedRoles?: string[],
+  req?: NextRequest
 ): Promise<{ ctx: AuthContext; error: null } | { ctx: null; error: NextResponse }> {
+  // ── Desktop App Bearer token ──────────────────────────────────────────────
+  let authHeader = ''
+  if (req) {
+    authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization') ?? ''
+  } else {
+    try {
+      const hdr = await headers()
+      authHeader = hdr.get('authorization') ?? hdr.get('Authorization') ?? ''
+    } catch {
+      authHeader = ''
+    }
+  }
+  if (authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    const payload = verifyDesktopToken(token)
+    if (!payload) {
+      return { ctx: null, error: NextResponse.json({ error: 'Invalid or expired desktop token' }, { status: 401 }) }
+    }
+    const ctx: AuthContext = {
+      userId: payload.userId,
+      companyId: payload.companyId,
+      role: payload.role,
+      actorRole: payload.role,
+      email: payload.email,
+    }
+    const hasSuperAdminBypass = ctx.role === 'SUPER_ADMIN' || ctx.actorRole === 'SUPER_ADMIN'
+    if (allowedRoles && !allowedRoles.includes(ctx.role) && !hasSuperAdminBypass) {
+      return { ctx: null, error: NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 }) }
+    }
+    return { ctx, error: null }
+  }
+
+  // ── NextAuth session ──────────────────────────────────────────────────────
   const session = await auth()
 
   if (!session?.user?.id) {
@@ -46,7 +86,8 @@ export async function requireAuth(
           actorRole: 'SUPER_ADMIN',
           email: imp.email,
         }
-        if (allowedRoles && !allowedRoles.includes(ctx.role)) {
+        const hasSuperAdminBypass = ctx.role === 'SUPER_ADMIN' || ctx.actorRole === 'SUPER_ADMIN'
+        if (allowedRoles && !allowedRoles.includes(ctx.role) && !hasSuperAdminBypass) {
           return {
             ctx: null,
             error: NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 }),

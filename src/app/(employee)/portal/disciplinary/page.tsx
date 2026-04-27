@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AlertTriangle, ShieldAlert, Send, CheckCircle2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -48,11 +49,19 @@ export default function PortalDisciplinaryPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [responseText, setResponseText] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch('/api/disciplinary?limit=50')
+        if (res.status === 403) {
+          const data = await res.json().catch(() => ({}))
+          if (data.notEntitled) {
+            router.replace('/portal/clock')
+            return
+          }
+        }
         if (!res.ok) return
         const data = await res.json()
         setRecords(data.records ?? [])
@@ -61,7 +70,7 @@ export default function PortalDisciplinaryPage() {
       }
     }
     load()
-  }, [])
+  }, [router])
 
   async function handleSubmitResponse(record: DisciplinaryRecord) {
     const text = responseText[record.id]?.trim()

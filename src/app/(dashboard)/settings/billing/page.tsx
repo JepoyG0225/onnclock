@@ -53,10 +53,10 @@ interface PaymentMethod {
 }
 
 const STANDARD_PRICE = 50
-const PRO_PRICE = 70
+const PRO_PRICE = 100
 
 function fmt(n: number) {
-  return 'â‚±' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default function BillingPage() {
@@ -65,19 +65,38 @@ export default function BillingPage() {
   const [methods, setMethods] = useState<PaymentMethod[]>([])
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState(false)
-  const [selectedPlan, setSelectedPlan] = useState<'MONTHLY' | 'ANNUAL' | null>(null)
-  const [selectedPricePerSeat, setSelectedPricePerSeat] = useState<50 | 70>(STANDARD_PRICE)
+  const [selectedPlan, setSelectedPlan] = useState<'ANNUAL'>('ANNUAL')
+  const [selectedPricePerSeat, setSelectedPricePerSeat] = useState<50 | 100>(STANDARD_PRICE)
   const [seatCount, setSeatCount] = useState(1)
   const [paymentCode, setPaymentCode] = useState<string | null>(null)
   const [proofDataUrl, setProofDataUrl] = useState<string | null>(null)
   const [proofFileName, setProofFileName] = useState<string | null>(null)
 
-  async function fileToDataUrl(file: File): Promise<string> {
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result ?? ''))
-      reader.onerror = () => reject(new Error('Failed to read file'))
-      reader.readAsDataURL(file)
+  /** Compress + resize an image to keep the base64 payload well under Vercel's 4.5 MB body limit. */
+  async function compressImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      const objectUrl = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl)
+        // Limit to 1200px wide — enough detail for a payment receipt
+        const MAX_W = 1200
+        let { width, height } = img
+        if (width > MAX_W) {
+          height = Math.round((height * MAX_W) / width)
+          width = MAX_W
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('Canvas unavailable')); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        // JPEG at 75% quality — typically < 200 KB for a receipt photo
+        resolve(canvas.toDataURL('image/jpeg', 0.75))
+      }
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Failed to load image')) }
+      img.src = objectUrl
     })
   }
 
@@ -94,8 +113,8 @@ export default function BillingPage() {
         setData(next)
         setSeatCount(Math.max(next.employeeCount, next.subscription?.seatCount ?? 1))
         const currentRate = Number(next.subscription?.pricePerSeat ?? STANDARD_PRICE)
-        if (currentRate >= PRO_PRICE) setSelectedPricePerSeat(PRO_PRICE)
-        else setSelectedPricePerSeat(STANDARD_PRICE)
+        if (currentRate >= PRO_PRICE) setSelectedPricePerSeat(PRO_PRICE as 100)
+        else setSelectedPricePerSeat(STANDARD_PRICE as 50)
       }
       if (invRes.ok) setInvoices((await invRes.json()).invoices ?? [])
       if (methodRes.ok) {
@@ -113,7 +132,7 @@ export default function BillingPage() {
   useEffect(() => { loadData() }, [loadData])
 
   async function confirmPlan() {
-    if (!selectedPlan || !paymentCode) return
+    if (!paymentCode) return
     setUpgrading(true)
     try {
       const res = await fetch('/api/billing/upgrade', {
@@ -130,7 +149,6 @@ export default function BillingPage() {
       const payload = await res.json()
       if (!res.ok) throw new Error(payload.error ?? 'Subscription failed')
       toast.success('Subscription updated and invoice generated.')
-      setSelectedPlan(null)
       setProofDataUrl(null)
       setProofFileName(null)
       await loadData()
@@ -154,16 +172,43 @@ export default function BillingPage() {
   const isOnTrial = sub.status === 'TRIAL'
   const isExpired = sub.status === 'EXPIRED'
   const isActive = sub.status === 'ACTIVE'
-  const isAnnual = sub.billingCycle === 'ANNUAL'
 
   const effectiveSeatCount = Math.max(employeeCount, seatCount)
   const annualPricePerMonth = Math.round(selectedPricePerSeat * 0.8)
-  const monthlyTotal = selectedPricePerSeat * effectiveSeatCount
   const annualTotal = annualPricePerMonth * 12 * effectiveSeatCount
   const annualSavings = selectedPricePerSeat * 12 * effectiveSeatCount - annualTotal
+  const currentCycle = sub.billingCycle === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY'
+  const currentCycleTotal = currentCycle === 'ANNUAL'
+    ? Number(sub.pricePerSeat) * 12 * Number(sub.seatCount) * 0.8
+    : Number(sub.pricePerSeat) * Number(sub.seatCount)
+  const hasRemainingPeriod = Boolean(
+    isActive &&
+    sub.currentPeriodStart &&
+    sub.currentPeriodEnd &&
+    new Date(sub.currentPeriodEnd).getTime() > Date.now()
+  )
+  const remainingRatio = hasRemainingPeriod && sub.currentPeriodStart && sub.currentPeriodEnd
+    ? Math.min(
+        1,
+        Math.max(
+          0,
+          (new Date(sub.currentPeriodEnd).getTime() - Date.now()) /
+            Math.max(1, new Date(sub.currentPeriodEnd).getTime() - new Date(sub.currentPeriodStart).getTime())
+        )
+      )
+    : 0
+  const remainingCredit = Math.round(currentCycleTotal * remainingRatio * 100) / 100
+  const sameCycleChange = currentCycle === 'ANNUAL'
+  const selectedTotal = (() => {
+    if (!hasRemainingPeriod) return annualTotal
+    if (sameCycleChange) {
+      const delta = Math.max(0, annualTotal - currentCycleTotal)
+      return Math.round(delta * remainingRatio * 100) / 100
+    }
+    return Math.max(0, Math.round((annualTotal - remainingCredit) * 100) / 100)
+  })()
 
   const selectedMethod = methods.find((m) => m.code === paymentCode) ?? null
-  const selectedTotal = selectedPlan === 'ANNUAL' ? annualTotal : monthlyTotal
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
@@ -205,7 +250,7 @@ export default function BillingPage() {
               <p className="font-bold text-slate-800">Current Plan</p>
               <p className="text-xs text-slate-400 mt-0.5">
                 {isOnTrial && `Free Trial â€” expires ${sub.trialEndsAt ? format(new Date(sub.trialEndsAt), 'MMM dd, yyyy') : ''}`}
-                {isActive && sub.currentPeriodEnd && `${isAnnual ? 'Annual' : 'Monthly'} â€” renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
+                {isActive && sub.currentPeriodEnd && `Annual — renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
                 {isExpired && 'Expired â€” please subscribe'}
               </p>
             </div>
@@ -213,7 +258,7 @@ export default function BillingPage() {
           <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${
             isOnTrial ? 'bg-[#C0C8CA] text-[#1A2D42]' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
           }`}>
-            {isOnTrial ? 'Free Trial' : isActive ? (isAnnual ? 'Annual' : 'Monthly') : 'Expired'}
+            {isOnTrial ? 'Free Trial' : isActive ? 'Annual' : 'Expired'}
           </span>
         </div>
         <div className="px-6 py-5 grid grid-cols-2 sm:grid-cols-4 gap-6">
@@ -257,54 +302,33 @@ export default function BillingPage() {
             className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === PRO_PRICE ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
           >
             <p className="font-black text-slate-900 text-lg">Pro</p>
-            <p className="text-xs text-slate-500 mt-1">Includes screen capture security, recruitment, onboarding tracker, performance reviews, and documents</p>
-            <p className="mt-3 text-sm font-semibold text-slate-700">Php 70 / employee / month</p>
+            <p className="text-xs text-slate-500 mt-1">Includes screen capture security, recruitment, onboarding tracker, performance reviews, disciplinary records, overtime, tardiness reports, and offboarding</p>
+            <p className="mt-3 text-sm font-semibold text-slate-700">Php 100 / employee / month</p>
           </button>
         </div>
       </div>
 
       <div>
-        <h2 className="text-base font-bold text-slate-800 mb-4">{isActive ? 'Change Plan' : 'Choose a Plan'}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className={`rounded-2xl border-2 p-6 transition-all ${selectedPlan === 'MONTHLY' ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}>
-            <p className="font-black text-slate-900 text-lg">Monthly</p>
-            <p className="text-xs text-slate-400 mt-1">{fmt(selectedPricePerSeat)} / employee / month</p>
-            <p className="mt-4 text-sm font-semibold text-slate-700">{fmt(monthlyTotal)} / month</p>
-            <button
-              onClick={() => setSelectedPlan('MONTHLY')}
-              className="mt-5 w-full py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ background: '#2E4156' }}
-            >
-              {selectedPlan === 'MONTHLY' ? 'Selected' : 'Choose Monthly'}
-            </button>
+        <h2 className="text-base font-bold text-slate-800 mb-4">{isActive ? 'Renew / Change Plan' : 'Billing'}</h2>
+        <div className="rounded-2xl border-2 border-[#2E4156] bg-[#D4D8DD]/30 p-6">
+          <div className="flex items-center justify-between mb-1">
+            <p className="font-black text-slate-900 text-lg">Annual Billing</p>
+            <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white"
+              style={{ background: 'linear-gradient(135deg, #2E4156, #1A2D42)' }}>
+              <Star className="w-2.5 h-2.5 fill-white" /> 20% OFF
+            </span>
           </div>
-
-          <div className={`rounded-2xl border-2 p-6 transition-all ${selectedPlan === 'ANNUAL' ? 'border-[#2E4156] bg-[#D4D8DD]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}>
-            <div className="flex items-center justify-between">
-              <p className="font-black text-slate-900 text-lg">Annual</p>
-              <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white"
-                style={{ background: 'linear-gradient(135deg, #2E4156, #1A2D42)' }}>
-                <Star className="w-2.5 h-2.5 fill-white" /> BEST VALUE
-              </span>
-            </div>
-            <p className="text-xs text-emerald-600 font-bold mt-1">Save 20%</p>
-            <p className="mt-4 text-sm font-semibold text-slate-700">{fmt(annualTotal)} / year</p>
-            <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> Save {fmt(annualSavings)} yearly
-            </p>
-            <button
-              onClick={() => setSelectedPlan('ANNUAL')}
-              className="mt-5 w-full py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #2E4156, #1A2D42)' }}
-            >
-              {selectedPlan === 'ANNUAL' ? 'Selected' : 'Choose Annual'}
-            </button>
+          <p className="text-xs text-emerald-600 font-bold">{fmt(annualPricePerMonth)} / employee / month — billed annually</p>
+          <div className="mt-3 flex items-center gap-6 text-sm text-slate-700">
+            <span className="font-semibold">{fmt(annualTotal)} / year</span>
+            <span className="flex items-center gap-1 text-emerald-600 text-xs font-semibold">
+              <TrendingUp className="w-3 h-3" /> Save {fmt(annualSavings)} vs. monthly
+            </span>
           </div>
         </div>
       </div>
 
-      {selectedPlan && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
           <h3 className="text-base font-bold text-slate-900">Checkout</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -320,10 +344,14 @@ export default function BillingPage() {
                 <p className="text-xs text-slate-400 mt-1">Minimum is active employees: {employeeCount}</p>
               </div>
               <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-                <p className="font-semibold text-slate-700 mb-1">Selected Plan: {selectedPlan}</p>
-                <p>Rate: <span className="font-black text-[#1A2D42]">{fmt(selectedPricePerSeat)}</span> / seat / month</p>
-                <p>Total: <span className="font-black text-[#1A2D42]">{fmt(selectedTotal)}</span></p>
-                <p className="text-xs text-slate-500 mt-1">{effectiveSeatCount} seats billed.</p>
+                <p className="font-semibold text-slate-700 mb-1">Annual Plan</p>
+                <p>Rate: <span className="font-black text-[#1A2D42]">{fmt(annualPricePerMonth)}</span> / seat / month</p>
+                <p>Total Plan Price: <span className="font-black text-[#1A2D42]">{fmt(annualTotal)}</span> / year</p>
+                {hasRemainingPeriod && remainingCredit > 0 && (
+                  <p>Current Plan Credit: <span className="font-black text-emerald-700">-{fmt(remainingCredit)}</span></p>
+                )}
+                <p>Amount Due Now: <span className="font-black text-[#1A2D42]">{fmt(selectedTotal)}</span></p>
+                <p className="text-xs text-slate-500 mt-1">{effectiveSeatCount} seats · 20% annual discount applied.</p>
               </div>
               <button
                 onClick={confirmPlan}
@@ -384,11 +412,11 @@ export default function BillingPage() {
                     const file = e.target.files?.[0]
                     if (!file) return
                     try {
-                      const dataUrl = await fileToDataUrl(file)
+                      const dataUrl = await compressImage(file)
                       setProofDataUrl(dataUrl)
                       setProofFileName(file.name)
                     } catch {
-                      toast.error('Failed to read proof file.')
+                      toast.error('Failed to process image. Please try a different file.')
                     }
                   }}
                 />
@@ -402,7 +430,6 @@ export default function BillingPage() {
             </div>
           </div>
         </div>
-      )}
 
       <div>
         <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">

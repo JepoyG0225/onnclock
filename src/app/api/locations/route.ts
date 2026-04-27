@@ -61,26 +61,28 @@ export async function GET(req: NextRequest) {
   // For each active DTR, get the most recent location ping
   const employeeIds = activeDTR.map(r => r.employeeId)
 
-  // Get last ping per employee using groupBy workaround
+  // Get the latest ping per employee (avoid loading full ping history)
   const latestPings = await prisma.locationPing.findMany({
     where: {
       employeeId: { in: employeeIds },
       recordedAt: { gte: manilaDate },
     },
-    orderBy: { recordedAt: 'desc' },
+    orderBy: [{ employeeId: 'asc' }, { recordedAt: 'desc' }],
+    distinct: ['employeeId'],
+    select: {
+      employeeId: true,
+      lat: true,
+      lng: true,
+      accuracy: true,
+      recordedAt: true,
+    },
   })
 
-  // Deduplicate: keep only the latest ping per employee
-  const seenEmployees = new Set<string>()
-  const dedupedPings = latestPings.filter(p => {
-    if (seenEmployees.has(p.employeeId)) return false
-    seenEmployees.add(p.employeeId)
-    return true
-  })
+  const pingByEmployee = new Map(latestPings.map(p => [p.employeeId, p]))
 
   // Merge with DTR data
   const locations = activeDTR.map(dtr => {
-    const ping = dedupedPings.find(p => p.employeeId === dtr.employeeId)
+    const ping = pingByEmployee.get(dtr.employeeId)
     let geofenceOut: boolean | null = null
     if (
       company?.geofenceEnabled &&

@@ -31,16 +31,24 @@ export async function GET() {
       pendingLeaves = leaves
     }
 
-    // Unread DM indicator count (per conversation, capped to 1 each)
-    const contacts = await prisma.userCompany.findMany({
-      where: { companyId: ctx.companyId, isActive: true, userId: { not: ctx.userId } },
-      select: { userId: true },
-      take: 300,
-    })
+    // Fetch contacts and group memberships in parallel — neither depends on the other
+    const [contacts, memberships] = await Promise.all([
+      prisma.userCompany.findMany({
+        where: { companyId: ctx.companyId, isActive: true, userId: { not: ctx.userId } },
+        select: { userId: true },
+        take: 300,
+      }),
+      prisma.chatGroupMember.findMany({
+        where: { userId: ctx.userId },
+        select: { groupId: true },
+      }),
+    ])
 
-    const convIds = contacts.map(c => conversationId(ctx.companyId!, ctx.userId, c.userId))
+    const convIds  = contacts.map(c => conversationId(ctx.companyId!, ctx.userId, c.userId))
+    const groupIds = memberships.map(m => m.groupId)
 
-    const [readMarkers, totalDmMessages] = await Promise.all([
+    // Run all 4 read-marker queries in parallel
+    const [readMarkers, totalDmMessages, groupReadMarkers, latestGroupMessages] = await Promise.all([
       prisma.auditLog.findMany({
         where: {
           companyId: ctx.companyId,
@@ -62,6 +70,32 @@ export async function GET() {
         },
         _max: { createdAt: true },
       }),
+      groupIds.length > 0
+        ? prisma.auditLog.findMany({
+            where: {
+              companyId: ctx.companyId,
+              entity: 'CHAT_GROUP_READ',
+              userId: ctx.userId,
+              entityId: { in: groupIds.map(gid => groupReadEntityId(gid, ctx.userId)) },
+            },
+            orderBy: { createdAt: 'desc' },
+            distinct: ['entityId'],
+            select: { entityId: true, createdAt: true },
+          })
+        : Promise.resolve([]),
+      groupIds.length > 0
+        ? prisma.auditLog.findMany({
+            where: {
+              companyId: ctx.companyId,
+              entity: CHAT_GROUP_MESSAGE_ENTITY,
+              entityId: { in: groupIds.map(gid => groupMessageEntityId(gid)) },
+              userId: { not: ctx.userId },
+            },
+            orderBy: { createdAt: 'desc' },
+            distinct: ['entityId'],
+            select: { entityId: true, createdAt: true },
+          })
+        : Promise.resolve([]),
     ])
 
     const lastReadByConv = new Map(readMarkers.map(r => [r.entityId, r.createdAt]))
@@ -71,48 +105,14 @@ export async function GET() {
       return sum + (unread ? 1 : 0)
     }, 0)
 
-    // Unread group indicator count (per group, capped to 1 each)
-    const memberships = await prisma.chatGroupMember.findMany({
-      where: { userId: ctx.userId },
-      select: { groupId: true },
-    })
-    const groupIds = memberships.map(m => m.groupId)
-    let unreadGroups = 0
-    if (groupIds.length > 0) {
-      const [groupReadMarkers, latestGroupMessages] = await Promise.all([
-        prisma.auditLog.findMany({
-          where: {
-            companyId: ctx.companyId,
-            entity: 'CHAT_GROUP_READ',
-            userId: ctx.userId,
-            entityId: { in: groupIds.map(gid => groupReadEntityId(gid, ctx.userId)) },
-          },
-          orderBy: { createdAt: 'desc' },
-          distinct: ['entityId'],
-          select: { entityId: true, createdAt: true },
-        }),
-        prisma.auditLog.findMany({
-          where: {
-            companyId: ctx.companyId,
-            entity: CHAT_GROUP_MESSAGE_ENTITY,
-            entityId: { in: groupIds.map(gid => groupMessageEntityId(gid)) },
-            userId: { not: ctx.userId },
-          },
-          orderBy: { createdAt: 'desc' },
-          distinct: ['entityId'],
-          select: { entityId: true, createdAt: true },
-        }),
-      ])
-
-      const lastReadByGroup = new Map(groupReadMarkers.map(r => [r.entityId, r.createdAt]))
-      unreadGroups = latestGroupMessages.reduce((sum, m) => {
-        const groupId = m.entityId.replace(/^chat_group:/, '')
-        const readKey = groupReadEntityId(groupId, ctx.userId)
-        const lastRead = lastReadByGroup.get(readKey)
-        const unread = !lastRead || m.createdAt > lastRead
-        return sum + (unread ? 1 : 0)
-      }, 0)
-    }
+    const lastReadByGroup = new Map(groupReadMarkers.map(r => [r.entityId, r.createdAt]))
+    const unreadGroups = latestGroupMessages.reduce((sum, m) => {
+      const groupId = m.entityId.replace(/^chat_group:/, '')
+      const readKey = groupReadEntityId(groupId, ctx.userId)
+      const lastRead = lastReadByGroup.get(readKey)
+      const unread = !lastRead || m.createdAt > lastRead
+      return sum + (unread ? 1 : 0)
+    }, 0)
 
     return NextResponse.json({
       pendingDtr,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { z } from 'zod'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
@@ -17,6 +18,11 @@ export async function GET(
 ) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat)) {
+    return NextResponse.json({ error: 'Offboarding requires a Pro subscription.' }, { status: 403 })
+  }
 
   const { id } = await params
 
@@ -51,6 +57,11 @@ export async function PATCH(
   const { ctx, error } = await requireAuth()
   if (error) return error
 
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat)) {
+    return NextResponse.json({ error: 'Offboarding requires a Pro subscription.' }, { status: 403 })
+  }
+
   const { id } = await params
 
   const existing = await prisma.offboardingProcess.findFirst({
@@ -77,6 +88,14 @@ export async function PATCH(
     where: { id },
     data: updateData,
   })
+
+  // Auto-deactivate employee when offboarding is completed
+  if (parsed.data.status === 'COMPLETED') {
+    await prisma.employee.update({
+      where: { id: existing.employeeId },
+      data: { isActive: false },
+    })
+  }
 
   return NextResponse.json({ process: updated })
 }

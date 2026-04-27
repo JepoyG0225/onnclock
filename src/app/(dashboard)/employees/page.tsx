@@ -180,7 +180,11 @@ export default async function EmployeesPage({
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Link href={`/employees/${emp.id}`}>
-                            <Button variant="ghost" size="sm" className="text-[#2E4156] hover:text-[#1A2D42]">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-[#2E4156] hover:text-white focus-visible:text-white active:text-white"
+                            >
                               View
                             </Button>
                           </Link>

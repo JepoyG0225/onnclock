@@ -24,7 +24,7 @@ export default async function NewEmployeePage() {
     }),
     prisma.workSchedule.findMany({
       where: { companyId, isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, scheduleType: true },
       orderBy: { name: 'asc' },
     }),
   ])

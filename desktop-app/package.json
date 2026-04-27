@@ -1,0 +1,52 @@
+{
+  "name": "onclock-desktop",
+  "version": "1.1.15",
+  "description": "OnClock Desktop — Silent screen monitoring for remote employees",
+  "main": "main.js",
+  "author": "OnClock PH",
+  "private": true,
+  "scripts": {
+    "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
+    "build": "electron-builder --win --x64",
+    "build:dir": "electron-builder --win --x64 --dir"
+  },
+  "build": {
+    "appId": "com.onclock.desktop",
+    "productName": "OnClock Desktop",
+    "copyright": "Copyright © 2026 OnClock PH",
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OnClock Desktop"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [],
+    "publish": null
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3"
+  }
+}

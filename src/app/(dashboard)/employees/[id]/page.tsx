@@ -15,6 +15,7 @@ import { PesoIcon } from '@/components/ui/PesoIcon'
 import { EmployeePortalAccess } from '@/components/employees/EmployeePortalAccess'
 import { EmployeeStatusButton } from '@/components/employees/EmployeeStatusButton'
 import { EmployeeDocumentsManager } from '@/components/employees/EmployeeDocumentsManager'
+import { EmployeeScheduleSetup } from '@/components/employees/EmployeeScheduleSetup'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -193,9 +194,10 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
         {/* Employment */}
         <TabsContent value="employment" className="mt-4">
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Employment Details</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Employment Details</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
               {[
                 ['Employee No.', employee.employeeNo ?? '—'],
                 ['Department', employee.department?.name ?? '—'],
@@ -217,8 +219,18 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                   <span className="font-medium">{v}</span>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Work Schedule Setup</CardTitle></CardHeader>
+              <CardContent>
+                <EmployeeScheduleSetup
+                  employeeId={employee.id}
+                  defaultMode={employee.workSchedule?.scheduleType === 'FLEXITIME' ? 'FLEXIBLE' : 'FIXED'}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Compensation */}

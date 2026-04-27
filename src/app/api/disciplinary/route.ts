@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -18,6 +19,19 @@ const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'SUPER_ADMIN']
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+
+  // Disciplinary is a Pro feature. Employees can only access it on Pro or Trial plans.
+  // HR/Admin roles always have access regardless of plan.
+  const HR_ROLES_SET = new Set(HR_ROLES)
+  if (!HR_ROLES_SET.has(ctx.role)) {
+    const sub = await getCompanySubscription(ctx.companyId)
+    if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
+      return NextResponse.json(
+        { error: 'Disciplinary records require a Pro subscription.', notEntitled: true },
+        { status: 403 }
+      )
+    }
+  }
 
   const { searchParams } = new URL(req.url)
   const status     = searchParams.get('status') || undefined

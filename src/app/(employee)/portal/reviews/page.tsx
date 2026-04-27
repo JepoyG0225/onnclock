@@ -508,7 +508,7 @@ export default function PortalReviewsPage() {
             </div>
             <p className="text-sm font-semibold text-gray-500">No reviews yet</p>
             <p className="text-xs text-gray-400 mt-1 max-w-xs">
-              Your performance reviews will appear here once your manager creates one.
+              Your performance reviews will appear here once a manager has been assigned to your review.
             </p>
           </div>
         )}

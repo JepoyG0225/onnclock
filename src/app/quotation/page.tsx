@@ -8,8 +8,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-const MONTHLY_PRICE = 50
 const ANNUAL_PRICE_PER_MONTH = 40
+const MONTHLY_PRICE = 50 // kept for savings calculation only
 
 function fmt(n: number) {
   return '₱ ' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -29,7 +29,7 @@ function today() {
 }
 
 interface FormState {
-  plan: 'MONTHLY' | 'ANNUAL'
+  plan: 'ANNUAL'
   seats: number
   clientName: string
   clientCompany: string
@@ -43,7 +43,7 @@ interface FormState {
 }
 
 const INITIAL: FormState = {
-  plan:          'MONTHLY',
+  plan:          'ANNUAL',
   seats:         10,
   clientName:    '',
   clientCompany: '',
@@ -108,8 +108,8 @@ export default function QuotationPage() {
     setForm(prev => ({ ...prev, [key]: value }))
   }, [])
 
-  const pricePerSeat  = form.plan === 'ANNUAL' ? ANNUAL_PRICE_PER_MONTH : MONTHLY_PRICE
-  const periods       = form.plan === 'ANNUAL' ? 12 : 1
+  const pricePerSeat  = ANNUAL_PRICE_PER_MONTH
+  const periods       = 12
   const seats         = Math.max(1, form.seats || 1)
   const subtotal      = pricePerSeat * seats * periods
   const setupFee      = form.includeSetup ? (form.setupFee || 0) : 0
@@ -255,41 +255,16 @@ export default function QuotationPage() {
               <Zap className="w-4 h-4 text-[#2E4156]" /> Plan Selection
             </p>
 
-            {/* Plan cards */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Monthly */}
-              <button
-                type="button"
-                onClick={() => set('plan', 'MONTHLY')}
-                className={`rounded-xl border-2 p-4 text-left transition-all ${form.plan === 'MONTHLY' ? 'border-[#2E4156] bg-[#D4D8DD]/50' : 'border-slate-200 hover:border-[#AAB7B7]'}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-black text-slate-900">Monthly</span>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${form.plan === 'MONTHLY' ? 'border-[#2E4156]' : 'border-slate-300'}`}>
-                    {form.plan === 'MONTHLY' && <div className="w-2 h-2 rounded-full bg-[#2E4156]" />}
-                  </div>
-                </div>
-                <p className="text-xl font-black text-[#1A2D42]">₱50</p>
-                <p className="text-xs text-slate-500">per seat / month</p>
-                <p className="text-xs text-slate-400 mt-1">Billed monthly</p>
-              </button>
-              {/* Annual */}
-              <button
-                type="button"
-                onClick={() => set('plan', 'ANNUAL')}
-                className={`rounded-xl border-2 p-4 text-left transition-all relative overflow-hidden ${form.plan === 'ANNUAL' ? 'border-[#2E4156] bg-[#D4D8DD]/50' : 'border-slate-200 hover:border-[#AAB7B7]'}`}
-              >
-                <div className="absolute top-2 right-2 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">SAVE 20%</div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-black text-slate-900">Annual</span>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${form.plan === 'ANNUAL' ? 'border-[#2E4156]' : 'border-slate-300'}`}>
-                    {form.plan === 'ANNUAL' && <div className="w-2 h-2 rounded-full bg-[#2E4156]" />}
-                  </div>
-                </div>
-                <p className="text-xl font-black text-[#1A2D42]">₱40</p>
-                <p className="text-xs text-slate-500">per seat / month</p>
-                <p className="text-xs text-emerald-600 font-bold mt-1">₱480/seat/year</p>
-              </button>
+            {/* Annual-only billing */}
+            <div className="rounded-xl border-2 border-[#2E4156] bg-[#D4D8DD]/50 p-4 relative overflow-hidden">
+              <div className="absolute top-2 right-2 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">20% OFF</div>
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-[#2E4156]" />
+                <span className="text-sm font-black text-slate-900">Annual Billing</span>
+              </div>
+              <p className="text-xl font-black text-[#1A2D42]">₱40</p>
+              <p className="text-xs text-slate-500">per seat / month — billed as ₱480/seat/year</p>
+              <p className="text-xs text-emerald-600 font-bold mt-1">Save 20% vs. monthly</p>
             </div>
 
             {/* Seat count */}
@@ -379,10 +354,10 @@ export default function QuotationPage() {
             </div>
 
             <div className="px-6 py-4 space-y-1">
-              <SummaryRow label="Plan" value={form.plan === 'ANNUAL' ? 'Annual (12 months)' : 'Monthly'} />
+              <SummaryRow label="Plan" value="Annual (12 months)" />
               <SummaryRow label="Seats" value={`${seats} employee${seats !== 1 ? 's' : ''}`} />
               <SummaryRow label="Rate per Seat" value={`${fmt(pricePerSeat)}/mo`} />
-              <SummaryRow label="Billing Period" value={form.plan === 'ANNUAL' ? '12 months' : '1 month'} />
+              <SummaryRow label="Billing Period" value="12 months" />
               <SummaryRow label="Subscription" value={fmt(subtotal)} />
               {form.includeSetup && (
                 <SummaryRow label="Setup Fee (one-time)" value={fmt(setupFee)} />
@@ -396,9 +371,7 @@ export default function QuotationPage() {
             <div className="mx-6 mb-2 rounded-xl p-4" style={{ background: 'linear-gradient(135deg, #1A2D42, #2E4156)' }}>
               <p className="text-xs text-white/60 font-semibold">TOTAL AMOUNT DUE</p>
               <p className="text-2xl font-black text-white mt-1">{fmt(total)}</p>
-              {form.plan === 'ANNUAL' && (
-                <p className="text-xs text-white/60 mt-1">≈ {fmt(monthlyEquiv)}/month</p>
-              )}
+              <p className="text-xs text-white/60 mt-1">≈ {fmt(monthlyEquiv)}/month</p>
               {savings > 0 && (
                 <div className="mt-2 inline-flex items-center gap-1 bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
                   <CheckCircle className="w-2.5 h-2.5" /> You save {fmt(savings)}

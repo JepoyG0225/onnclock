@@ -21,26 +21,13 @@ export async function GET() {
     return NextResponse.json({ captures: {} })
   }
 
-  // Find all employees in this company who are currently clocked in (timeIn set, no timeOut, today)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  // Get all employees for this company so we can scope DTR lookups
-  const companyEmployees = await prisma.employee.findMany({
-    where: { companyId: ctx.companyId, isActive: true },
-    select: { id: true },
-  })
-  const employeeIds = companyEmployees.map(e => e.id)
-
-  if (employeeIds.length === 0) {
-    return NextResponse.json({ captures: {} })
-  }
-
-  // Find active DTR records (clocked in, not clocked out today)
+  // Find active DTR records (clocked in, not clocked out), including overnight shifts.
   const activeDtrs = await prisma.dTRRecord.findMany({
     where: {
-      employeeId: { in: employeeIds },
-      date: { gte: today },
+      employee: {
+        companyId: ctx.companyId,
+        isActive: true,
+      },
       timeIn: { not: null },
       timeOut: null,
     },
@@ -53,13 +40,14 @@ export async function GET() {
 
   const dtrIds = activeDtrs.map(d => d.id)
 
-  // Fetch all screenshots for active DTR records, ordered newest first
+  // Fetch only the latest screenshot per employee for active DTRs
   const screenshots = await prisma.attendanceScreenshot.findMany({
     where: {
       companyId: ctx.companyId,
       dtrRecordId: { in: dtrIds },
     },
-    orderBy: { capturedAt: 'desc' },
+    orderBy: [{ employeeId: 'asc' }, { capturedAt: 'desc' }],
+    distinct: ['employeeId'],
     select: {
       id: true,
       employeeId: true,
@@ -68,7 +56,6 @@ export async function GET() {
     },
   })
 
-  // Keep only the latest per employeeId
   const captures: Record<string, {
     id: string
     imageDataUrl: string
@@ -76,12 +63,10 @@ export async function GET() {
   }> = {}
 
   for (const s of screenshots) {
-    if (!captures[s.employeeId]) {
-      captures[s.employeeId] = {
-        id: s.id,
-        imageDataUrl: s.imageDataUrl,
-        capturedAt: s.capturedAt.toISOString(),
-      }
+    captures[s.employeeId] = {
+      id: s.id,
+      imageDataUrl: s.imageDataUrl,
+      capturedAt: s.capturedAt.toISOString(),
     }
   }
 

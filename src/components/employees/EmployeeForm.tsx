@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Loader2, Save, CalendarDays } from 'lucide-react'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -71,11 +73,12 @@ const employeeSchema = z.object({
 
 type EmployeeFormData = z.infer<typeof employeeSchema>
 type EmployeeFormInput = z.input<typeof employeeSchema>
+type ScheduleMode = 'FIXED' | 'FLEXIBLE'
 
 interface Props {
   departments: { id: string; name: string }[]
   positions: { id: string; title: string }[]
-  workSchedules: { id: string; name: string }[]
+  workSchedules: { id: string; name: string; scheduleType?: string }[]
   defaultValues?: Partial<EmployeeFormData>
   employeeId?: string
   hasPortalUser?: boolean
@@ -98,6 +101,11 @@ export function EmployeeForm({ departments, positions, workSchedules, defaultVal
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [managers, setManagers] = useState<{ id: string; firstName: string; lastName: string; employeeNo: string }[]>([])
+  const [showScheduleSetupModal, setShowScheduleSetupModal] = useState(false)
+  const [createdEmployeeId, setCreatedEmployeeId] = useState<string | null>(null)
+  const [createdEmployeeName, setCreatedEmployeeName] = useState('')
+  const [scheduleSetupMode, setScheduleSetupMode] = useState<ScheduleMode>('FIXED')
+  const [editScheduleMode, setEditScheduleMode] = useState<ScheduleMode>('FIXED')
   const isCreate = !employeeId
 
   const tabs = useMemo(() => {
@@ -125,15 +133,6 @@ export function EmployeeForm({ departments, positions, workSchedules, defaultVal
 
   const [activeTab, setActiveTab] = useState(tabs[0]?.value ?? 'personal')
 const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
-  const DAY_OPTIONS = [
-    { value: 0, label: 'Sun' },
-    { value: 1, label: 'Mon' },
-    { value: 2, label: 'Tue' },
-    { value: 3, label: 'Wed' },
-    { value: 4, label: 'Thu' },
-    { value: 5, label: 'Fri' },
-    { value: 6, label: 'Sat' },
-  ] as const
 
   // Leave allocations state
   interface LeaveTypeItem { id: string; name: string; code: string; daysEntitled: number; isMandatory: boolean; genderRestriction?: string | null }
@@ -289,7 +288,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     },
   })
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = form
+  const { register, handleSubmit, setValue, watch, formState: { errors, isDirty } } = form
 
   useEffect(() => {
     let active = true
@@ -312,6 +311,12 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     if (employeeId) void loadIncomeAssignments()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId])
+
+  useEffect(() => {
+    if (isCreate) return
+    const selectedSchedule = workSchedules.find(s => s.id === defaultValues?.workScheduleId)
+    setEditScheduleMode(selectedSchedule?.scheduleType === 'FLEXITIME' ? 'FLEXIBLE' : 'FIXED')
+  }, [defaultValues?.workScheduleId, isCreate, workSchedules])
 
   async function onSubmit(data: EmployeeFormData) {
     setSaving(true)
@@ -337,14 +342,59 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
         await persistIncomeAssignments(targetEmployeeId)
       }
 
-      toast.success(employeeId ? 'Employee updated!' : 'Employee created!')
-      router.push(targetEmployeeId ? `/employees/${targetEmployeeId}` : '/employees')
+      if (employeeId) {
+        toast.success('Employee updated!')
+        router.push(targetEmployeeId ? `/employees/${targetEmployeeId}` : '/employees')
+        return
+      }
+
+      if (!targetEmployeeId) {
+        toast.error('Employee was created, but no employee ID was returned.')
+        router.push('/employees')
+        return
+      }
+
+      toast.success('Employee created!')
+      setCreatedEmployeeId(targetEmployeeId)
+      setCreatedEmployeeName(`${data.firstName} ${data.lastName}`.trim())
+      setScheduleSetupMode('FIXED')
+      setShowScheduleSetupModal(true)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'An error occurred'
       toast.error(message)
     } finally {
       setSaving(false)
     }
+  }
+
+  function openScheduleSetup() {
+    if (!employeeId) {
+      toast.error('Save employee first before setting up work schedule.')
+      return
+    }
+    if (isDirty) {
+      toast.error('Please save changes first before opening Work Schedules.')
+      return
+    }
+
+    router.push(`/schedules?mode=${editScheduleMode}&employeeId=${employeeId}`)
+  }
+
+  function openWeeklyGrid() {
+    if (!createdEmployeeId) return
+    const params = new URLSearchParams({
+      mode: scheduleSetupMode,
+      employeeId: createdEmployeeId,
+    })
+    router.push(`/schedules?${params.toString()}`)
+  }
+
+  function goToEmployeeProfile() {
+    if (createdEmployeeId) {
+      router.push(`/employees/${createdEmployeeId}`)
+      return
+    }
+    router.push('/employees')
   }
 
   return (
@@ -522,50 +572,6 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Work Schedule">
-                <Select
-                  defaultValue={defaultValues?.workScheduleId}
-                  onValueChange={v => setValue('workScheduleId', v)}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select schedule" /></SelectTrigger>
-                  <SelectContent>
-                    {workSchedules.map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <div className="md:col-span-2 space-y-2">
-                <Label className="text-sm font-medium">Day Off Selection</Label>
-                <div className="flex flex-wrap gap-2">
-                  {DAY_OPTIONS.map(day => {
-                    const selected = (watch('dayOffDays') ?? []).includes(day.value)
-                    return (
-                      <button
-                        key={day.value}
-                        type="button"
-                        onClick={() => {
-                          const current = watch('dayOffDays') ?? []
-                          const next = selected
-                            ? current.filter(d => d !== day.value)
-                            : [...current, day.value]
-                          setValue('dayOffDays', next.sort((a, b) => a - b), { shouldDirty: true })
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                          selected
-                            ? 'bg-orange-50 text-orange-700 border-orange-300'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        {day.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                <p className="text-xs text-gray-500">
-                  Selected days are treated as weekly day offs for this employee.
-                </p>
-              </div>
               <Field label="Date Hired *" error={errors.hireDate?.message}>
                 <DatePicker
                   value={watch('hireDate')}
@@ -573,6 +579,30 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 />
                 <input type="hidden" {...register('hireDate')} value={watch('hireDate')} />
               </Field>
+              {!isCreate && (
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+                  <Field label="Work Schedule">
+                    <Select
+                      value={editScheduleMode}
+                      onValueChange={v => setEditScheduleMode(v as ScheduleMode)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FIXED">Fixed Schedule</SelectItem>
+                        <SelectItem value="FLEXIBLE">Flexible</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Button
+                    type="button"
+                    onClick={openScheduleSetup}
+                    className="text-white w-full md:w-auto"
+                    style={{ background: '#fa5e01' }}
+                  >
+                    Setup Schedule
+                  </Button>
+                </div>
+              )}
               <Field label="Regularization Date">
                 <DatePicker
                   value={watch('regularizationDate')}
@@ -962,6 +992,72 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
           </Button>
         )}
       </div>
+
+      <Dialog
+        open={showScheduleSetupModal}
+        onOpenChange={(open) => {
+          setShowScheduleSetupModal(open)
+          if (!open) goToEmployeeProfile()
+        }}
+      >
+        <DialogContent className="max-w-xl mx-4">
+          <DialogHeader>
+            <DialogTitle>Set Work Schedule</DialogTitle>
+            <DialogDescription>
+              {createdEmployeeName
+                ? `Employee ${createdEmployeeName} was saved. Choose a schedule mode, then continue to the weekly grid.`
+                : 'Employee was saved. Choose a schedule mode, then continue to the weekly grid.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Work Schedule Mode</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setScheduleSetupMode('FIXED')}
+                className={`text-left rounded-xl border p-4 transition ${
+                  scheduleSetupMode === 'FIXED'
+                    ? 'border-[#fa5e01] bg-orange-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <p className="text-sm font-semibold text-gray-900">Fixed Schedule</p>
+                <p className="mt-1 text-xs text-gray-500">Assign one recurring weekly schedule with day offs.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduleSetupMode('FLEXIBLE')}
+                className={`text-left rounded-xl border p-4 transition ${
+                  scheduleSetupMode === 'FLEXIBLE'
+                    ? 'border-[#fa5e01] bg-orange-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <p className="text-sm font-semibold text-gray-900">Flexible</p>
+                <p className="mt-1 text-xs text-gray-500">Assign daily shifts using the weekly grid.</p>
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-[#fa5e01]/30 bg-[#fff3ec] px-3 py-2 text-xs text-[#c44d00]">
+              Manage employee schedules at Work Schedule page.
+              {' '}
+              <Link href="/schedules" className="font-semibold underline underline-offset-2">
+                Open Work Schedules
+              </Link>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={goToEmployeeProfile}>
+              Skip for now
+            </Button>
+            <Button type="button" className="text-white" style={{ background: '#fa5e01' }} onClick={openWeeklyGrid}>
+              Continue to Weekly Grid
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

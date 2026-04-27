@@ -20,7 +20,11 @@ export async function GET() {
   if (!emp) return NextResponse.json({ reviews: [] })
 
   const reviews = await prisma.performanceReview.findMany({
-    where: { employeeId: emp.id, companyId: ctx.companyId },
+    where: {
+      employeeId: emp.id,
+      companyId: ctx.companyId,
+      reviewerId: { not: null }, // only show once a manager has been assigned
+    },
     include: {
       reviewer: { select: { id: true, firstName: true, lastName: true } },
     },

@@ -21,6 +21,9 @@ export async function GET(
       company: {
         select: { name: true, email: true, address: true, city: true, province: true, phone: true, tin: true },
       },
+      subscription: {
+        select: { seatCount: true, pricePerSeat: true },
+      },
     },
   })
   if (!invoice) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -30,14 +33,30 @@ export async function GET(
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   })
 
+  const rawPricePerSeat = Number(invoice.pricePerSeat)
+  const rawSeatCount = Number(invoice.seatCount)
+  const fallbackPricePerSeat = Number(invoice.subscription?.pricePerSeat ?? 0)
+  const fallbackSeatCount = Number(invoice.subscription?.seatCount ?? 0)
+  const effectivePricePerSeat = rawPricePerSeat > 0 ? rawPricePerSeat : fallbackPricePerSeat
+  const monthsBilled = Number(invoice.discountPct) > 0 ? 12 : 1
+
+  let effectiveSeatCount = rawSeatCount > 0 ? rawSeatCount : fallbackSeatCount
+  if (effectiveSeatCount <= 0 && effectivePricePerSeat > 0) {
+    const estimatedSeats = Math.round(Number(invoice.subtotal) / (effectivePricePerSeat * monthsBilled))
+    effectiveSeatCount = Math.max(1, estimatedSeats)
+  }
+
   return NextResponse.json({
     invoice: {
       ...invoice,
-      pricePerSeat: Number(invoice.pricePerSeat),
+      pricePerSeat: rawPricePerSeat,
       subtotal: Number(invoice.subtotal),
       discountPct: Number(invoice.discountPct),
       discountAmount: Number(invoice.discountAmount),
       total: Number(invoice.total),
+      effectivePricePerSeat,
+      effectiveSeatCount,
+      monthsBilled,
     },
     paymentMethods,
   })

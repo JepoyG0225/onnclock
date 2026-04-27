@@ -101,6 +101,7 @@ export default function PortalLoginPage() {
       const result = await signIn('credentials', {
         email: email.trim().toLowerCase(),
         password,
+        loginType: 'portal',
         redirect: false,
       })
       if (result?.error || !result?.ok) {
@@ -254,4 +255,3 @@ export default function PortalLoginPage() {
     </div>
   )
 }
-

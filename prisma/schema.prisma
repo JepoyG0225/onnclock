@@ -71,6 +71,13 @@ enum LeaveStatus {
   CANCELLED
 }
 
+enum BudgetRequisitionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum LoanType {
   SSS_SALARY_LOAN
   SSS_CALAMITY_LOAN
@@ -277,6 +284,7 @@ model Company {
   geofenceLat                   Float?
   geofenceLng                   Float?
   geofenceRadiusMeters          Int?
+  defaultBreakMinutes           Int      @default(60)
   thirteenthPayStartMonth       Int      @default(1)
   thirteenthPayStartDay         Int      @default(1)
   thirteenthPayEndMonth         Int      @default(12)
@@ -311,16 +319,19 @@ model Company {
   approverConfigs       ApproverConfig[]
   subscription          Subscription?
   invoices              Invoice[]
+  shiftAssignments      EmployeeShiftAssignment[]
   incomeTypes           IncomeType[]
   jobPosts              JobPost[]
   jobApplications       JobApplication[]
   onboardingTemplates   OnboardingTemplate[]
   onboardingProcesses   OnboardingProcess[]
   performanceReviews    PerformanceReview[]
-  offboardingProcesses  OffboardingProcess[]
-  overtimeRequests      OvertimeRequest[]
-  disciplinaryRecords   DisciplinaryRecord[]
-  announcements         Announcement[]
+  offboardingProcesses     OffboardingProcess[]
+  offboardingTemplateItems OffboardingTemplateItem[]
+  overtimeRequests         OvertimeRequest[]
+  disciplinaryRecords      DisciplinaryRecord[]
+  announcements            Announcement[]
+  budgetRequisitions       BudgetRequisition[]
 
   @@map("companies")
 }
@@ -532,6 +543,8 @@ model Employee {
   offboardingProcesses         OffboardingProcess[]
   overtimeRequests             OvertimeRequest[]
   disciplinaryRecords          DisciplinaryRecord[]
+  shiftAssignments             EmployeeShiftAssignment[]
+  budgetRequisitions           BudgetRequisition[]
 
   @@unique([companyId, employeeNo])
   @@index([companyId])
@@ -572,15 +585,42 @@ model WorkSchedule {
   breakMinutes           Int              @default(60)
   workHoursPerDay        Decimal          @default(8) @db.Decimal(4, 2)
   workDaysPerWeek        Int              @default(5)
+  repeatCycle            String           @default("WEEKLY") // "WEEKLY" | "BIWEEKLY" | "MONTHLY"
+  cycleWeeks             Json?            // [{label:string, workDays:number[]}] — only for BIWEEKLY/MONTHLY
+  cycleStartDate         DateTime?        // Reference Monday to compute which cycle week is active
   isActive               Boolean          @default(true)
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 
-  company        Company         @relation(fields: [companyId], references: [id])
-  employees      Employee[]
-  scheduleShifts ScheduleShift[]
+  company          Company                  @relation(fields: [companyId], references: [id])
+  employees        Employee[]
+  scheduleShifts   ScheduleShift[]
+  shiftAssignments EmployeeShiftAssignment[]
 
   @@map("work_schedules")
+}
+
+// Per-employee per-day shift assignments (used by the weekly scheduling grid)
+model EmployeeShiftAssignment {
+  id         String    @id @default(cuid())
+  companyId  String
+  employeeId String
+  date       DateTime  @db.Date
+  scheduleId String?   // Optional link to a WorkSchedule template
+  timeIn     String?   // "HH:MM" — overrides template if set
+  timeOut    String?   // "HH:MM"
+  isRestDay  Boolean   @default(false)
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  company  Company       @relation(fields: [companyId], references: [id])
+  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  schedule WorkSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, date])
+  @@index([companyId, date])
+  @@map("employee_shift_assignments")
 }
 
 model ScheduleShift {
@@ -609,6 +649,7 @@ model Holiday {
 
   company Company @relation(fields: [companyId], references: [id])
 
+  @@index([companyId, date])
   @@map("holidays")
 }
 
@@ -661,6 +702,7 @@ model DTRRecord {
   @@unique([employeeId, date])
   @@index([employeeId, approvedBy])
   @@index([employeeId, date])
+  @@index([employeeId, timeOut])
   @@map("dtr_records")
 }
 
@@ -755,6 +797,7 @@ model LeaveRequest {
   leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
 
   @@index([employeeId, status])
+  @@index([employeeId, status, startDate, endDate])
   @@index([employeeId, createdAt])
   @@map("leave_requests")
 }
@@ -1312,6 +1355,22 @@ model OffboardingItem {
   @@map("offboarding_items")
 }
 
+model OffboardingTemplateItem {
+  id          String   @id @default(cuid())
+  companyId   String
+  category    String
+  title       String
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("offboarding_template_items")
+}
+
 model OvertimeRequest {
   id              String                @id @default(cuid())
   companyId       String
@@ -1594,4 +1653,49 @@ model ChatGroupMember {
   @@unique([groupId, userId])
   @@index([userId])
   @@map("chat_group_members")
+}
+
+// ─────────────────────────────────────────────
+// BUDGET REQUISITIONS
+// ─────────────────────────────────────────────
+
+model BudgetRequisition {
+  id          String                  @id @default(cuid())
+  companyId   String
+  employeeId  String
+  title       String
+  purpose     String                  @db.Text
+  totalAmount Decimal                 @db.Decimal(14, 2)
+  currency    String                  @default("PHP")
+  status      BudgetRequisitionStatus @default(PENDING)
+  neededBy    DateTime?               @db.Date
+  reviewedBy  String?
+  reviewNote  String?                 @db.Text
+  reviewedAt  DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  company  Company                  @relation(fields: [companyId], references: [id])
+  employee Employee                 @relation(fields: [employeeId], references: [id])
+  items    BudgetRequisitionItem[]
+
+  @@index([companyId, status])
+  @@index([employeeId, createdAt])
+  @@map("budget_requisitions")
+}
+
+model BudgetRequisitionItem {
+  id            String            @id @default(cuid())
+  requisitionId String
+  description   String
+  quantity      Decimal           @db.Decimal(10, 2)
+  unit          String?
+  unitCost      Decimal           @db.Decimal(14, 2)
+  totalCost     Decimal           @db.Decimal(14, 2)
+  createdAt     DateTime          @default(now())
+
+  requisition BudgetRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+
+  @@index([requisitionId])
+  @@map("budget_requisition_items")
 }

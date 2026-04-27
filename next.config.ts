@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
+process.env.TZ = process.env.TZ || 'Asia/Manila'
+
 const nextConfig: NextConfig = {
+  compress: true,
   turbopack: {
     root: process.cwd(),
   },
@@ -9,6 +12,7 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
   },
 };
 

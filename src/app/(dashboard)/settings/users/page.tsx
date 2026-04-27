@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, UserPlus, X, KeyRound, Trash2 } from 'lucide-react'
+import { Users, UserPlus, X, KeyRound, Trash2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { ROLE_LABELS, ROLE_COLORS, UserRole } from '@/lib/auth/permissions'
 
@@ -41,6 +41,10 @@ export default function UsersPage() {
   const [showDelete, setShowDelete] = useState(false)
   const [deleteUser, setDeleteUser] = useState<{ id: string; label: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editUser, setEditUser] = useState<{ id: string; label: string } | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', email: '' })
+  const [editing, setEditing] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -139,6 +143,43 @@ export default function UsersPage() {
       load()
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editUser) return
+    if (!editForm.name.trim()) {
+      toast.error('Name is required')
+      return
+    }
+    if (!editForm.email.trim()) {
+      toast.error('Email is required')
+      return
+    }
+
+    setEditing(true)
+    try {
+      const res = await fetch(`/api/users/${editUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          email: editForm.email.trim(),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error ?? 'Failed to update user details')
+        return
+      }
+      toast.success('User details updated')
+      setShowEdit(false)
+      setEditUser(null)
+      setEditForm({ name: '', email: '' })
+      load()
+    } finally {
+      setEditing(false)
     }
   }
 
@@ -308,6 +349,7 @@ export default function UsersPage() {
                   <th className="text-center p-3 font-medium text-gray-600">Current Role</th>
                   <th className="text-left p-3 font-medium text-gray-600">Joined</th>
                   <th className="text-center p-3 font-medium text-gray-600">Change Role</th>
+                  <th className="text-center p-3 font-medium text-gray-600">Edit Details</th>
                   <th className="text-center p-3 font-medium text-gray-600">Reset Password</th>
                   <th className="text-center p-3 font-medium text-gray-600">Remove</th>
                 </tr>
@@ -344,6 +386,24 @@ export default function UsersPage() {
                         className="text-xs"
                         onClick={() => {
                           const label = m.user?.name || m.user?.email || m.email || 'User'
+                          setEditUser({ id: m.userId, label })
+                          setEditForm({
+                            name: (m.user?.name || '').trim(),
+                            email: (m.user?.email || m.email || '').trim(),
+                          })
+                          setShowEdit(true)
+                        }}
+                      >
+                        <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+                      </Button>
+                    </td>
+                    <td className="p-3 text-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => {
+                          const label = m.user?.name || m.user?.email || m.email || 'User'
                           setResetUser({ id: m.userId, label })
                           setResetPass('')
                           setShowReset(true)
@@ -356,7 +416,7 @@ export default function UsersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                        className="text-xs text-red-600 border-red-300 hover:bg-red-600 hover:text-white hover:border-red-600"
                         onClick={() => {
                           const label = m.user?.name || m.user?.email || m.email || 'User'
                           setDeleteUser({ id: m.userId, label })
@@ -373,6 +433,59 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {showEdit && editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-5 py-4 border-b">
+              <h3 className="text-lg font-semibold">Edit User Details</h3>
+              <p className="text-xs text-gray-500 mt-1">Update details for {editUser.label}</p>
+            </div>
+            <form onSubmit={saveEdit}>
+              <div className="px-5 py-4 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={e => setEditForm(v => ({ ...v, name: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Juan dela Cruz"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Email Address *</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={e => setEditForm(v => ({ ...v, email: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="user@company.com"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowEdit(false)
+                    setEditUser(null)
+                    setEditForm({ name: '', email: '' })
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editing} style={{ background: '#fa5e01' }} className="text-white">
+                  {editing ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showReset && resetUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

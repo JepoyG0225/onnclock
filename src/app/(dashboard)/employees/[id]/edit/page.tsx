@@ -32,7 +32,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     }),
     prisma.workSchedule.findMany({
       where: { companyId, isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, scheduleType: true },
       orderBy: { name: 'asc' },
     }),
   ])

@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
   const { password, role, employeeId } = parsed.data
 
   let employee: { id: string; firstName: string; lastName: string; workEmail: string | null; personalEmail: string | null; userId: string | null } | null = null
+  let employeeMembershipRole: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'HR_MANAGER' | 'PAYROLL_OFFICER' | 'EMPLOYEE' | null = null
   if (employeeId) {
     employee = await prisma.employee.findFirst({
       where: { id: employeeId, companyId: ctx.companyId, isActive: true },
@@ -95,17 +96,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
     }
     if (employee.userId) {
-      return NextResponse.json({ error: 'Employee already linked to a user' }, { status: 409 })
+      const existingMembership = await prisma.userCompany.findFirst({
+        where: { userId: employee.userId, companyId: ctx.companyId },
+        select: { role: true },
+      })
+      employeeMembershipRole = existingMembership?.role ?? null
+      if (employeeMembershipRole === 'COMPANY_ADMIN' || employeeMembershipRole === 'PAYROLL_OFFICER') {
+        return NextResponse.json(
+          { error: 'Employee is already assigned as Company Admin or Payroll Officer' },
+          { status: 409 }
+        )
+      }
     }
     if (!name) name = `${employee.firstName} ${employee.lastName}`.trim()
     if (!email) email = employee.workEmail || employee.personalEmail || undefined
-    if (!email) {
+    if (!email && !employee.userId) {
       return NextResponse.json({ error: 'Employee has no email. Please provide one.' }, { status: 400 })
     }
   }
 
   if (!name || !email) {
     return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
+  }
+
+  // If employee is already linked, upgrade/create company membership directly.
+  if (employee?.userId) {
+    const user = await prisma.user.findUnique({ where: { id: employee.userId } })
+    if (!user) {
+      return NextResponse.json({ error: 'Linked user account not found' }, { status: 404 })
+    }
+
+    const passwordHash = await hash(password, 12)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, isActive: true, ...(name ? { name } : {}) },
+    })
+
+    if (employeeMembershipRole) {
+      await prisma.userCompany.updateMany({
+        where: { userId: user.id, companyId: ctx.companyId },
+        data: { role, isActive: true },
+      })
+    } else {
+      await prisma.userCompany.create({
+        data: { userId: user.id, companyId: ctx.companyId, role, isActive: true },
+      })
+    }
+
+    return NextResponse.json({ ok: true, userId: user.id }, { status: 201 })
   }
 
   // Check if user already exists

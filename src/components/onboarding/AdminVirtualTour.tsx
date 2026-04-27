@@ -11,110 +11,192 @@ type TourStep = {
 }
 
 const DEFAULT_STEPS: TourStep[] = [
+  // ── Dashboard ─────────────────────────────────────────────────────────────
   {
     title: 'Dashboard',
-    description: 'Overview of attendance, payroll, and pending actions for your company.',
+    description: 'At-a-glance overview of today\'s attendance, pending approvals, active payroll runs, and team activity.',
     href: '/dashboard',
   },
+
+  // ── Employment ────────────────────────────────────────────────────────────
   {
     title: 'All Employees',
-    description: 'Master list of all employee records and their current status.',
+    description: 'Master list of every employee — view profiles, employment details, documents, leave balances, and portal access.',
     href: '/employees',
   },
   {
     title: 'Departments',
-    description: 'Manage company department structure used across employee and reporting modules.',
+    description: 'Manage your company\'s department structure. Departments are used across payroll grouping, reports, and employee profiles.',
     href: '/departments',
   },
   {
     title: 'Positions',
-    description: 'Define job positions and titles used in employee profiles.',
+    description: 'Define job positions and titles assigned to employees. Appears on payslips, org chart, and reports.',
     href: '/positions',
   },
   {
     title: 'Org Chart',
-    description: 'Visual organization hierarchy to review reporting lines.',
+    description: 'Interactive organization chart showing reporting lines, department hierarchy, and headcount at a glance.',
     href: '/org-chart',
   },
   {
+    title: 'Jobs & Recruitment',
+    description: '(Pro) Post job openings with a public application link, track candidates through stages, and convert hires directly into employee records.',
+    href: '/recruitment',
+  },
+  {
+    title: 'Onboarding Tracker',
+    description: '(Pro) Assign structured onboarding checklists to new hires. Track completion of each step from day one.',
+    href: '/onboarding',
+  },
+  {
+    title: 'Performance Reviews',
+    description: '(Pro) Create review cycles, set goals and KPIs, collect self-assessments and manager feedback, and record final ratings.',
+    href: '/performance-reviews',
+  },
+  {
+    title: 'Offboarding',
+    description: '(Pro) Guide employee exits with structured clearance checklists, asset retrieval steps, and offboarding sign-offs.',
+    href: '/offboarding',
+  },
+  {
+    title: 'Disciplinary Records',
+    description: '(Pro) Log incidents, violations, and disciplinary actions with a permanent record tied to the employee profile.',
+    href: '/disciplinary',
+  },
+
+  // ── Time & Attendance ─────────────────────────────────────────────────────
+  {
     title: 'Weekly Time Sheets',
-    description: 'Review and approve employee DTR and attendance records.',
+    description: 'Review, edit, and approve employee DTR records week by week. Each day shows clock-in/out times, tardiness flags, and overtime.',
     href: '/dtr',
   },
   {
     title: 'Live GPS Map',
-    description: 'Live view of location pings for employees currently clocked in.',
+    description: 'Real-time map showing location pings for every employee currently clocked in via the desktop app or portal.',
     href: '/attendance/map',
   },
   {
+    title: 'Tardiness Report',
+    description: 'Detailed breakdown of late arrivals, absences, and undertime across any date range. Export-ready for HR reviews.',
+    href: '/attendance/tardiness',
+  },
+  {
+    title: 'Overtime Requests',
+    description: '(Pro) Employees submit OT requests from the portal. Approve or reject here with automatic payroll inclusion on approval.',
+    href: '/overtime',
+  },
+  {
+    title: 'Attendance Settings',
+    description: 'Configure geofencing radius, selfie verification on clock-in, screen capture monitoring frequency, and the desktop app download link.',
+    href: '/attendance/settings',
+  },
+  {
     title: 'Work Schedules',
-    description: 'Configure shift schedules and workday setups.',
+    description: 'Define shift templates (day, night, flexible, compressed) and assign them to employees for accurate DTR and overtime computation.',
     href: '/schedules',
   },
   {
     title: 'Holidays',
-    description: 'Manage holiday calendar used for payroll and attendance computations.',
+    description: 'Maintain the holiday calendar for regular and special non-working days. Automatically applied to payroll and attendance.',
     href: '/holidays',
   },
+
+  // ── Leave Management ──────────────────────────────────────────────────────
   {
     title: 'Leave Requests',
-    description: 'Approve, reject, and monitor employee leave applications.',
+    description: 'View all submitted leave applications. Approve or reject with HR notes, and see running leave balance per employee.',
     href: '/leaves',
   },
   {
     title: 'Leave Types',
-    description: 'Set leave entitlements, policies, and leave categories.',
+    description: 'Create leave categories (SL, VL, Emergency Leave, etc.) with annual entitlements, carry-over rules, and monetization settings.',
     href: '/leaves/types',
   },
+
+  // ── Payroll ───────────────────────────────────────────────────────────────
   {
     title: 'Payroll Runs',
-    description: 'Create and manage payroll runs before lock and release.',
+    description: 'Create payroll runs for a cut-off period. Compute earnings and deductions, review each payslip, lock, and release to employees.',
     href: '/payroll',
   },
   {
+    title: 'Payroll Settings',
+    description: 'Set pay frequency, cut-off dates, SSS/PhilHealth/Pag-IBIG contribution tables, withholding tax method, and de minimis benefits.',
+    href: '/payroll/settings',
+  },
+  {
     title: '13th Month Pay',
-    description: 'Review and generate 13th month computation and logs.',
+    description: 'Compute and review 13th month pay for all active employees based on actual basic salary and days worked for the calendar year.',
     href: '/thirteenth-month',
   },
   {
     title: 'Loans',
-    description: 'Track employee loan balances and payroll deductions.',
+    description: 'Record employee loans (SSS, company, Pag-IBIG) and track automatic amortization deductions each payroll cut-off.',
     href: '/loans',
   },
+
+  // ── Announcements ─────────────────────────────────────────────────────────
   {
-    title: 'Reports',
-    description: 'Generate statutory and payroll reports (SSS, PhilHealth, Pag-IBIG, BIR).',
-    href: '/reports',
+    title: 'Announcements',
+    description: 'Post company-wide announcements that appear on every employee\'s portal dashboard — memos, reminders, and policy updates.',
+    href: '/announcements',
+  },
+
+  // ── Reports ───────────────────────────────────────────────────────────────
+  {
+    title: 'SSS R3 Report',
+    description: 'Generate the SSS R3 Monthly Contribution Collection List per payroll period for filing and remittance to SSS.',
+    href: '/reports/sss',
   },
   {
+    title: 'PhilHealth RF-1 Report',
+    description: 'Generate PhilHealth RF-1 employer and employee premium contribution reports for monthly remittance.',
+    href: '/reports/philhealth',
+  },
+  {
+    title: 'Pag-IBIG MCRF Report',
+    description: 'Generate Pag-IBIG Monthly Collection and Remittance Form (MCRF) showing member and employer contributions.',
+    href: '/reports/pagibig',
+  },
+  {
+    title: 'BIR Report',
+    description: 'Generate BIR-compliant tax reports including the monthly 1601-C and annual alphalist of employees for withholding tax compliance.',
+    href: '/reports/bir',
+  },
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  {
     title: 'Company Settings',
-    description: 'Update company profile and key system configuration.',
+    description: 'Update company name, address, TIN, logo, and contact details. These appear on payslips, invoices, and statutory reports.',
     href: '/settings',
   },
   {
     title: 'Billing & Plan',
-    description: 'Manage subscription, invoices, and plan-related billing details.',
+    description: 'View your current subscription, manage seat count, upload proof of payment, and download past invoices.',
     href: '/settings/billing',
   },
   {
     title: 'User Management',
-    description: 'Create and manage internal user accounts for admin and staff access.',
+    description: 'Create staff accounts and assign roles: Company Admin, HR Manager, or Payroll Officer. Each role has its own access level.',
     href: '/settings/users',
   },
   {
     title: 'Role Permissions',
-    description: 'Control page-level access by role inside your company account.',
+    description: 'Fine-tune page-level access for each role — show or hide specific modules per your company\'s workflow.',
     href: '/settings/permissions',
   },
   {
     title: 'Approval Workflows',
-    description: 'Configure approval routing for payroll and leave processes.',
+    description: 'Configure multi-level approval chains for payroll, leave, and overtime — assign approvers and set escalation rules.',
     href: '/settings/approvals',
   },
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
   {
     title: 'Team Chat',
-    description: 'Use the floating chat icon to message online employees and monitor online/offline status.',
-    clickSelector: '[data-tour=\"chat-toggle\"]',
+    description: 'Click the chat bubble at the bottom-right to message employees directly, see who\'s online, and create group channels.',
+    clickSelector: '[data-tour="chat-toggle"]',
   },
 ]
 

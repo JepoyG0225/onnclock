@@ -2,10 +2,10 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getCompanyLite } from '@/lib/data/company'
 import { getEmployeeLiteByUser } from '@/lib/data/employee'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { PortalHeader } from '@/components/employee/PortalHeader'
 import { PortalBottomNav } from '@/components/employee/PortalBottomNav'
 import { PortalSidebar } from '@/components/employee/PortalSidebar'
-import { FloatingChat } from '@/components/chat/FloatingChat'
 
 export default async function EmployeePortalLayout({
   children,
@@ -15,12 +15,18 @@ export default async function EmployeePortalLayout({
   const session = await auth()
   if (!session?.user) redirect('/portal/login')
 
-  const [company, employee] = session.user.companyId
+  const [company, employee, sub] = session.user.companyId
     ? await Promise.all([
         getCompanyLite(session.user.companyId),
         getEmployeeLiteByUser(session.user.id, session.user.companyId),
+        getCompanySubscription(session.user.companyId),
       ])
-    : [undefined, null]
+    : [undefined, null, { pricePerSeat: 0, isTrial: false }]
+
+  // Pro/Trial-only features — also available during trial so companies can evaluate them.
+  const isPro = hasHrisProFeature(sub.pricePerSeat) || sub.isTrial
+  const showDisciplinary = isPro
+  const showBudgetReq    = isPro
 
   const employeeName = employee
     ? `${employee.firstName} ${employee.lastName}`
@@ -31,11 +37,13 @@ export default async function EmployeePortalLayout({
     : (session.user.name?.[0]?.toUpperCase() ?? 'E')
 
   const sharedProps = {
-    companyName:     company?.name,
-    companyLogoUrl:  company?.logoUrl ?? undefined,
+    companyName:      company?.name,
+    companyLogoUrl:   company?.logoUrl ?? undefined,
     employeeName,
     employeeInitials,
-    employeeNo:      employee?.employeeNo ?? undefined,
+    employeeNo:       employee?.employeeNo ?? undefined,
+    showDisciplinary,
+    showBudgetReq,
   }
 
   return (
@@ -54,10 +62,8 @@ export default async function EmployeePortalLayout({
       </main>
 
       {/* Mobile bottom navigation dock — hidden on desktop */}
-      <PortalBottomNav />
+      <PortalBottomNav showDisciplinary={showDisciplinary} />
 
-      {/* Floating chat */}
-      <FloatingChat portal />
     </div>
   )
 }

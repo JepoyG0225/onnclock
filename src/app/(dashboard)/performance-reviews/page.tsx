@@ -189,19 +189,22 @@ function CreateCycleModal({
               <Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600 block mb-1">Reviewer (optional)</label>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Reviewer</label>
               <select
                 value={reviewerId}
                 onChange={e => setReviewerId(e.target.value)}
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1A2D42]/30"
               >
-                <option value="">— Assign later —</option>
+                <option value="">Use each employee&apos;s direct manager (default)</option>
                 {managers.map(m => (
                   <option key={m.id} value={m.id}>
                     {m.firstName} {m.lastName} ({m.employeeNo})
                   </option>
                 ))}
               </select>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {reviewerId ? 'This reviewer will be assigned to all selected employees.' : 'Each employee\'s "Reports To" manager will be auto-assigned.'}
+              </p>
             </div>
           </div>
 

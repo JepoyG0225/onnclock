@@ -37,11 +37,11 @@ interface EditableSubscription {
 }
 
 const STATUS_COLORS: Record<SubscriptionStatus, string> = {
-  TRIAL: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-  ACTIVE: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-  PAST_DUE: 'bg-red-500/10 text-red-300 border-red-500/20',
-  CANCELLED: 'bg-slate-700/50 text-slate-400 border-slate-600',
-  EXPIRED: 'bg-red-500/10 text-red-400 border-red-500/20',
+  TRIAL: 'bg-amber-50 text-amber-700 border-amber-200',
+  ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  PAST_DUE: 'bg-rose-50 text-rose-700 border-rose-200',
+  CANCELLED: 'bg-slate-100 text-slate-700 border-slate-200',
+  EXPIRED: 'bg-slate-100 text-slate-700 border-slate-200',
 }
 
 const FILTERS: { key: FilterTab; label: string }[] = [
@@ -58,6 +58,7 @@ export default function AdminSubscriptionsPage() {
   const [editableSubs, setEditableSubs] = useState<Record<string, EditableSubscription>>({})
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [sendingExpiredTrialEmails, setSendingExpiredTrialEmails] = useState(false)
   const [filter, setFilter] = useState<FilterTab>('ALL')
 
   const load = useCallback(async () => {
@@ -109,6 +110,33 @@ export default function AdminSubscriptionsPage() {
     }
   }
 
+  async function sendExpiredTrialEmails() {
+    setSendingExpiredTrialEmails(true)
+    try {
+      const res = await fetch('/api/admin/subscriptions/expired-trial-email', {
+        method: 'POST',
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(payload?.error ?? 'Failed to send expired trial emails')
+      }
+
+      const summary = payload?.summary as { totalExpiredTrials: number; sent: number; skipped: number; failed: number } | undefined
+      if (!summary) {
+        toast.success('Expired trial emails sent')
+        return
+      }
+
+      toast.success(
+        `Expired trials: ${summary.totalExpiredTrials} | Sent: ${summary.sent} | Skipped: ${summary.skipped} | Failed: ${summary.failed}`
+      )
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send expired trial emails')
+    } finally {
+      setSendingExpiredTrialEmails(false)
+    }
+  }
+
   const summary = useMemo(() => ({
     trial: companies.filter(c => c.subscription?.status === 'TRIAL').length,
     active: companies.filter(c => c.subscription?.status === 'ACTIVE').length,
@@ -122,55 +150,61 @@ export default function AdminSubscriptionsPage() {
   }, [companies, filter])
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
-      {/* Header */}
+    <div className="p-6 md:p-8 space-y-6 max-w-7xl">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-[#C0C8CA]/70 font-semibold">System Admin</p>
-        <h1 className="text-2xl font-black text-white mt-1 flex items-center gap-2">
-          <CreditCard className="w-6 h-6 text-[#C0C8CA]" /> Subscriptions
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-semibold">System Admin</p>
+        <h1 className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+          <CreditCard className="w-6 h-6 text-slate-600" /> Subscriptions
         </h1>
-        <p className="text-sm text-slate-400 mt-1">Manage plans, billing cycles and subscription status per company</p>
+        <p className="text-sm text-slate-500 mt-1">Manage plans, billing cycles, and account status per company.</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Trial', value: summary.trial, color: 'text-amber-300' },
-          { label: 'Active', value: summary.active, color: 'text-emerald-300' },
-          { label: 'Past Due', value: summary.pastDue, color: 'text-red-300' },
-          { label: 'Expired/Cancelled', value: summary.expired, color: 'text-slate-400' },
+          { label: 'Trial', value: summary.trial, accent: 'text-amber-700' },
+          { label: 'Active', value: summary.active, accent: 'text-emerald-700' },
+          { label: 'Past Due', value: summary.pastDue, accent: 'text-rose-700' },
+          { label: 'Expired/Cancelled', value: summary.expired, accent: 'text-slate-700' },
         ].map(s => (
-          <div key={s.label} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-[11px] text-slate-500 uppercase tracking-wide">{s.label}</p>
-            <p className={`text-xl font-black mt-1 ${s.color}`}>{s.value}</p>
+            <p className={`text-2xl font-black mt-1 ${s.accent}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex flex-wrap gap-1 p-1 rounded-xl border border-slate-800 bg-slate-900 w-fit">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              filter === f.key
-                ? 'bg-[#2E4156] text-white'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1 p-1 rounded-xl border border-slate-200 bg-white w-fit">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                filter === f.key
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={sendExpiredTrialEmails}
+          disabled={sendingExpiredTrialEmails}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#fa5e01] hover:bg-[#e65500] text-white px-4 py-2 text-xs font-semibold disabled:opacity-60 transition-colors"
+        >
+          {sendingExpiredTrialEmails ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+          Send Expired Trial Emails
+        </button>
       </div>
 
-      {/* List */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[#C0C8CA]" />
+        <div className="rounded-2xl border border-slate-200 bg-white flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-800 py-16 text-center text-slate-500 text-sm">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center text-slate-500 text-sm">
           No subscriptions for this filter.
         </div>
       ) : (
@@ -179,13 +213,13 @@ export default function AdminSubscriptionsPage() {
             const editable = editableSubs[company.id]
             if (!editable) return null
             return (
-              <div key={company.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="flex items-start justify-between mb-4">
+              <div key={company.id} className="rounded-2xl border border-slate-200 bg-white p-5">
+                <div className="flex items-start justify-between mb-4 gap-3">
                   <div>
-                    <p className="font-bold text-slate-100">{company.name}</p>
+                    <p className="font-bold text-slate-900">{company.name}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{company.email ?? '—'} · {company.activeEmployees} employees</p>
                     {company.subscription?.trialEndsAt && (
-                      <p className="text-[11px] text-amber-400/80 mt-1">
+                      <p className="text-[11px] text-amber-700 mt-1">
                         Trial ends: {format(new Date(company.subscription.trialEndsAt), 'MMM dd, yyyy')}
                       </p>
                     )}
@@ -208,7 +242,7 @@ export default function AdminSubscriptionsPage() {
                     <select
                       value={editable.plan}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], plan: e.target.value as SubscriptionPlan } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
+                      className="w-full rounded-lg border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
                     >
                       <option value="TRIAL">TRIAL</option>
                       <option value="MONTHLY">MONTHLY</option>
@@ -220,7 +254,7 @@ export default function AdminSubscriptionsPage() {
                     <select
                       value={editable.status}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: e.target.value as SubscriptionStatus } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
+                      className="w-full rounded-lg border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
                     >
                       <option value="TRIAL">TRIAL</option>
                       <option value="ACTIVE">ACTIVE</option>
@@ -234,7 +268,7 @@ export default function AdminSubscriptionsPage() {
                     <select
                       value={editable.billingCycle ?? ''}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], billingCycle: (e.target.value || null) as BillingCycle } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
+                      className="w-full rounded-lg border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
                     >
                       <option value="">None</option>
                       <option value="MONTHLY">MONTHLY</option>
@@ -248,30 +282,30 @@ export default function AdminSubscriptionsPage() {
                       min={0}
                       value={editable.seatCount}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], seatCount: Number(e.target.value) || 0 } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
+                      className="w-full rounded-lg border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-500 mb-1 uppercase tracking-wide">Price/Seat (₱)</label>
+                    <label className="block text-[11px] text-slate-500 mb-1 uppercase tracking-wide">Price/Seat (PHP)</label>
                     <input
                       type="number"
                       min={0}
                       step={0.01}
                       value={editable.pricePerSeat}
                       onChange={e => setEditableSubs(prev => ({ ...prev, [company.id]: { ...prev[company.id], pricePerSeat: Number(e.target.value) || 0 } }))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-[#2E4156]"
+                      className="w-full rounded-lg border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:border-slate-400"
                     />
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
                   <p className="text-xs text-slate-500">
-                    Monthly revenue: <span className="text-emerald-300 font-semibold">₱{((editable.seatCount * editable.pricePerSeat) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                    Monthly revenue: <span className="text-slate-900 font-semibold">PHP {((editable.seatCount * editable.pricePerSeat) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
                   </p>
                   <button
                     onClick={() => saveSubscription(company.id)}
                     disabled={savingId === company.id}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#2E4156] hover:bg-[#2E4156] text-white px-4 py-2 text-xs font-semibold disabled:opacity-60 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-semibold disabled:opacity-60 transition-colors"
                   >
                     {savingId === company.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     Save
@@ -285,4 +319,3 @@ export default function AdminSubscriptionsPage() {
     </div>
   )
 }
-

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { z } from 'zod'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
@@ -31,6 +32,11 @@ const createSchema = z.object({
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat)) {
+    return NextResponse.json({ error: 'Offboarding requires a Pro subscription.' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || undefined
@@ -79,6 +85,11 @@ export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth(HR_ROLES)
   if (error) return error
 
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat)) {
+    return NextResponse.json({ error: 'Offboarding requires a Pro subscription.' }, { status: 403 })
+  }
+
   const body = await req.json()
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) {
@@ -107,12 +118,23 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    await tx.offboardingItem.createMany({
-      data: DEFAULT_ITEMS.map(item => ({
-        processId: proc.id,
-        ...item,
-      })),
+    // Use company template if set, otherwise fall back to defaults
+    const templateItems = await tx.offboardingTemplateItem.findMany({
+      where: { companyId: ctx.companyId },
+      orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
     })
+
+    const itemsToCreate = templateItems.length > 0
+      ? templateItems.map(t => ({
+          processId: proc.id,
+          category: t.category,
+          title: t.title,
+          description: t.description ?? undefined,
+          sortOrder: t.sortOrder,
+        }))
+      : DEFAULT_ITEMS.map(item => ({ processId: proc.id, ...item }))
+
+    await tx.offboardingItem.createMany({ data: itemsToCreate })
 
     return proc
   })

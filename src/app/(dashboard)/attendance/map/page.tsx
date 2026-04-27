@@ -109,7 +109,7 @@ export default function AttendanceMapPage() {
 
   useEffect(() => {
     fetchLocations()
-    const interval = setInterval(fetchLocations, 60_000)
+    const interval = setInterval(fetchLocations, 15_000)
     return () => clearInterval(interval)
   }, [fetchLocations])
 

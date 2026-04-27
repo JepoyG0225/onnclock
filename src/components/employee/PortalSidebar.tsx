@@ -7,17 +7,18 @@ import { useEffect, useState, useRef } from 'react'
 import { signOut } from 'next-auth/react'
 import {
   Clock, FileText, CreditCard, User, BarChart3,
-  Bell, LogOut, ChevronDown, AlertTriangle, X,
+  Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const NAV_TABS = [
-  { href: '/portal/clock',        label: 'Attendance',   icon: Clock,          exact: false },
-  { href: '/portal/leaves',       label: 'Leave',        icon: FileText,       exact: false },
-  { href: '/portal/payslips',     label: 'Payslips',     icon: CreditCard,     exact: false },
-  { href: '/portal/reviews',      label: 'Reviews',      icon: BarChart3,      exact: false },
-  { href: '/portal/disciplinary', label: 'Disciplinary', icon: AlertTriangle,  exact: false },
-  { href: '/portal/profile',      label: 'Profile',      icon: User,           exact: false },
+const ALL_NAV_TABS = [
+  { href: '/portal/clock',               label: 'Attendance',   icon: Clock,          exact: false, pro: false, budgetReq: false },
+  { href: '/portal/leaves',              label: 'Leave',        icon: FileText,        exact: false, pro: false, budgetReq: false },
+  { href: '/portal/payslips',            label: 'Payslips',     icon: CreditCard,      exact: false, pro: false, budgetReq: false },
+  { href: '/portal/budget-requisitions', label: 'Budget Req.',  icon: ClipboardList,   exact: false, pro: false, budgetReq: true  },
+  { href: '/portal/reviews',             label: 'Reviews',      icon: BarChart3,       exact: false, pro: false, budgetReq: false },
+  { href: '/portal/disciplinary',        label: 'Disciplinary', icon: AlertTriangle,   exact: false, pro: true,  budgetReq: false },
+  { href: '/portal/profile',             label: 'Profile',      icon: User,            exact: false, pro: false, budgetReq: false },
 ]
 
 const DISMISSED_KEY = 'portal_dismissed_notifs'
@@ -35,6 +36,8 @@ interface PortalSidebarProps {
   employeeName?: string
   employeeInitials?: string
   employeeNo?: string
+  showDisciplinary?: boolean
+  showBudgetReq?: boolean
 }
 
 type NotifItem = {
@@ -51,8 +54,13 @@ export function PortalSidebar({
   employeeName,
   employeeInitials,
   employeeNo,
+  showDisciplinary = false,
+  showBudgetReq = false,
 }: PortalSidebarProps) {
   const pathname = usePathname()
+  const NAV_TABS = ALL_NAV_TABS.filter(t =>
+    (!t.pro || showDisciplinary) && (!t.budgetReq || showBudgetReq)
+  )
   const [allNotifs, setAllNotifs] = useState<NotifItem[]>([])
   const [dismissed, setDismissedState] = useState<string[]>([])
   const [showNotif, setShowNotif] = useState(false)

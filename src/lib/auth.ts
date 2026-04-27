@@ -82,12 +82,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        loginType: { label: 'Login Type', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
         const normalizedEmail = String(credentials.email).trim().toLowerCase()
+        const loginType = String(credentials.loginType || 'admin').toLowerCase()
 
-        const user = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
           where: { email: normalizedEmail },
           include: {
             companies: {
@@ -96,6 +98,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           },
         })
+
+        // Allow sign-in via employee work/personal email when the login email
+        // is not the canonical users.email value.
+        if (!user) {
+          const employeeAlias = await prisma.employee.findFirst({
+            where: {
+              isActive: true,
+              userId: { not: null },
+              OR: [
+                { workEmail: normalizedEmail },
+                { personalEmail: normalizedEmail },
+              ],
+            },
+            select: { userId: true },
+          })
+
+          if (employeeAlias?.userId) {
+            user = await prisma.user.findUnique({
+              where: { id: employeeAlias.userId },
+              include: {
+                companies: {
+                  where: { isActive: true },
+                  include: { company: { select: { id: true, name: true, portalSubdomain: true } } },
+                },
+              },
+            })
+          }
+        }
 
         if (!user || !user.isActive) return null
 
@@ -109,6 +139,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }).catch(() => null)
 
         if (!user.companies.length) return null
+
+        if (loginType === 'portal') {
+          let employeeMembership = user.companies.find(c => c.role === 'EMPLOYEE')
+          if (!employeeMembership) {
+            const companyIds = user.companies.map(c => c.companyId)
+            if (!companyIds.length) return null
+
+            const employeeLink = await prisma.employee.findFirst({
+              where: {
+                userId: user.id,
+                isActive: true,
+                companyId: { in: companyIds },
+              },
+              select: { companyId: true },
+            })
+
+            if (employeeLink) {
+              employeeMembership = user.companies.find(c => c.companyId === employeeLink.companyId)
+            }
+          }
+          if (!employeeMembership) return null
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name ?? user.email,
+            role: 'EMPLOYEE',
+            companyId: employeeMembership.companyId ?? null,
+            portalSubdomain: employeeMembership.company?.portalSubdomain ?? null,
+          }
+        }
 
         // Pick the highest-privilege role — prevents SUPER_ADMIN being downgraded
         // if they also have an older EMPLOYEE entry in a company.

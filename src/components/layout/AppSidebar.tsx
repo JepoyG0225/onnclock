@@ -33,6 +33,7 @@ import {
   UserMinus,
   Clock3,
   TrendingDown,
+  Receipt,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -101,6 +102,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Loans',          href: '/loans',            icon: CreditCard },
     ],
   },
+  { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },
   { label: 'Announcements', href: '/announcements', icon: Megaphone },
   {
     label: 'Reports',
@@ -133,10 +135,11 @@ const SYSTEM_ADMIN_NAV_ITEMS: NavItem[] = [
     href: '/admin',
     icon: Shield,
     children: [
-      { label: 'Companies', href: '/admin?tab=companies', icon: Building2 },
+      { label: 'Companies', href: '/admin/companies', icon: Building2 },
       { label: 'Weekly Time Sheets', href: '/dtr', icon: Clock },
-      { label: 'Subscriptions', href: '/admin?tab=subscriptions', icon: CreditCard },
-      { label: 'Payments', href: '/admin?tab=payments', icon: FileText },
+      { label: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
+      { label: 'Payments', href: '/admin/payments', icon: FileText },
+      { label: 'Payment Methods', href: '/admin/payment-methods', icon: CreditCard },
     ],
   },
 ]
@@ -147,6 +150,7 @@ interface AppSidebarProps {
   initialCounts?: { pendingDtr: number; pendingLeaves: number }
   initialTrialEndsAt?: string | null
   isLocal?: boolean
+  hrisProEnabled?: boolean
 }
 
 export function AppSidebar({
@@ -155,6 +159,7 @@ export function AppSidebar({
   initialCounts = { pendingDtr: 0, pendingLeaves: 0 },
   initialTrialEndsAt = null,
   isLocal = false,
+  hrisProEnabled = true,
 }: AppSidebarProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -354,6 +359,7 @@ export function AppSidebar({
             onToggle={toggleExpand}
             collapsed={collapsed}
             counts={counts}
+            hrisProEnabled={hrisProEnabled}
           />
         ))}
       </nav>
@@ -414,8 +420,10 @@ function Tooltip({
 }
 
 // â"€â"€â"€ Collapsed flyout (portal-based to escape overflow clip) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+const PRO_LABELS = new Set(['Performance Reviews', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Jobs', 'Onboarding Tracker'])
+
 function CollapsedFlyout({
-  item, pathname, currentTab, isActive, activeStyle, baseItemClass, counts,
+  item, pathname, currentTab, isActive, activeStyle, baseItemClass, counts, hrisProEnabled,
 }: {
   item: NavItem
   pathname: string
@@ -424,6 +432,7 @@ function CollapsedFlyout({
   activeStyle: React.CSSProperties
   baseItemClass: string
   counts: { pendingDtr: number; pendingLeaves: number }
+  hrisProEnabled: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -456,13 +465,15 @@ function CollapsedFlyout({
         </span>
       )
     }
-    const proLabels = new Set(['Performance Reviews', 'Tardiness Report', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Jobs', 'Onboarding Tracker'])
-    if (proLabels.has(child.label)) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-amber-500/90 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
-          PRO
-        </span>
-      )
+    if (PRO_LABELS.has(child.label)) {
+      if (!hrisProEnabled) {
+        return (
+          <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/50 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+            🔒
+          </span>
+        )
+      }
+      return null
     }
     if (child.label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
       return (
@@ -479,6 +490,10 @@ function CollapsedFlyout({
       )
     }
     return null
+  }
+
+  function isProLocked(child: NavItem) {
+    return PRO_LABELS.has(child.label) && !hrisProEnabled
   }
 
   return (
@@ -561,6 +576,7 @@ function NavItemComponent({
   onToggle,
   collapsed,
   counts,
+  hrisProEnabled,
 }: {
   item: NavItem
   pathname: string
@@ -569,6 +585,7 @@ function NavItemComponent({
   onToggle: (label: string) => void
   collapsed: boolean
   counts: { pendingDtr: number; pendingLeaves: number }
+  hrisProEnabled: boolean
 }) {
   const isActive   = pathname === item.href || pathname.startsWith(item.href + '/')
   const isExpanded = expanded.includes(item.label)
@@ -589,13 +606,15 @@ function NavItemComponent({
         </span>
       )
     }
-    const proLabels = new Set(['Performance Reviews', 'Tardiness Report', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Jobs', 'Onboarding Tracker'])
-    if (proLabels.has(child.label)) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-amber-500/90 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
-          PRO
-        </span>
-      )
+    if (PRO_LABELS.has(child.label)) {
+      if (!hrisProEnabled) {
+        return (
+          <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/40 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+            🔒
+          </span>
+        )
+      }
+      return null
     }
     if (child.label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
       return (
@@ -612,6 +631,10 @@ function NavItemComponent({
       )
     }
     return null
+  }
+
+  function isProLocked(child: NavItem) {
+    return PRO_LABELS.has(child.label) && !hrisProEnabled
   }
 
   // â"€â"€ Collapsed: icon with portal flyout submenu on hover â"€â"€
@@ -635,6 +658,7 @@ function NavItemComponent({
           activeStyle={activeStyle}
           baseItemClass={baseItemClass}
           counts={counts}
+          hrisProEnabled={hrisProEnabled}
         />
       )
     }
