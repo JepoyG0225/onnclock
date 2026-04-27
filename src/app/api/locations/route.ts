@@ -33,13 +33,16 @@ export async function GET(req: NextRequest) {
     select: { geofenceEnabled: true, geofenceLat: true, geofenceLng: true, geofenceRadiusMeters: true },
   })
 
-  // Get all employees clocked in today
+  // Get all employees clocked in today.
+  // When clockedInOnly, skip the date filter so overnight/nightshift employees
+  // whose DTR is dated yesterday but still have an open shift are included.
   const activeDTR = await prisma.dTRRecord.findMany({
     where: {
       employee: { companyId: ctx.companyId },
-      date: { gte: manilaDate, lt: manilaDateNext },
       timeIn: { not: null },
-      ...(clockedInOnly ? { timeOut: null } : {}),
+      ...(clockedInOnly
+        ? { timeOut: null }
+        : { date: { gte: manilaDate, lt: manilaDateNext } }),
     },
     include: {
       employee: {
