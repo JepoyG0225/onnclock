@@ -192,6 +192,7 @@ function deriveDayOffDaysFromWorkDays(workDays: number[] | null | undefined): nu
 interface ModalState {
   employeeId: string
   employeeName: string
+  fixedScheduleId?: string | null
   date: string // YYYY-MM-DD
   existing: ShiftAssignment | null
 }
@@ -525,6 +526,7 @@ function FlexibleScheduleTab({
   }
 
   async function onDrop(empId: string, dateStr: string) {
+    if (variant !== 'FLEXIBLE') return
     const schedId = dragScheduleId.current
     setDragOverCell(null)
     dragScheduleId.current = null
@@ -613,6 +615,7 @@ function FlexibleScheduleTab({
   return (
     <div className="space-y-4">
       {/* â”€â”€ Work Hours Templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {variant === 'FLEXIBLE' && (
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -679,6 +682,7 @@ function FlexibleScheduleTab({
           </div>
         )}
       </div>
+      )}
 
       {/* â”€â”€ Week navigation + filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
@@ -794,7 +798,7 @@ function FlexibleScheduleTab({
                                   ? { background: col.bg, border: `1px solid ${col.border}` }
                                   : { background: '#fff3ec', border: '1px solid #fa5e01' }
                               }
-                              onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), date: ds, existing: asgn })}
+                              onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: asgn })}
                             >
                               {asgn.isRestDay ? (
                                 <div className="flex items-center gap-1">
@@ -829,7 +833,7 @@ function FlexibleScheduleTab({
                           ) : (
                             <button
                               className="w-full h-10 flex items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-300 hover:border-[#fa5e01] hover:text-[#fa5e01] transition"
-                              onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), date: ds, existing: null })}
+                              onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
                             >
                               <Plus className="w-4 h-4" />
                             </button>
@@ -898,8 +902,9 @@ function AssignmentModal({
   const [isRestDay, setIsRestDay] = useState(existing?.isRestDay ?? false)
   const [timeIn, setTimeIn] = useState(existing?.timeIn ?? '08:00')
   const [timeOut, setTimeOut] = useState(existing?.timeOut ?? '17:00')
-  const [scheduleId, setScheduleId] = useState(existing?.scheduleId ?? '')
+  const [scheduleId, setScheduleId] = useState(existing?.scheduleId ?? modal.fixedScheduleId ?? '')
   const [saving, setSaving] = useState(false)
+  const fixedSchedule = variant === 'FIXED' ? schedules.find(s => s.id === modal.fixedScheduleId) : null
 
   const dayLabel = new Date(modal.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -915,13 +920,14 @@ function AssignmentModal({
   }
 
   async function handleSave() {
-    if (variant === 'FIXED' && !isRestDay && !scheduleId) {
-      toast.error('Select a schedule template for fixed mode, or mark this day as rest day.')
+    const resolvedScheduleId = variant === 'FIXED' ? (modal.fixedScheduleId ?? null) : (scheduleId || null)
+    if (variant === 'FIXED' && !isRestDay && !resolvedScheduleId) {
+      toast.error('No fixed schedule is assigned to this employee. Set one first in Employee Fixed Assignment.')
       return
     }
     setSaving(true)
     try {
-      await onSave({ scheduleId: scheduleId || null, timeIn: isRestDay ? null : timeIn, timeOut: isRestDay ? null : timeOut, isRestDay })
+      await onSave({ scheduleId: resolvedScheduleId, timeIn: isRestDay ? null : timeIn, timeOut: isRestDay ? null : timeOut, isRestDay })
     } finally { setSaving(false) }
   }
 
@@ -960,7 +966,7 @@ function AssignmentModal({
           {!isRestDay && (
             <>
               {/* Quick-pick from template */}
-              {schedules.length > 0 && (
+              {variant === 'FLEXIBLE' && schedules.length > 0 && (
                 <div>
                   <label className="text-xs font-semibold text-gray-600 block mb-1.5">Apply Schedule Template</label>
                   <select
@@ -975,6 +981,16 @@ function AssignmentModal({
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+              {variant === 'FIXED' && (
+                <div className="rounded-xl border bg-slate-50 px-3 py-2.5">
+                  <p className="text-xs font-semibold text-gray-700">Fixed Template</p>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    {fixedSchedule
+                      ? `${fixedSchedule.name}${fixedSchedule.timeIn && fixedSchedule.timeOut ? ` (${fixedSchedule.timeIn}-${fixedSchedule.timeOut})` : ''}`
+                      : 'No fixed schedule assigned'}
+                  </p>
                 </div>
               )}
 
@@ -1219,10 +1235,12 @@ export default function SchedulesPage() {
 
       {/* â”€â”€ Tab content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {mode === 'FIXED' ? (
-        <FixedScheduleTabWrapper
+        <FlexibleScheduleTab
           schedules={schedules}
-          loading={loadingSchedules}
-          onRefresh={loadSchedules}
+          loadingSchedules={loadingSchedules}
+          onRefreshSchedules={loadSchedules}
+          variant="FIXED"
+          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
         />
       ) : (
         <FlexibleScheduleTab
