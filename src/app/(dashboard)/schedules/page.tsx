@@ -850,6 +850,7 @@ function FlexibleScheduleTab({
         <AssignmentModal
           modal={modal}
           schedules={schedules}
+          variant={variant}
           onClose={() => setModal(null)}
           onSave={async (payload) => {
             await upsertAssignment({ ...payload, mode: variant, employeeId: modal.employeeId, date: modal.date })
@@ -881,12 +882,14 @@ function FlexibleScheduleTab({
 function AssignmentModal({
   modal,
   schedules,
+  variant = 'FLEXIBLE',
   onClose,
   onSave,
   onDelete,
 }: {
   modal: ModalState
   schedules: WorkSchedule[]
+  variant?: 'FIXED' | 'FLEXIBLE'
   onClose: () => void
   onSave: (payload: { scheduleId?: string | null; timeIn?: string | null; timeOut?: string | null; isRestDay: boolean; notes?: string | null }) => Promise<void>
   onDelete: () => Promise<void>
@@ -912,6 +915,10 @@ function AssignmentModal({
   }
 
   async function handleSave() {
+    if (variant === 'FIXED' && !isRestDay && !scheduleId) {
+      toast.error('Select a schedule template for fixed mode, or mark this day as rest day.')
+      return
+    }
     setSaving(true)
     try {
       await onSave({ scheduleId: scheduleId || null, timeIn: isRestDay ? null : timeIn, timeOut: isRestDay ? null : timeOut, isRestDay })
@@ -1276,7 +1283,7 @@ function FixedScheduleTabInner({
     const endStr = toDateStr(addDays(weekStart, 6))
     setLoadingFixedEmployees(true)
     try {
-      const url = `/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}${fixedDeptFilter ? `&departmentId=${fixedDeptFilter}` : ''}`
+      const url = `/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}&mode=FIXED${fixedDeptFilter ? `&departmentId=${fixedDeptFilter}` : ''}`
       const res = await fetch(url)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -1552,4 +1559,3 @@ function FixedScheduleTabInner({
     </div>
   )
 }
-

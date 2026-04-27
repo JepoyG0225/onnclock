@@ -247,6 +247,13 @@ export async function POST(req: NextRequest) {
     })
     if (!emp) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
+    if (mode === 'FIXED' && !isRestDay && !scheduleId) {
+      return NextResponse.json(
+        { error: 'Fixed schedule assignment requires a schedule template.' },
+        { status: 400 }
+      )
+    }
+
     const dateObj = new Date(date)
 
     // If scheduleId provided and times not set, pull from template
