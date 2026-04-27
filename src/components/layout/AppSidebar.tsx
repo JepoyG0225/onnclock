@@ -420,7 +420,7 @@ function Tooltip({
 }
 
 // â"€â"€â"€ Collapsed flyout (portal-based to escape overflow clip) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-const PRO_LABELS = new Set(['Performance Reviews', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Recruitment', 'Onboarding Tracker'])
+const PRO_LABELS = new Set(['Performance Reviews', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Recruitment', 'Onboarding Tracker', 'Budget Requisitions'])
 
 function CollapsedFlyout({
   item, pathname, currentTab, isActive, activeStyle, baseItemClass, counts, hrisProEnabled,
