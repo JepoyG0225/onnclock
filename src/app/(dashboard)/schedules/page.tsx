@@ -1219,12 +1219,10 @@ export default function SchedulesPage() {
 
       {/* â”€â”€ Tab content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {mode === 'FIXED' ? (
-        <FlexibleScheduleTab
+        <FixedScheduleTabWrapper
           schedules={schedules}
-          loadingSchedules={loadingSchedules}
-          onRefreshSchedules={loadSchedules}
-          variant="FIXED"
-          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
+          loading={loadingSchedules}
+          onRefresh={loadSchedules}
         />
       ) : (
         <FlexibleScheduleTab
