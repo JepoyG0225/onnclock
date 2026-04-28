@@ -100,8 +100,12 @@ export async function GET(req: NextRequest) {
     return {
       employeeId: dtr.employeeId,
       employee: dtr.employee,
+      dtrId: dtr.id,
       clockInTime: dtr.timeIn,
       clockOutTime: dtr.timeOut,
+      breakIn: dtr.breakIn,
+      breakOut: dtr.breakOut,
+      isOnBreak: !!dtr.breakIn && !dtr.breakOut,
       clockInLat: dtr.clockInLat,
       clockInLng: dtr.clockInLng,
       clockInAddress: dtr.clockInAddress,

@@ -19,6 +19,7 @@ const LiveMapInner = dynamic(() => import('@/components/map/LiveMapInner'), {
 
 interface EmployeeLocation {
   employeeId: string
+  dtrId?: string
   employee: {
     firstName: string
     lastName: string
@@ -28,6 +29,9 @@ interface EmployeeLocation {
   }
   clockInTime: string | null
   clockOutTime: string | null
+  breakIn?: string | null
+  breakOut?: string | null
+  isOnBreak?: boolean
   clockInAddress: string | null
   clockInPhoto?: string | null
   isClockedIn: boolean
@@ -233,6 +237,7 @@ export default function AttendanceMapPage() {
                         loc={loc}
                         capture={latestCaptures[loc.employeeId] ?? null}
                         onSelect={(id) => setSelectedEmployeeId(id)}
+                        onActionDone={fetchLocations}
                       />
                     ))}
                   </>
@@ -273,23 +278,46 @@ function EmployeeCard({
   loc,
   capture,
   onSelect,
+  onActionDone,
 }: {
   loc: EmployeeLocation
   capture: LatestCapture | null
   onSelect: (id: string) => void
+  onActionDone: () => void
 }) {
+  const [actioning, setActioning] = useState<'end-break' | 'clock-out' | null>(null)
   const positionTitle = loc.employee.position?.title ?? null
   const positionStyle = getPositionBadgeStyle(positionTitle)
   const fullName = `${loc.employee.firstName} ${loc.employee.lastName}`
 
+  async function handleAction(action: 'end-break' | 'clock-out') {
+    setActioning(action)
+    try {
+      const res = await fetch('/api/attendance/admin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: loc.employeeId, action }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(data?.error ?? 'Action failed')
+        return
+      }
+      onActionDone()
+    } catch {
+      alert('Failed to perform action. Please try again.')
+    } finally {
+      setActioning(null)
+    }
+  }
+
   return (
     <div
-      className={`rounded-lg border text-sm cursor-pointer hover:shadow-sm transition-shadow ${
+      className={`rounded-lg border text-sm transition-shadow ${
         loc.isClockedIn ? 'bg-[#D4D8DD] border-[#C0C8CA]' : 'bg-gray-50 border-gray-100'
       }`}
-      onClick={() => onSelect(loc.employeeId)}
     >
-      <div className="p-3">
+      <div className="p-3 cursor-pointer hover:opacity-90" onClick={() => onSelect(loc.employeeId)}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="font-medium text-gray-900 truncate">{fullName}</p>
@@ -306,6 +334,9 @@ function EmployeeCard({
             {capture && (
               <Monitor className="w-3.5 h-3.5 text-[#2E4156] opacity-70" aria-label="Screenshot available" />
             )}
+            {loc.isOnBreak && (
+              <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">BREAK</span>
+            )}
             <span className={`w-2.5 h-2.5 rounded-full ${
               loc.isClockedIn ? 'bg-green-500 animate-pulse' : 'bg-gray-300'
             }`} />
@@ -321,6 +352,28 @@ function EmployeeCard({
           {!loc.lastPing && <span className="text-amber-500">No GPS data</span>}
         </div>
       </div>
+
+      {/* Admin action buttons — only shown when employee is clocked in */}
+      {loc.isClockedIn && (
+        <div className="px-3 pb-2.5 flex gap-1.5">
+          {loc.isOnBreak && (
+            <button
+              disabled={!!actioning}
+              onClick={() => handleAction('end-break')}
+              className="flex-1 text-[10px] font-semibold py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50"
+            >
+              {actioning === 'end-break' ? 'Ending…' : 'End Break'}
+            </button>
+          )}
+          <button
+            disabled={!!actioning}
+            onClick={() => handleAction('clock-out')}
+            className="flex-1 text-[10px] font-semibold py-1 rounded-md bg-red-500 hover:bg-red-600 text-white transition disabled:opacity-50"
+          >
+            {actioning === 'clock-out' ? 'Clocking out…' : 'Clock Out'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
