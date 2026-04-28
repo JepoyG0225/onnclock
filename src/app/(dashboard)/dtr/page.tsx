@@ -24,6 +24,7 @@ import {
   Clock,
   ZoomIn,
   MapPin,
+  Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -204,6 +205,9 @@ export default function DTRPage() {
   const [deleteInput, setDeleteInput] = useState('')
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [approvingAll, setApprovingAll] = useState(false)
+  const [editRecord, setEditRecord] = useState<DTRRecord | null>(null)
+  const [editForm, setEditForm] = useState({ timeIn: '', timeOut: '', breakIn: '', breakOut: '', remarks: '' })
+  const [editSaving, setEditSaving] = useState(false)
   const portalTarget = typeof document !== 'undefined' ? document.body : null
   const companyQuery = useMemo(
     () => (selectedCompanyId ? `companyId=${encodeURIComponent(selectedCompanyId)}` : ''),
@@ -488,6 +492,49 @@ export default function DTRPage() {
     setShowDelete(true)
   }
 
+  function openEdit(r: DTRRecord) {
+    const toLocal = (iso: string | null) => {
+      if (!iso) return ''
+      const d = new Date(iso)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+    setEditRecord(r)
+    setEditForm({
+      timeIn: toLocal(r.timeIn),
+      timeOut: toLocal(r.timeOut),
+      breakIn: toLocal(r.breakIn),
+      breakOut: toLocal(r.breakOut),
+      remarks: r.remarks ?? '',
+    })
+  }
+
+  async function saveEdit() {
+    if (!editRecord) return
+    setEditSaving(true)
+    try {
+      const toISO = (v: string) => v ? new Date(v).toISOString().slice(0, 16) : null
+      const res = await fetch(withCompanyQuery(`/api/dtr/${editRecord.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timeIn: toISO(editForm.timeIn),
+          timeOut: toISO(editForm.timeOut),
+          breakIn: toISO(editForm.breakIn),
+          breakOut: toISO(editForm.breakOut),
+          remarks: editForm.remarks || null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data?.error ?? 'Failed to save'); return }
+      toast.success('DTR record updated')
+      setEditRecord(null)
+      await load()
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteId) return
     if (deleteInput !== 'DELETE') {
@@ -627,6 +674,55 @@ export default function DTRPage() {
               <div className="flex gap-2">
                 <Button onClick={submitForm}>Save DTR Entry</Button>
                 <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>,
+        portalTarget,
+      )}
+
+      {editRecord && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditRecord(null)} />
+          <Card className="relative w-full max-w-md shadow-2xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Edit DTR Record</CardTitle>
+                <button onClick={() => setEditRecord(null)} className="p-1 rounded hover:bg-gray-100"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {editRecord.employee.firstName} {editRecord.employee.lastName} — {format(parseISO(editRecord.date), 'MMM d, yyyy')}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Clock In</label>
+                  <input type="datetime-local" value={editForm.timeIn} onChange={e => setEditForm(f => ({ ...f, timeIn: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Clock Out</label>
+                  <input type="datetime-local" value={editForm.timeOut} onChange={e => setEditForm(f => ({ ...f, timeOut: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Break Start</label>
+                  <input type="datetime-local" value={editForm.breakIn} onChange={e => setEditForm(f => ({ ...f, breakIn: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Break End</label>
+                  <input type="datetime-local" value={editForm.breakOut} onChange={e => setEditForm(f => ({ ...f, breakOut: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">Remarks</label>
+                <input type="text" value={editForm.remarks} onChange={e => setEditForm(f => ({ ...f, remarks: e.target.value }))} placeholder="Optional note..." className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <p className="text-[11px] text-gray-400">Hours, late, and undertime will be automatically recomputed upon saving.</p>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setEditRecord(null)}>Cancel</Button>
+                <Button disabled={editSaving} onClick={saveEdit} style={{ background: '#fa5e01' }} className="text-white">
+                  {editSaving ? 'Saving…' : 'Save Changes'}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -928,6 +1024,9 @@ export default function DTRPage() {
                                                     <X className="w-3 h-3" />
                                                   </Button>
                                                 )}
+                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-blue-500 hover:bg-blue-50" onClick={() => openEdit(r)}>
+                                                  <Pencil className="w-3 h-3" />
+                                                </Button>
                                                 <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" onClick={() => requestDelete(r.id)}>
                                                   <Trash2 className="w-3 h-3" />
                                                 </Button>
