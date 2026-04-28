@@ -611,6 +611,9 @@ function FlexibleScheduleTab({
   const colorMap = new Map(
     schedules.map((s, i) => [s.id, CARD_COLORS[i % CARD_COLORS.length]])
   )
+  const scheduleById = new Map(
+    schedules.map((schedule) => [schedule.id, schedule])
+  )
 
   return (
     <div className="space-y-4">
@@ -776,9 +779,42 @@ function FlexibleScheduleTab({
                       const ds = toDateStr(d)
                       const cellKey = `${emp.id}|${ds}`
                       const asgn = getAssignment(emp.id, ds)
+                      const fixedTemplate =
+                        variant === 'FIXED' && emp.workScheduleId
+                          ? scheduleById.get(emp.workScheduleId) ?? null
+                          : null
+                      const weekday = d.getDay()
+                      const templateIsWorkDay = fixedTemplate
+                        ? fixedTemplate.workDays.includes(weekday)
+                        : false
+                      const showTemplateFallback = !asgn && variant === 'FIXED' && Boolean(fixedTemplate)
+                      const effectiveIsRestDay = asgn
+                        ? asgn.isRestDay
+                        : showTemplateFallback
+                          ? !templateIsWorkDay
+                          : false
+                      const effectiveTimeIn = asgn
+                        ? asgn.timeIn
+                        : showTemplateFallback && templateIsWorkDay
+                          ? fixedTemplate?.timeIn ?? null
+                          : null
+                      const effectiveTimeOut = asgn
+                        ? asgn.timeOut
+                        : showTemplateFallback && templateIsWorkDay
+                          ? fixedTemplate?.timeOut ?? null
+                          : null
+                      const effectiveSchedule = asgn?.schedule
+                        ?? (showTemplateFallback && templateIsWorkDay && fixedTemplate
+                          ? {
+                              id: fixedTemplate.id,
+                              name: fixedTemplate.name,
+                              timeIn: fixedTemplate.timeIn ?? null,
+                              timeOut: fixedTemplate.timeOut ?? null,
+                            }
+                          : null)
                       const isToday = ds === todayStr
                       const isDragOver = dragOverCell === cellKey
-                      const col = asgn?.scheduleId ? (colorMap.get(asgn.scheduleId) ?? CARD_COLORS[0]) : null
+                      const col = effectiveSchedule?.id ? (colorMap.get(effectiveSchedule.id) ?? CARD_COLORS[0]) : null
 
                       return (
                         <td
@@ -788,11 +824,11 @@ function FlexibleScheduleTab({
                           onDragLeave={() => setDragOverCell(null)}
                           onDrop={() => onDrop(emp.id, ds)}
                         >
-                          {asgn ? (
+                          {asgn || showTemplateFallback ? (
                             <div
-                              className={`rounded-lg px-2 py-1.5 cursor-pointer group/cell relative ${asgn.id.startsWith('temp-') ? 'opacity-80 animate-pulse' : ''}`}
+                              className={`rounded-lg px-2 py-1.5 cursor-pointer group/cell relative ${asgn?.id.startsWith('temp-') ? 'opacity-80 animate-pulse' : ''}`}
                               style={
-                                asgn.isRestDay
+                                effectiveIsRestDay
                                   ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
                                   : col
                                   ? { background: col.bg, border: `1px solid ${col.border}` }
@@ -800,7 +836,7 @@ function FlexibleScheduleTab({
                               }
                               onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: asgn })}
                             >
-                              {asgn.isRestDay ? (
+                              {effectiveIsRestDay ? (
                                 <div className="flex items-center gap-1">
                                   <Coffee className="w-3 h-3 text-slate-400" />
                                   <span className="text-[10px] font-semibold text-slate-500">Rest Day</span>
@@ -808,14 +844,14 @@ function FlexibleScheduleTab({
                               ) : (
                                 <>
                                   <p className="text-[10px] font-bold leading-tight" style={{ color: col?.text ?? '#c44d00' }}>
-                                    {fmt12(asgn.timeIn)} - {fmt12(asgn.timeOut)}
+                                    {fmt12(effectiveTimeIn)} - {fmt12(effectiveTimeOut)}
                                   </p>
-                                  {asgn.schedule && (
+                                  {effectiveSchedule && (
                                     <p className="text-[9px] opacity-60 mt-0.5 truncate" style={{ color: col?.text ?? '#c44d00' }}>
-                                      {asgn.schedule.name}
+                                      {effectiveSchedule.name}
                                     </p>
                                   )}
-                                  {asgn.id.startsWith('temp-') && (
+                                  {asgn?.id.startsWith('temp-') && (
                                     <p className="text-[9px] opacity-60 mt-0.5" style={{ color: col?.text ?? '#c44d00' }}>
                                       Saving...
                                     </p>
@@ -823,12 +859,14 @@ function FlexibleScheduleTab({
                                 </>
                               )}
                               {/* Delete button */}
-                              <button
-                                className="absolute -top-1.5 -right-1.5 hidden group-hover/cell:flex w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center shadow"
-                                onClick={e => { e.stopPropagation(); deleteAssignment(asgn.id, emp.id, ds) }}
-                              >
-                                <X className="w-2.5 h-2.5" />
-                              </button>
+                              {asgn && (
+                                <button
+                                  className="absolute -top-1.5 -right-1.5 hidden group-hover/cell:flex w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center shadow"
+                                  onClick={e => { e.stopPropagation(); deleteAssignment(asgn.id, emp.id, ds) }}
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <button
