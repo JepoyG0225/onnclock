@@ -351,7 +351,8 @@ export async function POST(req: NextRequest) {
   const staleOpenRecords = activeOpenRecords.slice(1)
   const staleOpenCount = staleOpenRecords.length
 
-  const record = await prisma.$transaction(async (tx) => {
+  let record: Awaited<ReturnType<typeof prisma.dTRRecord.update>>
+  try { record = await prisma.$transaction(async (tx) => {
     const updatedPrimary = await tx.dTRRecord.update({
       where: { id: existing.id },
       data: {
@@ -392,7 +393,13 @@ export async function POST(req: NextRequest) {
     }
 
     return updatedPrimary
-  })
+  }) } catch (e: unknown) {
+    const code = (e as { code?: string })?.code
+    if (code === 'P2025') {
+      return NextResponse.json({ error: 'Clock-out record was not found. Please refresh and try again.' }, { status: 409 })
+    }
+    throw e
+  }
 
   // Final location ping (only if location was provided)
   if (hasLocation) {
@@ -450,8 +457,11 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  // Strip clockInPhoto — large base64 payload not needed by clients
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { clockInPhoto: _photo, ...safeRecord } = record
   return NextResponse.json({
-    record,
+    record: safeRecord,
     message: staleOpenCount > 0
       ? `Clocked out successfully (also auto-closed ${staleOpenCount} duplicate active shift${staleOpenCount > 1 ? 's' : ''}).`
       : 'Clocked out successfully',

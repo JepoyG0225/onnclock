@@ -109,5 +109,9 @@ export async function GET(req: NextRequest) {
       companyDefaultBreakMinutes
   )
 
-  return NextResponse.json({ record, employee, scheduleReady, scheduleMessage, breakMinutes })
+  // Strip clockInPhoto — large base64 payload not needed by the clock page
+  const safeRecord = record ? Object.fromEntries(
+    Object.entries(record).filter(([k]) => k !== 'clockInPhoto')
+  ) : null
+  return NextResponse.json({ record: safeRecord, employee, scheduleReady, scheduleMessage, breakMinutes })
 }

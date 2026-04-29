@@ -301,36 +301,48 @@ export async function POST(req: NextRequest) {
   }
 
   const source = isDesktopApp(ua) ? 'DESKTOP' : 'GPS'
-  const record = reusableDraftToday
-    ? await prisma.dTRRecord.update({
-        where: { id: reusableDraftToday.id },
-        data: {
-          timeIn: now,
-          source,
-          clockInLat: lat ?? null,
-          clockInLng: lng ?? null,
-          clockInAccuracy: accuracy ?? null,
-          clockInAddress: address ?? null,
-          clockInPhoto: photo ?? null,
-          isHoliday: !!holiday,
-          holidayType: holiday?.type ?? null,
-        },
-      })
-    : await prisma.dTRRecord.create({
-        data: {
-          employeeId: employee.id,
-          date: manilaDate,
-          timeIn: now,
-          source,
-          clockInLat: lat ?? null,
-          clockInLng: lng ?? null,
-          clockInAccuracy: accuracy ?? null,
-          clockInAddress: address ?? null,
-          clockInPhoto: photo ?? null,
-          isHoliday: !!holiday,
-          holidayType: holiday?.type ?? null,
-        },
-      })
+  let record: Awaited<ReturnType<typeof prisma.dTRRecord.create>>
+  try {
+    record = reusableDraftToday
+      ? await prisma.dTRRecord.update({
+          where: { id: reusableDraftToday.id },
+          data: {
+            timeIn: now,
+            source,
+            clockInLat: lat ?? null,
+            clockInLng: lng ?? null,
+            clockInAccuracy: accuracy ?? null,
+            clockInAddress: address ?? null,
+            clockInPhoto: photo ?? null,
+            isHoliday: !!holiday,
+            holidayType: holiday?.type ?? null,
+          },
+        })
+      : await prisma.dTRRecord.create({
+          data: {
+            employeeId: employee.id,
+            date: manilaDate,
+            timeIn: now,
+            source,
+            clockInLat: lat ?? null,
+            clockInLng: lng ?? null,
+            clockInAccuracy: accuracy ?? null,
+            clockInAddress: address ?? null,
+            clockInPhoto: photo ?? null,
+            isHoliday: !!holiday,
+            holidayType: holiday?.type ?? null,
+          },
+        })
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code
+    if (code === 'P2002') {
+      return NextResponse.json({ error: 'Already clocked in today' }, { status: 409 })
+    }
+    if (code === 'P2025') {
+      return NextResponse.json({ error: 'Clock-in record was not found. Please try again.' }, { status: 409 })
+    }
+    throw e
+  }
 
   let geofenceOut: boolean | null = null
   if (
@@ -389,5 +401,10 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  return NextResponse.json({ record, message: 'Clocked in successfully', geofenceWarning })
+  // Strip clockInPhoto from response — it can be several MB of base64 data and
+  // is not consumed by any client.  Large payloads can exceed Vercel's response
+  // size limit and cause the browser to report "Failed to fetch".
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { clockInPhoto: _photo, ...safeRecord } = record
+  return NextResponse.json({ record: safeRecord, message: 'Clocked in successfully', geofenceWarning })
 }

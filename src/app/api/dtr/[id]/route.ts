@@ -115,7 +115,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   })
 
-  return NextResponse.json({ record: updated })
+  // Strip clockInPhoto — large base64 payload not needed by admin clients
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { clockInPhoto: _photo, ...safeRecord } = updated
+  return NextResponse.json({ record: safeRecord })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -286,11 +286,13 @@ function EmployeeCard({
   onActionDone: () => void
 }) {
   const [actioning, setActioning] = useState<'end-break' | 'clock-out' | null>(null)
+  const [confirming, setConfirming] = useState<'end-break' | 'clock-out' | null>(null)
   const positionTitle = loc.employee.position?.title ?? null
   const positionStyle = getPositionBadgeStyle(positionTitle)
   const fullName = `${loc.employee.firstName} ${loc.employee.lastName}`
 
   async function handleAction(action: 'end-break' | 'clock-out') {
+    setConfirming(null)
     setActioning(action)
     try {
       const res = await fetch('/api/attendance/admin-action', {
@@ -355,23 +357,56 @@ function EmployeeCard({
 
       {/* Admin action buttons — only shown when employee is clocked in */}
       {loc.isClockedIn && (
-        <div className="px-3 pb-2.5 flex gap-1.5">
-          {loc.isOnBreak && (
-            <button
-              disabled={!!actioning}
-              onClick={() => handleAction('end-break')}
-              className="flex-1 text-[10px] font-semibold py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50"
-            >
-              {actioning === 'end-break' ? 'Ending…' : 'End Break'}
-            </button>
+        <div className="px-3 pb-2.5">
+          {/* Inline confirmation prompt */}
+          {confirming ? (
+            <div className="rounded-md bg-white border border-gray-300 px-2.5 py-2">
+              <p className="text-[10px] font-semibold text-gray-700 mb-1.5 leading-snug">
+                {confirming === 'clock-out'
+                  ? `Clock out ${loc.employee.firstName}?`
+                  : `End break for ${loc.employee.firstName}?`}
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  disabled={!!actioning}
+                  onClick={() => handleAction(confirming)}
+                  className={`flex-1 text-[10px] font-bold py-1 rounded-md text-white transition disabled:opacity-50 ${
+                    confirming === 'clock-out'
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : 'bg-amber-500 hover:bg-amber-600'
+                  }`}
+                >
+                  {actioning ? (confirming === 'clock-out' ? 'Clocking out…' : 'Ending…') : 'Confirm'}
+                </button>
+                <button
+                  disabled={!!actioning}
+                  onClick={() => setConfirming(null)}
+                  className="flex-1 text-[10px] font-semibold py-1 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              {loc.isOnBreak && (
+                <button
+                  disabled={!!actioning}
+                  onClick={() => setConfirming('end-break')}
+                  className="flex-1 text-[10px] font-semibold py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50"
+                >
+                  End Break
+                </button>
+              )}
+              <button
+                disabled={!!actioning}
+                onClick={() => setConfirming('clock-out')}
+                className="flex-1 text-[10px] font-semibold py-1 rounded-md bg-red-500 hover:bg-red-600 text-white transition disabled:opacity-50"
+              >
+                Clock Out
+              </button>
+            </div>
           )}
-          <button
-            disabled={!!actioning}
-            onClick={() => handleAction('clock-out')}
-            className="flex-1 text-[10px] font-semibold py-1 rounded-md bg-red-500 hover:bg-red-600 text-white transition disabled:opacity-50"
-          >
-            {actioning === 'clock-out' ? 'Clocking out…' : 'Clock Out'}
-          </button>
         </div>
       )}
     </div>
