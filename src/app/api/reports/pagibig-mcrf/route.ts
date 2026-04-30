@@ -18,8 +18,9 @@ export async function GET(req: NextRequest) {
   })
   if (!company) return NextResponse.json({ error: 'No company' }, { status: 403 })
 
-  const periodStart = new Date(year, month - 1, 1)
-  const periodEnd   = new Date(year, month, 0, 23, 59, 59)
+  // Filter by pay date month — contributions are remitted in the month salary is actually paid.
+  const payDateStart = new Date(year, month - 1, 1)
+  const payDateEnd   = new Date(year, month, 0, 23, 59, 59)
 
   const employees = await prisma.employee.findMany({
     where: { companyId: ctx.companyId, isActive: true },
@@ -33,13 +34,13 @@ export async function GET(req: NextRequest) {
     },
   })
 
+  // Only include employees who received a payslip with a pay date in this month
   const paidIds = new Set(
     (await prisma.payslip.findMany({
       where: {
         employee: { companyId: ctx.companyId },
         payrollRun: {
-          periodStart: { gte: periodStart },
-          periodEnd: { lte: periodEnd },
+          payDate: { gte: payDateStart, lte: payDateEnd },
         },
       },
       select: { employeeId: true },

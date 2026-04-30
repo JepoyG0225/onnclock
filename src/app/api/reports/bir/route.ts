@@ -33,12 +33,12 @@ export async function GET(req: NextRequest) {
     const yearStart = new Date(year, 0, 1)
     const yearEnd   = new Date(year, 11, 31, 23, 59, 59)
 
+    // Form 2316: include payslips whose pay date falls within the calendar year.
     const payslips = await prisma.payslip.findMany({
       where: {
         employeeId,
         payrollRun: {
-          periodStart: { gte: yearStart },
-          periodEnd: { lte: yearEnd },
+          payDate: { gte: yearStart, lte: yearEnd },
           companyId: ctx.companyId,
         },
       },
@@ -142,15 +142,15 @@ export async function GET(req: NextRequest) {
   if (type === '1601c') {
     if (!month) return NextResponse.json({ error: 'month required' }, { status: 400 })
 
-    const periodStart = new Date(year, month - 1, 1)
-    const periodEnd   = new Date(year, month, 0, 23, 59, 59)
+    // Use pay date to determine the remittance month, not the coverage period.
+    const payDateStart = new Date(year, month - 1, 1)
+    const payDateEnd   = new Date(year, month, 0, 23, 59, 59)
 
     const payslips = await prisma.payslip.findMany({
       where: {
         employee: { companyId: ctx.companyId },
         payrollRun: {
-          periodStart: { gte: periodStart },
-          periodEnd: { lte: periodEnd },
+          payDate: { gte: payDateStart, lte: payDateEnd },
         },
       },
       include: {
@@ -203,6 +203,7 @@ export async function GET(req: NextRequest) {
 
   // ── 1604CF Alphalist ─────────────────────────────────────────────────────────
   if (type === 'alphalist') {
+    // Annual: include all payslips whose pay date falls within the calendar year.
     const yearStart = new Date(year, 0, 1)
     const yearEnd   = new Date(year, 11, 31, 23, 59, 59)
 
@@ -212,8 +213,7 @@ export async function GET(req: NextRequest) {
         payslips: {
           where: {
             payrollRun: {
-              periodStart: { gte: yearStart },
-              periodEnd: { lte: yearEnd },
+              payDate: { gte: yearStart, lte: yearEnd },
             },
           },
           select: { grossPay: true, withholdingTax: true, taxableIncome: true },
@@ -258,15 +258,15 @@ export async function GET(req: NextRequest) {
   if (type === 'register') {
     if (!month) return NextResponse.json({ error: 'month required' }, { status: 400 })
 
-    const periodStart = new Date(year, month - 1, 1)
-    const periodEnd   = new Date(year, month, 0, 23, 59, 59)
+    // Use pay date to determine the register month, not the coverage period.
+    const payDateStart = new Date(year, month - 1, 1)
+    const payDateEnd   = new Date(year, month, 0, 23, 59, 59)
 
     const payslips = await prisma.payslip.findMany({
       where: {
         employee: { companyId: ctx.companyId },
         payrollRun: {
-          periodStart: { gte: periodStart },
-          periodEnd: { lte: periodEnd },
+          payDate: { gte: payDateStart, lte: payDateEnd },
         },
       },
       include: {

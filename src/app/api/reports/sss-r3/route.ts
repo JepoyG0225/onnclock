@@ -21,16 +21,17 @@ export async function GET(req: NextRequest) {
   })
   if (!company) return NextResponse.json({ error: 'No company' }, { status: 403 })
 
-  // Get all payslips for the month (aggregate by employee — sum both cutoffs)
-  const periodStart = new Date(year, month - 1, 1)
-  const periodEnd   = new Date(year, month, 0, 23, 59, 59)
+  // Get all payslips whose pay date falls within the selected month.
+  // Contributions are remitted based on the month the salary is actually paid,
+  // not the coverage period (e.g. Feb 16–28 paid on Mar 15 → March remittance).
+  const payDateStart = new Date(year, month - 1, 1)
+  const payDateEnd   = new Date(year, month, 0, 23, 59, 59)
 
   const payslips = await prisma.payslip.findMany({
     where: {
       employee: { companyId: ctx.companyId },
       payrollRun: {
-        periodStart: { gte: periodStart },
-        periodEnd:   { lte: periodEnd },
+        payDate: { gte: payDateStart, lte: payDateEnd },
       },
     },
     include: {
