@@ -296,13 +296,13 @@ export default function DTRPage() {
     setWeekOptions(weeks)
 
     const hasPreferred = preferredWeek && weeks.some(w => w.start === preferredWeek)
-    const hasCurrent = selectedWeek && weeks.some(w => w.start === selectedWeek)
     const fallback = weeks[0]?.start ?? ''
-    const nextWeek = hasPreferred ? preferredWeek! : hasCurrent ? selectedWeek : fallback
-    if (nextWeek !== selectedWeek) {
-      setSelectedWeek(nextWeek)
-    }
-  }, [isSystemAdmin, selectedCompanyId, selectedWeek, withCompanyQuery])
+    setSelectedWeek(prev => {
+      const hasCurrent = prev && weeks.some(w => w.start === prev)
+      const nextWeek = hasPreferred ? preferredWeek! : hasCurrent ? prev : fallback
+      return nextWeek === prev ? prev : nextWeek
+    })
+  }, [isSystemAdmin, selectedCompanyId, withCompanyQuery])
 
   const load = useCallback(async () => {
     if (!selectedWeek || (isSystemAdmin && !selectedCompanyId)) {
@@ -1151,4 +1151,3 @@ export default function DTRPage() {
     </div>
   )
 }
-
