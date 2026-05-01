@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 interface Correction {
   id: string
+  dtrRecordId: string | null
   date: string
   timeIn: string | null
   timeOut: string | null
@@ -165,6 +166,11 @@ export default function TimeCorrectionAdminPage() {
                   <p className="text-sm text-gray-700 font-medium mb-1.5">
                     {format(new Date(c.date), 'EEEE, MMMM d, yyyy')}
                   </p>
+                  {c.dtrRecordId && (
+                    <p className="text-[11px] text-gray-500 mb-1.5">
+                      Record ID: <span className="font-mono text-gray-700">{c.dtrRecordId}</span>
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-0.5 text-xs text-gray-500 mb-2">
                     {c.timeIn   && <span>Time In: <strong className="text-gray-700">{c.timeIn}</strong></span>}
                     {c.timeOut  && <span>Time Out: <strong className="text-gray-700">{c.timeOut}</strong></span>}

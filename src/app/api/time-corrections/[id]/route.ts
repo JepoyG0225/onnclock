@@ -42,8 +42,16 @@ export async function PATCH(
   const newStatus = action === 'approve' ? 'APPROVED' : 'REJECTED'
 
   // If approving, apply the correction to the DTR record
-  if (action === 'approve' && correction.dtrRecordId) {
-    const dtr = await prisma.dTRRecord.findUnique({ where: { id: correction.dtrRecordId } })
+  if (action === 'approve') {
+    const targetDtr = correction.dtrRecordId
+      ? await prisma.dTRRecord.findFirst({
+          where: { id: correction.dtrRecordId, employeeId: correction.employee.id },
+        })
+      : await prisma.dTRRecord.findFirst({
+          where: { employeeId: correction.employee.id, date: correction.date },
+          orderBy: { createdAt: 'desc' },
+        })
+    const dtr = targetDtr
     if (dtr) {
       const corrDate = correction.date.toISOString().slice(0, 10)
 

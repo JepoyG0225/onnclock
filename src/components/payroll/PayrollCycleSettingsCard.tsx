@@ -16,6 +16,8 @@ type PayrollSettings = {
   secondCutoffStartDay: number
   secondCutoffEndDay: number
   defaultPayDelayDays: number
+  timezone: string
+  payrollCurrency: string
 }
 
 const DEFAULT_SETTINGS: PayrollSettings = {
@@ -25,6 +27,8 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   secondCutoffStartDay: 16,
   secondCutoffEndDay: 31,
   defaultPayDelayDays: 5,
+  timezone: 'Asia/Manila',
+  payrollCurrency: 'PHP',
 }
 
 export default function PayrollCycleSettingsCard() {
@@ -44,6 +48,7 @@ export default function PayrollCycleSettingsCard() {
           setSettings({
             ...DEFAULT_SETTINGS,
             ...data.settings,
+            ...(data.locale ?? {}),
           })
         }
       } finally {
@@ -64,6 +69,8 @@ export default function PayrollCycleSettingsCard() {
         secondCutoffStartDay: Number(settings.secondCutoffStartDay),
         secondCutoffEndDay: Number(settings.secondCutoffEndDay),
         defaultPayDelayDays: Number(settings.defaultPayDelayDays),
+        timezone: settings.timezone,
+        payrollCurrency: settings.payrollCurrency.toUpperCase(),
       }
       const res = await fetch('/api/payroll/settings', {
         method: 'PATCH',
@@ -116,6 +123,39 @@ export default function PayrollCycleSettingsCard() {
                   value={settings.defaultPayDelayDays}
                   onChange={e => setSettings(prev => ({ ...prev, defaultPayDelayDays: Number(e.target.value || 0) }))}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Company Timezone</Label>
+                <Select
+                  value={settings.timezone}
+                  onValueChange={v => setSettings(prev => ({ ...prev, timezone: v }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem>
+                    <SelectItem value="UTC">UTC</SelectItem>
+                    <SelectItem value="Asia/Singapore">Asia/Singapore</SelectItem>
+                    <SelectItem value="Asia/Tokyo">Asia/Tokyo</SelectItem>
+                    <SelectItem value="America/Los_Angeles">America/Los_Angeles</SelectItem>
+                    <SelectItem value="America/New_York">America/New_York</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Payroll Currency</Label>
+                <Select
+                  value={settings.payrollCurrency}
+                  onValueChange={v => setSettings(prev => ({ ...prev, payrollCurrency: v }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
+                    <SelectItem value="USD">USD - US Dollar</SelectItem>
+                    <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
+                    <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                    <SelectItem value="EUR">EUR - Euro</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

@@ -703,7 +703,16 @@ export default function ClockPage() {
     try {
       const res = await fetch('/api/attendance/break-end', { method: 'POST' })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to end break')
+      if (!res.ok) {
+        const msg = String(data?.error ?? 'Failed to end break')
+        const isAlreadyEnded = res.status === 409 && /no active break/i.test(msg)
+        if (isAlreadyEnded) {
+          toast.info('Break was already ended.')
+          await loadRecord()
+          return
+        }
+        throw new Error(msg)
+      }
       if (data.overBreakMinutes > 0) {
         toast.warning(`Break ended — you were ${data.overBreakMinutes} minute${data.overBreakMinutes !== 1 ? 's' : ''} over your allowed break time. This has been recorded.`)
       } else {

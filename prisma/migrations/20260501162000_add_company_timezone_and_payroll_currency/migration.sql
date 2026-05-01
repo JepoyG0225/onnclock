@@ -1,0 +1,3 @@
+ALTER TABLE "companies"
+  ADD COLUMN IF NOT EXISTS "timezone" TEXT NOT NULL DEFAULT 'Asia/Manila',
+  ADD COLUMN IF NOT EXISTS "payrollCurrency" TEXT NOT NULL DEFAULT 'PHP';

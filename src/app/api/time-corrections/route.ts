@@ -38,6 +38,28 @@ export async function POST(req: NextRequest) {
 
   const { date, dtrRecordId, timeIn, timeOut, breakIn, breakOut, reason } = parsed.data
 
+  let resolvedDtrRecordId: string | null = dtrRecordId ?? null
+  if (resolvedDtrRecordId) {
+    const dtr = await prisma.dTRRecord.findFirst({
+      where: { id: resolvedDtrRecordId, employeeId },
+      select: { id: true, date: true },
+    })
+    if (!dtr) {
+      return NextResponse.json({ error: 'Selected time entry was not found.' }, { status: 404 })
+    }
+    const pickedDate = dtr.date.toISOString().slice(0, 10)
+    if (pickedDate !== date) {
+      return NextResponse.json({ error: 'Selected time entry does not match the chosen date.' }, { status: 400 })
+    }
+  } else {
+    const dtr = await prisma.dTRRecord.findFirst({
+      where: { employeeId, date: new Date(date) },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+    resolvedDtrRecordId = dtr?.id ?? null
+  }
+
   // Check for duplicate pending request for same date
   const existing = await prisma.timeEntryCorrection.findFirst({
     where: { employeeId, date: new Date(date), status: 'PENDING' },
@@ -50,7 +72,7 @@ export async function POST(req: NextRequest) {
     data: {
       companyId: employee.companyId,
       employeeId,
-      dtrRecordId: dtrRecordId ?? null,
+      dtrRecordId: resolvedDtrRecordId,
       date: new Date(date),
       timeIn: timeIn ?? null,
       timeOut: timeOut ?? null,

@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
       date: true,
       timeIn: true,
       timeOut: true,
+      breakIn: true,
+      breakOut: true,
       regularHours: true,
       lateMinutes: true,
       isHoliday: true,

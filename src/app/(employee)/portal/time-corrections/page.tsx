@@ -18,6 +18,15 @@ interface Correction {
   createdAt: string
 }
 
+interface TimeEntryRecord {
+  id: string
+  date: string
+  timeIn: string | null
+  timeOut: string | null
+  breakIn: string | null
+  breakOut: string | null
+}
+
 const STATUS_COLORS: Record<string, string> = {
   PENDING:  'bg-amber-100 text-amber-700',
   APPROVED: 'bg-green-100 text-green-700',
@@ -36,8 +45,10 @@ export default function TimeCorrectionPortalPage() {
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [cancelling, setCancelling] = useState<string | null>(null)
+  const [timeEntries, setTimeEntries] = useState<TimeEntryRecord[]>([])
 
   const [form, setForm] = useState({
+    dtrRecordId: '',
     date: '',
     timeIn: '',
     timeOut: '',
@@ -58,11 +69,62 @@ export default function TimeCorrectionPortalPage() {
     }
   }
 
-  useEffect(() => { fetchCorrections() }, [])
+  async function fetchTimeEntries() {
+    try {
+      const res = await fetch('/api/attendance/logs?limit=60')
+      const data = await res.json().catch(() => ({}))
+      setTimeEntries(data.records ?? [])
+    } catch {
+      // silent
+    }
+  }
+
+  function formatTimeValue(value: string | null): string {
+    if (!value) return '—'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function extractTimeInput(value: string | null): string {
+    if (!value) return ''
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mm = String(date.getMinutes()).padStart(2, '0')
+    return `${hh}:${mm}`
+  }
+
+  function handleSelectTimeEntry(dtrRecordId: string) {
+    const selected = timeEntries.find((record) => record.id === dtrRecordId)
+    if (!selected) {
+      setForm((prev) => ({ ...prev, dtrRecordId: '' }))
+      return
+    }
+    const selectedDate = new Date(selected.date)
+    const yyyy = selectedDate.getFullYear()
+    const mm = String(selectedDate.getMonth() + 1).padStart(2, '0')
+    const dd = String(selectedDate.getDate()).padStart(2, '0')
+    setForm((prev) => ({
+      ...prev,
+      dtrRecordId,
+      date: `${yyyy}-${mm}-${dd}`,
+      timeIn: extractTimeInput(selected.timeIn),
+      timeOut: extractTimeInput(selected.timeOut),
+      breakIn: extractTimeInput(selected.breakIn),
+      breakOut: extractTimeInput(selected.breakOut),
+    }))
+  }
+
+  useEffect(() => {
+    fetchCorrections()
+    fetchTimeEntries()
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.date) { toast.error('Date is required'); return }
+    if (!form.dtrRecordId) { toast.error('Please select a time entry record'); return }
     if (!form.reason.trim()) { toast.error('Reason is required'); return }
     if (!form.timeIn && !form.timeOut) { toast.error('Enter at least one time to correct'); return }
 
@@ -72,6 +134,7 @@ export default function TimeCorrectionPortalPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          dtrRecordId: form.dtrRecordId,
           date: form.date,
           timeIn:  form.timeIn  || null,
           timeOut: form.timeOut || null,
@@ -83,7 +146,7 @@ export default function TimeCorrectionPortalPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data?.error ?? 'Failed to submit'); return }
       toast.success('Correction request submitted')
-      setForm({ date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '', reason: '' })
+      setForm({ dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '', reason: '' })
       setShowForm(false)
       fetchCorrections()
     } finally {
@@ -130,6 +193,25 @@ export default function TimeCorrectionPortalPage() {
           <h2 className="text-sm font-semibold text-gray-700">New Correction Request</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Time Entry Record *</label>
+              <select
+                value={form.dtrRecordId}
+                onChange={e => handleSelectTimeEntry(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
+                required
+              >
+                <option value="">Select a time entry</option>
+                {timeEntries.map((record) => (
+                  <option key={record.id} value={record.id}>
+                    #{record.id.slice(0, 8)} • {format(new Date(record.date), 'MMM d, yyyy')} • In {formatTimeValue(record.timeIn)} • Out {formatTimeValue(record.timeOut)}
+                  </option>
+                ))}
+              </select>
+              {form.dtrRecordId && (
+                <p className="text-[11px] text-gray-500 mt-1">Selected Record ID: {form.dtrRecordId}</p>
+              )}
+            </div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
               <input
                 type="date"
@@ -138,6 +220,7 @@ export default function TimeCorrectionPortalPage() {
                 onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
                 required
+                readOnly
               />
             </div>
             <div>

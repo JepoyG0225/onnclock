@@ -11,6 +11,8 @@ const payrollSettingsSchema = z.object({
   secondCutoffStartDay: z.coerce.number().int().min(1).max(31),
   secondCutoffEndDay: z.coerce.number().int().min(1).max(31),
   defaultPayDelayDays: z.coerce.number().int().min(0).max(60),
+  timezone: z.string().min(1).max(100).optional(),
+  payrollCurrency: z.string().min(3).max(10).optional(),
 })
 
 function atStartOfDay(date: Date) {
@@ -92,6 +94,39 @@ async function safeReadLastPayrollRunEnd(companyId: string) {
   } catch (e: unknown) {
     if (isMissingPayrollRunSchemaError(e)) return null
     throw e
+  }
+}
+
+async function safeReadCompanyPayrollLocale(companyId: string) {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ timezone: string | null; payrollCurrency: string | null }>>`
+      SELECT "timezone", "payrollCurrency"
+      FROM "companies"
+      WHERE "id" = ${companyId}
+      LIMIT 1
+    `
+    const row = rows?.[0]
+    return {
+      timezone: row?.timezone || 'Asia/Manila',
+      payrollCurrency: (row?.payrollCurrency || 'PHP').toUpperCase(),
+    }
+  } catch {
+    return { timezone: 'Asia/Manila', payrollCurrency: 'PHP' }
+  }
+}
+
+async function safeWriteCompanyPayrollLocale(companyId: string, timezone: string, payrollCurrency: string) {
+  try {
+    await prisma.$executeRaw`
+      UPDATE "companies"
+      SET "timezone" = ${timezone},
+          "payrollCurrency" = ${payrollCurrency},
+          "updatedAt" = NOW()
+      WHERE "id" = ${companyId}
+    `
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -208,9 +243,10 @@ export async function GET() {
     const { ctx, error } = await requireAuth()
     if (error) return error
 
-    const [config, lastRun] = await Promise.all([
+    const [config, lastRun, locale] = await Promise.all([
       safeReadPayrollCycleConfig(ctx.companyId),
       safeReadLastPayrollRunEnd(ctx.companyId),
+      safeReadCompanyPayrollLocale(ctx.companyId),
     ])
 
     const resolved = {
@@ -230,6 +266,7 @@ export async function GET() {
 
     return NextResponse.json({
       settings: resolved,
+      locale,
       nextPeriod: {
         periodStart: next.start.toISOString().slice(0, 10),
         periodEnd: next.end.toISOString().slice(0, 10),
@@ -278,5 +315,17 @@ export async function PATCH(req: NextRequest) {
     },
   })
 
-  return NextResponse.json({ settings })
+  const currentLocale = await safeReadCompanyPayrollLocale(ctx.companyId)
+  const timezone = (data.timezone ?? currentLocale.timezone).trim()
+  const payrollCurrency = (data.payrollCurrency ?? currentLocale.payrollCurrency).trim().toUpperCase()
+  const localeSaved = await safeWriteCompanyPayrollLocale(ctx.companyId, timezone, payrollCurrency)
+
+  return NextResponse.json({
+    settings,
+    locale: {
+      timezone,
+      payrollCurrency,
+      persisted: localeSaved,
+    },
+  })
 }

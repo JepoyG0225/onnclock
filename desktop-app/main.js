@@ -939,6 +939,14 @@ async function handleEndBreak() {
   const res = await apiRequest('POST', '/api/attendance/break-end', null)
   if (!res.ok) {
     const msg = res.data?.error ?? 'Failed to end break.'
+    const isAlreadyEnded = res.status === 409 && /no active break/i.test(String(msg))
+    if (isAlreadyEnded) {
+      await syncClockStateFromServer('break-end-already-ended')
+      rebuildTrayMenu()
+      broadcastStatus()
+      new Notification({ title: 'OnClock', body: 'Break was already ended on the server.' }).show()
+      return { ok: true, recovered: true }
+    }
     log(`Break end failed: ${msg}`)
     new Notification({ title: 'OnClock', body: msg }).show()
     await syncClockStateFromServer('break-end-failed')

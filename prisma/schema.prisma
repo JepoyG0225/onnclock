@@ -286,6 +286,8 @@ model Company {
   geofenceLng                   Float?
   geofenceRadiusMeters          Int?
   defaultBreakMinutes           Int      @default(60)
+  timezone                      String   @default("Asia/Manila")
+  payrollCurrency               String   @default("PHP")
   thirteenthPayStartMonth       Int      @default(1)
   thirteenthPayStartDay         Int      @default(1)
   thirteenthPayEndMonth         Int      @default(12)
