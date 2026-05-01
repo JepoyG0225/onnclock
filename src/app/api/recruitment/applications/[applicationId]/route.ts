@@ -155,16 +155,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ap
       where: { id: ctx.companyId },
       select: { name: true },
     })
-    const templates = await tx.$queryRaw<Array<{
-      type: 'INTERVIEW' | 'REJECTION' | 'OFFER'
-      subject: string
-      body: string
-    }>`
+    const templates = await tx.$queryRaw`
       SELECT "type", "subject", "body"
       FROM "recruitment_email_templates"
       WHERE "companyId" = ${ctx.companyId}
         AND "isActive" = true
-    `
+    ` as Array<{
+      type: 'INTERVIEW' | 'REJECTION' | 'OFFER'
+      subject: string
+      body: string
+    }>
 
     return { application, companyName: company?.name ?? 'Onclock', templates }
   })

@@ -4,19 +4,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Building, Shield, Users, Lock, Copy, Check, HardDrive, FileText, Briefcase, ArrowUpRight, Loader2, Sparkles, AlertTriangle, PackagePlus, CheckCircle2, X } from 'lucide-react'
+import { Building, Shield, Users, Lock, Copy, Check, HardDrive, FileText, Briefcase, ArrowUpRight, Loader2, Sparkles, AlertTriangle, PackagePlus, CheckCircle2, X, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 
 export default function SettingsPage() {
   const [saving,  setSaving]  = useState(false)
+  const [savingEmail, setSavingEmail] = useState(false)
   const [copiedPortal, setCopiedPortal] = useState(false)
   const [form, setForm] = useState({
     name: '', industry: '', address: '', phone: '', email: '', website: '',
-    senderEmail: '', senderName: '',
     logoUrl: '',
     tinNo: '', sssNo: '', philhealthNo: '', pagibigNo: '', birNo: '',
+  })
+  const [smtp, setSmtp] = useState({
+    smtpHost: '',
+    smtpPort: 465,
+    smtpSecure: true,
+    smtpUser: '',
+    smtpPass: '',
+    smtpFromEmail: '',
+    smtpFromName: '',
+    hasSmtpPass: false,
   })
 
   async function load() {
@@ -28,8 +38,6 @@ export default function SettingsPage() {
       address:      data.address ?? '',
       phone:        data.phone ?? '',
       email:        data.email ?? '',
-      senderEmail:  data.senderEmail ?? '',
-      senderName:   data.senderName ?? '',
       website:      data.website ?? '',
       logoUrl:      data.logoUrl ?? '',
       tinNo:        data.tinNo ?? '',
@@ -41,6 +49,28 @@ export default function SettingsPage() {
   }
 
   useEffect(() => { void load() }, [])
+
+  async function loadEmailSettings() {
+    try {
+      const res = await fetch('/api/recruitment/email-settings')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.smtp) return
+      setSmtp({
+        smtpHost: data.smtp.smtpHost ?? '',
+        smtpPort: Number(data.smtp.smtpPort ?? 465),
+        smtpSecure: Boolean(data.smtp.smtpSecure ?? true),
+        smtpUser: data.smtp.smtpUser ?? '',
+        smtpPass: '',
+        smtpFromEmail: data.smtp.smtpFromEmail ?? '',
+        smtpFromName: data.smtp.smtpFromName ?? '',
+        hasSmtpPass: Boolean(data.smtp.hasSmtpPass),
+      })
+    } catch {
+      // silent
+    }
+  }
+
+  useEffect(() => { void loadEmailSettings() }, [])
 
   async function save() {
     setSaving(true)
@@ -177,6 +207,9 @@ export default function SettingsPage() {
           <TabsTrigger value="government" className="flex items-center gap-2">
             <Shield className="w-3.5 h-3.5" />Government IDs
           </TabsTrigger>
+          <TabsTrigger value="email" className="flex items-center gap-2">
+            <Mail className="w-3.5 h-3.5" />Email
+          </TabsTrigger>
           <TabsTrigger value="users" asChild>
             <Link href="/settings/users" className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <Users className="w-3.5 h-3.5" />User Management
@@ -226,20 +259,15 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fields(['name', 'industry', 'address', 'phone', 'email', 'website', 'senderName', 'senderEmail'], {
+                {fields(['name', 'industry', 'address', 'phone', 'email', 'website'], {
                   name: 'Company Name *',
                   industry: 'Industry',
                   address: 'Business Address',
                   phone: 'Phone Number',
                   email: 'Company Email',
                   website: 'Website',
-                  senderName: 'Email Sender Name',
-                  senderEmail: 'Email Sender Address',
                 })}
               </div>
-              <p className="text-xs text-gray-500 -mt-1">
-                Sender email is used as the &quot;From&quot; identity for company notices (where supported).
-              </p>
 
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Employee Portal URL</label>
@@ -323,6 +351,81 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">SMTP Email Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Configure SMTP credentials to send emails using your company email account.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">SMTP Host</label>
+                  <Input value={smtp.smtpHost} onChange={e => setSmtp(prev => ({ ...prev, smtpHost: e.target.value }))} placeholder="smtp.yourdomain.com" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">SMTP Port</label>
+                  <Input type="number" value={smtp.smtpPort} onChange={e => setSmtp(prev => ({ ...prev, smtpPort: Number(e.target.value || 465) }))} placeholder="465" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">SMTP Username</label>
+                  <Input value={smtp.smtpUser} onChange={e => setSmtp(prev => ({ ...prev, smtpUser: e.target.value }))} placeholder="hr@yourcompany.com" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">SMTP Password</label>
+                  <Input type="password" value={smtp.smtpPass} onChange={e => setSmtp(prev => ({ ...prev, smtpPass: e.target.value }))} placeholder={smtp.hasSmtpPass ? 'Leave blank to keep current password' : 'Enter SMTP password'} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">From Name</label>
+                  <Input value={smtp.smtpFromName} onChange={e => setSmtp(prev => ({ ...prev, smtpFromName: e.target.value }))} placeholder="Company HR Team" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">From Email</label>
+                  <Input type="email" value={smtp.smtpFromEmail} onChange={e => setSmtp(prev => ({ ...prev, smtpFromEmail: e.target.value }))} placeholder="hr@yourcompany.com" />
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={smtp.smtpSecure} onChange={e => setSmtp(prev => ({ ...prev, smtpSecure: e.target.checked }))} />
+                Use secure connection (SSL/TLS)
+              </label>
+              <Button
+                onClick={async () => {
+                  setSavingEmail(true)
+                  try {
+                    const payload: Record<string, unknown> = {
+                      smtpHost: smtp.smtpHost || null,
+                      smtpPort: Number(smtp.smtpPort || 465),
+                      smtpSecure: smtp.smtpSecure,
+                      smtpUser: smtp.smtpUser || null,
+                      smtpFromEmail: smtp.smtpFromEmail || null,
+                      smtpFromName: smtp.smtpFromName || null,
+                    }
+                    if (smtp.smtpPass.trim()) payload.smtpPass = smtp.smtpPass
+                    const res = await fetch('/api/recruitment/email-settings', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (!res.ok) throw new Error(data?.error || 'Failed to save SMTP settings')
+                    setSmtp(prev => ({ ...prev, smtpPass: '', hasSmtpPass: Boolean(prev.smtpPass || prev.hasSmtpPass) }))
+                    toast.success('SMTP settings saved')
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : 'Failed to save SMTP settings')
+                  } finally {
+                    setSavingEmail(false)
+                  }
+                }}
+                disabled={savingEmail}
+              >
+                {savingEmail ? 'Saving...' : 'Save SMTP Settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

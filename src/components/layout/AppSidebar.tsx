@@ -19,8 +19,6 @@ import {
   Calendar,
   MapPin,
   Gift,
-  Lock,
-  UserCog,
   PanelLeftClose,
   PanelLeftOpen,
   CheckCircle,
@@ -121,13 +119,6 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Settings',
     href: '/settings',
     icon: Settings,
-    children: [
-      { label: 'Company Settings',    href: '/settings',             icon: Settings },
-      { label: 'Billing & Plan',      href: '/settings/billing',     icon: CreditCard },
-      { label: 'User Management',     href: '/settings/users',       icon: UserCog },
-      { label: 'Role Permissions',    href: '/settings/permissions', icon: Lock },
-      { label: 'Approval Workflows',  href: '/settings/approvals',   icon: CheckCircle },
-    ],
   },
 ]
 
@@ -783,4 +774,3 @@ function NavItemComponent({
     </Link>
   )
 }
-
