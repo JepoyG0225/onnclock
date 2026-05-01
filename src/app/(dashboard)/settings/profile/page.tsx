@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 type ProfileData = {
   user: { id: string; name: string | null; email: string; createdAt: string }
@@ -76,6 +77,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      <SettingsTabs />
       <div>
         <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
         <p className="text-gray-500 text-sm mt-1">Account details and security</p>

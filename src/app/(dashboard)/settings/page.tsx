@@ -1,15 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Building, Shield, Users, Lock, Copy, Check, HardDrive, FileText, Briefcase, ArrowUpRight, Loader2, Sparkles, AlertTriangle, PackagePlus, CheckCircle2, X, Mail } from 'lucide-react'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { Copy, Check, FileText, Briefcase, ArrowUpRight, Loader2, Sparkles, AlertTriangle, PackagePlus, CheckCircle2, X, HardDrive } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams()
   const [saving,  setSaving]  = useState(false)
   const [savingEmail, setSavingEmail] = useState(false)
   const [copiedPortal, setCopiedPortal] = useState(false)
@@ -122,6 +125,11 @@ export default function SettingsPage() {
 
   const portalBaseDomain = process.env.NEXT_PUBLIC_PORTAL_BASE_DOMAIN || 'onclockph.com'
   const portalUrl = `https://${portalBaseDomain}/portal`
+  const activeTab = (() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'government' || tab === 'email' || tab === 'storage') return tab
+    return 'company'
+  })()
 
   async function copyPortalUrl() {
     try {
@@ -194,36 +202,13 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsTabs />
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-500 text-sm mt-1">Company profile and configuration</p>
       </div>
 
-      <Tabs defaultValue="company">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="company" className="flex items-center gap-2">
-            <Building className="w-3.5 h-3.5" />Company
-          </TabsTrigger>
-          <TabsTrigger value="government" className="flex items-center gap-2">
-            <Shield className="w-3.5 h-3.5" />Government IDs
-          </TabsTrigger>
-          <TabsTrigger value="email" className="flex items-center gap-2">
-            <Mail className="w-3.5 h-3.5" />Email
-          </TabsTrigger>
-          <TabsTrigger value="users" asChild>
-            <Link href="/settings/users" className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
-              <Users className="w-3.5 h-3.5" />User Management
-            </Link>
-          </TabsTrigger>
-          <TabsTrigger value="permissions" asChild>
-            <Link href="/settings/permissions" className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
-              <Lock className="w-3.5 h-3.5" />Role Permissions
-            </Link>
-          </TabsTrigger>
-          <TabsTrigger value="storage" className="flex items-center gap-2">
-            <HardDrive className="w-3.5 h-3.5" />Storage
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab}>
 
         <TabsContent value="company" className="mt-4">
           <Card>

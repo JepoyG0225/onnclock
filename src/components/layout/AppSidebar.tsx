@@ -38,6 +38,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { useSidebar } from './SidebarContext'
+import { isFeatureNew } from '@/components/ui/NewFeatureBadge'
 
 const BRAND = '#1A2D42'
 
@@ -47,6 +48,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
   children?: NavItem[]
   comingSoon?: boolean
+  releasedAt?: string
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -76,7 +78,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Live GPS Map',             href: '/attendance/map',         icon: MapPin },
       { label: 'Tardiness Report',         href: '/attendance/tardiness',   icon: TrendingDown },
       { label: 'Overtime Requests',        href: '/overtime',               icon: Clock3 },
-      { label: 'Time Entry Corrections',   href: '/time-corrections',       icon: ClipboardEdit },
+      { label: 'Time Entry Corrections',   href: '/time-corrections',       icon: ClipboardEdit, releasedAt: '2026-05-01T00:00:00+08:00' },
       { label: 'Attendance Settings',      href: '/attendance/settings',    icon: Settings },
       { label: 'Work Schedules',           href: '/schedules',              icon: Calendar },
       { label: 'Holidays',                 href: '/holidays',               icon: CalendarDays },
@@ -103,7 +105,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },
-  { label: 'Announcements', href: '/announcements', icon: Megaphone },
+  { label: 'Announcements', href: '/announcements', icon: Megaphone, releasedAt: '2026-05-01T00:00:00+08:00' },
   {
     label: 'Reports',
     href: '/reports',
@@ -458,6 +460,13 @@ function CollapsedFlyout({
         </span>
       )
     }
+    if (child.releasedAt && isFeatureNew(child.releasedAt)) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-fuchsia-500 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          NEW
+        </span>
+      )
+    }
     if (PRO_LABELS.has(child.label)) {
       if (!hrisProEnabled) {
         return (
@@ -596,6 +605,13 @@ function NavItemComponent({
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-sky-500/80 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
           Soon
+        </span>
+      )
+    }
+    if (child.releasedAt && isFeatureNew(child.releasedAt)) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-fuchsia-500 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          NEW
         </span>
       )
     }
