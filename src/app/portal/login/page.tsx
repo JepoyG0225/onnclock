@@ -214,6 +214,30 @@ export default function PortalLoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
 
+            {!isIos && !isAndroid && (
+              <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-500 text-center uppercase tracking-wide">
+                  Download Employee Desktop App
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href="/api/desktop-app/download/employee/windows"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#2E4156] hover:text-[#1A2D42] transition-colors"
+                  >
+                    <Image src="/platform-icons/windows.svg" alt="Windows" width={14} height={14} />
+                    Windows
+                  </a>
+                  <a
+                    href="/api/desktop-app/download/employee/mac"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#2E4156] hover:text-[#1A2D42] transition-colors"
+                  >
+                    <Image src="/platform-icons/mac-21.png" alt="macOS" width={14} height={14} />
+                    macOS
+                  </a>
+                </div>
+              </div>
+            )}
+
             {!isStandalone && isAndroid && (
               <button
                 type="button"

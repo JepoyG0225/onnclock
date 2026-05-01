@@ -138,18 +138,18 @@ export default function LoginPage() {
         <p className="text-xs font-semibold text-slate-500 text-center uppercase tracking-wide">Download Desktop App</p>
         <div className="grid grid-cols-2 gap-2">
           <a
-            href="/api/desktop-app/download?platform=windows"
+            href="/download#admin"
             className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#2E4156] hover:text-[#1A2D42] transition-colors"
           >
             <Image src="/platform-icons/windows.svg" alt="Windows" width={14} height={14} />
-            Windows
+            Admin App
           </a>
           <a
-            href="/api/desktop-app/download?platform=mac"
+            href="/download#employee"
             className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#2E4156] hover:text-[#1A2D42] transition-colors"
           >
             <Image src="/platform-icons/mac-21.png" alt="macOS" width={14} height={14} />
-            macOS
+            Employee App
           </a>
         </div>
       </div>

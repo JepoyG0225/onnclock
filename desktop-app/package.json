@@ -8,15 +8,15 @@
   "scripts": {
     "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
     "start:mac": "electron .",
-    "build": "electron-builder --win --x64",
-    "build:win": "electron-builder --win --x64",
-    "build:mac": "electron-builder --mac zip --x64 --arm64",
-    "build:mac:dmg": "electron-builder --mac dmg --x64 --arm64",
-    "build:dir": "electron-builder --win --x64 --dir",
-    "build:mac:dir": "electron-builder --mac --x64 --arm64 --dir",
-    "build:admin:win": "electron-builder --win --x64 --config builder.admin.json",
-    "build:admin:mac": "electron-builder --mac zip --x64 --arm64 --config builder.admin.json",
-    "build:admin:mac:dmg": "electron-builder --mac dmg --x64 --arm64 --config builder.admin.json"
+    "build": "electron-builder --win --x64 --config.directories.output=dist/employee",
+    "build:win": "electron-builder --win --x64 --config.directories.output=dist/employee",
+    "build:mac": "electron-builder --mac zip --x64 --arm64 --config.directories.output=dist/employee",
+    "build:mac:dmg": "electron-builder --mac dmg --x64 --arm64 --config.directories.output=dist/employee",
+    "build:dir": "electron-builder --win --x64 --dir --config.directories.output=dist/employee",
+    "build:mac:dir": "electron-builder --mac --x64 --arm64 --dir --config.directories.output=dist/employee",
+    "build:admin:win": "electron-builder --win --x64 --config builder.admin.json --config.directories.output=dist/admin",
+    "build:admin:mac": "electron-builder --mac zip --x64 --arm64 --config builder.admin.json --config.directories.output=dist/admin",
+    "build:admin:mac:dmg": "electron-builder --mac dmg --x64 --arm64 --config builder.admin.json --config.directories.output=dist/admin"
   },
   "build": {
     "appId": "com.onclock.desktop",

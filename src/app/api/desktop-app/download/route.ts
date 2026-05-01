@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { DESKTOP_DOWNLOAD_ENV_HELP, resolveDesktopInstallerUrl } from '@/lib/desktop-download'
 
 /**
  * GET /api/desktop-app/download
@@ -12,15 +13,13 @@ import { NextRequest, NextResponse } from 'next/server'
  *   - Any direct .exe URL
  */
 export async function GET(req: NextRequest) {
-  const platform = req.nextUrl.searchParams.get('platform')?.toLowerCase()
-  const url =
-    platform === 'mac'
-      ? process.env.DESKTOP_INSTALLER_URL_MAC || process.env.DESKTOP_INSTALLER_URL
-      : process.env.DESKTOP_INSTALLER_URL
+  const role = req.nextUrl.searchParams.get('role')?.toLowerCase() === 'employee' ? 'employee' : 'admin'
+  const platform = req.nextUrl.searchParams.get('platform')?.toLowerCase() === 'mac' ? 'mac' : 'windows'
+  const url = resolveDesktopInstallerUrl(role, platform)
 
   if (!url) {
     return new NextResponse(
-      JSON.stringify({ error: 'Installer not configured. Set DESKTOP_INSTALLER_URL (and optional DESKTOP_INSTALLER_URL_MAC) on the server.' }),
+      JSON.stringify({ error: DESKTOP_DOWNLOAD_ENV_HELP }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     )
   }
