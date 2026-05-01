@@ -16,74 +16,105 @@ const createSchema = z.object({
   reason: z.string().min(5, 'Reason must be at least 5 characters'),
 })
 
+function parseIsoDateOnly(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, (month ?? 1) - 1, day ?? 1)
+}
+
+function isMissingTimeCorrectionSchemaError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  const code = error && typeof error === 'object' && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : ''
+  return (
+    code === 'P2021' ||
+    code === 'P2022' ||
+    message.includes('time_entry_corrections') ||
+    message.includes('TimeEntryCorrectionStatus')
+  )
+}
+
 // POST — employee creates a correction request
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireAuth(undefined, req)
-  if (error) return error
+  try {
+    const { ctx, error } = await requireAuth(undefined, req)
+    if (error) return error
 
-  const employeeId = await resolvePortalEmployeeId(ctx)
-  if (!employeeId) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+    const employeeId = await resolvePortalEmployeeId(ctx)
+    if (!employeeId) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
-  const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, companyId: ctx.companyId },
-    select: { id: true, companyId: true },
-  })
-  if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
-
-  const body = await req.json()
-  const parsed = createSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
-  }
-
-  const { date, dtrRecordId, timeIn, timeOut, breakIn, breakOut, reason } = parsed.data
-
-  let resolvedDtrRecordId: string | null = dtrRecordId ?? null
-  if (resolvedDtrRecordId) {
-    const dtr = await prisma.dTRRecord.findFirst({
-      where: { id: resolvedDtrRecordId, employeeId },
-      select: { id: true, date: true },
+    const employee = await prisma.employee.findFirst({
+      where: { id: employeeId, companyId: ctx.companyId },
+      select: { id: true, companyId: true },
     })
-    if (!dtr) {
-      return NextResponse.json({ error: 'Selected time entry was not found.' }, { status: 404 })
+    if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+
+    const body = await req.json().catch(() => null)
+    const parsed = createSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
     }
-    const pickedDate = dtr.date.toISOString().slice(0, 10)
-    if (pickedDate !== date) {
-      return NextResponse.json({ error: 'Selected time entry does not match the chosen date.' }, { status: 400 })
+
+    const { date, dtrRecordId, timeIn, timeOut, breakIn, breakOut, reason } = parsed.data
+
+    let resolvedDtrRecordId: string | null = dtrRecordId ?? null
+    if (resolvedDtrRecordId) {
+      const dtr = await prisma.dTRRecord.findFirst({
+        where: { id: resolvedDtrRecordId, employeeId },
+        select: { id: true, date: true },
+      })
+      if (!dtr) {
+        return NextResponse.json({ error: 'Selected time entry was not found.' }, { status: 404 })
+      }
+      const pickedDate = dtr.date.toISOString().slice(0, 10)
+      if (pickedDate !== date) {
+        return NextResponse.json({ error: 'Selected time entry does not match the chosen date.' }, { status: 400 })
+      }
+    } else {
+      const dtr = await prisma.dTRRecord.findFirst({
+        where: { employeeId, date: parseIsoDateOnly(date) },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      })
+      resolvedDtrRecordId = dtr?.id ?? null
     }
-  } else {
-    const dtr = await prisma.dTRRecord.findFirst({
-      where: { employeeId, date: new Date(date) },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
+
+    const dateOnly = parseIsoDateOnly(date)
+
+    // Check for duplicate pending request for same date
+    const existing = await prisma.timeEntryCorrection.findFirst({
+      where: { employeeId, date: dateOnly, status: 'PENDING' },
     })
-    resolvedDtrRecordId = dtr?.id ?? null
+    if (existing) {
+      return NextResponse.json({ error: 'You already have a pending correction request for this date.' }, { status: 409 })
+    }
+
+    const correction = await prisma.timeEntryCorrection.create({
+      data: {
+        companyId: employee.companyId,
+        employeeId,
+        dtrRecordId: resolvedDtrRecordId,
+        date: dateOnly,
+        timeIn: timeIn ?? null,
+        timeOut: timeOut ?? null,
+        breakIn: breakIn ?? null,
+        breakOut: breakOut ?? null,
+        reason,
+        status: 'PENDING',
+      },
+    })
+
+    return NextResponse.json({ correction }, { status: 201 })
+  } catch (error: unknown) {
+    if (isMissingTimeCorrectionSchemaError(error)) {
+      return NextResponse.json(
+        { error: 'Time correction feature is not yet enabled in this database. Please run latest migrations.' },
+        { status: 503 }
+      )
+    }
+    const detail = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to submit time correction request', detail }, { status: 500 })
   }
-
-  // Check for duplicate pending request for same date
-  const existing = await prisma.timeEntryCorrection.findFirst({
-    where: { employeeId, date: new Date(date), status: 'PENDING' },
-  })
-  if (existing) {
-    return NextResponse.json({ error: 'You already have a pending correction request for this date.' }, { status: 409 })
-  }
-
-  const correction = await prisma.timeEntryCorrection.create({
-    data: {
-      companyId: employee.companyId,
-      employeeId,
-      dtrRecordId: resolvedDtrRecordId,
-      date: new Date(date),
-      timeIn: timeIn ?? null,
-      timeOut: timeOut ?? null,
-      breakIn: breakIn ?? null,
-      breakOut: breakOut ?? null,
-      reason,
-      status: 'PENDING',
-    },
-  })
-
-  return NextResponse.json({ correction }, { status: 201 })
 }
 
 // GET — employee views their own requests; admins view all
