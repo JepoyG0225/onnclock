@@ -17,6 +17,7 @@ const fs = require('fs')
 const path = require('path')
 const Store = require('electron-store')
 const DEFAULT_SERVER_URL = 'https://onclockph.com'
+const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD'])
 // ----
 const store = new Store({
   clearInvalidConfig: true,
@@ -26,6 +27,7 @@ const store = new Store({
     userEmail: '',
     companyName: '',
     userId: '',
+    userRole: '',
     screenCaptureEnabled: false,
     frequencyMinutes: 5,
   },
@@ -58,6 +60,11 @@ let updateInfo = {
   latestVersion: null,
   downloadUrl: null,
   notes: null,
+}
+
+function isAdminAppBuild() {
+  const appName = String(app.getName() || '').toLowerCase()
+  return appName.includes('admin')
 }
 
 const CLOCK_STATE_SYNC_INTERVAL_MS = 30 * 1000
@@ -140,6 +147,11 @@ async function apiRequest(method, path, body) {
     const url = `${getServerUrl()}${path}`
     const token = getToken()
     const bodyStr = body ? JSON.stringify(body) : null
+    const platformLabel = process.platform === 'darwin'
+      ? 'macOS'
+      : process.platform === 'win32'
+        ? 'Windows'
+        : process.platform
 
     const request = net.request({
       method,
@@ -148,7 +160,7 @@ async function apiRequest(method, path, body) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        'User-Agent': `OnClock-Desktop/${app.getVersion()} (Windows)`,
+        'User-Agent': `OnClock-Desktop/${app.getVersion()} (${platformLabel})`,
       },
     })
 
@@ -220,7 +232,7 @@ function shouldStartHidden() {
 }
 
 function ensureAutoLaunchEnabled() {
-  if (process.platform !== 'win32' || !app.isPackaged) return
+  if (!['win32', 'darwin'].includes(process.platform) || !app.isPackaged) return
   try {
     const settings = app.getLoginItemSettings()
     const args = Array.isArray(settings.args) ? settings.args : []
@@ -231,10 +243,10 @@ function ensureAutoLaunchEnabled() {
         openAsHidden: true,
         args: ['--hidden'],
       })
-      log('Windows auto-start enabled (hidden)')
+      log('Auto-start enabled (hidden)')
     }
   } catch (err) {
-    log(`Failed to configure Windows auto-start: ${err.message}`)
+    log(`Failed to configure auto-start: ${err.message}`)
   }
 }
 
@@ -442,12 +454,20 @@ function updateTrayTooltip() {
   if (!tray) return
   const email = store.get('userEmail', '')
   const company = store.get('companyName', '')
-  const status = isClockedIn ? `Clocked in  - ${captureCount} capture(s)` : 'Not clocked in'
+  const role = store.get('userRole', '')
+  const isAdminSession = ADMIN_ROLES.has(role)
+  const status = isAdminSession
+    ? 'Admin session active'
+    : isClockedIn
+      ? `Clocked in  - ${captureCount} capture(s)`
+      : 'Not clocked in'
   tray.setToolTip(`OnClock Desktop\n${email}${company ? `  - ${company}` : ''}\n${status}`)
 }
 
 function rebuildTrayMenu() {
   if (!tray) return
+  const role = store.get('userRole', '')
+  const isAdminSession = ADMIN_ROLES.has(role)
   const menu = Menu.buildFromTemplate([
     {
       label: 'OnClock Desktop',
@@ -460,28 +480,32 @@ function rebuildTrayMenu() {
     { type: 'separator' },
     ...(getToken()
       ? [
-          {
-            label: isClockedIn ? 'Clocked In' : 'Clock In',
-            enabled: !isClockedIn,
-            click: () => handleClockIn(),
-          },
-          {
-            label: 'Clock Out',
-            enabled: isClockedIn,
-            click: () => handleClockOut(),
-          },
-          { type: 'separator' },
-          {
-            label: isOnBreak ? 'End Break' : 'Start Break',
-            enabled: isClockedIn && (isOnBreak || allowedBreakMinutes > 0),
-            click: () => isOnBreak ? handleEndBreak() : handleStartBreak(),
-          },
-          {
-            label: 'Take Screenshot Now',
-            enabled: isClockedIn && !isOnBreak && store.get('screenCaptureEnabled', false),
-            click: () => captureAndUpload(),
-          },
-          { type: 'separator' },
+          ...(isAdminSession
+            ? []
+            : [
+                {
+                  label: isClockedIn ? 'Clocked In' : 'Clock In',
+                  enabled: !isClockedIn,
+                  click: () => handleClockIn(),
+                },
+                {
+                  label: 'Clock Out',
+                  enabled: isClockedIn,
+                  click: () => handleClockOut(),
+                },
+                { type: 'separator' },
+                {
+                  label: isOnBreak ? 'End Break' : 'Start Break',
+                  enabled: isClockedIn && (isOnBreak || allowedBreakMinutes > 0),
+                  click: () => isOnBreak ? handleEndBreak() : handleStartBreak(),
+                },
+                {
+                  label: 'Take Screenshot Now',
+                  enabled: isClockedIn && !isOnBreak && store.get('screenCaptureEnabled', false),
+                  click: () => captureAndUpload(),
+                },
+                { type: 'separator' },
+              ]),
           {
             label: 'Open Dashboard...',
             click: () => shell.openExternal(getServerUrl()),
@@ -829,6 +853,7 @@ function broadcastStatus() {
 }
 
 function getStatusPayload() {
+  const role = store.get('userRole', '')
   return {
     loggedIn: !!getToken(),
     isClockedIn,
@@ -841,6 +866,9 @@ function getStatusPayload() {
     update: updateInfo,
     email: store.get('userEmail', ''),
     companyName: store.get('companyName', ''),
+    role,
+    isAdminRole: ADMIN_ROLES.has(role),
+    isAdminBuild: isAdminAppBuild(),
     screenCaptureEnabled: store.get('screenCaptureEnabled', false),
     frequencyMinutes: store.get('frequencyMinutes', 5),
   }
@@ -963,10 +991,14 @@ async function handleLogin({ email, password }) {
       return { ok: false, error: res.data?.error ?? 'Login failed' }
     }
     const { token, user, screenCapture } = res.data
+    if (isAdminAppBuild() && !ADMIN_ROLES.has(user.role)) {
+      return { ok: false, error: 'This desktop app is for admin accounts only.' }
+    }
     store.set('token', token)
     store.set('userEmail', user.email)
     store.set('userId', user.id)
     store.set('companyName', user.companyName ?? '')
+    store.set('userRole', user.role ?? '')
     store.set('screenCaptureEnabled', resolveScreenCaptureEnabled(screenCapture))
     store.set('frequencyMinutes', screenCapture?.frequencyMinutes ?? 5)
     log(`Logged in as ${user.email} (${user.companyName})`)
@@ -989,6 +1021,7 @@ async function handleLogout() {
   store.set('userEmail', '')
   store.set('userId', '')
   store.set('companyName', '')
+  store.set('userRole', '')
   isClockedIn = false
   currentDtrRecordId = null
   captureCount = 0
@@ -1026,6 +1059,7 @@ ipcMain.handle('auth:getSession', () => ({
   loggedIn: !!getToken(),
   email: store.get('userEmail', ''),
   companyName: store.get('companyName', ''),
+  role: store.get('userRole', ''),
 }))
 ipcMain.handle('attendance:clockIn', async (_e, location) => {
   const result = await handleClockIn(location)
@@ -1200,8 +1234,8 @@ function createTray() {
   try {
     icon = nativeImage.createFromPath(iconPath)
     if (icon.isEmpty()) throw new Error('empty')
-    // Resize to 16x16 for the Windows system tray
-    icon = icon.resize({ width: 16, height: 16 })
+    const trayIconSize = process.platform === 'darwin' ? 18 : 16
+    icon = icon.resize({ width: trayIconSize, height: trayIconSize })
   } catch {
     // Fallback: orange square
     icon = nativeImage.createFromDataURL(
@@ -1263,5 +1297,3 @@ app.on('before-quit', () => {
   stopBreakWarningLoop()
   stopUpdateCheckLoop()
 })
-
-

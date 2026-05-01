@@ -1,0 +1,47 @@
+{
+  "appId": "com.onclock.admin.desktop",
+  "productName": "OnClock Admin Desktop",
+  "artifactName": "OnClock-Admin-Desktop-${version}-${os}-${arch}.${ext}",
+  "copyright": "Copyright © 2026 OnClock PH",
+  "win": {
+    "icon": "assets/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "mac": {
+    "icon": "assets/icon.icns",
+    "category": "public.app-category.business",
+    "target": [
+      { "target": "dmg", "arch": ["x64", "arm64"] },
+      { "target": "zip", "arch": ["x64", "arm64"] }
+    ],
+    "extendInfo": {
+      "LSUIElement": false,
+      "NSLocationWhenInUseUsageDescription": "OnClock uses your location for attendance geofence checks while clocking in and out."
+    }
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "OnClock Admin Desktop"
+  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "renderer/**/*",
+    "assets/**/*",
+    "node_modules/**/*"
+  ],
+  "extraResources": [],
+  "publish": null,
+  "extraMetadata": {
+    "name": "onclock-admin-desktop",
+    "description": "OnClock Admin Desktop app for HR and company administrators"
+  }
+}

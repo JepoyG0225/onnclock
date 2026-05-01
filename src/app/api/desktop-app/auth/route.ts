@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
           role: true,
           company: { select: { name: true, screenCaptureEnabled: true, screenCaptureFrequencyMinutes: true } },
         },
-        take: 1,
       },
     },
   })
@@ -55,7 +54,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 })
   }
 
-  const membership = user.companies[0]
+  const ROLE_PRIORITY: Record<string, number> = {
+    SUPER_ADMIN: 0,
+    COMPANY_ADMIN: 1,
+    HR_MANAGER: 2,
+    PAYROLL_OFFICER: 3,
+    DEPARTMENT_HEAD: 4,
+    EMPLOYEE: 5,
+  }
+  const membership = [...user.companies].sort(
+    (a, b) => (ROLE_PRIORITY[a.role] ?? 99) - (ROLE_PRIORITY[b.role] ?? 99)
+  )[0]
   if (!membership) {
     return NextResponse.json({ error: 'No active company associated with this account.' }, { status: 403 })
   }

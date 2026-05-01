@@ -584,8 +584,18 @@
       </div>
     </div>
 
+    <div class="card" id="admin-panel" style="display:none;">
+      <div class="section-header" style="margin-bottom:10px;">
+        <div class="section-title">Admin Workspace</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-orange" id="open-admin-dashboard-btn">Open Dashboard</button>
+        <button class="btn btn-ghost" id="open-admin-settings-btn">Open Settings</button>
+      </div>
+    </div>
+
     <!-- Clock hero -->
-    <div class="clock-card">
+    <div class="clock-card" id="clock-card">
       <div>
         <div><span class="clock-time" id="clock-time">12:00</span><span class="clock-ampm" id="clock-ampm">AM</span></div>
         <div class="clock-date" id="clock-date">-</div>
@@ -671,7 +681,7 @@
       </button>
     </div>
 
-    <div class="history-card">
+    <div class="history-card" id="history-card">
       <div class="history-title">Attendance History</div>
       <div class="history-list" id="attendance-history-list">
         <div class="history-empty">Loading attendance history...</div>
@@ -847,6 +857,10 @@ const appVersionEl    = document.getElementById('app-version')
 const userAvatar      = document.getElementById('user-avatar')
 const userEmail       = document.getElementById('user-email')
 const userCompany     = document.getElementById('user-company')
+const adminPanel      = document.getElementById('admin-panel')
+const openAdminDashboardBtn = document.getElementById('open-admin-dashboard-btn')
+const openAdminSettingsBtn  = document.getElementById('open-admin-settings-btn')
+const clockCard       = document.getElementById('clock-card')
 const clockTimeEl     = document.getElementById('clock-time')
 const clockAmpmEl     = document.getElementById('clock-ampm')
 const clockDateEl     = document.getElementById('clock-date')
@@ -871,6 +885,7 @@ const actionError     = document.getElementById('action-error')
 const actionErrorText = document.getElementById('action-error-text')
 const actionRowMain    = document.getElementById('action-row-main')
 const attendanceHistoryList = document.getElementById('attendance-history-list')
+const historyCard     = document.getElementById('history-card')
 const bottomNav       = document.getElementById('bottom-nav')
 const navHome         = document.getElementById('nav-home')
 const navLeaves       = document.getElementById('nav-leaves')
@@ -916,6 +931,9 @@ let latestCaptureSrc = null
 let currentActionPhase = 'clockin'
 let currentUpdateInfo = null
 let attendanceLoadInFlight = false
+let isAdminSession = false
+// ----
+const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD'])
 // ----
 function tickClock() {
   const now = new Date()
@@ -1218,15 +1236,22 @@ function showLoginView() {
 
 function showStatusView(data) {
   loginView.style.display='none'; statusView.style.display='flex'
-  bottomNav.style.display='block'
-  locationCard.style.display='block'
+  isAdminSession = Boolean(data.isAdminRole)
+  bottomNav.style.display = isAdminSession ? 'none' : 'block'
+  locationCard.style.display = isAdminSession ? 'none' : 'block'
+  adminPanel.style.display = isAdminSession ? 'block' : 'none'
+  clockCard.style.display = isAdminSession ? 'none' : 'flex'
+  breakBanner.style.display = isAdminSession ? 'none' : breakBanner.style.display
+  captureSection.style.display = isAdminSession ? 'none' : captureSection.style.display
+  actionRowMain.style.display = isAdminSession ? 'none' : actionRowMain.style.display
+  historyCard.style.display = isAdminSession ? 'none' : 'block'
 
   // Profile
   const email=data.email||''; const company=data.companyName||''
   userEmail.textContent=email||'Unknown'; userAvatar.textContent=getInitials(email); userCompany.textContent=company
   renderUpdateBanner(data.update)
 
-  const clocked   = Boolean(data.isClockedIn)
+  const clocked   = !isAdminSession && Boolean(data.isClockedIn)
   const onBreak   = Boolean(data.isOnBreak)
   breakAllowanceMinutes = Math.max(0, Number(data.breakMinutes ?? 0))
   const hasCapture = clocked && Boolean(data.screenCaptureEnabled)
@@ -1251,13 +1276,15 @@ function showStatusView(data) {
   }
 
   // Single phase-based action button (Clock In -> Break -> End Break -> Clock Out)
-  actionRowMain.style.display = 'flex'
-  currentActionPhase = getActionPhase(data)
-  setPrimaryActionButton(currentActionPhase)
-  void loadAttendanceHistory()
+  if (!isAdminSession) {
+    actionRowMain.style.display = 'flex'
+    currentActionPhase = getActionPhase(data)
+    setPrimaryActionButton(currentActionPhase)
+    void loadAttendanceHistory()
+  }
 
   // Screenshot section
-  if (hasCapture) {
+  if (!isAdminSession && hasCapture) {
     captureSection.style.display = 'block'
     captureCountBadge.textContent = `${data.captureCount??0} capture${(data.captureCount??0)!==1?'s':''}`
     // Show paused vs live
@@ -1275,7 +1302,9 @@ function showStatusView(data) {
   }
 
   startClockTick()
-  if (!currentLocation) { getLocation() } else if (leafletMap) { setTimeout(()=>leafletMap.invalidateSize(),100) }
+  if (!isAdminSession) {
+    if (!currentLocation) { getLocation() } else if (leafletMap) { setTimeout(()=>leafletMap.invalidateSize(),100) }
+  }
 }
 
 function updateStatus(data) { if(!data.loggedIn){showLoginView();return}; showStatusView(data) }
@@ -1344,6 +1373,7 @@ async function doEndBreakAction() {
 }
 
 primaryActionBtn.addEventListener('click', async()=>{
+  if (isAdminSession) return
   // Always resolve phase from fresh status before executing action.
   // This avoids stale UI phase when state changed from browser/tray sync.
   const latestStatus = await api.getStatus().catch(() => null)
@@ -1394,6 +1424,14 @@ updateInstallBtn.addEventListener('click', async () => {
   await api.openExternal(currentUpdateInfo.downloadUrl)
 })
 openPortal.addEventListener('click',e=>{e.preventDefault();window.open(portalUrl,'_blank')})
+openAdminDashboardBtn.addEventListener('click', async () => {
+  const serverUrl = await api.getServerUrl()
+  await api.openExternal(`${serverUrl}/dashboard`)
+})
+openAdminSettingsBtn.addEventListener('click', async () => {
+  const serverUrl = await api.getServerUrl()
+  await api.openExternal(`${serverUrl}/settings`)
+})
 // ----
 api.onStatusChange(data=>updateStatus(data))
 api.onLog(()=>{}) // log suppressed - no log UI in this version
@@ -1402,4 +1440,3 @@ init()
 </script>
 </body>
 </html>
-
