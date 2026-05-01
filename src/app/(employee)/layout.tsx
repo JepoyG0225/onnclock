@@ -6,6 +6,7 @@ import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { PortalHeader } from '@/components/employee/PortalHeader'
 import { PortalBottomNav } from '@/components/employee/PortalBottomNav'
 import { PortalSidebar } from '@/components/employee/PortalSidebar'
+import { PortalAnnouncementPopup } from '@/components/employee/PortalAnnouncementPopup'
 
 export default async function EmployeePortalLayout({
   children,
@@ -63,6 +64,9 @@ export default async function EmployeePortalLayout({
 
       {/* Mobile bottom navigation dock — hidden on desktop */}
       <PortalBottomNav showDisciplinary={showDisciplinary} />
+      {session.user.companyId && (
+        <PortalAnnouncementPopup userId={session.user.id} companyId={session.user.companyId} />
+      )}
 
     </div>
   )
