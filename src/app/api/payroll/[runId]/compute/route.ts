@@ -153,6 +153,42 @@ export async function POST(
     : 0
   const nightDiffStartMinutes = 22 * 60
   const nightDiffEndMinutes = 6 * 60
+  let differentialRules = {
+    regularOtRate: 1.25,
+    restDayOtRate: 1.69,
+    regularHolidayOtRate: 2.6,
+    specialHolidayOtRate: 1.69,
+  }
+  try {
+    const rows = await prisma.$queryRaw<Array<{
+      regularOtRate: number | { toNumber(): number }
+      restDayOtRate: number | { toNumber(): number }
+      regularHolidayOtRate: number | { toNumber(): number }
+      specialHolidayOtRate: number | { toNumber(): number }
+    }>>`
+      SELECT
+        "regularOtRate",
+        "restDayOtRate",
+        "regularHolidayOtRate",
+        "specialHolidayOtRate"
+      FROM "payroll_differential_configs"
+      WHERE "companyId" = ${ctx.companyId}
+      LIMIT 1
+    `
+    const row = rows[0]
+    if (row) {
+      const toNum = (value: number | { toNumber(): number }) =>
+        typeof value === 'object' ? value.toNumber() : Number(value)
+      differentialRules = {
+        regularOtRate: toNum(row.regularOtRate),
+        restDayOtRate: toNum(row.restDayOtRate),
+        regularHolidayOtRate: toNum(row.regularHolidayOtRate),
+        specialHolidayOtRate: toNum(row.specialHolidayOtRate),
+      }
+    }
+  } catch {
+    // defaults remain when table doesn't exist yet
+  }
 
   // Fetch all active employees with their active loans
   const employees = await prisma.employee.findMany({
@@ -403,6 +439,10 @@ export async function POST(
         payFrequency: run.payFrequency === 'SEMI_MONTHLY' ? 'SEMI_MONTHLY' : 'MONTHLY',
         isFirstCutoff: firstCutoff,
         nightDifferentialRate: nightDiffRate,
+        regularOtRate: differentialRules.regularOtRate,
+        restDayOtRate: differentialRules.restDayOtRate,
+        regularHolidayOtRate: differentialRules.regularHolidayOtRate,
+        specialHolidayOtRate: differentialRules.specialHolidayOtRate,
       },
       attendance: {
         daysWorked,

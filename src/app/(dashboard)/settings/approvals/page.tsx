@@ -1,23 +1,11 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ComponentType } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, FileText, Users, Plus, Trash2 } from 'lucide-react'
+import { CheckCircle, FileText, Users, Plus, Trash2, TimerReset, Clock3, ClipboardCheck } from 'lucide-react'
 import { toast } from 'sonner'
-
-const ROLE_COLORS: Record<string, string> = {
-  SUPER_ADMIN:     'bg-red-100 text-red-700',
-  COMPANY_ADMIN:   'bg-purple-100 text-purple-700',
-  HR_MANAGER:      'bg-[#C0C8CA] text-[#1A2D42]',
-  PAYROLL_OFFICER: 'bg-orange-100 text-orange-700',
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN:     'Super Admin',
-  COMPANY_ADMIN:   'Company Admin',
-  HR_MANAGER:      'HR Manager',
-  PAYROLL_OFFICER: 'Payroll Officer',
-}
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
+import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
 
 const LEVEL_LABELS: Record<number, string> = {
   1: '1st Approver',
@@ -33,34 +21,74 @@ function levelLabel(n: number) {
 
 interface UserOption {
   userId: string
-  name:   string | null
-  email:  string | null
-  role:   string
+  name: string | null
+  email: string | null
+  role: string
 }
 
 interface ApproverEntry {
-  type:   'PAYROLL' | 'LEAVE'
-  level:  number
+  type: ApprovalType
+  level: number
   userId: string
 }
 
-type WorkflowType = 'PAYROLL' | 'LEAVE'
+type ApprovalType = 'PAYROLL' | 'LEAVE' | 'OVERTIME' | 'TIME_CORRECTION' | 'ATTENDANCE_REVIEW'
 
-const PAYROLL_STEPS = [
-  { label: 'Draft',        desc: 'Payroll run created',               color: '#94a3b8' },
-  { label: 'Computed',     desc: 'Payslips calculated',               color: '#3b82f6' },
-  { label: 'For Approval', desc: 'Submitted by HR / Payroll Officer', color: '#f59e0b' },
-  { label: 'Approved',     desc: 'Approved by configured approvers',  color: '#10b981' },
-  { label: 'Locked',       desc: 'Final — no further changes',        color: '#8b5cf6' },
-]
+const WORKFLOW_META: Record<ApprovalType, { title: string; subtitle: string; icon: ComponentType<{ className?: string }>; steps: { label: string; desc: string; color: string }[] }> = {
+  PAYROLL: {
+    title: 'Payroll Approval Workflow',
+    subtitle: 'Controls payroll submit → approve → lock flow.',
+    icon: CheckCircle,
+    steps: [
+      { label: 'Draft', desc: 'Payroll run created', color: '#94a3b8' },
+      { label: 'For Approval', desc: 'Submitted by payroll team', color: '#f59e0b' },
+      { label: 'Approved', desc: 'Multi-level approval finished', color: '#10b981' },
+      { label: 'Locked', desc: 'Ready for release', color: '#8b5cf6' },
+    ],
+  },
+  LEAVE: {
+    title: 'Leave Request Workflow',
+    subtitle: 'Approvers review and decide requests in sequence.',
+    icon: FileText,
+    steps: [
+      { label: 'Filed', desc: 'Employee submits request', color: '#94a3b8' },
+      { label: 'Pending', desc: 'Awaiting approvers', color: '#f59e0b' },
+      { label: 'Approved/Rejected', desc: 'Final action by approvers', color: '#10b981' },
+    ],
+  },
+  OVERTIME: {
+    title: 'Overtime Request Workflow',
+    subtitle: 'Approval chain for overtime requests before payroll.',
+    icon: Clock3,
+    steps: [
+      { label: 'Submitted', desc: 'Employee files overtime', color: '#94a3b8' },
+      { label: 'Review', desc: 'Approvers validate reason/hours', color: '#f59e0b' },
+      { label: 'Approved', desc: 'Included in payroll run', color: '#10b981' },
+    ],
+  },
+  TIME_CORRECTION: {
+    title: 'Time Correction Workflow',
+    subtitle: 'Manages DTR correction approvals and audit trace.',
+    icon: TimerReset,
+    steps: [
+      { label: 'Requested', desc: 'Employee files correction', color: '#94a3b8' },
+      { label: 'Verification', desc: 'Approvers review records', color: '#f59e0b' },
+      { label: 'Applied', desc: 'Approved changes reflected in DTR', color: '#10b981' },
+    ],
+  },
+  ATTENDANCE_REVIEW: {
+    title: 'Attendance Review Workflow',
+    subtitle: 'Controls weekly attendance review approvals.',
+    icon: ClipboardCheck,
+    steps: [
+      { label: 'Submitted', desc: 'Week sent for review', color: '#94a3b8' },
+      { label: 'Approval', desc: 'Approvers validate attendance', color: '#f59e0b' },
+      { label: 'Finalized', desc: 'Ready for payroll', color: '#10b981' },
+    ],
+  },
+}
 
-const LEAVE_STEPS = [
-  { label: 'Filed',             desc: 'Employee submits request', color: '#94a3b8' },
-  { label: 'Pending',           desc: 'Awaiting review',          color: '#f59e0b' },
-  { label: 'Approved/Rejected', desc: 'Reviewed by approvers',    color: '#10b981' },
-]
-
-function WorkflowSteps({ steps }: { steps: typeof PAYROLL_STEPS }) {
+function WorkflowSteps({ steps }: { steps: { label: string; desc: string; color: string }[] }) {
   return (
     <div className="flex items-start w-full">
       {steps.map((s, i) => (
@@ -81,14 +109,14 @@ function WorkflowSteps({ steps }: { steps: typeof PAYROLL_STEPS }) {
 }
 
 export default function ApprovalWorkflowsPage() {
-  const [users,     setUsers]     = useState<UserOption[]>([])
+  const [users, setUsers] = useState<UserOption[]>([])
   const [approvers, setApprovers] = useState<ApproverEntry[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [saving,    setSaving]    = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res  = await fetch('/api/settings/approvers')
+    const res = await fetch('/api/settings/approvers')
     const data = await res.json().catch(() => ({}))
     setUsers(data.users ?? [])
     setApprovers(data.approvers ?? [])
@@ -97,23 +125,23 @@ export default function ApprovalWorkflowsPage() {
 
   useEffect(() => { load() }, [load])
 
-  function getApproversFor(type: WorkflowType): ApproverEntry[] {
+  function getApproversFor(type: ApprovalType): ApproverEntry[] {
     return approvers.filter(a => a.type === type).sort((a, b) => a.level - b.level)
   }
 
-  function nextLevel(type: WorkflowType): number {
+  function nextLevel(type: ApprovalType): number {
     const levels = getApproversFor(type).map(a => a.level)
     return levels.length === 0 ? 1 : Math.max(...levels) + 1
   }
 
-  async function setApprover(type: WorkflowType, level: number, userId: string) {
+  async function setApprover(type: ApprovalType, level: number, userId: string) {
     const key = `${type}-${level}`
     setSaving(key)
     try {
       const res = await fetch('/api/settings/approvers', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ userId, type, level }),
+        body: JSON.stringify({ userId, type, level }),
       })
       if (!res.ok) throw new Error()
       setApprovers(prev => {
@@ -128,14 +156,14 @@ export default function ApprovalWorkflowsPage() {
     }
   }
 
-  async function removeLevel(type: WorkflowType, level: number) {
+  async function removeLevel(type: ApprovalType, level: number) {
     const key = `${type}-${level}-del`
     setSaving(key)
     try {
       const res = await fetch('/api/settings/approvers', {
-        method:  'DELETE',
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ type, level }),
+        body: JSON.stringify({ type, level }),
       })
       if (!res.ok) throw new Error()
       setApprovers(prev => prev.filter(a => !(a.type === type && a.level === level)))
@@ -147,28 +175,20 @@ export default function ApprovalWorkflowsPage() {
     }
   }
 
-  function addLevel(type: WorkflowType) {
+  function addLevel(type: ApprovalType) {
     const level = nextLevel(type)
-    // Add a placeholder entry so the row appears; user must pick a user from dropdown
     setApprovers(prev => [...prev, { type, level, userId: '' }])
   }
 
-  function ApproverLevelRow({ type, entry }: { type: WorkflowType; entry: ApproverEntry }) {
+  function ApproverLevelRow({ type, entry }: { type: ApprovalType; entry: ApproverEntry }) {
     const { level, userId } = entry
-    const key  = `${type}-${level}`
+    const key = `${type}-${level}`
     const busy = saving === key || saving === `${key}-del`
 
     return (
       <div className="flex items-center gap-3">
-        {/* Level label */}
-        <span className="flex-shrink-0 w-28 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          {levelLabel(level)}
-        </span>
-
-        {/* Connector line */}
+        <span className="flex-shrink-0 w-28 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">{levelLabel(level)}</span>
         <div className="flex-shrink-0 w-4 h-px bg-gray-300" />
-
-        {/* User selector */}
         <select
           disabled={busy}
           value={userId}
@@ -182,8 +202,6 @@ export default function ApprovalWorkflowsPage() {
             </option>
           ))}
         </select>
-
-        {/* Remove button */}
         <button
           disabled={busy}
           onClick={() => removeLevel(type, level)}
@@ -196,30 +214,27 @@ export default function ApprovalWorkflowsPage() {
     )
   }
 
-  function ApproverSection({ type, steps }: { type: WorkflowType; steps: typeof PAYROLL_STEPS }) {
+  function ApproverSection({ type }: { type: ApprovalType }) {
     const entries = getApproversFor(type)
-    const icon    = type === 'PAYROLL'
-      ? <CheckCircle className="w-4 h-4 text-green-600" />
-      : <FileText className="w-4 h-4 text-[#2E4156]" />
-    const title   = type === 'PAYROLL' ? 'Payroll Approval Workflow' : 'Leave Request Approval Workflow'
+    const meta = WORKFLOW_META[type]
+    const Icon = meta.icon
 
     return (
-      <Card>
+      <Card className="border-0 shadow-md bg-white/95">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
-            {icon}
-            {title}
+            <Icon className="w-4 h-4 text-[#2E4156]" />
+            {meta.title}
             <span className="ml-auto text-xs font-normal text-gray-400">
               {entries.filter(e => e.userId).length} approver{entries.filter(e => e.userId).length !== 1 ? 's' : ''} configured
             </span>
           </CardTitle>
+          <p className="text-xs text-slate-500">{meta.subtitle}</p>
         </CardHeader>
         <CardContent className="space-y-5">
-          <WorkflowSteps steps={steps} />
-
+          <WorkflowSteps steps={meta.steps} />
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Approval Levels</p>
-
             {entries.length === 0 ? (
               <p className="text-sm text-gray-400 mb-3">No approval levels configured. Add the first approver below.</p>
             ) : (
@@ -229,13 +244,7 @@ export default function ApprovalWorkflowsPage() {
                 ))}
               </div>
             )}
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => addLevel(type)}
-              className="gap-1.5 text-xs border-dashed"
-            >
+            <Button size="sm" variant="outline" onClick={() => addLevel(type)} className="gap-1.5 text-xs border-dashed">
               <Plus className="w-3.5 h-3.5" />
               Add Approval Level
             </Button>
@@ -254,14 +263,21 @@ export default function ApprovalWorkflowsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Approval Workflows</h1>
-        <p className="text-gray-500 text-sm mt-1">Configure sequential approval levels for payroll runs and leave requests</p>
+    <div className="space-y-6 bg-gradient-to-b from-slate-50 to-white p-4 md:p-6 rounded-2xl">
+      <SettingsTabs />
+      <div className="rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">Approval Workflows v2</h1>
+          <NewFeatureBadge releasedAt="2026-05-01T00:00:00+08:00" />
+        </div>
+        <p className="text-gray-500 text-sm mt-1">Configure sequential approval levels for payroll, leave, overtime, time corrections, and attendance reviews</p>
       </div>
 
-      <ApproverSection type="PAYROLL" steps={PAYROLL_STEPS} />
-      <ApproverSection type="LEAVE"   steps={LEAVE_STEPS}   />
+      <ApproverSection type="PAYROLL" />
+      <ApproverSection type="LEAVE" />
+      <ApproverSection type="OVERTIME" />
+      <ApproverSection type="TIME_CORRECTION" />
+      <ApproverSection type="ATTENDANCE_REVIEW" />
 
       <Card>
         <CardContent className="p-4 flex items-center gap-3">
@@ -278,4 +294,3 @@ export default function ApprovalWorkflowsPage() {
     </div>
   )
 }
-

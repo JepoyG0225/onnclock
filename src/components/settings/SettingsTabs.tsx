@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Building, Shield, Mail, Users, Lock, CheckCircle, HardDrive } from 'lucide-react'
+import { Building, Shield, Mail, Users, Lock, CheckCircle, HardDrive, LineChart, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
 
 const TABS = [
   { href: '/settings', label: 'Company', icon: Building },
@@ -11,7 +12,9 @@ const TABS = [
   { href: '/settings?tab=email', label: 'Email', icon: Mail },
   { href: '/settings/users', label: 'User Management', icon: Users },
   { href: '/settings/permissions', label: 'Role Permissions', icon: Lock },
-  { href: '/settings/approvals', label: 'Approval Workflows', icon: CheckCircle },
+  { href: '/settings/approvals', label: 'Approval Workflows', icon: CheckCircle, releasedAt: '2026-05-01T00:00:00+08:00' },
+  { href: '/settings/payroll-rules', label: 'Shift Differential', icon: LineChart, releasedAt: '2026-05-01T00:00:00+08:00' },
+  { href: '/settings/audit', label: 'Audit & Compliance', icon: ShieldCheck, releasedAt: '2026-05-01T00:00:00+08:00' },
   { href: '/settings?tab=storage', label: 'Storage', icon: HardDrive },
 ] as const
 
@@ -43,6 +46,7 @@ export function SettingsTabs() {
           >
             <tab.icon className="h-3.5 w-3.5" />
             {tab.label}
+            {'releasedAt' in tab ? <NewFeatureBadge releasedAt={tab.releasedAt} /> : null}
           </Link>
         )
       })}

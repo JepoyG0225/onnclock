@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
+const ALLOWED_APPROVAL_TYPES = [
+  'PAYROLL',
+  'LEAVE',
+  'OVERTIME',
+  'TIME_CORRECTION',
+  'ATTENDANCE_REVIEW',
+] as const
+
+function isAllowedType(type: string) {
+  return ALLOWED_APPROVAL_TYPES.includes(type as (typeof ALLOWED_APPROVAL_TYPES)[number])
+}
+
 // GET — return all eligible users + approver configs grouped by type and level
 export async function GET() {
   const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
@@ -45,12 +57,15 @@ export async function POST(req: NextRequest) {
 
   const { userId, type, level } = await req.json() as {
     userId: string
-    type: 'PAYROLL' | 'LEAVE'
+    type: string
     level: number
   }
 
   if (!userId || !type || !level) {
     return NextResponse.json({ error: 'userId, type, and level required' }, { status: 400 })
+  }
+  if (!isAllowedType(type)) {
+    return NextResponse.json({ error: 'Invalid approval type' }, { status: 422 })
   }
 
   await prisma.approverConfig.upsert({
@@ -67,10 +82,13 @@ export async function DELETE(req: NextRequest) {
   const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
   if (error) return error
 
-  const { type, level } = await req.json() as { type: 'PAYROLL' | 'LEAVE'; level: number }
+  const { type, level } = await req.json() as { type: string; level: number }
 
   if (!type || !level) {
     return NextResponse.json({ error: 'type and level required' }, { status: 400 })
+  }
+  if (!isAllowedType(type)) {
+    return NextResponse.json({ error: 'Invalid approval type' }, { status: 422 })
   }
 
   await prisma.approverConfig.deleteMany({

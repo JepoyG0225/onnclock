@@ -10,8 +10,15 @@ import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 interface Member {
   id: string; userId: string; role: UserRole
+  customRoleId?: string | null
+  customRoleName?: string | null
   email?: string; createdAt: string
   user?: { name?: string | null; email?: string | null }
+}
+interface CustomRole {
+  id: string
+  name: string
+  baseRole: UserRole
 }
 
 interface EmployeeOption {
@@ -25,7 +32,7 @@ interface EmployeeOption {
 
 const ROLE_OPTIONS: UserRole[] = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']
 
-const EMPTY_FORM = { name: '', email: '', password: '', role: 'HR_MANAGER' as UserRole, employeeId: '' }
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'HR_MANAGER' as UserRole, customRoleId: '', employeeId: '' }
 
 export default function UsersPage() {
   const [members,   setMembers]   = useState<Member[]>([])
@@ -46,6 +53,7 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<{ id: string; label: string } | null>(null)
   const [editForm, setEditForm] = useState({ name: '', email: '' })
   const [editing, setEditing] = useState(false)
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([])
 
   async function load() {
     setLoading(true)
@@ -57,6 +65,14 @@ export default function UsersPage() {
 
   useEffect(() => { load() }, [])
   useEffect(() => {
+    async function loadCustomRoles() {
+      const res = await fetch('/api/settings/custom-roles')
+      const data = await res.json().catch(() => ({}))
+      setCustomRoles(data.roles ?? [])
+    }
+    loadCustomRoles()
+  }, [])
+  useEffect(() => {
     async function loadEmployees() {
       const res = await fetch('/api/employees?unlinked=1')
       const data = await res.json().catch(() => ({}))
@@ -65,11 +81,11 @@ export default function UsersPage() {
     loadEmployees()
   }, [])
 
-  async function changeRole(userId: string, role: UserRole) {
+  async function changeRole(userId: string, role: UserRole, customRoleId?: string) {
     const res = await fetch('/api/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, role }),
+      body: JSON.stringify({ userId, role, customRoleId: customRoleId || null }),
     })
     if (res.ok) { toast.success('Role updated'); load() }
     else toast.error('Failed to update role')
@@ -300,11 +316,30 @@ export default function UsersPage() {
                 <label className="text-xs font-semibold text-gray-600 block mb-1">Role *</label>
                 <select
                   value={form.role}
-                  onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))}
+                  onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole, customRoleId: '' }))}
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                 >
                   {ROLE_OPTIONS.map(r => (
                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">Custom Role (optional)</label>
+                <select
+                  value={form.customRoleId}
+                  onChange={e => {
+                    const id = e.target.value
+                    const selected = customRoles.find(role => role.id === id)
+                    setForm(f => ({ ...f, customRoleId: id, role: (selected?.baseRole ?? f.role) as UserRole }))
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">— None (use base role) —</option>
+                  {customRoles.map(role => (
+                    <option key={role.id} value={role.id}>
+                      {role.name} ({ROLE_LABELS[role.baseRole]})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -364,7 +399,7 @@ export default function UsersPage() {
                     </td>
                     <td className="p-3 text-center">
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[m.role]}`}>
-                        {ROLE_LABELS[m.role]}
+                        {m.customRoleName || ROLE_LABELS[m.role]}
                       </span>
                     </td>
                     <td className="p-3 text-xs text-gray-400">
@@ -372,12 +407,23 @@ export default function UsersPage() {
                     </td>
                     <td className="p-3 text-center">
                       <select
-                        value={m.role}
-                        onChange={e => changeRole(m.userId, e.target.value as UserRole)}
+                        value={m.customRoleId ?? m.role}
+                        onChange={e => {
+                          const next = e.target.value
+                          const custom = customRoles.find(role => role.id === next)
+                          if (custom) {
+                            changeRole(m.userId, custom.baseRole, custom.id)
+                          } else {
+                            changeRole(m.userId, next as UserRole)
+                          }
+                        }}
                         className="border rounded px-2 py-1 text-xs"
                       >
                         {ROLE_OPTIONS.map(r => (
                           <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                        ))}
+                        {customRoles.map(role => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
                         ))}
                       </select>
                     </td>

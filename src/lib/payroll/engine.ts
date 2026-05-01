@@ -4,8 +4,6 @@ import { getPhilHealthForPeriod } from './philhealth'
 import { getPagIBIGForPeriod } from './pagibig'
 import { computeWithholdingTax } from './bir'
 import {
-  computeRegularOT,
-  computeRestDayOT,
   computeHolidayPayAdditional,
   computeNightDifferential,
   computeAbsenceDeduction,
@@ -17,6 +15,10 @@ import {
  */
 export function computePayroll(input: PayrollInput): PayrollResult {
   const { employee, period, attendance, loans, deMinimis, allowances, ytd } = input
+  const regularOtRate = period.regularOtRate ?? 1.25
+  const restDayOtRate = period.restDayOtRate ?? 1.69
+  const regularHolidayOtRate = period.regularHolidayOtRate ?? 2.6
+  const specialHolidayOtRate = period.specialHolidayOtRate ?? 1.69
 
   const payPeriodsInYear = period.payFrequency === 'MONTHLY' ? 12 : 24
 
@@ -69,15 +71,15 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // ── 2. OVERTIME & PREMIUM PAY ─────────────────
   const hourlyRate = employee.hourlyRate > 0 ? employee.hourlyRate : employee.dailyRate / 8
 
-  const regularOtAmount = computeRegularOT(hourlyRate, attendance.regularOtHours)
-  const restDayOtAmount = computeRestDayOT(hourlyRate, attendance.restDayOtHours)
+  const regularOtAmount = parseFloat((hourlyRate * attendance.regularOtHours * regularOtRate).toFixed(2))
+  const restDayOtAmount = parseFloat((hourlyRate * attendance.restDayOtHours * restDayOtRate).toFixed(2))
 
   // Holiday OT: total of regular holiday OT + special holiday OT
   const regularHolidayOt = attendance.regularHolidayOtHours > 0
-    ? parseFloat((hourlyRate * attendance.regularHolidayOtHours * 2.60).toFixed(2))
+    ? parseFloat((hourlyRate * attendance.regularHolidayOtHours * regularHolidayOtRate).toFixed(2))
     : 0
   const specialHolidayOt = attendance.specialHolidayOtHours > 0
-    ? parseFloat((hourlyRate * attendance.specialHolidayOtHours * 1.69).toFixed(2))
+    ? parseFloat((hourlyRate * attendance.specialHolidayOtHours * specialHolidayOtRate).toFixed(2))
     : 0
   const holidayOtAmount = regularHolidayOt + specialHolidayOt
 

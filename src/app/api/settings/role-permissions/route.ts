@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { UserRole, ROLE_PERMISSIONS, Permission } from '@/lib/auth/permissions'
+import { ensureCustomRoleTables, listCompanyCustomRoles } from '@/lib/custom-roles'
 
 // GET /api/settings/role-permissions
 // Returns the effective permissions for every role for this company.
@@ -23,7 +24,11 @@ export async function GET() {
     result[role] = storedMap.get(role) ?? ROLE_PERMISSIONS[role]
   }
 
-  return NextResponse.json(result)
+  const customRoles = await listCompanyCustomRoles(ctx.companyId)
+  return NextResponse.json({
+    builtIn: result,
+    custom: customRoles,
+  })
 }
 
 // PUT /api/settings/role-permissions
@@ -34,17 +39,29 @@ export async function PUT(req: NextRequest) {
   if (error) return error
 
   const body = await req.json()
-  const { role, permissions } = body as { role: UserRole; permissions: Permission[] }
+  const { role, permissions } = body as { role: string; permissions: Permission[] }
 
   if (!role || !Array.isArray(permissions)) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  await prisma.companyRolePermission.upsert({
-    where:  { companyId_role: { companyId: ctx.companyId, role } },
-    create: { companyId: ctx.companyId, role, permissions },
-    update: { permissions },
-  })
+  if (role.startsWith('custom:')) {
+    const customRoleId = role.replace('custom:', '')
+    await ensureCustomRoleTables()
+    await prisma.$executeRaw`
+      UPDATE "company_custom_roles"
+      SET "permissions" = ${permissions as unknown as object},
+          "updatedAt" = NOW()
+      WHERE "companyId" = ${ctx.companyId}
+        AND "id" = ${customRoleId}
+    `
+  } else {
+    await prisma.companyRolePermission.upsert({
+      where:  { companyId_role: { companyId: ctx.companyId, role: role as UserRole } },
+      create: { companyId: ctx.companyId, role: role as UserRole, permissions },
+      update: { permissions },
+    })
+  }
 
   return NextResponse.json({ success: true, role, permissions })
 }
@@ -55,12 +72,26 @@ export async function DELETE(req: NextRequest) {
   const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
   if (error) return error
 
-  const role = new URL(req.url).searchParams.get('role') as UserRole | null
+  const role = new URL(req.url).searchParams.get('role')
   if (!role) return NextResponse.json({ error: 'role param required' }, { status: 400 })
 
-  await prisma.companyRolePermission.deleteMany({
-    where: { companyId: ctx.companyId, role },
-  })
+  if (role.startsWith('custom:')) {
+    const customRoleId = role.replace('custom:', '')
+    const customRoles = await listCompanyCustomRoles(ctx.companyId)
+    const custom = customRoles.find(r => r.id === customRoleId)
+    if (!custom) return NextResponse.json({ error: 'Custom role not found' }, { status: 404 })
+    await prisma.$executeRaw`
+      UPDATE "company_custom_roles"
+      SET "permissions" = ${ROLE_PERMISSIONS[custom.baseRole] as unknown as object},
+          "updatedAt" = NOW()
+      WHERE "companyId" = ${ctx.companyId} AND "id" = ${customRoleId}
+    `
+    return NextResponse.json({ success: true, role, permissions: ROLE_PERMISSIONS[custom.baseRole] })
+  } else {
+    await prisma.companyRolePermission.deleteMany({
+      where: { companyId: ctx.companyId, role: role as UserRole },
+    })
 
-  return NextResponse.json({ success: true, role, permissions: ROLE_PERMISSIONS[role] })
+    return NextResponse.json({ success: true, role, permissions: ROLE_PERMISSIONS[role as UserRole] })
+  }
 }

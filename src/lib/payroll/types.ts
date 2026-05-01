@@ -20,6 +20,10 @@ export interface PayrollInput {
     payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
     isFirstCutoff: boolean  // true = 1st–15th, false = 16th–end
     nightDifferentialRate: number
+    regularOtRate?: number
+    restDayOtRate?: number
+    regularHolidayOtRate?: number
+    specialHolidayOtRate?: number
   }
   attendance: {
     daysWorked: number

@@ -6,8 +6,10 @@ import {
   Briefcase, Link2, Pencil, Plus, RefreshCw, Users, MapPin, Clock,
   ChevronRight, X, Loader2, Eye, EyeOff, Trash2, Search, Building2,
   TrendingUp, CheckCircle, FileText, Wallet, Settings2,
+  ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
 import { format } from 'date-fns'
 
 type Job = {
@@ -164,6 +166,13 @@ export default function RecruitmentPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [tab, setTab] = useState<'ALL' | 'PUBLISHED' | 'DRAFT' | 'CLOSED'>('ALL')
   const [search, setSearch] = useState('')
+  const [analytics, setAnalytics] = useState({
+    totalApplications: 0,
+    interviewed: 0,
+    hired: 0,
+    conversionRate: 0,
+    avgTimeToHireDays: 0,
+  })
 
   const shareOrigin = useMemo(() => (typeof window !== 'undefined' ? window.location.origin : ''), [])
 
@@ -190,6 +199,21 @@ export default function RecruitmentPage() {
   }
 
   useEffect(() => { void loadJobs(); void loadDepartments() }, [])
+  useEffect(() => {
+    let mounted = true
+    async function loadAnalytics() {
+      try {
+        const res = await fetch('/api/recruitment/analytics')
+        const data = await res.json().catch(() => ({}))
+        if (!mounted || !res.ok || !data?.totals) return
+        setAnalytics(data.totals)
+      } catch {
+        // silent
+      }
+    }
+    void loadAnalytics()
+    return () => { mounted = false }
+  }, [])
 
   async function createJob() {
     if (!form.title.trim() || !form.description.trim()) return toast.error('Title and description are required')
@@ -308,7 +332,10 @@ export default function RecruitmentPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Job Postings</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Manage open roles, share links, and track applicants</p>
+          <p className="text-sm text-slate-500 mt-0.5">Manage open roles, share links, track applicants, and monitor pipeline analytics</p>
+          <div className="mt-1">
+            <NewFeatureBadge releasedAt="2026-05-01T00:00:00+08:00" />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadJobs} disabled={loading}
@@ -344,6 +371,29 @@ export default function RecruitmentPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Applications', value: analytics.totalApplications, icon: ClipboardList, tone: 'text-indigo-600 bg-indigo-50' },
+          { label: 'Interviewed', value: analytics.interviewed, icon: Users, tone: 'text-violet-600 bg-violet-50' },
+          { label: 'Hired', value: analytics.hired, icon: CheckCircle, tone: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Conversion Rate', value: `${analytics.conversionRate}%`, icon: TrendingUp, tone: 'text-fuchsia-600 bg-fuchsia-50' },
+        ].map(item => (
+          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className={`inline-flex rounded-lg p-2 ${item.tone}`}>
+              <item.icon className="h-4 w-4" />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">{item.label}</p>
+            <p className="text-xl font-black text-slate-900">{item.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 p-4 text-white shadow-md">
+        <p className="text-xs uppercase tracking-wide text-slate-200">Pipeline Insight</p>
+        <p className="mt-1 text-sm">
+          Average time-to-hire is <strong>{analytics.avgTimeToHireDays} days</strong> based on hired applicants.
+        </p>
       </div>
 
       {/* Tabs + Search */}

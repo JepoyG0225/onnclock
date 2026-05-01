@@ -3,12 +3,14 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { z } from 'zod'
+import { ensureCustomRoleTables, getCustomRoleById } from '@/lib/custom-roles'
 
 const createUserSchema = z.object({
   name:       z.string().min(1).optional(),
   email:      z.string().email().optional(),
   password:   z.string().min(8),
   role:       z.enum(['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD']),
+  customRoleId: z.string().optional().nullable(),
   managedDepartmentId: z.string().optional().nullable(),
   employeeId: z.string().optional(),
 })
@@ -22,8 +24,22 @@ export async function GET() {
     orderBy: { createdAt: 'asc' },
     include: { user: { select: { name: true, email: true } } },
   })
-
-  return NextResponse.json({ members })
+  await ensureCustomRoleTables()
+  const customAssignments = await prisma.$queryRaw<Array<{ userId: string; customRoleId: string; customRoleName: string }>>`
+    SELECT ucr."userId", ucr."customRoleId", ccr."name" AS "customRoleName"
+    FROM "user_custom_roles" ucr
+    JOIN "company_custom_roles" ccr
+      ON ccr."id" = ucr."customRoleId" AND ccr."companyId" = ucr."companyId"
+    WHERE ucr."companyId" = ${ctx.companyId}
+  `
+  const map = new Map(customAssignments.map(row => [row.userId, row]))
+  return NextResponse.json({
+    members: members.map(member => ({
+      ...member,
+      customRoleId: map.get(member.userId)?.customRoleId ?? null,
+      customRoleName: map.get(member.userId)?.customRoleName ?? null,
+    })),
+  })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -31,14 +47,35 @@ export async function PATCH(req: NextRequest) {
   if (error) return error
 
   const body = await req.json()
-  const { userId, role } = body
+  const { userId, role, customRoleId } = body
 
   if (!userId || !role) return NextResponse.json({ error: 'userId and role required' }, { status: 400 })
 
+  let baseRole = role
+  if (typeof customRoleId === 'string' && customRoleId) {
+    const customRole = await getCustomRoleById(ctx.companyId, customRoleId)
+    if (!customRole) return NextResponse.json({ error: 'Custom role not found' }, { status: 404 })
+    baseRole = customRole.baseRole
+  }
+
   await prisma.userCompany.updateMany({
     where: { userId, companyId: ctx.companyId },
-    data: { role },
+    data: { role: baseRole },
   })
+  await ensureCustomRoleTables()
+  if (typeof customRoleId === 'string' && customRoleId) {
+    await prisma.$executeRaw`
+      INSERT INTO "user_custom_roles" ("companyId", "userId", "customRoleId", "createdAt", "updatedAt")
+      VALUES (${ctx.companyId}, ${userId}, ${customRoleId}, NOW(), NOW())
+      ON CONFLICT ("companyId", "userId")
+      DO UPDATE SET "customRoleId" = EXCLUDED."customRoleId", "updatedAt" = NOW()
+    `
+  } else {
+    await prisma.$executeRaw`
+      DELETE FROM "user_custom_roles"
+      WHERE "companyId" = ${ctx.companyId} AND "userId" = ${userId}
+    `
+  }
 
   return NextResponse.json({ ok: true })
 }
@@ -62,6 +99,11 @@ export async function DELETE(req: NextRequest) {
   }
 
   await prisma.userCompany.delete({ where: { id: membership.id } })
+  await ensureCustomRoleTables()
+  await prisma.$executeRaw`
+    DELETE FROM "user_custom_roles"
+    WHERE "companyId" = ${ctx.companyId} AND "userId" = ${userId}
+  `
 
   return NextResponse.json({ ok: true })
 }
@@ -77,7 +119,13 @@ export async function POST(req: NextRequest) {
   }
 
   let { name, email } = parsed.data
-  const { password, role, employeeId, managedDepartmentId } = parsed.data
+  const { password, role, customRoleId, employeeId, managedDepartmentId } = parsed.data
+  let targetRole = role
+  if (customRoleId) {
+    const customRole = await getCustomRoleById(ctx.companyId, customRoleId)
+    if (!customRole) return NextResponse.json({ error: 'Custom role not found' }, { status: 404 })
+    targetRole = customRole.baseRole
+  }
 
   let employee: { id: string; firstName: string; lastName: string; workEmail: string | null; personalEmail: string | null; userId: string | null } | null = null
   let employeeMembershipRole: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'HR_MANAGER' | 'PAYROLL_OFFICER' | 'DEPARTMENT_HEAD' | 'EMPLOYEE' | null = null
@@ -136,12 +184,21 @@ export async function POST(req: NextRequest) {
     if (employeeMembershipRole) {
       await prisma.userCompany.updateMany({
         where: { userId: user.id, companyId: ctx.companyId },
-        data: { role, isActive: true, ...(managedDepartmentId !== undefined ? { managedDepartmentId } : {}) },
+        data: { role: targetRole, isActive: true, ...(managedDepartmentId !== undefined ? { managedDepartmentId } : {}) },
       })
     } else {
       await prisma.userCompany.create({
-        data: { userId: user.id, companyId: ctx.companyId, role, isActive: true, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
+        data: { userId: user.id, companyId: ctx.companyId, role: targetRole, isActive: true, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
       })
+    }
+    await ensureCustomRoleTables()
+    if (customRoleId) {
+      await prisma.$executeRaw`
+        INSERT INTO "user_custom_roles" ("companyId", "userId", "customRoleId", "createdAt", "updatedAt")
+        VALUES (${ctx.companyId}, ${user.id}, ${customRoleId}, NOW(), NOW())
+        ON CONFLICT ("companyId", "userId")
+        DO UPDATE SET "customRoleId" = EXCLUDED."customRoleId", "updatedAt" = NOW()
+      `
     }
 
     return NextResponse.json({ ok: true, userId: user.id }, { status: 201 })
@@ -160,15 +217,24 @@ export async function POST(req: NextRequest) {
     }
     // Add existing user to company
     await prisma.userCompany.create({
-      data: { userId: user.id, companyId: ctx.companyId, role, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
+      data: { userId: user.id, companyId: ctx.companyId, role: targetRole, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
     })
   } else {
     // Create new user and add to company
     const passwordHash = await hash(password, 12)
     user = await prisma.user.create({ data: { email, name, passwordHash } })
     await prisma.userCompany.create({
-      data: { userId: user.id, companyId: ctx.companyId, role, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
+      data: { userId: user.id, companyId: ctx.companyId, role: targetRole, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
     })
+  }
+  await ensureCustomRoleTables()
+  if (customRoleId) {
+    await prisma.$executeRaw`
+      INSERT INTO "user_custom_roles" ("companyId", "userId", "customRoleId", "createdAt", "updatedAt")
+      VALUES (${ctx.companyId}, ${user.id}, ${customRoleId}, NOW(), NOW())
+      ON CONFLICT ("companyId", "userId")
+      DO UPDATE SET "customRoleId" = EXCLUDED."customRoleId", "updatedAt" = NOW()
+    `
   }
 
   if (employee) {
