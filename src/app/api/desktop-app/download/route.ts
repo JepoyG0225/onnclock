@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * GET /api/desktop-app/download
@@ -11,12 +11,16 @@ import { NextResponse } from 'next/server'
  *   - GitHub Release asset URL
  *   - Any direct .exe URL
  */
-export async function GET() {
-  const url = process.env.DESKTOP_INSTALLER_URL
+export async function GET(req: NextRequest) {
+  const platform = req.nextUrl.searchParams.get('platform')?.toLowerCase()
+  const url =
+    platform === 'mac'
+      ? process.env.DESKTOP_INSTALLER_URL_MAC || process.env.DESKTOP_INSTALLER_URL
+      : process.env.DESKTOP_INSTALLER_URL
 
   if (!url) {
     return new NextResponse(
-      JSON.stringify({ error: 'Installer not configured. Set DESKTOP_INSTALLER_URL on the server.' }),
+      JSON.stringify({ error: 'Installer not configured. Set DESKTOP_INSTALLER_URL (and optional DESKTOP_INSTALLER_URL_MAC) on the server.' }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     )
   }

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 
@@ -132,7 +133,26 @@ export default function LoginPage() {
       <div className="rounded-xl px-4 py-3 text-center" style={{ background: 'rgba(34,127,132,0.06)' }}>
         <p className="text-xs text-[#1A2D42] font-semibold">7-day free trial | No credit card needed</p>
       </div>
+
+      <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+        <p className="text-xs font-semibold text-slate-500 text-center uppercase tracking-wide">Download Desktop App</p>
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href="/api/desktop-app/download?platform=windows"
+            className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#2E4156] hover:text-[#1A2D42] transition-colors"
+          >
+            <Image src="/platform-icons/windows.svg" alt="Windows" width={14} height={14} />
+            Windows
+          </a>
+          <a
+            href="/api/desktop-app/download?platform=mac"
+            className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#2E4156] hover:text-[#1A2D42] transition-colors"
+          >
+            <Image src="/platform-icons/mac-21.png" alt="macOS" width={14} height={14} />
+            macOS
+          </a>
+        </div>
+      </div>
     </div>
   )
 }
-
