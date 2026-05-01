@@ -94,7 +94,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           include: {
             companies: {
               where: { isActive: true },
-              include: { company: { select: { id: true, name: true, portalSubdomain: true } } },
+              select: {
+                companyId: true,
+                role: true,
+                company: { select: { id: true, name: true, portalSubdomain: true } },
+              },
             },
           },
         })
@@ -120,7 +124,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               include: {
                 companies: {
                   where: { isActive: true },
-                  include: { company: { select: { id: true, name: true, portalSubdomain: true } } },
+                  select: {
+                    companyId: true,
+                    role: true,
+                    company: { select: { id: true, name: true, portalSubdomain: true } },
+                  },
                 },
               },
             })
