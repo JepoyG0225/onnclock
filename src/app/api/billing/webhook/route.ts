@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
-const PAID_STATUSES = new Set(['paid', 'succeeded', 'success', 'completed'])
+const PAID_STATUSES = new Set(['paid', 'succeeded', 'success', 'completed', 'payment_success', 'authorized'])
 const VOID_STATUSES = new Set(['void', 'cancelled', 'canceled', 'refunded', 'failed'])
 
 function normalizeText(value: unknown): string {
@@ -15,6 +16,8 @@ function resolveInvoiceReference(payload: Record<string, unknown>): { invoiceNo?
   const invoiceNo = String(
     metadata.invoiceNo ??
     data.invoiceNo ??
+    data.requestReferenceNumber ??
+    ((data.attributes as Record<string, unknown> | undefined)?.requestReferenceNumber ?? '') ??
     payload.invoiceNo ??
     metadata.invoice_number ??
     data.invoice_number ??
@@ -35,6 +38,27 @@ function resolveInvoiceReference(payload: Record<string, unknown>): { invoiceNo?
   return {
     invoiceNo: invoiceNo || undefined,
     invoiceId: invoiceId || undefined,
+  }
+}
+
+type ActivationPayload = {
+  plan: 'ANNUAL'
+  status: 'ACTIVE'
+  billingCycle: 'ANNUAL'
+  pricePerSeat: number
+  seatCount: number
+  periodStart: string
+  periodEnd: string
+  skipPeriodReset?: boolean
+}
+
+function parseActivationPayload(invoiceNotes: string | null): ActivationPayload | null {
+  if (!invoiceNotes) return null
+  try {
+    const parsed = JSON.parse(invoiceNotes) as { subscriptionActivationPayload?: ActivationPayload }
+    return parsed?.subscriptionActivationPayload ?? null
+  } catch {
+    return null
   }
 }
 
@@ -101,6 +125,40 @@ export async function POST(req: NextRequest) {
   }
 
   if (PAID_STATUSES.has(paymentStatus)) {
+    const activation = parseActivationPayload(invoice.notes)
+
+    if (activation) {
+      const subscriptionUpdateData: Prisma.SubscriptionUpdateInput = {
+        plan: activation.plan,
+        status: activation.status,
+        billingCycle: activation.billingCycle,
+        pricePerSeat: activation.pricePerSeat,
+        seatCount: activation.seatCount,
+        trialEndsAt: null,
+        cancelledAt: null,
+      }
+      if (!activation.skipPeriodReset) {
+        subscriptionUpdateData.currentPeriodStart = new Date(activation.periodStart)
+        subscriptionUpdateData.currentPeriodEnd = new Date(activation.periodEnd)
+      }
+
+      await prisma.subscription.upsert({
+        where: { companyId: invoice.companyId },
+        update: subscriptionUpdateData,
+        create: {
+          id: `sub_${invoice.companyId}`,
+          companyId: invoice.companyId,
+          plan: activation.plan,
+          status: activation.status,
+          billingCycle: activation.billingCycle,
+          pricePerSeat: activation.pricePerSeat,
+          seatCount: activation.seatCount,
+          currentPeriodStart: new Date(activation.periodStart),
+          currentPeriodEnd: new Date(activation.periodEnd),
+        },
+      })
+    }
+
     await prisma.invoice.update({
       where: { id: invoice.id },
       data: {

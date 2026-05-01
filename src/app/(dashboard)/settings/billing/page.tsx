@@ -136,6 +136,11 @@ export default function BillingPage() {
     if (!paymentCode) return
     setUpgrading(true)
     try {
+      const isMaya = Boolean(
+        selectedMethod &&
+        ((selectedMethod.code || '').toUpperCase().includes('MAYA') ||
+          (selectedMethod.label || '').toUpperCase().includes('MAYA'))
+      )
       const res = await fetch('/api/billing/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,11 +149,17 @@ export default function BillingPage() {
           seatCount,
           pricePerSeat: selectedPricePerSeat,
           paymentMethodCode: paymentCode,
-          proofOfPaymentDataUrl: proofDataUrl ?? undefined,
+          paymentProvider: isMaya ? 'MAYA' : 'MANUAL',
+          proofOfPaymentDataUrl: isMaya ? undefined : (proofDataUrl ?? undefined),
         }),
       })
       const payload = await res.json()
       if (!res.ok) throw new Error(payload.error ?? 'Subscription failed')
+      if (isMaya && payload?.maya?.checkoutUrl) {
+        toast.success('Redirecting to Maya checkout...')
+        window.location.href = payload.maya.checkoutUrl as string
+        return
+      }
       toast.success('Subscription updated and invoice generated.')
       setProofDataUrl(null)
       setProofFileName(null)
@@ -210,6 +221,11 @@ export default function BillingPage() {
   })()
 
   const selectedMethod = methods.find((m) => m.code === paymentCode) ?? null
+  const isMayaSelected = Boolean(
+    selectedMethod &&
+    ((selectedMethod.code || '').toUpperCase().includes('MAYA') ||
+      (selectedMethod.label || '').toUpperCase().includes('MAYA'))
+  )
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
@@ -357,12 +373,12 @@ export default function BillingPage() {
               </div>
               <button
                 onClick={confirmPlan}
-                disabled={!paymentCode || !proofDataUrl || upgrading}
+                disabled={!paymentCode || (!isMayaSelected && !proofDataUrl) || upgrading}
                 className="w-full py-3 rounded-xl font-bold text-sm text-white disabled:opacity-60 flex items-center justify-center gap-2"
                 style={{ background: '#2E4156' }}
               >
                 {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Confirm Subscription
+                {isMayaSelected ? 'Continue to Maya Checkout' : 'Confirm Subscription'}
               </button>
             </div>
 
@@ -404,31 +420,37 @@ export default function BillingPage() {
                   </TabsContent>
                 ))}
               </Tabs>
-              <div className="mt-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upload Proof of Payment</p>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-md file:border file:border-slate-300 file:bg-slate-50 file:px-2 file:py-1.5 file:text-xs"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    try {
-                      const dataUrl = await compressImage(file)
-                      setProofDataUrl(dataUrl)
-                      setProofFileName(file.name)
-                    } catch {
-                      toast.error('Failed to process image. Please try a different file.')
-                    }
-                  }}
-                />
-                {proofFileName && <p className="text-xs text-slate-500 mt-1">Selected: {proofFileName}</p>}
-                {proofDataUrl && (
-                  <img src={proofDataUrl} alt="Proof preview" className="w-28 h-28 rounded-lg border border-slate-200 bg-white mt-2 object-cover" />
-                )}
-              </div>
+              {!isMayaSelected ? (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upload Proof of Payment</p>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-md file:border file:border-slate-300 file:bg-slate-50 file:px-2 file:py-1.5 file:text-xs"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      try {
+                        const dataUrl = await compressImage(file)
+                        setProofDataUrl(dataUrl)
+                        setProofFileName(file.name)
+                      } catch {
+                        toast.error('Failed to process image. Please try a different file.')
+                      }
+                    }}
+                  />
+                  {proofFileName && <p className="text-xs text-slate-500 mt-1">Selected: {proofFileName}</p>}
+                  {proofDataUrl && (
+                    <img src={proofDataUrl} alt="Proof preview" className="w-28 h-28 rounded-lg border border-slate-200 bg-white mt-2 object-cover" />
+                  )}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  You will be redirected to Maya sandbox checkout to complete payment.
+                </div>
+              )}
               {!selectedMethod && <p className="text-xs text-red-500 mt-2">Select a payment method.</p>}
-              {!proofDataUrl && <p className="text-xs text-red-500 mt-1">Upload proof of payment to continue.</p>}
+              {!isMayaSelected && !proofDataUrl && <p className="text-xs text-red-500 mt-1">Upload proof of payment to continue.</p>}
             </div>
           </div>
         </div>
@@ -487,5 +509,4 @@ export default function BillingPage() {
     </div>
   )
 }
-
 

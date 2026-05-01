@@ -4,12 +4,14 @@ import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { ensureDefaultPaymentMethods } from '@/lib/billing/payment-methods'
 import { Prisma } from '@prisma/client'
+import { createMayaCheckoutSession } from '@/lib/payments/maya'
 
 const schema = z.object({
   billingCycle: z.enum(['ANNUAL']),
   seatCount: z.number().int().min(1),
   pricePerSeat: z.union([z.literal(50), z.literal(100)]).default(50),
   paymentMethodCode: z.string().min(1),
+  paymentProvider: z.enum(['MANUAL', 'MAYA']).optional().default('MANUAL'),
   proofOfPaymentDataUrl: z
     .string()
     .regex(/^data:image\/(png|jpeg|jpg|webp);base64,/i)
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
-  const { billingCycle, seatCount, pricePerSeat, paymentMethodCode, proofOfPaymentDataUrl } = body
+  const { billingCycle, seatCount, pricePerSeat, paymentMethodCode, paymentProvider, proofOfPaymentDataUrl } = body
 
   const employeeCount = await prisma.employee.count({
     where: { companyId: ctx.companyId, isActive: true },
@@ -160,39 +162,64 @@ export async function POST(req: NextRequest) {
   })
   const invoiceNo = nextInvoiceNo(lastInvoice?.invoiceNo ?? null)
 
-  const updateData: Prisma.SubscriptionUpdateInput = {
-    plan: 'ANNUAL',
+  const sub = await prisma.subscription.upsert({
+    where: { companyId: ctx.companyId },
+    update: {
+      updatedAt: new Date(),
+    },
+    create: {
+      id: `sub_${ctx.companyId}`,
+      companyId: ctx.companyId,
+      plan: 'TRIAL',
+      status: 'TRIAL',
+      updatedAt: new Date(),
+    },
+  })
+
+  const subscriptionActivationPayload = {
+    plan: 'ANNUAL' as const,
     status: 'ACTIVE' as const,
     billingCycle,
     pricePerSeat,
     seatCount: billedSeatCount,
-    ...(hasActiveRemainingPeriod && isSameCycleChange
-      ? {}
-      : {
-          currentPeriodStart: periodStart,
-          currentPeriodEnd: periodEnd,
-        }),
-    trialEndsAt: null,
-    cancelledAt: null,
-    updatedAt: new Date(),
+    periodStart: periodStart.toISOString(),
+    periodEnd: periodEnd.toISOString(),
+    skipPeriodReset: Boolean(hasActiveRemainingPeriod && isSameCycleChange),
   }
 
-  const sub = await prisma.subscription.upsert({
-    where: { companyId: ctx.companyId },
-    update: updateData,
-    create: {
-      id: `sub_${ctx.companyId}`,
-      companyId: ctx.companyId,
-      plan: 'ANNUAL',
-      status: 'ACTIVE',
-      billingCycle,
-      pricePerSeat,
-      seatCount: billedSeatCount,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
-      updatedAt: new Date(),
-    },
-  })
+  let mayaCheckout: { checkoutId: string; checkoutUrl: string } | null = null
+  if (paymentProvider === 'MAYA') {
+    const buyerEmail = ctx.email || `billing+${ctx.companyId}@onclockph.com`
+    const [firstName, ...rest] = 'Company Admin'.split(/\s+/)
+    const lastName = rest.join(' ') || 'User'
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || 'https://onclockph.com').replace(/\/+$/, '')
+    mayaCheckout = await createMayaCheckoutSession({
+      totalAmount: { value: Number(total.toFixed(2)), currency: 'PHP' },
+      buyer: {
+        firstName: firstName || 'Company',
+        lastName,
+        contact: { email: buyerEmail },
+      },
+      items: [
+        {
+          name: `OnClock Annual Subscription (${billedSeatCount} seats)`,
+          quantity: 1,
+          totalAmount: { value: Number(total.toFixed(2)), currency: 'PHP' },
+        },
+      ],
+      requestReferenceNumber: invoiceNo,
+      redirectUrl: {
+        success: `${appBase}/settings/billing?maya=success&invoice=${encodeURIComponent(invoiceNo)}`,
+        failure: `${appBase}/settings/billing?maya=failure&invoice=${encodeURIComponent(invoiceNo)}`,
+        cancel: `${appBase}/settings/billing?maya=cancel&invoice=${encodeURIComponent(invoiceNo)}`,
+      },
+      metadata: {
+        companyId: ctx.companyId,
+        invoiceNo,
+        subscriptionId: sub.id,
+      },
+    })
+  }
 
   const invoice = await prisma.invoice.create({
     data: {
@@ -212,19 +239,51 @@ export async function POST(req: NextRequest) {
       paymentMethodCode: paymentMethod.code,
       paymentMethodLabel: paymentMethod.label,
       dueDate,
-      notes: proofOfPaymentDataUrl
-        ? JSON.stringify({
-            proofOfPaymentDataUrl,
-            proofUploadedAt: new Date().toISOString(),
-            prorationApplied: hasActiveRemainingPeriod,
-            sameCycleProration: isSameCycleChange,
-            remainingCredit,
-            existingSubscriptionId: existingSub?.id ?? null,
-          })
-        : null,
+      notes: JSON.stringify({
+        paymentProvider,
+        ...(proofOfPaymentDataUrl ? { proofOfPaymentDataUrl, proofUploadedAt: new Date().toISOString() } : {}),
+        prorationApplied: hasActiveRemainingPeriod,
+        sameCycleProration: isSameCycleChange,
+        remainingCredit,
+        existingSubscriptionId: existingSub?.id ?? null,
+        subscriptionActivationPayload,
+        ...(mayaCheckout ? { mayaCheckoutId: mayaCheckout.checkoutId } : {}),
+      }),
       updatedAt: new Date(),
     },
   })
 
-  return NextResponse.json({ subscription: sub, invoice })
+  if (paymentProvider !== 'MAYA') {
+    const updateData: Prisma.SubscriptionUpdateInput = {
+      plan: 'ANNUAL',
+      status: 'ACTIVE' as const,
+      billingCycle,
+      pricePerSeat,
+      seatCount: billedSeatCount,
+      ...(hasActiveRemainingPeriod && isSameCycleChange
+        ? {}
+        : {
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
+          }),
+      trialEndsAt: null,
+      cancelledAt: null,
+      updatedAt: new Date(),
+    }
+    await prisma.subscription.update({
+      where: { id: sub.id },
+      data: updateData,
+    })
+  }
+
+  return NextResponse.json({
+    subscription: sub,
+    invoice,
+    maya: mayaCheckout
+      ? {
+          checkoutId: mayaCheckout.checkoutId,
+          checkoutUrl: mayaCheckout.checkoutUrl,
+        }
+      : null,
+  })
 }
