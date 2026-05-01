@@ -492,7 +492,6 @@ export default function ProfilePage() {
               <InfoRow label="Type" value={profile.employmentType?.replace('_', ' ')} />
               <InfoRow label="Pay Frequency" value={profile.payFrequency?.replace('_', ' ')} />
               <InfoRow label="Rate Type" value={profile.rateType} />
-              <InfoRow label="Hire Date" value={safeDate(profile.hireDate)} />
             </div>
           </div>
 

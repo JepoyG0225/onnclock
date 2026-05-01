@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, Lock, Unlock, Trash2, AlertTriangle, Send } from 'lucide-react'
+import { CheckCircle, Lock, Unlock, Trash2, AlertTriangle, Send, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
@@ -80,6 +80,10 @@ export default function PayrollActionButtons({
   const confirmed = confirmText.trim().toUpperCase() === 'DELETE'
   const portalTarget = typeof document !== 'undefined' ? document.body : null
 
+  function downloadExcel() {
+    window.open(`/api/payroll/${runId}/download`, '_blank')
+  }
+
   return (
     <>
       <div className="flex gap-2">
@@ -137,6 +141,16 @@ export default function PayrollActionButtons({
             Unlock Payroll
           </Button>
         )}
+        <Button
+          onClick={downloadExcel}
+          disabled={!!loading}
+          variant="outline"
+          size="sm"
+          className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+        >
+          <Download className="w-4 h-4 mr-1" />
+          Download Excel
+        </Button>
         {canDelete && (
           <Button
             onClick={() => setShowDeleteDlg(true)}

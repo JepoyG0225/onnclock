@@ -9,6 +9,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { cookies, headers } from 'next/headers'
 import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
 import { verifyDesktopToken } from '@/lib/desktop-token'
+import { prisma } from '@/lib/prisma'
 
 export interface AuthContext {
   userId: string
@@ -17,6 +18,8 @@ export interface AuthContext {
   // Original signed-in role (differs from role when SUPER_ADMIN is impersonating)
   actorRole?: string
   email: string
+  // Set when role === 'DEPARTMENT_HEAD'; restricts visibility to this department
+  managedDepartmentId?: string | null
 }
 
 /**
@@ -129,6 +132,20 @@ export async function requireAuth(
     }
   }
 
+  // For DEPARTMENT_HEAD: load their managedDepartmentId from UserCompany
+  let managedDepartmentId: string | null = null
+  if (session.user.role === 'DEPARTMENT_HEAD') {
+    try {
+      const uc = await (prisma as unknown as { userCompany: { findFirst: (a: unknown) => Promise<{ managedDepartmentId?: string | null } | null> } }).userCompany.findFirst({
+        where: { userId: session.user.id, companyId: session.user.companyId },
+        select: { managedDepartmentId: true },
+      })
+      managedDepartmentId = uc?.managedDepartmentId ?? null
+    } catch {
+      // non-fatal — treat as null
+    }
+  }
+
   return {
     ctx: {
       userId: session.user.id,
@@ -136,6 +153,7 @@ export async function requireAuth(
       role: session.user.role,
       actorRole: session.user.role,
       email: session.user.email,
+      managedDepartmentId,
     },
     error: null,
   }

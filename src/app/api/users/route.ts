@@ -8,7 +8,8 @@ const createUserSchema = z.object({
   name:       z.string().min(1).optional(),
   email:      z.string().email().optional(),
   password:   z.string().min(8),
-  role:       z.enum(['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']),
+  role:       z.enum(['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD']),
+  managedDepartmentId: z.string().optional().nullable(),
   employeeId: z.string().optional(),
 })
 
@@ -76,10 +77,10 @@ export async function POST(req: NextRequest) {
   }
 
   let { name, email } = parsed.data
-  const { password, role, employeeId } = parsed.data
+  const { password, role, employeeId, managedDepartmentId } = parsed.data
 
   let employee: { id: string; firstName: string; lastName: string; workEmail: string | null; personalEmail: string | null; userId: string | null } | null = null
-  let employeeMembershipRole: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'HR_MANAGER' | 'PAYROLL_OFFICER' | 'EMPLOYEE' | null = null
+  let employeeMembershipRole: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'HR_MANAGER' | 'PAYROLL_OFFICER' | 'DEPARTMENT_HEAD' | 'EMPLOYEE' | null = null
   if (employeeId) {
     employee = await prisma.employee.findFirst({
       where: { id: employeeId, companyId: ctx.companyId, isActive: true },
@@ -135,11 +136,11 @@ export async function POST(req: NextRequest) {
     if (employeeMembershipRole) {
       await prisma.userCompany.updateMany({
         where: { userId: user.id, companyId: ctx.companyId },
-        data: { role, isActive: true },
+        data: { role, isActive: true, ...(managedDepartmentId !== undefined ? { managedDepartmentId } : {}) },
       })
     } else {
       await prisma.userCompany.create({
-        data: { userId: user.id, companyId: ctx.companyId, role, isActive: true },
+        data: { userId: user.id, companyId: ctx.companyId, role, isActive: true, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
       })
     }
 
@@ -159,14 +160,14 @@ export async function POST(req: NextRequest) {
     }
     // Add existing user to company
     await prisma.userCompany.create({
-      data: { userId: user.id, companyId: ctx.companyId, role },
+      data: { userId: user.id, companyId: ctx.companyId, role, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
     })
   } else {
     // Create new user and add to company
     const passwordHash = await hash(password, 12)
     user = await prisma.user.create({ data: { email, name, passwordHash } })
     await prisma.userCompany.create({
-      data: { userId: user.id, companyId: ctx.companyId, role },
+      data: { userId: user.id, companyId: ctx.companyId, role, ...(managedDepartmentId ? { managedDepartmentId } : {}) },
     })
   }
 

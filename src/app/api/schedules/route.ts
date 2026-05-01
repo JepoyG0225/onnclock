@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { z } from 'zod'
 
 const weekPatternSchema = z.object({
@@ -15,6 +15,7 @@ const scheduleSchema = z.object({
   timeIn: z.string().optional().nullable(),
   timeOut: z.string().optional().nullable(),
   workDays: z.array(z.number().int().min(0).max(6)).min(1),
+  breakEnabled: z.boolean().optional(),
   breakMinutes: z.number().int().min(0).max(240).optional().nullable(),
   workHoursPerDay: z.number().min(1).max(24).optional().nullable(),
   workDaysPerWeek: z.number().int().min(1).max(7).optional().nullable(),
@@ -23,23 +24,27 @@ const scheduleSchema = z.object({
   cycleStartDate: z.string().optional().nullable(), // ISO date string
 })
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const { ctx, error } = await requireAuth()
     if (error) return error
+    const companyId = resolveCompanyIdForRequest(ctx, req)
+    if (!companyId) {
+      return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+    }
 
     // One-time self-healing cleanup: remove auto-generated "Custom Day Offs" work schedules
     // that were created by the old employee-update logic. These pollute the Work Hours list.
     // First detach any employees still pointing to them, then delete the schedules.
     try {
       const staleSchedules = await prisma.workSchedule.findMany({
-        where: { companyId: ctx.companyId, name: { endsWith: ' - Custom Day Offs' } },
+        where: { companyId, name: { endsWith: ' - Custom Day Offs' } },
         select: { id: true },
       })
       if (staleSchedules.length > 0) {
         const staleIds = staleSchedules.map(s => s.id)
         await prisma.employee.updateMany({
-          where: { companyId: ctx.companyId, workScheduleId: { in: staleIds } },
+          where: { companyId, workScheduleId: { in: staleIds } },
           data: { workScheduleId: null },
         })
         await prisma.workSchedule.deleteMany({
@@ -51,7 +56,7 @@ export async function GET() {
     }
 
     let schedules = await prisma.workSchedule.findMany({
-      where: { companyId: ctx.companyId, isActive: true },
+      where: { companyId, isActive: true },
       include: {
         _count: { select: { employees: true } },
         scheduleShifts: { orderBy: { dayOfWeek: 'asc' } },
@@ -64,12 +69,12 @@ export async function GET() {
     if (schedules.length === 0) {
       const [employeeRefs, assignmentRefs] = await Promise.all([
         prisma.employee.findMany({
-          where: { companyId: ctx.companyId, workScheduleId: { not: null } },
+          where: { companyId, workScheduleId: { not: null } },
           select: { workScheduleId: true },
           distinct: ['workScheduleId'],
         }),
         prisma.employeeShiftAssignment.findMany({
-          where: { companyId: ctx.companyId, scheduleId: { not: null } },
+          where: { companyId, scheduleId: { not: null } },
           select: { scheduleId: true },
           distinct: ['scheduleId'],
         }),
@@ -84,7 +89,7 @@ export async function GET() {
 
       if (linkedIds.length > 0) {
         schedules = await prisma.workSchedule.findMany({
-          where: { companyId: ctx.companyId, id: { in: linkedIds } },
+          where: { companyId, id: { in: linkedIds } },
           include: {
             _count: { select: { employees: true } },
             scheduleShifts: { orderBy: { dayOfWeek: 'asc' } },
@@ -106,7 +111,7 @@ export async function POST(req: NextRequest) {
     const { ctx, error } = await requireAuth()
     if (error) return error
 
-    if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(ctx.role)) {
+    if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD'].includes(ctx.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -140,6 +145,7 @@ export async function POST(req: NextRequest) {
       workDays: primaryWorkDays,
       timeIn: data.timeIn ?? null,
       timeOut: data.timeOut ?? null,
+      breakEnabled: data.breakEnabled ?? true,
       breakMinutes: data.breakMinutes ?? 60,
       workHoursPerDay: data.workHoursPerDay ?? 8,
       workDaysPerWeek: data.workDaysPerWeek ?? primaryWorkDays.length,

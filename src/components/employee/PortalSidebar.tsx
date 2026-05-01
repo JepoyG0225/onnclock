@@ -7,13 +7,14 @@ import { useEffect, useState, useRef } from 'react'
 import { signOut } from 'next-auth/react'
 import {
   Clock, FileText, CreditCard, User, BarChart3,
-  Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList,
+  Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList, ClipboardEdit,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const ALL_NAV_TABS = [
   { href: '/portal/clock',               label: 'Attendance',   icon: Clock,          exact: false, pro: false, budgetReq: false },
   { href: '/portal/leaves',              label: 'Leave',        icon: FileText,        exact: false, pro: false, budgetReq: false },
+  { href: '/portal/time-corrections',    label: 'Time Fixes',   icon: ClipboardEdit,   exact: false, pro: false, budgetReq: false },
   { href: '/portal/payslips',            label: 'Payslips',     icon: CreditCard,      exact: false, pro: false, budgetReq: false },
   { href: '/portal/budget-requisitions', label: 'Budget Req.',  icon: ClipboardList,   exact: false, pro: false, budgetReq: true  },
   { href: '/portal/reviews',             label: 'Reviews',      icon: BarChart3,       exact: false, pro: false, budgetReq: false },

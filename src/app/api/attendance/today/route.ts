@@ -36,7 +36,11 @@ export async function GET(req: NextRequest) {
   const employeeId = await resolvePortalEmployeeId(ctx)
   const employee = employeeId ? await prisma.employee.findUnique({
     where: { id: employeeId },
-    include: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      workScheduleId: true,
       workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true, breakMinutes: true, workDays: true } },
     },
   }) : null

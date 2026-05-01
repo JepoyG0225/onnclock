@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle, ClipboardList, MoreHorizontal, X, type LucideProps } from 'lucide-react'
+import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle, ClipboardList, ClipboardEdit, MoreHorizontal, X, type LucideProps } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 
@@ -26,6 +26,7 @@ interface MoreTab {
 }
 
 const ALL_MORE_TABS: MoreTab[] = [
+  { href: '/portal/time-corrections',    label: 'Time Corrections',    icon: ClipboardEdit                   },
   { href: '/portal/budget-requisitions', label: 'Budget Requisitions', icon: ClipboardList, budgetReq: true  },
   { href: '/portal/reviews',             label: 'Performance Reviews', icon: BarChart3                       },
   { href: '/portal/disciplinary',        label: 'Disciplinary',        icon: AlertTriangle, pro: true        },

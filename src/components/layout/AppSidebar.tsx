@@ -34,6 +34,7 @@ import {
   Clock3,
   TrendingDown,
   Receipt,
+  ClipboardEdit,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -73,13 +74,14 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dtr',
     icon: Clock,
     children: [
-      { label: 'Weekly Time Sheets',  href: '/dtr',                    icon: Clock },
-      { label: 'Live GPS Map',        href: '/attendance/map',         icon: MapPin },
-      { label: 'Tardiness Report',    href: '/attendance/tardiness',   icon: TrendingDown },
-      { label: 'Overtime Requests',   href: '/overtime',               icon: Clock3 },
-      { label: 'Attendance Settings', href: '/attendance/settings',    icon: Settings },
-      { label: 'Work Schedules',      href: '/schedules',              icon: Calendar },
-      { label: 'Holidays',            href: '/holidays',               icon: CalendarDays },
+      { label: 'Weekly Time Sheets',       href: '/dtr',                    icon: Clock },
+      { label: 'Live GPS Map',             href: '/attendance/map',         icon: MapPin },
+      { label: 'Tardiness Report',         href: '/attendance/tardiness',   icon: TrendingDown },
+      { label: 'Overtime Requests',        href: '/overtime',               icon: Clock3 },
+      { label: 'Time Entry Corrections',   href: '/time-corrections',       icon: ClipboardEdit },
+      { label: 'Attendance Settings',      href: '/attendance/settings',    icon: Settings },
+      { label: 'Work Schedules',           href: '/schedules',              icon: Calendar },
+      { label: 'Holidays',                 href: '/holidays',               icon: CalendarDays },
     ],
   },
   {

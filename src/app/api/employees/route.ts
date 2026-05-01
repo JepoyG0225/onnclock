@@ -70,9 +70,14 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '50')
 
+  // Department heads can only see employees in their managed department
+  const effectiveDepartmentId = ctx.role === 'DEPARTMENT_HEAD' && ctx.managedDepartmentId
+    ? ctx.managedDepartmentId
+    : departmentId
+
   const where: Record<string, unknown> = {
     companyId,
-    ...(departmentId && { departmentId }),
+    ...(effectiveDepartmentId && { departmentId: effectiveDepartmentId }),
     ...(status && { employmentStatus: status }),
     ...(search && {
       OR: [

@@ -3,6 +3,21 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { resolvePortalEmployeeId } from '@/lib/portal-employee'
 
+function stripLargePrivateFields<T extends object>(employee: T) {
+  const safeEmployee = { ...employee } as T & {
+    faceEmbedding?: unknown
+    faceSetupPhoto?: unknown
+    biometricCredential?: unknown
+    biometricChallenge?: unknown
+  }
+
+  delete safeEmployee.faceEmbedding
+  delete safeEmployee.faceSetupPhoto
+  delete safeEmployee.biometricCredential
+  delete safeEmployee.biometricChallenge
+  return safeEmployee
+}
+
 export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
@@ -32,7 +47,7 @@ export async function GET() {
 
   return NextResponse.json({
     employee: {
-      ...employee,
+      ...stripLargePrivateFields(employee),
       selfieRequired,
     },
   })
@@ -76,5 +91,5 @@ export async function PATCH(req: NextRequest) {
     },
   })
 
-  return NextResponse.json({ employee: updated })
+  return NextResponse.json({ employee: stripLargePrivateFields(updated) })
 }

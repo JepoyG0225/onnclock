@@ -49,6 +49,7 @@ interface WorkSchedule {
   scheduleType: string
   timeIn: string | null
   timeOut: string | null
+  breakEnabled: boolean
   breakMinutes: number
   workHoursPerDay: number
   workDaysPerWeek: number
@@ -103,6 +104,7 @@ type ScheduleForm = {
   requireSelfieOnClockIn: boolean
   timeIn: string
   timeOut: string
+  breakEnabled: boolean
   breakMinutes: number
   workHoursPerDay: number
   workDaysPerWeek: number
@@ -115,6 +117,7 @@ const DEFAULT_FORM: ScheduleForm = {
   requireSelfieOnClockIn: false,
   timeIn: '08:00',
   timeOut: '17:00',
+  breakEnabled: true,
   breakMinutes: 60,
   workHoursPerDay: 8,
   workDaysPerWeek: 5,
@@ -203,6 +206,7 @@ interface ShiftTemplateForm {
   name: string
   timeIn: string
   timeOut: string
+  breakEnabled: boolean
   breakMinutes: number
   workDays: number[]
 }
@@ -227,6 +231,7 @@ function ShiftTemplateModal({
     name: initial?.name ?? '',
     timeIn: initial?.timeIn ?? '08:00',
     timeOut: initial?.timeOut ?? '17:00',
+    breakEnabled: initial?.breakEnabled ?? true,
     breakMinutes: Number(initial?.breakMinutes ?? fallbackBreakMinutes),
     workDays: Array.isArray(initial?.workDays) && initial.workDays.length > 0
       ? initial.workDays
@@ -241,6 +246,7 @@ function ShiftTemplateModal({
       name: initial?.name ?? '',
       timeIn: initial?.timeIn ?? '08:00',
       timeOut: initial?.timeOut ?? '17:00',
+      breakEnabled: initial?.breakEnabled ?? true,
       breakMinutes: Number(initial?.breakMinutes ?? fallbackBreakMinutes),
       workDays: Array.isArray(initial?.workDays) && initial.workDays.length > 0
         ? initial.workDays
@@ -268,7 +274,8 @@ function ShiftTemplateModal({
         scheduleType: 'FIXED',
         timeIn: form.timeIn,
         timeOut: form.timeOut,
-        breakMinutes: form.breakMinutes,
+        breakEnabled: form.breakEnabled,
+        breakMinutes: form.breakEnabled ? form.breakMinutes : 0,
         workDays: form.workDays,
         workHoursPerDay: 8,
         workDaysPerWeek: form.workDays.length,
@@ -349,44 +356,60 @@ function ShiftTemplateModal({
 
           {/* Break */}
           <div>
-            <label className="text-xs font-semibold text-gray-600 block mb-1">Break Duration</label>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] text-gray-500 block mb-1">Hours</label>
-                <select
-                  value={splitBreakMinutes(form.breakMinutes).hours}
-                  onChange={e => {
-                    const nextHours = Number(e.target.value)
-                    const nextMinutes = splitBreakMinutes(form.breakMinutes).minutes
-                    setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
-                  }}
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
-                >
-                  {Array.from({ length: 13 }, (_, h) => h).map(h => (
-                    <option key={h} value={h}>{h}h</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] text-gray-500 block mb-1">Minutes</label>
-                <select
-                  value={splitBreakMinutes(form.breakMinutes).minutes}
-                  onChange={e => {
-                    const nextMinutes = Number(e.target.value)
-                    const nextHours = splitBreakMinutes(form.breakMinutes).hours
-                    setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
-                  }}
-                  className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
-                >
-                  {Array.from({ length: 60 }, (_, m) => m).map(m => (
-                    <option key={m} value={m}>{m}m</option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-600">Break</label>
+              <button
+                type="button"
+                onClick={() => setForm(p => ({ ...p, breakEnabled: !p.breakEnabled }))}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.breakEnabled ? 'bg-[#fa5e01]' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+              </button>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">
-              {form.breakMinutes > 0 ? `${form.breakMinutes} minute${form.breakMinutes === 1 ? '' : 's'} allowed` : 'No break'}
-            </p>
+            {form.breakEnabled && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-gray-500 block mb-1">Hours</label>
+                    <select
+                      value={splitBreakMinutes(form.breakMinutes).hours}
+                      onChange={e => {
+                        const nextHours = Number(e.target.value)
+                        const nextMinutes = splitBreakMinutes(form.breakMinutes).minutes
+                        setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
+                      }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+                    >
+                      {Array.from({ length: 13 }, (_, h) => h).map(h => (
+                        <option key={h} value={h}>{h}h</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 block mb-1">Minutes</label>
+                    <select
+                      value={splitBreakMinutes(form.breakMinutes).minutes}
+                      onChange={e => {
+                        const nextMinutes = Number(e.target.value)
+                        const nextHours = splitBreakMinutes(form.breakMinutes).hours
+                        setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
+                      }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+                    >
+                      {Array.from({ length: 60 }, (_, m) => m).map(m => (
+                        <option key={m} value={m}>{m}m</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  {form.breakMinutes > 0 ? `${form.breakMinutes} minute${form.breakMinutes === 1 ? '' : 's'} allowed` : 'No break'}
+                </p>
+              </>
+            )}
+            {!form.breakEnabled && (
+              <p className="text-[11px] text-amber-600 mt-1">Break is disabled — employees cannot take breaks on this schedule.</p>
+            )}
           </div>
 
           <div>
@@ -669,8 +692,11 @@ function FlexibleScheduleTab({
                     {s.timeIn && s.timeOut && (
                       <p className="text-[11px] opacity-60 mt-0.5">{s.name}</p>
                     )}
-                    {s.breakMinutes > 0 && (
+                    {s.breakEnabled && s.breakMinutes > 0 && (
                       <p className="text-[10px] opacity-50 mt-0.5">{s.breakMinutes}m break</p>
+                    )}
+                    {!s.breakEnabled && (
+                      <p className="text-[10px] opacity-50 mt-0.5">No break</p>
                     )}
                   </div>
                   <button
@@ -1399,7 +1425,7 @@ function FixedScheduleTabInner({
       const res = await fetch('/api/schedules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, breakMinutes: Number(form.breakMinutes), workHoursPerDay: Number(form.workHoursPerDay), workDaysPerWeek: Number(form.workDaysPerWeek) }),
+        body: JSON.stringify({ ...form, breakEnabled: form.breakEnabled, breakMinutes: form.breakEnabled ? Number(form.breakMinutes) : 0, workHoursPerDay: Number(form.workHoursPerDay), workDaysPerWeek: Number(form.workDaysPerWeek) }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data?.error ?? 'Failed to add schedule'); return }
@@ -1471,15 +1497,19 @@ function FixedScheduleTabInner({
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time In</label><input type="time" value={f.timeIn} onChange={e => onChange({ timeIn: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time Out</label><input type="time" value={f.timeOut} onChange={e => onChange({ timeOut: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div>
-          <label className="text-xs font-semibold text-gray-600 block mb-1">Break</label>
-          <div className="flex items-center gap-2 mb-2">
-            <button type="button" onClick={() => onChange({ breakMinutes: f.breakMinutes > 0 ? 0 : 60 })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakMinutes > 0 ? 'bg-[#2E4156]' : 'bg-slate-300'}`}>
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${f.breakMinutes > 0 ? 'translate-x-4' : 'translate-x-1'}`} />
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-600">Break</label>
+            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[#2E4156]' : 'bg-slate-300'}`}>
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${f.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
             </button>
-            <span className="text-xs text-slate-600">{f.breakMinutes > 0 ? `${f.breakMinutes}m` : 'No break'}</span>
           </div>
-          {f.breakMinutes > 0 && (
-            <input type="number" min={1} max={240} value={f.breakMinutes} onChange={e => onChange({ breakMinutes: Math.max(1, Number(e.target.value)) })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+          {f.breakEnabled ? (
+            <>
+              <input type="number" min={1} max={240} value={f.breakMinutes || 60} onChange={e => onChange({ breakMinutes: Math.max(1, Number(e.target.value)) })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+              <p className="text-[11px] text-gray-500 mt-1">{f.breakMinutes || 60}m allowed</p>
+            </>
+          ) : (
+            <p className="text-[11px] text-amber-600">Break disabled for this schedule</p>
           )}
         </div>
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Hours / Day</label><input type="number" min={1} max={24} value={f.workHoursPerDay} onChange={e => onChange({ workHoursPerDay: Number(e.target.value) })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>

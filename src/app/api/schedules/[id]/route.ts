@@ -15,6 +15,7 @@ const updateSchema = z.object({
   timeIn: z.string().optional().nullable(),
   timeOut: z.string().optional().nullable(),
   workDays: z.array(z.number().int().min(0).max(6)).min(1).optional(),
+  breakEnabled: z.boolean().optional(),
   breakMinutes: z.number().int().min(0).max(240).optional().nullable(),
   workHoursPerDay: z.number().min(1).max(24).optional().nullable(),
   workDaysPerWeek: z.number().int().min(1).max(7).optional().nullable(),
@@ -28,7 +29,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { ctx, error } = await requireAuth()
     if (error) return error
 
-    if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(ctx.role)) {
+    if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD'].includes(ctx.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -69,6 +70,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (data.timeIn !== undefined) updateData.timeIn = data.timeIn ?? null
     if (data.timeOut !== undefined) updateData.timeOut = data.timeOut ?? null
+    if (data.breakEnabled !== undefined) updateData.breakEnabled = data.breakEnabled
     if (data.breakMinutes !== undefined) updateData.breakMinutes = data.breakMinutes ?? 60
     if (data.workHoursPerDay !== undefined) updateData.workHoursPerDay = data.workHoursPerDay ?? 8
     if (data.workDaysPerWeek !== undefined) {
