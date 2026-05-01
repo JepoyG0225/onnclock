@@ -11,6 +11,7 @@ import {
   ROLE_LABELS,
   PAGE_PERMISSIONS,
 } from '@/lib/auth/permissions'
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 // Roles that can be edited
 const EDITABLE_ROLES: UserRole[] = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']
@@ -113,6 +114,7 @@ export default function PermissionsPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsTabs />
 
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -153,7 +155,7 @@ export default function PermissionsPage() {
         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <div>
           Permissions marked with <span className="font-semibold">●</span> are active for that role.
-          Changes take effect on the user's next login session.
+          Changes take effect on the user&apos;s next login session.
         </div>
       </div>
 
@@ -312,5 +314,3 @@ export default function PermissionsPage() {
     </div>
   )
 }
-
-

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Users, UserPlus, X, KeyRound, Trash2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { ROLE_LABELS, ROLE_COLORS, UserRole } from '@/lib/auth/permissions'
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 interface Member {
   id: string; userId: string; role: UserRole
@@ -185,6 +186,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
@@ -559,4 +561,3 @@ export default function UsersPage() {
     </div>
   )
 }
-
