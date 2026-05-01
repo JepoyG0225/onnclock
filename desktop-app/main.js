@@ -64,7 +64,16 @@ let updateInfo = {
 
 function isAdminAppBuild() {
   const appName = String(app.getName() || '').toLowerCase()
-  return appName.includes('admin')
+  const execPath = String(process.execPath || '').toLowerCase()
+  const argv = Array.isArray(process.argv) ? process.argv.map(v => String(v).toLowerCase()) : []
+  const envFlag = String(process.env.ONCLOCK_ADMIN_APP || '').toLowerCase()
+  return (
+    appName.includes('admin') ||
+    execPath.includes('admin') ||
+    argv.includes('--admin-app') ||
+    envFlag === '1' ||
+    envFlag === 'true'
+  )
 }
 
 const CLOCK_STATE_SYNC_INTERVAL_MS = 30 * 1000
@@ -106,6 +115,10 @@ function getServerUrl() {
 
 function getPortalUrl() {
   return `${getServerUrl()}/portal`
+}
+
+function getAdminAppUrl() {
+  return `${getServerUrl()}/login`
 }
 
 function getToken() {
@@ -468,6 +481,20 @@ function rebuildTrayMenu() {
   if (!tray) return
   const role = store.get('userRole', '')
   const isAdminSession = ADMIN_ROLES.has(role)
+  const adminBuild = isAdminAppBuild()
+  if (adminBuild) {
+    const menu = Menu.buildFromTemplate([
+      { label: 'OnClock Admin Desktop', enabled: false },
+      { type: 'separator' },
+      { label: 'Open Admin App', click: () => showMainWindow() },
+      { label: 'Open Dashboard in Browser...', click: () => shell.openExternal(getServerUrl()) },
+      { type: 'separator' },
+      { label: 'Quit OnClock', role: 'quit' },
+    ])
+    tray.setContextMenu(menu)
+    tray.setToolTip('OnClock Admin Desktop')
+    return
+  }
   const menu = Menu.buildFromTemplate([
     {
       label: 'OnClock Desktop',
@@ -1176,11 +1203,12 @@ function createMainWindow() {
   // Remove the default File/Edit/View/Window/Help menu bar entirely
   Menu.setApplicationMenu(null)
 
+  const adminBuild = isAdminAppBuild()
   const windowOptions = {
     width: 400,
     height: 720,
     resizable: false,
-    title: 'OnClock Desktop',
+    title: adminBuild ? 'OnClock Admin Desktop' : 'OnClock Desktop',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -1188,6 +1216,14 @@ function createMainWindow() {
     },
     show: false,
     skipTaskbar: false,
+  }
+
+  if (adminBuild) {
+    windowOptions.width = 1366
+    windowOptions.height = 900
+    windowOptions.minWidth = 1024
+    windowOptions.minHeight = 700
+    windowOptions.resizable = true
   }
 
   // Prefer ICO for Windows taskbar, fall back to PNG
@@ -1201,9 +1237,17 @@ function createMainWindow() {
 
   mainWindow = new BrowserWindow(windowOptions)
 
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'))
+  if (adminBuild) {
+    mainWindow.loadURL(getAdminAppUrl())
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'))
+  }
 
   mainWindow.once('ready-to-show', () => {
+    if (adminBuild) {
+      mainWindow.show()
+      return
+    }
     if (!shouldStartHidden()) mainWindow.show()
   })
 
@@ -1222,7 +1266,7 @@ function showMainWindow() {
     mainWindow.show()
     mainWindow.focus()
   }
-  if (getToken()) {
+  if (getToken() && !isAdminAppBuild()) {
     void syncClockStateFromServer('window-open')
   }
 }
@@ -1274,13 +1318,18 @@ app.whenReady().then(() => {
   createTray()
   startUpdateCheckLoop()
 
-  // If not logged in, show login window
-  if (!getToken()) {
+  // Admin build always opens the web admin UI.
+  if (isAdminAppBuild()) {
     createMainWindow()
   } else {
-    log(`Auto-session restored for ${store.get('userEmail', '')}`)
-    void syncClockStateFromServer('startup')
-    startClockStateSyncLoop()
+    // If not logged in, show login window
+    if (!getToken()) {
+      createMainWindow()
+    } else {
+      log(`Auto-session restored for ${store.get('userEmail', '')}`)
+      void syncClockStateFromServer('startup')
+      startClockStateSyncLoop()
+    }
   }
 })
 

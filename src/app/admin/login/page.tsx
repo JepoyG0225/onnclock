@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
         redirect: false,
       })
       if (result?.error) {
-        setError('Invalid credentials. Make sure you are using a system admin account.')
+        setError('Invalid credentials or account role. This page is for Super Admin only. Company Admin accounts should use /login.')
         return
       }
       window.location.href = '/admin/companies'
@@ -106,8 +106,10 @@ export default function AdminLoginPage() {
         <p className="text-center text-xs text-slate-600 mt-6">
           Restricted access — authorized personnel only
         </p>
+        <p className="text-center text-xs text-slate-500 mt-1">
+          Company Admin account? Use the standard sign-in page at <span className="font-semibold">/login</span>.
+        </p>
       </div>
     </div>
   )
 }
-
