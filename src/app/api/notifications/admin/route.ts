@@ -49,6 +49,18 @@ export async function GET(req: NextRequest) {
       take: limit,
     })
 
+    const timeCorrections = await prisma.timeEntryCorrection.findMany({
+      where: {
+        companyId: ctx.companyId,
+        status: 'PENDING',
+      },
+      include: {
+        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
   const TYPE_LABELS: Record<string, string> = {
     NOTICE_TO_EXPLAIN: 'Notice to Explain',
     NOTICE_OF_DECISION: 'Notice of Decision',
@@ -89,7 +101,18 @@ export async function GET(req: NextRequest) {
         employeeNo: d.employee.employeeNo,
         href: '/disciplinary',
       })),
+      ...timeCorrections.map(c => ({
+        id: c.id,
+        type: 'TIME_CORRECTION' as const,
+        status: c.status,
+        createdAt: c.createdAt,
+        title: 'Time correction request pending',
+        employee: `${c.employee.firstName} ${c.employee.lastName}`,
+        employeeNo: c.employee.employeeNo,
+        href: '/time-corrections',
+      })),
     ]
+      .map(item => ({ ...item, id: `${item.type}:${item.id}` }))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit)
 

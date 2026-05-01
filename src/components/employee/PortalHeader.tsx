@@ -13,16 +13,32 @@ interface PortalHeaderProps {
   employeeNo?: string
 }
 
+const DISMISSED_KEY = 'portal_dismissed_notifs'
+
+function getDismissed(): string[] {
+  try { return JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]') } catch { return [] }
+}
+
+function setDismissed(ids: string[]) {
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids))
+}
+
 export function PortalHeader({ companyName, companyLogoUrl, employeeName, employeeInitials, employeeNo }: PortalHeaderProps) {
   const [showMenu, setShowMenu] = useState(false)
-  const [items, setItems] = useState<Array<{
+  const [allItems, setAllItems] = useState<Array<{
     id: string
-    type: 'LEAVE'
+    type: 'LEAVE' | 'DISCIPLINARY' | 'TIME_CORRECTION'
     status: string
     title: string
     createdAt: string
+    href?: string
   }>>([])
+  const [dismissed, setDismissedState] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    return getDismissed()
+  })
   const [showNotif, setShowNotif] = useState(false)
+  const items = allItems.filter(item => !dismissed.includes(item.id))
 
   async function handlePortalSignOut() {
     const target = '/portal/login'
@@ -32,6 +48,13 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
     window.location.assign(target)
   }
 
+  function markAsRead(id: string) {
+    if (dismissed.includes(id)) return
+    const ids = [...dismissed, id]
+    setDismissed(ids)
+    setDismissedState(ids)
+  }
+
   useEffect(() => {
     let active = true
     async function loadNotifications() {
@@ -39,7 +62,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
         const res = await fetch('/api/notifications/portal?limit=20')
         if (!res.ok) return
         const data = await res.json()
-        if (active) setItems(data.items ?? [])
+        if (active) setAllItems(data.items ?? [])
       } catch { /* ignore */ }
     }
     loadNotifications()
@@ -117,7 +140,12 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
               ) : (
                 <div className="max-h-72 overflow-auto">
                   {items.map(item => (
-                    <div key={item.id} className="px-4 py-3 border-b border-gray-100 last:border-b-0">
+                    <a
+                      key={item.id}
+                      href={item.href ?? '#'}
+                      onClick={() => markAsRead(item.id)}
+                      className="block px-4 py-3 border-b border-gray-100 last:border-b-0"
+                    >
                       <p className="text-sm text-gray-900 font-medium">{item.title}</p>
                       <p
                         className="text-xs mt-0.5"
@@ -126,7 +154,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
                         {item.status}
                       </p>
                       <p className="text-[10px] text-gray-400">{new Date(item.createdAt).toLocaleString()}</p>
-                    </div>
+                    </a>
                   ))}
                 </div>
               )}
@@ -172,4 +200,3 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
     </header>
   )
 }
-

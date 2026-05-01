@@ -30,6 +30,8 @@ export async function POST() {
       company: {
         select: {
           name: true,
+          senderEmail: true,
+          senderName: true,
           users: {
             where: { role: 'COMPANY_ADMIN', isActive: true },
             select: { user: { select: { email: true } } },
@@ -67,6 +69,8 @@ export async function POST() {
           to: email,
           companyName: sub.company.name,
           expiredAt: sub.trialEndsAt ?? now,
+          senderEmail: sub.company.senderEmail,
+          senderName: sub.company.senderName,
         })
       }
 
@@ -96,4 +100,3 @@ export async function POST() {
 
   return NextResponse.json({ ok: true, summary, results })
 }
-

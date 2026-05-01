@@ -272,6 +272,8 @@ model Company {
   zipCode                       String?
   phone                         String?
   email                         String?
+  senderEmail                   String?
+  senderName                    String?
   website                       String?
   birNo                         String?
   portalUrl                     String?

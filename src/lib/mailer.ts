@@ -10,20 +10,31 @@ const transporter = nodemailer.createTransport({
   },
 })
 
+function buildFromIdentity(options?: { senderEmail?: string | null; senderName?: string | null }) {
+  const fallbackEmail = process.env.SMTP_FROM || process.env.SMTP_USER
+  const senderEmail = options?.senderEmail?.trim() || fallbackEmail
+  const senderName = options?.senderName?.trim() || 'Onclock'
+  return `"${senderName}" <${senderEmail}>`
+}
+
 export async function sendSubscriptionExpiryNotice({
   to,
   companyName,
   expiryDate,
   daysRemaining,
   isTrial,
+  senderEmail,
+  senderName,
 }: {
   to: string
   companyName: string
   expiryDate: Date
   daysRemaining: number
   isTrial: boolean
+  senderEmail?: string | null
+  senderName?: string | null
 }) {
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER
+  const from = buildFromIdentity({ senderEmail, senderName })
   const billingUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://onclockph.com'}/settings/billing`
   const formattedDate = expiryDate.toLocaleDateString('en-PH', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -35,7 +46,7 @@ export async function sendSubscriptionExpiryNotice({
     : `Your Onclock ${planLabel} expires in ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''}`
 
   await transporter.sendMail({
-    from: `"Onclock" <${from}>`,
+    from,
     to,
     subject,
     html: `
@@ -82,10 +93,10 @@ export async function sendSubscriptionExpiryNotice({
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER
+  const from = buildFromIdentity()
 
   await transporter.sendMail({
-    from: `"Onclock" <${from}>`,
+    from,
     to,
     subject: 'Reset your Onclock password',
     html: `
@@ -119,19 +130,23 @@ export async function sendExpiredTrialNotice({
   to,
   companyName,
   expiredAt,
+  senderEmail,
+  senderName,
 }: {
   to: string
   companyName: string
   expiredAt: Date
+  senderEmail?: string | null
+  senderName?: string | null
 }) {
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER
+  const from = buildFromIdentity({ senderEmail, senderName })
   const billingUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://onclockph.com'}/settings/billing`
   const formattedDate = expiredAt.toLocaleDateString('en-PH', {
     year: 'numeric', month: 'long', day: 'numeric',
   })
 
   await transporter.sendMail({
-    from: `"Onclock" <${from}>`,
+    from,
     to,
     subject: 'Your Onclock free trial has expired',
     html: `

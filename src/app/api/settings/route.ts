@@ -19,6 +19,8 @@ const companySchema = z.object({
   address: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().email().optional().nullable(),
+  senderEmail: z.string().email().optional().nullable(),
+  senderName: z.string().max(120).optional().nullable(),
   website: z.string().optional().nullable(),
   logoUrl: z.string().max(1_500_000).optional().nullable(),
   portalUrl: z.string().optional().nullable(),
@@ -140,7 +142,7 @@ async function persistBanner(companyId: string, dataUrl: string): Promise<string
   return `${data.publicUrl}?v=${Date.now()}`
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
@@ -208,6 +210,12 @@ export async function PATCH(req: NextRequest) {
     if (hasField('address')) companyUpdateData.address = parsed.data.address ?? null
     if (hasField('phone')) companyUpdateData.phone = parsed.data.phone ?? null
     if (hasField('email')) companyUpdateData.email = parsed.data.email ?? null
+    if (companyFieldSupported('senderEmail') && hasField('senderEmail')) {
+      companyUpdateData.senderEmail = parsed.data.senderEmail ?? null
+    }
+    if (companyFieldSupported('senderName') && hasField('senderName')) {
+      companyUpdateData.senderName = parsed.data.senderName ?? null
+    }
     if (hasField('website')) companyUpdateData.website = parsed.data.website ?? null
     if (hasField('portalUrl')) companyUpdateData.portalUrl = parsed.data.portalUrl ?? null
     if (hasField('tinNo')) companyUpdateData.tin = parsed.data.tinNo ?? null

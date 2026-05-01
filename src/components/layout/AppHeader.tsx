@@ -30,7 +30,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
   const { collapsed } = useSidebar()
   const [allItems, setAllItems] = useState<Array<{
     id: string
-    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY'
+    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION'
     status: string
     title: string
     employee?: string
@@ -38,19 +38,25 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
     createdAt: string
     href?: string
   }>>([])
-  const [dismissed, setDismissed] = useState<string[]>([])
+  const [dismissed, setDismissed] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try { return JSON.parse(localStorage.getItem('admin_dismissed_notifs') ?? '[]') } catch { return [] }
+  })
 
   const DISMISSED_KEY = 'admin_dismissed_notifs'
-
-  useEffect(() => {
-    try { setDismissed(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]')) } catch { /* */ }
-  }, [])
 
   const items = allItems.filter(i => !dismissed.includes(i.id))
   const pendingCount = items.length
 
   function handleClearAll() {
     const ids = [...dismissed, ...allItems.map(i => i.id)]
+    setDismissed(ids)
+    try { localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids)) } catch { /* */ }
+  }
+
+  function markAsRead(id: string) {
+    if (dismissed.includes(id)) return
+    const ids = [...dismissed, id]
     setDismissed(ids)
     try { localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids)) } catch { /* */ }
   }
@@ -133,7 +139,10 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
                   <DropdownMenuItem
                     key={item.id}
                     className="flex items-start gap-2 py-2.5 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
-                    onClick={() => item.href && router.push(item.href)}
+                    onClick={() => {
+                      markAsRead(item.id)
+                      if (item.href) router.push(item.href)
+                    }}
                   >
                     <span className={`mt-0.5 inline-flex h-2 w-2 rounded-full flex-shrink-0 ${
                       item.type === 'DISCIPLINARY' ? 'bg-red-500' :

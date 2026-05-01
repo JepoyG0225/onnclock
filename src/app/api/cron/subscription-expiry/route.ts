@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
       company: {
         select: {
           name: true,
+          senderEmail: true,
+          senderName: true,
           users: {
             where: { role: 'COMPANY_ADMIN', isActive: true },
             select: { user: { select: { email: true } } },
@@ -58,6 +60,8 @@ export async function GET(req: NextRequest) {
       company: {
         select: {
           name: true,
+          senderEmail: true,
+          senderName: true,
           users: {
             where: { role: 'COMPANY_ADMIN', isActive: true },
             select: { user: { select: { email: true } } },
@@ -72,7 +76,7 @@ export async function GET(req: NextRequest) {
 
   const sendNotices = async (
     companyId: string,
-    companyName: string,
+    company: { name: string; senderEmail?: string | null; senderName?: string | null },
     expiryDate: Date,
     isTrial: boolean,
     adminEmails: string[],
@@ -87,7 +91,15 @@ export async function GET(req: NextRequest) {
 
     for (const email of adminEmails) {
       try {
-        await sendSubscriptionExpiryNotice({ to: email, companyName, expiryDate, daysRemaining, isTrial })
+        await sendSubscriptionExpiryNotice({
+          to: email,
+          companyName: company.name,
+          expiryDate,
+          daysRemaining,
+          isTrial,
+          senderEmail: company.senderEmail,
+          senderName: company.senderName,
+        })
       } catch (err) {
         emailErrors.push(`${email}: ${(err as Error).message}`)
       }
@@ -102,12 +114,12 @@ export async function GET(req: NextRequest) {
 
   for (const sub of expiringTrials) {
     const emails = sub.company.users.map((u) => u.user.email).filter(Boolean) as string[]
-    await sendNotices(sub.companyId, sub.company.name, sub.trialEndsAt!, true, emails)
+    await sendNotices(sub.companyId, sub.company, sub.trialEndsAt!, true, emails)
   }
 
   for (const sub of expiringActive) {
     const emails = sub.company.users.map((u) => u.user.email).filter(Boolean) as string[]
-    await sendNotices(sub.companyId, sub.company.name, sub.currentPeriodEnd!, false, emails)
+    await sendNotices(sub.companyId, sub.company, sub.currentPeriodEnd!, false, emails)
   }
 
   return NextResponse.json({

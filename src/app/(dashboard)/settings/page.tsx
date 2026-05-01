@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [copiedPortal, setCopiedPortal] = useState(false)
   const [form, setForm] = useState({
     name: '', industry: '', address: '', phone: '', email: '', website: '',
+    senderEmail: '', senderName: '',
     logoUrl: '',
     tinNo: '', sssNo: '', philhealthNo: '', pagibigNo: '', birNo: '',
   })
@@ -27,6 +28,8 @@ export default function SettingsPage() {
       address:      data.address ?? '',
       phone:        data.phone ?? '',
       email:        data.email ?? '',
+      senderEmail:  data.senderEmail ?? '',
+      senderName:   data.senderName ?? '',
       website:      data.website ?? '',
       logoUrl:      data.logoUrl ?? '',
       tinNo:        data.tinNo ?? '',
@@ -223,15 +226,20 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fields(['name', 'industry', 'address', 'phone', 'email', 'website'], {
+                {fields(['name', 'industry', 'address', 'phone', 'email', 'website', 'senderName', 'senderEmail'], {
                   name: 'Company Name *',
                   industry: 'Industry',
                   address: 'Business Address',
                   phone: 'Phone Number',
                   email: 'Company Email',
                   website: 'Website',
+                  senderName: 'Email Sender Name',
+                  senderEmail: 'Email Sender Address',
                 })}
               </div>
+              <p className="text-xs text-gray-500 -mt-1">
+                Sender email is used as the &quot;From&quot; identity for company notices (where supported).
+              </p>
 
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Employee Portal URL</label>
@@ -782,5 +790,3 @@ function StorageTab() {
     </div>
   )
 }
-
-

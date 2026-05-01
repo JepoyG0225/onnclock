@@ -47,6 +47,7 @@ type NotifItem = {
   status: string
   title: string
   createdAt: string
+  href?: string
 }
 
 export function PortalSidebar({
@@ -63,17 +64,25 @@ export function PortalSidebar({
     (!t.pro || showDisciplinary) && (!t.budgetReq || showBudgetReq)
   )
   const [allNotifs, setAllNotifs] = useState<NotifItem[]>([])
-  const [dismissed, setDismissedState] = useState<string[]>([])
+  const [dismissed, setDismissedState] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    return getDismissed()
+  })
   const [showNotif, setShowNotif] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => { setDismissedState(getDismissed()) }, [])
 
   const notifs = allNotifs.filter(n => !dismissed.includes(n.id))
 
   function handleClearAll() {
     const ids = [...dismissed, ...allNotifs.map(n => n.id)]
+    setDismissed(ids)
+    setDismissedState(ids)
+  }
+
+  function markAsRead(id: string) {
+    if (dismissed.includes(id)) return
+    const ids = [...dismissed, id]
     setDismissed(ids)
     setDismissedState(ids)
   }
@@ -206,7 +215,12 @@ export function PortalSidebar({
                     {notifs.map(item => {
                       const isDisc = item.type === 'DISCIPLINARY'
                       return (
-                        <a key={item.id} href={(item as {href?: string}).href ?? '#'} className="block px-4 py-3 hover:bg-gray-50 transition-colors">
+                        <a
+                          key={item.id}
+                          href={item.href ?? '#'}
+                          onClick={() => markAsRead(item.id)}
+                          className="block px-4 py-3 hover:bg-gray-50 transition-colors"
+                        >
                           <p className="text-sm text-gray-800 font-medium leading-snug">{item.title}</p>
                           <div className="flex items-center justify-between mt-1">
                             <span
