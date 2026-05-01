@@ -23,6 +23,7 @@
     "productName": "OnClock Desktop",
     "copyright": "Copyright © 2026 OnClock PH",
     "win": {
+      "publisherName": "OnClock PH",
       "icon": "assets/icon.ico",
       "target": [
         {
