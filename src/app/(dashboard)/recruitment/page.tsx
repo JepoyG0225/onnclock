@@ -346,6 +346,10 @@ export default function RecruitmentPage() {
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50">
             <Settings2 className="w-4 h-4" /> Career Page
           </Link>
+          <Link href="/recruitment/templates"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50">
+            <FileText className="w-4 h-4" /> Email Templates
+          </Link>
           <button onClick={() => setDrawerOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#2E4156] shadow-sm">
             <Plus className="w-4 h-4" /> Post a Job

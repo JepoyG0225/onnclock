@@ -18,15 +18,6 @@ interface CareerSettings {
   website: string | null
 }
 
-type TemplateType = 'INTERVIEW' | 'REJECTION' | 'OFFER'
-
-type EmailTemplate = {
-  type: TemplateType
-  subject: string
-  body: string
-  isActive: boolean
-}
-
 export default function RecruitmentSettingsPage() {
   const [settings, setSettings] = useState<CareerSettings | null>(null)
   const [saving, setSaving] = useState(false)
@@ -50,7 +41,6 @@ export default function RecruitmentSettingsPage() {
     smtpFromName: '',
     hasSmtpPass: false,
   })
-  const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const bannerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -87,7 +77,6 @@ export default function RecruitmentSettingsPage() {
             hasSmtpPass: Boolean(data.smtp.hasSmtpPass),
           })
         }
-        setTemplates(Array.isArray(data?.templates) ? data.templates : [])
       })
       .catch(() => toast.error('Failed to load recruitment email settings'))
   }, [])
@@ -158,7 +147,6 @@ export default function RecruitmentSettingsPage() {
           smtpPass: smtp.smtpPass || undefined,
           smtpFromEmail: smtp.smtpFromEmail || null,
           smtpFromName: smtp.smtpFromName || null,
-          templates,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -356,32 +344,13 @@ export default function RecruitmentSettingsPage() {
         </label>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
         <h2 className="text-sm font-bold text-slate-800">Recruitment Email Templates</h2>
-        <p className="text-xs text-slate-500">Available variables: {'{{firstName}}'}, {'{{lastName}}'}, {'{{jobTitle}}'}, {'{{companyName}}'}.</p>
-        <div className="space-y-4">
-          {templates.map((tpl, idx) => (
-            <div key={tpl.type} className="rounded-xl border border-slate-200 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-700">{tpl.type}</p>
-                <label className="inline-flex items-center gap-2 text-xs text-slate-500">
-                  <input type="checkbox" checked={tpl.isActive} onChange={e => setTemplates(prev => prev.map((item, i) => i === idx ? { ...item, isActive: e.target.checked } : item))} />
-                  Active
-                </label>
-              </div>
-              <input value={tpl.subject} onChange={e => setTemplates(prev => prev.map((item, i) => i === idx ? { ...item, subject: e.target.value } : item))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Subject" />
-              <textarea value={tpl.body} onChange={e => setTemplates(prev => prev.map((item, i) => i === idx ? { ...item, body: e.target.value } : item))} rows={5} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm resize-none" placeholder="Email body" />
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={saveEmailSettings}
-          disabled={savingEmail}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50"
-        >
+        <p className="text-xs text-slate-500">Manage all template types in a dedicated page (add, edit, delete).</p>
+        <Link href="/recruitment/templates" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">
           <Save className="w-4 h-4" />
-          {savingEmail ? 'Saving...' : 'Save Email Settings'}
-        </button>
+          Open Email Templates
+        </Link>
       </div>
 
       <div className="flex justify-end">
