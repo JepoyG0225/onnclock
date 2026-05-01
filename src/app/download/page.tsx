@@ -54,17 +54,31 @@ export default function DownloadPage() {
                 <p className="mt-1 text-sm text-slate-500">{section.subtitle}</p>
                 <div className="mt-5 space-y-3">
                   {platforms.map((platform) => (
-                    <a
-                      key={platform.key}
-                      href={`/api/desktop-app/download/${section.role}/${platform.key}`}
-                      className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-[#2E4156] hover:bg-white transition-all"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <Image src={platform.icon} alt={platform.label} width={18} height={18} />
-                        {platform.label}
-                      </span>
-                      <span className="text-xs text-slate-500">Download</span>
-                    </a>
+                    platform.key === 'mac' ? (
+                      <div
+                        key={platform.key}
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-500 cursor-not-allowed"
+                        aria-disabled="true"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Image src={platform.icon} alt={platform.label} width={18} height={18} />
+                          {platform.label}
+                        </span>
+                        <span className="text-xs text-amber-600 font-bold">Coming soon</span>
+                      </div>
+                    ) : (
+                      <a
+                        key={platform.key}
+                        href={`/api/desktop-app/download/${section.role}/${platform.key}`}
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-[#2E4156] hover:bg-white transition-all"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Image src={platform.icon} alt={platform.label} width={18} height={18} />
+                          {platform.label}
+                        </span>
+                        <span className="text-xs text-slate-500">Download</span>
+                      </a>
+                    )
                   ))}
                 </div>
               </article>
