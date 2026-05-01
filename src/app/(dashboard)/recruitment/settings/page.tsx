@@ -18,9 +18,19 @@ interface CareerSettings {
   website: string | null
 }
 
+type TemplateType = 'INTERVIEW' | 'REJECTION' | 'OFFER'
+
+type EmailTemplate = {
+  type: TemplateType
+  subject: string
+  body: string
+  isActive: boolean
+}
+
 export default function RecruitmentSettingsPage() {
   const [settings, setSettings] = useState<CareerSettings | null>(null)
   const [saving, setSaving] = useState(false)
+  const [savingEmail, setSavingEmail] = useState(false)
   const [form, setForm] = useState({
     careerBannerUrl: null as string | null,
     careerTagline: '',
@@ -30,6 +40,17 @@ export default function RecruitmentSettingsPage() {
     careerSocialTwitter: '',
     careerSocialInstagram: '',
   })
+  const [smtp, setSmtp] = useState({
+    smtpHost: '',
+    smtpPort: 465,
+    smtpSecure: true,
+    smtpUser: '',
+    smtpPass: '',
+    smtpFromEmail: '',
+    smtpFromName: '',
+    hasSmtpPass: false,
+  })
+  const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const bannerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -48,6 +69,27 @@ export default function RecruitmentSettingsPage() {
         })
       })
       .catch(() => toast.error('Failed to load settings'))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/recruitment/email-settings')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.smtp) {
+          setSmtp({
+            smtpHost: data.smtp.smtpHost ?? '',
+            smtpPort: Number(data.smtp.smtpPort ?? 465),
+            smtpSecure: Boolean(data.smtp.smtpSecure ?? true),
+            smtpUser: data.smtp.smtpUser ?? '',
+            smtpPass: '',
+            smtpFromEmail: data.smtp.smtpFromEmail ?? '',
+            smtpFromName: data.smtp.smtpFromName ?? '',
+            hasSmtpPass: Boolean(data.smtp.hasSmtpPass),
+          })
+        }
+        setTemplates(Array.isArray(data?.templates) ? data.templates : [])
+      })
+      .catch(() => toast.error('Failed to load recruitment email settings'))
   }, [])
 
   function handleBannerFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -99,6 +141,34 @@ export default function RecruitmentSettingsPage() {
       toast.error(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function saveEmailSettings() {
+    setSavingEmail(true)
+    try {
+      const res = await fetch('/api/recruitment/email-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smtpHost: smtp.smtpHost || null,
+          smtpPort: Number(smtp.smtpPort || 465),
+          smtpSecure: smtp.smtpSecure,
+          smtpUser: smtp.smtpUser || null,
+          smtpPass: smtp.smtpPass || undefined,
+          smtpFromEmail: smtp.smtpFromEmail || null,
+          smtpFromName: smtp.smtpFromName || null,
+          templates,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error ?? 'Failed to save email settings')
+      setSmtp(prev => ({ ...prev, smtpPass: '', hasSmtpPass: Boolean(prev.smtpPass || prev.hasSmtpPass) }))
+      toast.success('Recruitment email settings saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save email settings')
+    } finally {
+      setSavingEmail(false)
     }
   }
 
@@ -267,6 +337,51 @@ export default function RecruitmentSettingsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <h2 className="text-sm font-bold text-slate-800">Company SMTP for Recruitment Emails</h2>
+        <p className="text-xs text-slate-500">Used when sending interview, rejection, and offer emails to applicants.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input value={smtp.smtpHost} onChange={e => setSmtp(p => ({ ...p, smtpHost: e.target.value }))} placeholder="SMTP Host (e.g. smtp.gmail.com)" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <input type="number" value={smtp.smtpPort} onChange={e => setSmtp(p => ({ ...p, smtpPort: Number(e.target.value || 465) }))} placeholder="SMTP Port" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <input value={smtp.smtpUser} onChange={e => setSmtp(p => ({ ...p, smtpUser: e.target.value }))} placeholder="SMTP Username" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <input type="password" value={smtp.smtpPass} onChange={e => setSmtp(p => ({ ...p, smtpPass: e.target.value }))} placeholder={smtp.hasSmtpPass ? 'SMTP Password (leave blank to keep current)' : 'SMTP Password'} className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <input value={smtp.smtpFromName} onChange={e => setSmtp(p => ({ ...p, smtpFromName: e.target.value }))} placeholder="From Name (e.g. ACME HR)" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          <input type="email" value={smtp.smtpFromEmail} onChange={e => setSmtp(p => ({ ...p, smtpFromEmail: e.target.value }))} placeholder="From Email" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+        </div>
+        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={smtp.smtpSecure} onChange={e => setSmtp(p => ({ ...p, smtpSecure: e.target.checked }))} />
+          Use secure connection (SSL/TLS)
+        </label>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <h2 className="text-sm font-bold text-slate-800">Recruitment Email Templates</h2>
+        <p className="text-xs text-slate-500">Available variables: {'{{firstName}}'}, {'{{lastName}}'}, {'{{jobTitle}}'}, {'{{companyName}}'}.</p>
+        <div className="space-y-4">
+          {templates.map((tpl, idx) => (
+            <div key={tpl.type} className="rounded-xl border border-slate-200 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-700">{tpl.type}</p>
+                <label className="inline-flex items-center gap-2 text-xs text-slate-500">
+                  <input type="checkbox" checked={tpl.isActive} onChange={e => setTemplates(prev => prev.map((item, i) => i === idx ? { ...item, isActive: e.target.checked } : item))} />
+                  Active
+                </label>
+              </div>
+              <input value={tpl.subject} onChange={e => setTemplates(prev => prev.map((item, i) => i === idx ? { ...item, subject: e.target.value } : item))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Subject" />
+              <textarea value={tpl.body} onChange={e => setTemplates(prev => prev.map((item, i) => i === idx ? { ...item, body: e.target.value } : item))} rows={5} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm resize-none" placeholder="Email body" />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={saveEmailSettings}
+          disabled={savingEmail}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
+          {savingEmail ? 'Saving...' : 'Save Email Settings'}
+        </button>
       </div>
 
       <div className="flex justify-end">

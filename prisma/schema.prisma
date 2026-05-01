@@ -165,6 +165,12 @@ enum RecruitmentStage {
   WITHDRAWN
 }
 
+enum RecruitmentEmailTemplateType {
+  INTERVIEW
+  REJECTION
+  OFFER
+}
+
 enum OnboardingStepType {
   DOCUMENT
   VIDEO
@@ -274,6 +280,13 @@ model Company {
   email                         String?
   senderEmail                   String?
   senderName                    String?
+  smtpHost                      String?
+  smtpPort                      Int?
+  smtpSecure                    Boolean  @default(true)
+  smtpUser                      String?
+  smtpPass                      String?
+  smtpFromEmail                 String?
+  smtpFromName                  String?
   website                       String?
   birNo                         String?
   portalUrl                     String?
@@ -328,6 +341,7 @@ model Company {
   incomeTypes           IncomeType[]
   jobPosts              JobPost[]
   jobApplications       JobApplication[]
+  recruitmentEmailTemplates RecruitmentEmailTemplate[]
   onboardingTemplates   OnboardingTemplate[]
   onboardingProcesses   OnboardingProcess[]
   performanceReviews    PerformanceReview[]
@@ -1200,6 +1214,23 @@ model JobApplication {
   @@index([jobPostId, stage, appliedAt])
   @@index([email, appliedAt])
   @@map("job_applications")
+}
+
+model RecruitmentEmailTemplate {
+  id        String                       @id @default(cuid())
+  companyId String
+  type      RecruitmentEmailTemplateType
+  subject   String
+  body      String                       @db.Text
+  isActive  Boolean                      @default(true)
+  createdAt DateTime                     @default(now())
+  updatedAt DateTime                     @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, type])
+  @@index([companyId, isActive])
+  @@map("recruitment_email_templates")
 }
 
 model OnboardingTemplate {

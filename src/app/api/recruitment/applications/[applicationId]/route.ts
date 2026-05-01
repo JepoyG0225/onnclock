@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { requireHrisProApi } from '@/lib/hris-pro'
 import { recruitmentModelsReady, recruitmentModelsUnavailableResponse } from '@/lib/recruitment-runtime'
+import { sendRecruitmentStageEmail } from '@/lib/mailer'
 
 const updateApplicationSchema = z.object({
   stage: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'FINAL_INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN']).optional(),
@@ -150,8 +151,55 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ap
       }
     }
 
-    return application
-  })
+    const company = await tx.company.findUnique({
+      where: { id: ctx.companyId },
+      select: { name: true },
+    })
+    const templates = await tx.$queryRaw<Array<{
+      type: 'INTERVIEW' | 'REJECTION' | 'OFFER'
+      subject: string
+      body: string
+    }>`
+      SELECT "type", "subject", "body"
+      FROM "recruitment_email_templates"
+      WHERE "companyId" = ${ctx.companyId}
+        AND "isActive" = true
+    `
 
-  return NextResponse.json({ application: result })
+    return { application, companyName: company?.name ?? 'Onclock', templates }
+  })
+  const templateType =
+    result.application.stage === 'REJECTED'
+      ? 'REJECTION'
+      : result.application.stage === 'OFFER'
+        ? 'OFFER'
+        : result.application.stage === 'INTERVIEW' || result.application.stage === 'FINAL_INTERVIEW'
+          ? 'INTERVIEW'
+          : null
+
+  if (templateType && result.application.email) {
+    const tpl = result.templates.find((item) => item.type === templateType)
+    if (tpl) {
+      const replacements: Record<string, string> = {
+        firstName: result.application.firstName,
+        lastName: result.application.lastName,
+        jobTitle: (await prisma.jobPost.findUnique({
+          where: { id: result.application.jobPostId },
+          select: { title: true },
+        }))?.title ?? 'the role',
+        companyName: result.companyName,
+      }
+      const applyVars = (value: string) =>
+        value.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, key) => replacements[key] ?? '')
+
+      sendRecruitmentStageEmail({
+        companyId: ctx.companyId,
+        to: result.application.email,
+        subject: applyVars(tpl.subject),
+        body: applyVars(tpl.body),
+      }).catch(() => null)
+    }
+  }
+
+  return NextResponse.json({ application: result.application })
 }

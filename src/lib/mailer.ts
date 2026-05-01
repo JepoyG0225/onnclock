@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { prisma } from '@/lib/prisma'
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.hostinger.com',
@@ -15,6 +16,61 @@ function buildFromIdentity(options?: { senderEmail?: string | null; senderName?:
   const senderEmail = options?.senderEmail?.trim() || fallbackEmail
   const senderName = options?.senderName?.trim() || 'Onclock'
   return `"${senderName}" <${senderEmail}>`
+}
+
+async function getCompanyMailer(companyId: string) {
+  const rows = await prisma.$queryRaw<Array<{
+    name: string | null
+    senderEmail: string | null
+    senderName: string | null
+    smtpHost: string | null
+    smtpPort: number | null
+    smtpSecure: boolean | null
+    smtpUser: string | null
+    smtpPass: string | null
+    smtpFromEmail: string | null
+    smtpFromName: string | null
+  }>>`
+    SELECT
+      "name",
+      "senderEmail",
+      "senderName",
+      "smtpHost",
+      "smtpPort",
+      "smtpSecure",
+      "smtpUser",
+      "smtpPass",
+      "smtpFromEmail",
+      "smtpFromName"
+    FROM "companies"
+    WHERE "id" = ${companyId}
+    LIMIT 1
+  `
+  const company = rows[0]
+
+  if (company?.smtpHost && company?.smtpPort && company?.smtpUser && company?.smtpPass) {
+    const customTransporter = nodemailer.createTransport({
+      host: company.smtpHost,
+      port: company.smtpPort,
+      secure: company.smtpSecure ?? (company.smtpPort === 465),
+      auth: {
+        user: company.smtpUser,
+        pass: company.smtpPass,
+      },
+    })
+    return {
+      transporter: customTransporter,
+      from: buildFromIdentity({
+        senderEmail: company.smtpFromEmail ?? company.smtpUser,
+        senderName: company.smtpFromName ?? company.name ?? 'Onclock',
+      }),
+    }
+  }
+
+  return {
+    transporter,
+    from: buildFromIdentity({ senderEmail: company?.senderEmail, senderName: company?.senderName ?? company?.name }),
+  }
 }
 
 export async function sendSubscriptionExpiryNotice({
@@ -179,5 +235,26 @@ export async function sendExpiredTrialNotice({
       </div>
     `,
     text: `Your Onclock free trial expired on ${formattedDate}. Activate your subscription here: ${billingUrl}`,
+  })
+}
+
+export async function sendRecruitmentStageEmail({
+  companyId,
+  to,
+  subject,
+  body,
+}: {
+  companyId: string
+  to: string
+  subject: string
+  body: string
+}) {
+  const resolved = await getCompanyMailer(companyId)
+  await resolved.transporter.sendMail({
+    from: resolved.from,
+    to,
+    subject,
+    text: body,
+    html: body.replace(/\n/g, '<br/>'),
   })
 }
