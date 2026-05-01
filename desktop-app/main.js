@@ -64,12 +64,10 @@ let updateInfo = {
 
 function isAdminAppBuild() {
   const appName = String(app.getName() || '').toLowerCase()
-  const execPath = String(process.execPath || '').toLowerCase()
   const argv = Array.isArray(process.argv) ? process.argv.map(v => String(v).toLowerCase()) : []
   const envFlag = String(process.env.ONCLOCK_ADMIN_APP || '').toLowerCase()
   return (
     appName.includes('admin') ||
-    execPath.includes('admin') ||
     argv.includes('--admin-app') ||
     envFlag === '1' ||
     envFlag === 'true'
