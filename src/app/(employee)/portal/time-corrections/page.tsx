@@ -203,13 +203,10 @@ export default function TimeCorrectionPortalPage() {
                 <option value="">Select a time entry</option>
                 {timeEntries.map((record) => (
                   <option key={record.id} value={record.id}>
-                    #{record.id.slice(0, 8)} • {format(new Date(record.date), 'MMM d, yyyy')} • In {formatTimeValue(record.timeIn)} • Out {formatTimeValue(record.timeOut)}
+                    {format(new Date(record.date), 'MMM d, yyyy')} • In {formatTimeValue(record.timeIn)} • Out {formatTimeValue(record.timeOut)}
                   </option>
                 ))}
               </select>
-              {form.dtrRecordId && (
-                <p className="text-[11px] text-gray-500 mt-1">Selected Record ID: {form.dtrRecordId}</p>
-              )}
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>

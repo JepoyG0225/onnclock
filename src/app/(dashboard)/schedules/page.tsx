@@ -206,6 +206,7 @@ interface ShiftTemplateForm {
   name: string
   timeIn: string
   timeOut: string
+  workHoursPerDay: number
   breakEnabled: boolean
   breakMinutes: number
   workDays: number[]
@@ -231,6 +232,7 @@ function ShiftTemplateModal({
     name: initial?.name ?? '',
     timeIn: initial?.timeIn ?? '08:00',
     timeOut: initial?.timeOut ?? '17:00',
+    workHoursPerDay: Number(initial?.workHoursPerDay ?? 8),
     breakEnabled: initial?.breakEnabled ?? true,
     breakMinutes: Number(initial?.breakMinutes ?? fallbackBreakMinutes),
     workDays: Array.isArray(initial?.workDays) && initial.workDays.length > 0
@@ -246,6 +248,7 @@ function ShiftTemplateModal({
       name: initial?.name ?? '',
       timeIn: initial?.timeIn ?? '08:00',
       timeOut: initial?.timeOut ?? '17:00',
+      workHoursPerDay: Number(initial?.workHoursPerDay ?? 8),
       breakEnabled: initial?.breakEnabled ?? true,
       breakMinutes: Number(initial?.breakMinutes ?? fallbackBreakMinutes),
       workDays: Array.isArray(initial?.workDays) && initial.workDays.length > 0
@@ -277,7 +280,7 @@ function ShiftTemplateModal({
         breakEnabled: form.breakEnabled,
         breakMinutes: form.breakEnabled ? form.breakMinutes : 0,
         workDays: form.workDays,
-        workHoursPerDay: 8,
+        workHoursPerDay: Number(form.workHoursPerDay),
         workDaysPerWeek: form.workDays.length,
       }
       const res = initial
@@ -352,6 +355,19 @@ function ShiftTemplateModal({
                 className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Working Hours / Day</label>
+            <input
+              type="number"
+              min={1}
+              max={24}
+              step={0.5}
+              value={form.workHoursPerDay}
+              onChange={e => setForm(p => ({ ...p, workHoursPerDay: Math.max(1, Number(e.target.value) || 8) }))}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+            />
           </div>
 
           {/* Break */}
@@ -1496,6 +1512,7 @@ function FixedScheduleTabInner({
         </div>
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time In</label><input type="time" value={f.timeIn} onChange={e => onChange({ timeIn: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time Out</label><input type="time" value={f.timeOut} onChange={e => onChange({ timeOut: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="text-xs font-semibold text-gray-600 block mb-1">Hours / Day</label><input type="number" min={1} max={24} step={0.5} value={f.workHoursPerDay} onChange={e => onChange({ workHoursPerDay: Math.max(1, Number(e.target.value) || 8) })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-gray-600">Break</label>
@@ -1512,7 +1529,6 @@ function FixedScheduleTabInner({
             <p className="text-[11px] text-amber-600">Break disabled for this schedule</p>
           )}
         </div>
-        <div><label className="text-xs font-semibold text-gray-600 block mb-1">Hours / Day</label><input type="number" min={1} max={24} value={f.workHoursPerDay} onChange={e => onChange({ workHoursPerDay: Number(e.target.value) })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div className="md:col-span-2"><DayPicker workDays={f.workDays} onToggle={onToggleDay} /></div>
       </div>
     )

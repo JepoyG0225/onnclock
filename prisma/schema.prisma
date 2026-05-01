@@ -349,6 +349,8 @@ model PayrollCycleConfig {
   secondCutoffStartDay   Int          @default(16)
   secondCutoffEndDay     Int          @default(31)
   defaultPayDelayDays    Int          @default(5)
+  enableOvertime         Boolean      @default(true)
+  enableNightDifferential Boolean     @default(true)
   nightDifferentialRate  Decimal      @default(0.10) @db.Decimal(5, 4)
   nightDifferentialStart String       @default("22:00")
   nightDifferentialEnd   String       @default("06:00")

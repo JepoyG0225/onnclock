@@ -127,7 +127,30 @@ export async function POST(
 
   const workingDays = getWorkingDays(run.periodStart, run.periodEnd)
   const firstCutoff = isFirstCutoff(run.periodStart)
-  const nightDiffRate = 0.1
+  let payrollConfig: {
+    enableOvertime: boolean
+    enableNightDifferential: boolean
+    nightDifferentialRate: { toNumber(): number } | number
+  } | null = null
+  try {
+    payrollConfig = await prisma.payrollCycleConfig.findUnique({
+      where: { companyId: ctx.companyId },
+      select: {
+        enableOvertime: true,
+        enableNightDifferential: true,
+        nightDifferentialRate: true,
+      },
+    })
+  } catch {
+    payrollConfig = null
+  }
+  const overtimeEnabled = payrollConfig?.enableOvertime ?? true
+  const nightDifferentialEnabled = payrollConfig?.enableNightDifferential ?? true
+  const nightDiffRate = nightDifferentialEnabled
+    ? (payrollConfig?.nightDifferentialRate && typeof payrollConfig.nightDifferentialRate === 'object'
+      ? payrollConfig.nightDifferentialRate.toNumber()
+      : Number(payrollConfig?.nightDifferentialRate ?? 0.1))
+    : 0
   const nightDiffStartMinutes = 22 * 60
   const nightDiffEndMinutes = 6 * 60
 
@@ -135,6 +158,9 @@ export async function POST(
   const employees = await prisma.employee.findMany({
     where: { companyId: ctx.companyId, isActive: true },
     include: {
+      workSchedule: {
+        select: { workHoursPerDay: true },
+      },
       loans: { where: { status: 'ACTIVE' } },
       incomeAssignments: {
         where: { isActive: true, incomeType: { isActive: true } },
@@ -254,12 +280,14 @@ export async function POST(
       ? dtrWorked
       : (hasDtr ? dtrWorked : workingDays)
 
-    const regularOtHours = emp.trackTime || hasDtr
+    const regularOtHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
       : 0
-    const nightDiffHours = emp.trackTime || hasDtr
+    const nightDiffHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.nightDiffHours, 0)
       : 0
+    const regularOtHours = overtimeEnabled ? regularOtHoursRaw : 0
+    const nightDiffHours = nightDifferentialEnabled ? nightDiffHoursRaw : 0
     const lateMinutes = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + (d.lateMinutes ?? 0), 0)
       : 0
@@ -309,8 +337,14 @@ export async function POST(
       },
     })
 
-    const dailyRate  = emp.dailyRate?.toNumber()  ?? emp.basicSalary.toNumber() / 22
-    const hourlyRate = emp.hourlyRate?.toNumber() ?? dailyRate / 8
+    const dailyRate = emp.dailyRate?.toNumber() ?? emp.basicSalary.toNumber() / 22
+    const configuredWorkHours = Number(emp.workSchedule?.workHoursPerDay ?? 8)
+    const effectiveWorkHoursPerDay = Number.isFinite(configuredWorkHours) && configuredWorkHours > 0
+      ? configuredWorkHours
+      : 8
+    const hourlyRate = emp.rateType === 'HOURLY'
+      ? (emp.hourlyRate?.toNumber() ?? dailyRate / effectiveWorkHoursPerDay)
+      : dailyRate / effectiveWorkHoursPerDay
 
     // ── Loan deductions: cap each at remaining balance ─────────────────────
     // For semi-monthly, deduct half the monthly amortization each period

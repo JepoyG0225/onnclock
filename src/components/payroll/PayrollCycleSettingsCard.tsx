@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -16,6 +17,8 @@ type PayrollSettings = {
   secondCutoffStartDay: number
   secondCutoffEndDay: number
   defaultPayDelayDays: number
+  enableOvertime: boolean
+  enableNightDifferential: boolean
   timezone: string
   payrollCurrency: string
 }
@@ -27,6 +30,8 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   secondCutoffStartDay: 16,
   secondCutoffEndDay: 31,
   defaultPayDelayDays: 5,
+  enableOvertime: true,
+  enableNightDifferential: true,
   timezone: 'Asia/Manila',
   payrollCurrency: 'PHP',
 }
@@ -156,6 +161,32 @@ export default function PayrollCycleSettingsCard() {
                     <SelectItem value="EUR">EUR - Euro</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Enable Overtime Pay</p>
+                    <p className="text-xs text-gray-500">Turn off to exclude OT hours and OT pay in payroll.</p>
+                  </div>
+                  <Switch
+                    checked={settings.enableOvertime}
+                    onCheckedChange={v => setSettings(prev => ({ ...prev, enableOvertime: v }))}
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Enable Night Differential</p>
+                    <p className="text-xs text-gray-500">Turn off to exclude ND hours and ND pay in payroll.</p>
+                  </div>
+                  <Switch
+                    checked={settings.enableNightDifferential}
+                    onCheckedChange={v => setSettings(prev => ({ ...prev, enableNightDifferential: v }))}
+                  />
+                </div>
               </div>
             </div>
 

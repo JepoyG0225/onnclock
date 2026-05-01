@@ -8,8 +8,6 @@ import {
   computeRestDayOT,
   computeHolidayPayAdditional,
   computeNightDifferential,
-  computeLateDeduction,
-  computeUndertimeDeduction,
   computeAbsenceDeduction,
 } from './overtime'
 
@@ -69,7 +67,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   }
 
   // ── 2. OVERTIME & PREMIUM PAY ─────────────────
-  const hourlyRate = employee.dailyRate / 8
+  const hourlyRate = employee.hourlyRate > 0 ? employee.hourlyRate : employee.dailyRate / 8
 
   const regularOtAmount = computeRegularOT(hourlyRate, attendance.regularOtHours)
   const restDayOtAmount = computeRestDayOT(hourlyRate, attendance.restDayOtHours)
@@ -101,8 +99,9 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     : 0
 
   // ── 3. DEDUCTIONS (attendance) ────────────────
-  const lateDeduction = computeLateDeduction(employee.dailyRate, attendance.lateMinutes)
-  const undertimeDeduction = computeUndertimeDeduction(employee.dailyRate, attendance.undertimeMinutes)
+  const minuteRate = hourlyRate / 60
+  const lateDeduction = parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
+  const undertimeDeduction = parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
   const absenceDeduction = computeAbsenceDeduction(employee.dailyRate, attendance.absentDays)
 
   // ── 4. ALLOWANCES & DE MINIMIS ────────────────

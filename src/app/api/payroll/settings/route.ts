@@ -11,6 +11,8 @@ const payrollSettingsSchema = z.object({
   secondCutoffStartDay: z.coerce.number().int().min(1).max(31),
   secondCutoffEndDay: z.coerce.number().int().min(1).max(31),
   defaultPayDelayDays: z.coerce.number().int().min(0).max(60),
+  enableOvertime: z.boolean().optional(),
+  enableNightDifferential: z.boolean().optional(),
   timezone: z.string().min(1).max(100).optional(),
   payrollCurrency: z.string().min(3).max(10).optional(),
 })
@@ -35,6 +37,8 @@ function getPayrollCycleConfigDelegate() {
         secondCutoffStartDay: number
         secondCutoffEndDay: number
         defaultPayDelayDays: number
+        enableOvertime: boolean
+        enableNightDifferential: boolean
       } | null>
       upsert: (args: {
         where: { companyId: string }
@@ -46,6 +50,8 @@ function getPayrollCycleConfigDelegate() {
           secondCutoffStartDay: number
           secondCutoffEndDay: number
           defaultPayDelayDays: number
+          enableOvertime: boolean
+          enableNightDifferential: boolean
         }
         update: {
           payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
@@ -54,6 +60,8 @@ function getPayrollCycleConfigDelegate() {
           secondCutoffStartDay: number
           secondCutoffEndDay: number
           defaultPayDelayDays: number
+          enableOvertime: boolean
+          enableNightDifferential: boolean
         }
       }) => Promise<unknown>
     }
@@ -256,6 +264,8 @@ export async function GET() {
       secondCutoffStartDay: config?.secondCutoffStartDay ?? 16,
       secondCutoffEndDay: config?.secondCutoffEndDay ?? 31,
       defaultPayDelayDays: config?.defaultPayDelayDays ?? 5,
+      enableOvertime: config?.enableOvertime ?? true,
+      enableNightDifferential: config?.enableNightDifferential ?? true,
     } as const
 
     const next = getNextPeriod({
@@ -308,10 +318,24 @@ export async function PATCH(req: NextRequest) {
     where: { companyId: ctx.companyId },
     create: {
       companyId: ctx.companyId,
-      ...data,
+      payFrequency: data.payFrequency,
+      firstCutoffStartDay: data.firstCutoffStartDay,
+      firstCutoffEndDay: data.firstCutoffEndDay,
+      secondCutoffStartDay: data.secondCutoffStartDay,
+      secondCutoffEndDay: data.secondCutoffEndDay,
+      defaultPayDelayDays: data.defaultPayDelayDays,
+      enableOvertime: data.enableOvertime ?? true,
+      enableNightDifferential: data.enableNightDifferential ?? true,
     },
     update: {
-      ...data,
+      payFrequency: data.payFrequency,
+      firstCutoffStartDay: data.firstCutoffStartDay,
+      firstCutoffEndDay: data.firstCutoffEndDay,
+      secondCutoffStartDay: data.secondCutoffStartDay,
+      secondCutoffEndDay: data.secondCutoffEndDay,
+      defaultPayDelayDays: data.defaultPayDelayDays,
+      enableOvertime: data.enableOvertime ?? true,
+      enableNightDifferential: data.enableNightDifferential ?? true,
     },
   })
 
