@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Shield, RotateCcw, Save, Check, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -37,7 +37,7 @@ export default function PermissionsPage() {
   const [loading, setLoading] = useState(true)
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([])
   const [newRoleName, setNewRoleName] = useState('')
-  const [newRoleBase, setNewRoleBase] = useState<UserRole>('HR_MANAGER')
+  const [selectedRole, setSelectedRole] = useState<RoleKey>('COMPANY_ADMIN')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -63,10 +63,15 @@ export default function PermissionsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const dynamicRoles: RoleKey[] = [
+  const dynamicRoles: RoleKey[] = useMemo(() => [
     ...BUILT_IN_EDITABLE_ROLES,
     ...customRoles.map(role => `custom:${role.id}` as RoleKey),
-  ]
+  ], [customRoles])
+
+  useEffect(() => {
+    if (dynamicRoles.includes(selectedRole)) return
+    setSelectedRole(dynamicRoles[0] ?? 'COMPANY_ADMIN')
+  }, [dynamicRoles, selectedRole])
 
   function getRoleLabel(role: RoleKey) {
     if (role.startsWith('custom:')) {
@@ -87,7 +92,8 @@ export default function PermissionsPage() {
       if (!prev) return prev
       const next = { ...prev }
       const set = new Set(prev[role] ?? [])
-      set.has(permission) ? set.delete(permission) : set.add(permission)
+      if (set.has(permission)) set.delete(permission)
+      else set.add(permission)
       next[role] = set
       return next
     })
@@ -135,7 +141,7 @@ export default function PermissionsPage() {
     const res = await fetch('/api/settings/custom-roles', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newRoleName.trim(), baseRole: newRoleBase }),
+      body: JSON.stringify({ name: newRoleName.trim() }),
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
@@ -144,7 +150,6 @@ export default function PermissionsPage() {
     }
     toast.success('Custom role created')
     setNewRoleName('')
-    setNewRoleBase('HR_MANAGER')
     await load()
   }
 
@@ -159,7 +164,9 @@ export default function PermissionsPage() {
     )
   }
 
-  const counts = Object.fromEntries(dynamicRoles.map(r => [r, matrix[r]?.size ?? 0])) as Record<string, number>
+  const selected = selectedRole
+  const selectedTheme = ROLE_THEME[getBaseRole(selected)]
+  const selectedDirty = dirty.has(selected)
 
   return (
     <div className="space-y-6">
@@ -184,13 +191,8 @@ export default function PermissionsPage() {
           <p className="text-xs font-medium text-slate-500 mb-1">Custom role name</p>
           <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} className="border rounded px-2 py-1.5 text-sm" placeholder="e.g. Operations Lead" />
         </div>
-        <div>
-          <p className="text-xs font-medium text-slate-500 mb-1">Based on role</p>
-          <select value={newRoleBase} onChange={e => setNewRoleBase(e.target.value as UserRole)} className="border rounded px-2 py-1.5 text-sm">
-            {BUILT_IN_EDITABLE_ROLES.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
-          </select>
-        </div>
         <Button size="sm" onClick={addCustomRole}>Add Custom Role</Button>
+        <p className="text-xs text-slate-500 ml-1">New custom roles start with no permissions.</p>
       </div>
 
       <div className="flex items-start gap-3 p-3 rounded-xl bg-[#D4D8DD] border border-[#AAB7B7] text-sm text-[#1A2D42]">
@@ -198,60 +200,53 @@ export default function PermissionsPage() {
         <div>Permissions marked with <span className="font-semibold">●</span> are active for that role. Changes take effect on next login.</div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {dynamicRoles.map(role => {
-          const theme = ROLE_THEME[getBaseRole(role)]
-          const isDirty = dirty.has(role)
-          return (
-            <div key={role} className={`rounded-xl border p-3 ${theme.bg} ${theme.border}`}>
-              <div className="flex items-center justify-between mb-1">
-                <span className={`text-xs font-semibold ${theme.text}`}>{getRoleLabel(role)}</span>
-                {isDirty && <span className="text-xs text-orange-500 font-medium">● unsaved</span>}
-              </div>
-              <p className="text-2xl font-bold" style={{ color: '#2E4156' }}>{counts[role]}</p>
-              <p className="text-xs text-gray-500">permissions granted</p>
-            </div>
-          )
-        })}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="w-full max-w-sm">
+          <p className="text-xs font-medium text-slate-500 mb-1">Selected role</p>
+          <select
+            value={selected}
+            onChange={e => setSelectedRole(e.target.value as RoleKey)}
+            className="w-full border rounded px-3 py-2 text-sm"
+          >
+            {dynamicRoles.map(role => (
+              <option key={role} value={role}>
+                {getRoleLabel(role)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="grid bg-gray-50 border-b border-gray-200" style={{ gridTemplateColumns: `220px repeat(${dynamicRoles.length}, 1fr)` }}>
+        <div className="grid bg-gray-50 border-b border-gray-200" style={{ gridTemplateColumns: '220px 1fr' }}>
           <div className="p-3 text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
             <Shield className="w-3.5 h-3.5" />
             Feature / Page
           </div>
-
-          {dynamicRoles.map(role => {
-            const theme = ROLE_THEME[getBaseRole(role)]
-            const isDirty = dirty.has(role)
-            return (
-              <div key={role} className="p-3 text-center border-l border-gray-200">
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${theme.badge}`}>
-                  {getRoleLabel(role)}
-                </span>
-                <div className="flex items-center justify-center gap-1 mt-1.5">
-                  <button onClick={() => resetRole(role)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors" title="Reset to defaults">
-                    <RotateCcw className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => saveRole(role)}
-                    disabled={!isDirty || saving === role}
-                    className={`text-xs px-2 py-0.5 rounded font-medium transition-all ${isDirty ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'text-gray-300 cursor-default'}`}
-                  >
-                    {saving === role ? '...' : isDirty ? 'Save' : <Check className="w-3 h-3 inline" />}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+          <div className="p-3 text-center border-l border-gray-200">
+            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${selectedTheme.badge}`}>
+              Access
+            </span>
+            <div className="flex items-center justify-center gap-1 mt-1.5">
+              <button onClick={() => resetRole(selected)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors" title="Reset to defaults">
+                <RotateCcw className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => saveRole(selected)}
+                disabled={!selectedDirty || saving === selected}
+                className={`text-xs px-2 py-0.5 rounded font-medium transition-all ${selectedDirty ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'text-gray-300 cursor-default'}`}
+              >
+                {saving === selected ? '...' : selectedDirty ? 'Save' : <Check className="w-3 h-3 inline" />}
+              </button>
+            </div>
+          </div>
         </div>
 
         {PAGE_PERMISSIONS.map((group, gi) => (
           <div key={group.group}>
-            <div className="grid items-center" style={{ gridTemplateColumns: `220px repeat(${dynamicRoles.length}, 1fr)`, background: '#f8fafc' }}>
+            <div className="grid items-center" style={{ gridTemplateColumns: '220px 1fr', background: '#f8fafc' }}>
               <div className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider border-b border-gray-100" style={{ borderLeft: '3px solid #fa5e01' }}>{group.group}</div>
-              {dynamicRoles.map((_, i) => <div key={i} className="border-b border-gray-100 border-l border-l-gray-200 py-2" />)}
+              <div className="border-b border-gray-100 border-l border-l-gray-200 py-2" />
             </div>
 
             {group.pages.map((page, pi) => {
@@ -260,26 +255,24 @@ export default function PermissionsPage() {
               const rowBorder = (!isLastInGroup || !isLastGroup) ? 'border-b border-gray-100' : ''
 
               return (
-                <div key={page.key} className={`grid hover:bg-[#D4D8DD]/40 transition-colors ${rowBorder}`} style={{ gridTemplateColumns: `220px repeat(${dynamicRoles.length}, 1fr)` }}>
+                <div key={page.key} className={`grid hover:bg-[#D4D8DD]/40 transition-colors ${rowBorder}`} style={{ gridTemplateColumns: '220px 1fr' }}>
                   <div className="px-4 py-2.5 flex flex-col justify-center">
                     <span className="text-sm text-gray-700 font-medium">{page.label}</span>
                     <code className="text-xs text-gray-400 font-mono">{page.permission}</code>
                   </div>
-
-                  {dynamicRoles.map(role => {
-                    const checked = matrix[role]?.has(page.permission) ?? false
-                    const theme = ROLE_THEME[getBaseRole(role)]
+                  {(() => {
+                    const checked = matrix[selected]?.has(page.permission) ?? false
                     return (
-                      <div key={role} className="flex items-center justify-center border-l border-gray-100 cursor-pointer" onClick={() => toggle(role, page.permission)}>
+                      <div className="flex items-center justify-center border-l border-gray-100 cursor-pointer" onClick={() => toggle(selected, page.permission)}>
                         <div
-                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${checked ? `${theme.border} border-opacity-0` : 'border-gray-300'}`}
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${checked ? `${selectedTheme.border} border-opacity-0` : 'border-gray-300'}`}
                           style={checked ? { background: '#fa5e01', borderColor: '#fa5e01' } : {}}
                         >
                           {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                         </div>
                       </div>
                     )
-                  })}
+                  })()}
                 </div>
               )
             })}

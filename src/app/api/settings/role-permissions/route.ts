@@ -48,13 +48,17 @@ export async function PUT(req: NextRequest) {
   if (role.startsWith('custom:')) {
     const customRoleId = role.replace('custom:', '')
     await ensureCustomRoleTables()
-    await prisma.$executeRaw`
-      UPDATE "company_custom_roles"
-      SET "permissions" = ${permissions as unknown as object},
-          "updatedAt" = NOW()
-      WHERE "companyId" = ${ctx.companyId}
-        AND "id" = ${customRoleId}
-    `
+    const permissionsJson = JSON.stringify(permissions)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "company_custom_roles"
+       SET "permissions" = $1::jsonb,
+           "updatedAt" = NOW()
+       WHERE "companyId" = $2
+         AND "id" = $3`,
+      permissionsJson,
+      ctx.companyId,
+      customRoleId
+    )
   } else {
     await prisma.companyRolePermission.upsert({
       where:  { companyId_role: { companyId: ctx.companyId, role: role as UserRole } },
@@ -80,13 +84,16 @@ export async function DELETE(req: NextRequest) {
     const customRoles = await listCompanyCustomRoles(ctx.companyId)
     const custom = customRoles.find(r => r.id === customRoleId)
     if (!custom) return NextResponse.json({ error: 'Custom role not found' }, { status: 404 })
-    await prisma.$executeRaw`
-      UPDATE "company_custom_roles"
-      SET "permissions" = ${ROLE_PERMISSIONS[custom.baseRole] as unknown as object},
-          "updatedAt" = NOW()
-      WHERE "companyId" = ${ctx.companyId} AND "id" = ${customRoleId}
-    `
-    return NextResponse.json({ success: true, role, permissions: ROLE_PERMISSIONS[custom.baseRole] })
+    await prisma.$executeRawUnsafe(
+      `UPDATE "company_custom_roles"
+       SET "permissions" = $1::jsonb,
+           "updatedAt" = NOW()
+       WHERE "companyId" = $2 AND "id" = $3`,
+      JSON.stringify([]),
+      ctx.companyId,
+      customRoleId
+    )
+    return NextResponse.json({ success: true, role, permissions: [] })
   } else {
     await prisma.companyRolePermission.deleteMany({
       where: { companyId: ctx.companyId, role: role as UserRole },
