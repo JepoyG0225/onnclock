@@ -125,3 +125,38 @@ export async function getApprovedOtHoursMap(params: {
 export function buildOtMapKey(employeeId: string, date: Date): string {
   return `${employeeId}:${formatManilaDateKey(date)}`
 }
+
+export async function syncAutoOvertimeRequestsForCompany(params: {
+  companyId: string
+  dateFrom: Date
+  dateTo: Date
+}) {
+  const records = await prisma.dTRRecord.findMany({
+    where: {
+      employee: { companyId: params.companyId },
+      date: { gte: params.dateFrom, lte: params.dateTo },
+      timeIn: { not: null },
+      timeOut: { not: null },
+    },
+    select: {
+      employeeId: true,
+      date: true,
+      timeIn: true,
+      timeOut: true,
+      overtimeHours: true,
+    },
+    take: 3000,
+    orderBy: { date: 'desc' },
+  })
+
+  for (const record of records) {
+    await syncAutoOvertimeRequest({
+      companyId: params.companyId,
+      employeeId: record.employeeId,
+      date: record.date,
+      timeIn: record.timeIn,
+      timeOut: record.timeOut,
+      overtimeHours: Number(record.overtimeHours ?? 0),
+    })
+  }
+}

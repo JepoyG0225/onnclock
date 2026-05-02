@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { syncAutoOvertimeRequestsForCompany } from '@/lib/overtime-requests'
 import { z } from 'zod'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
@@ -25,6 +26,14 @@ export async function GET(req: NextRequest) {
   const dateTo = searchParams.get('dateTo') || undefined
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '50')
+
+  const syncFrom = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 45 * 24 * 60 * 60 * 1000)
+  const syncTo = dateTo ? new Date(dateTo) : new Date()
+  await syncAutoOvertimeRequestsForCompany({
+    companyId: ctx.companyId,
+    dateFrom: syncFrom,
+    dateTo: syncTo,
+  })
 
   const where: Record<string, unknown> = { companyId: ctx.companyId }
   if (status) where.status = status

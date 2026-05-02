@@ -10,9 +10,10 @@ export async function GET() {
   try {
     let pendingDtr = 0
     let pendingLeaves = 0
+    let pendingOvertime = 0
 
     if (['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(ctx.role)) {
-      const [dtr, leaves] = await Promise.all([
+      const [dtr, leaves, overtime] = await Promise.all([
         prisma.dTRRecord.count({
           where: {
             employee: { companyId: ctx.companyId },
@@ -26,9 +27,16 @@ export async function GET() {
             status: 'PENDING',
           },
         }),
+        prisma.overtimeRequest.count({
+          where: {
+            companyId: ctx.companyId,
+            status: 'PENDING',
+          },
+        }),
       ])
       pendingDtr = dtr
       pendingLeaves = leaves
+      pendingOvertime = overtime
     }
 
     // Fetch contacts and group memberships in parallel — neither depends on the other
@@ -117,6 +125,7 @@ export async function GET() {
     return NextResponse.json({
       pendingDtr,
       pendingLeaves,
+      pendingOvertime,
       unreadChat: unreadDm + unreadGroups,
     })
   } catch (err) {
@@ -124,6 +133,7 @@ export async function GET() {
     return NextResponse.json({
       pendingDtr: 0,
       pendingLeaves: 0,
+      pendingOvertime: 0,
       unreadChat: 0,
       degraded: true,
     })

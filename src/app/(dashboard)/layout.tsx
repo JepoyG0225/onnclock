@@ -46,7 +46,7 @@ export default async function DashboardLayout({
 
   // Keep layout DB work light for faster route transitions.
   let company: Awaited<ReturnType<typeof getCompanyLite>> | null = null
-  const counts = { pendingDtr: 0, pendingLeaves: 0 }
+  const counts = { pendingDtr: 0, pendingLeaves: 0, pendingOvertime: 0 }
   let sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; pricePerSeat?: unknown } | null = null
 
   try {

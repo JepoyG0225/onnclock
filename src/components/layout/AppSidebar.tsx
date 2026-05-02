@@ -142,7 +142,7 @@ const SYSTEM_ADMIN_NAV_ITEMS: NavItem[] = [
 interface AppSidebarProps {
   initialLogoUrl?: string | null
   initialUserRole?: string | null
-  initialCounts?: { pendingDtr: number; pendingLeaves: number }
+  initialCounts?: { pendingDtr: number; pendingLeaves: number; pendingOvertime: number }
   initialTrialEndsAt?: string | null
   isLocal?: boolean
   hrisProEnabled?: boolean
@@ -151,7 +151,7 @@ interface AppSidebarProps {
 export function AppSidebar({
   initialLogoUrl = null,
   initialUserRole = null,
-  initialCounts = { pendingDtr: 0, pendingLeaves: 0 },
+  initialCounts = { pendingDtr: 0, pendingLeaves: 0, pendingOvertime: 0 },
   initialTrialEndsAt = null,
   isLocal = false,
   hrisProEnabled = true,
@@ -165,7 +165,7 @@ export function AppSidebar({
   const [expanded, setExpanded] = useState<string[]>([
     'Employment', 'Time & Attendance', 'Leave Management', 'Reports', 'Settings', 'Payroll',
   ])
-  const [counts, setCounts] = useState<{ pendingDtr: number; pendingLeaves: number }>(initialCounts)
+  const [counts, setCounts] = useState<{ pendingDtr: number; pendingLeaves: number; pendingOvertime: number }>(initialCounts)
   const [trialEndsAt] = useState<number | null>(
     initialTrialEndsAt ? new Date(initialTrialEndsAt).getTime() : null
   )
@@ -196,6 +196,7 @@ export function AppSidebar({
           setCounts({
             pendingDtr: Number(data.pendingDtr) || 0,
             pendingLeaves: Number(data.pendingLeaves) || 0,
+            pendingOvertime: Number(data.pendingOvertime) || 0,
           })
         }
       } catch { /* ignore */ }
@@ -426,7 +427,7 @@ function CollapsedFlyout({
   isActive: boolean
   activeStyle: React.CSSProperties
   baseItemClass: string
-  counts: { pendingDtr: number; pendingLeaves: number }
+  counts: { pendingDtr: number; pendingLeaves: number; pendingOvertime: number }
   hrisProEnabled: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -488,6 +489,13 @@ function CollapsedFlyout({
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
           {counts.pendingLeaves}
+        </span>
+      )
+    }
+    if (child.label === 'Overtime Requests' && counts.pendingOvertime > 0) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
+          {counts.pendingOvertime}
         </span>
       )
     }
@@ -586,7 +594,7 @@ function NavItemComponent({
   expanded: string[]
   onToggle: (label: string) => void
   collapsed: boolean
-  counts: { pendingDtr: number; pendingLeaves: number }
+  counts: { pendingDtr: number; pendingLeaves: number; pendingOvertime: number }
   hrisProEnabled: boolean
 }) {
   const isActive   = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -636,6 +644,13 @@ function NavItemComponent({
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
           {counts.pendingLeaves}
+        </span>
+      )
+    }
+    if (child.label === 'Overtime Requests' && counts.pendingOvertime > 0) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
+          {counts.pendingOvertime}
         </span>
       )
     }
