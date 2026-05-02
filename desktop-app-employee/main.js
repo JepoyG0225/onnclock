@@ -8,6 +8,7 @@ const {
   nativeImage,
   ipcMain,
   Notification,
+  dialog,
   desktopCapturer,
   net,
   shell,
@@ -1022,11 +1023,6 @@ ipcMain.handle('app:openExternal', (_e, url) => {
   shell.openExternal(url)
   return true
 })
-ipcMain.handle('app:openTimeCorrections', () => {
-  const url = `${getPortalUrl()}/time-corrections`
-  shell.openExternal(url)
-  return true
-})
 ipcMain.handle('announcements:get', async () => apiRequest('GET', '/api/announcements', null))
 ipcMain.handle('auth:getSession', () => ({
   loggedIn: !!getToken(),
@@ -1113,10 +1109,65 @@ ipcMain.handle('employees:me',     async ()         => apiRequest('GET',   '/api
 ipcMain.handle('employees:update', async (_e, data) => apiRequest('PATCH', '/api/employees/me', data))
 ipcMain.handle('app:getUserId',    () => store.get('userId', ''))
 ipcMain.handle('payroll:getMyPayslips', async () => apiRequest('GET', '/api/payroll/my-payslips', null))
+ipcMain.handle('payroll:downloadPayslipPdf', async (_e, payslipId) => {
+  const id = String(payslipId || '').trim()
+  if (!id) return { ok: false, error: 'Missing payslip id.' }
+  const token = getToken()
+  if (!token) return { ok: false, error: 'Not logged in.' }
+
+  const saveResult = await dialog.showSaveDialog({
+    title: 'Save Payslip PDF',
+    defaultPath: path.join(app.getPath('downloads'), `OnClock-Payslip-${id}.pdf`),
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  })
+  if (saveResult.canceled || !saveResult.filePath) {
+    return { ok: false, canceled: true, error: 'Save canceled.' }
+  }
+
+  const url = `${getServerUrl()}/api/payroll/payslip/${encodeURIComponent(id)}/pdf`
+  return new Promise((resolve) => {
+    const req = net.request({
+      method: 'GET',
+      url,
+      headers: {
+        Accept: 'application/pdf',
+        Authorization: `Bearer ${token}`,
+        'User-Agent': `OnClock-Desktop/${app.getVersion()} (Windows)`,
+      },
+    })
+
+    const chunks = []
+    req.on('response', (res) => {
+      res.on('data', chunk => chunks.push(chunk))
+      res.on('end', async () => {
+        const status = Number(res.statusCode || 0)
+        if (status < 200 || status >= 300) {
+          resolve({ ok: false, error: `Failed to download PDF (HTTP ${status}).` })
+          return
+        }
+        try {
+          await fs.promises.writeFile(saveResult.filePath, Buffer.concat(chunks))
+          resolve({ ok: true, path: saveResult.filePath })
+        } catch (err) {
+          resolve({ ok: false, error: `Failed to save PDF: ${err?.message || err}` })
+        }
+      })
+    })
+    req.on('error', (err) => resolve({ ok: false, error: err?.message || 'Download failed.' }))
+    req.end()
+  })
+})
 
 // ---- Budget Requisitions ----
 ipcMain.handle('budgetreq:get',    async ()         => apiRequest('GET',  '/api/budget-requisitions?limit=50', null))
 ipcMain.handle('budgetreq:submit', async (_e, data) => apiRequest('POST', '/api/budget-requisitions', data))
+ipcMain.handle('timeCorrections:get', async () => apiRequest('GET', '/api/time-corrections', null))
+ipcMain.handle('timeCorrections:create', async (_e, data) => apiRequest('POST', '/api/time-corrections', data))
+ipcMain.handle('timeCorrections:cancel', async (_e, id) => {
+  const safeId = encodeURIComponent(String(id || '').trim())
+  if (!safeId) return { ok: false, status: 400, data: { error: 'Missing correction id' } }
+  return apiRequest('DELETE', `/api/time-corrections/${safeId}`, null)
+})
 
 // ---- Sub-windows ----
 function openSubWindow(key, file, w, h, title) {
@@ -1136,11 +1187,15 @@ function openSubWindow(key, file, w, h, title) {
   win.on('closed', () => { delete subWins[key] })
   subWins[key] = win
 }
+
 ipcMain.handle('app:openLeaves',   () => openSubWindow('leaves',   'leaves.html',   560, 740, 'Leaves — OnClock'))
 ipcMain.handle('app:openMessages', () => openSubWindow('messages', 'messages.html', 860, 660, 'Messages — OnClock'))
 ipcMain.handle('app:openProfile',  () => openSubWindow('profile',  'profile.html',  520, 700, 'My Profile — OnClock'))
 ipcMain.handle('app:openPayslips', () => openSubWindow('payslips',   'payslips.html',  560, 740,  'Payslips — OnClock'))
 ipcMain.handle('app:openBudgetReq',() => openSubWindow('budgetreq', 'budgetreq.html', 640, 780, 'Budget Requisition — OnClock'))
+ipcMain.handle('app:openTimeCorrections', () =>
+  openSubWindow('timefix', 'timecorrections.html', 700, 820, 'Time Fix — OnClock')
+)
 
 // ----
 

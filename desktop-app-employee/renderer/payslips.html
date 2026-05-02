@@ -48,6 +48,16 @@ body{display:flex;flex-direction:column;overflow:hidden;}
 .cell{background:#f8fafc;border-radius:8px;padding:7px 8px;}
 .lbl{font-size:10px;color:var(--subtle);}
 .val{font-size:12px;font-weight:700;color:var(--text);margin-top:2px;}
+.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;}
+.dl-btn{
+  border:1px solid var(--border-mid);background:#fff;color:var(--navy-mid);border-radius:8px;
+  padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;
+}
+.dl-btn:hover{border-color:var(--orange);color:var(--orange);}
+.dl-btn[disabled]{opacity:.6;cursor:not-allowed;}
+.msg{font-size:10px;color:var(--muted);}
+.msg.ok{color:#166534;}
+.msg.err{color:#b91c1c;}
 .state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:42px 16px;color:var(--subtle);}
 .spin{display:inline-block;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -81,6 +91,32 @@ function fmtDate(v){
   return d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function escAttr(s){return esc(s).replace(/"/g,'&quot;')}
+
+async function downloadPdf(btn){
+  const id = btn.getAttribute('data-id') || ''
+  if(!id) return
+  const msgEl = document.getElementById(`msg-${id}`)
+  const prev = btn.textContent
+  btn.disabled = true
+  btn.textContent = 'Downloading...'
+  if(msgEl){ msgEl.textContent=''; msgEl.className='msg' }
+  try{
+    const res = await api.downloadPayslipPdf(id)
+    if(res?.ok){
+      if(msgEl){ msgEl.textContent = 'Saved'; msgEl.className='msg ok' }
+    }else if(res?.canceled){
+      if(msgEl){ msgEl.textContent = 'Canceled'; msgEl.className='msg' }
+    }else{
+      if(msgEl){ msgEl.textContent = res?.error || 'Download failed'; msgEl.className='msg err' }
+    }
+  }catch{
+    if(msgEl){ msgEl.textContent = 'Download failed'; msgEl.className='msg err' }
+  }finally{
+    btn.disabled = false
+    btn.textContent = prev
+  }
+}
 
 async function load(){
   const loading=document.getElementById('loading')
@@ -111,8 +147,15 @@ async function load(){
           <div class="cell"><div class="lbl">Deductions</div><div class="val">${peso(ps.totalDeductions)}</div></div>
           <div class="cell"><div class="lbl">Days Worked</div><div class="val">${Number(ps.daysWorked||0)}</div></div>
         </div>
+        <div class="actions">
+          <button class="dl-btn" data-id="${escAttr(ps.id)}">Download PDF</button>
+          <div class="msg" id="msg-${escAttr(ps.id)}"></div>
+        </div>
       </div>
     `).join('')
+    list.querySelectorAll('.dl-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>downloadPdf(btn))
+    })
   }catch{
     loading.style.display='none'
     empty.style.display='flex'

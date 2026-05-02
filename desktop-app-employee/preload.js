@@ -56,10 +56,16 @@ contextBridge.exposeInMainWorld('onclock', {
   startBreak: () => ipcRenderer.invoke('attendance:startBreak'),
   endBreak:   () => ipcRenderer.invoke('attendance:endBreak'),
   getMyPayslips: () => ipcRenderer.invoke('payroll:getMyPayslips'),
+  downloadPayslipPdf: (payslipId) => ipcRenderer.invoke('payroll:downloadPayslipPdf', payslipId),
 
   // Budget Requisitions
   getBudgetReqs:   ()     => ipcRenderer.invoke('budgetreq:get'),
   submitBudgetReq: (data) => ipcRenderer.invoke('budgetreq:submit', data),
+
+  // Time Corrections
+  getTimeCorrections: () => ipcRenderer.invoke('timeCorrections:get'),
+  createTimeCorrection: (data) => ipcRenderer.invoke('timeCorrections:create', data),
+  cancelTimeCorrection: (id) => ipcRenderer.invoke('timeCorrections:cancel', id),
 
   // Listen for status updates pushed from main
   onStatusChange: (cb) => {
