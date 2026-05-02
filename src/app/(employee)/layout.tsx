@@ -25,9 +25,10 @@ export default async function EmployeePortalLayout({
     : [undefined, null, { pricePerSeat: 0, isTrial: false }]
 
   // Pro/Trial-only features — also available during trial so companies can evaluate them.
-  const isPro = hasHrisProFeature(sub.pricePerSeat) || sub.isTrial
-  const showDisciplinary = isPro
-  const showBudgetReq    = isPro
+  const isProOrTrial = hasHrisProFeature(sub.pricePerSeat) || sub.isTrial
+  const isProPlan = hasHrisProFeature(sub.pricePerSeat)
+  const showDisciplinary = isProOrTrial
+  const showBudgetReq = isProPlan
 
   const employeeName = employee
     ? `${employee.firstName} ${employee.lastName}`
@@ -63,7 +64,7 @@ export default async function EmployeePortalLayout({
       </main>
 
       {/* Mobile bottom navigation dock — hidden on desktop */}
-      <PortalBottomNav showDisciplinary={showDisciplinary} />
+      <PortalBottomNav showDisciplinary={showDisciplinary} showBudgetReq={showBudgetReq} />
       {session.user.companyId && (
         <PortalAnnouncementPopup userId={session.user.id} companyId={session.user.companyId} />
       )}
