@@ -174,13 +174,12 @@ export async function GET(req: NextRequest) {
       assignments = []
     }
 
-    // Route employees to the correct tab based on their assigned schedule's type.
-    // Employees with no schedule or a FLEXIBLE schedule → FLEXIBLE tab.
-    // Employees with a FIXED schedule → FIXED tab.
+    // Route employees based on the Employee Profile "Work Schedule" dropdown.
+    // If profile workScheduleId is set => FIXED tab, otherwise => FLEXIBLE tab.
     if (mode === 'FLEXIBLE') {
-      employees = employees.filter(emp => emp.workSchedule?.scheduleType !== 'FIXED')
+      employees = employees.filter(emp => !emp.workScheduleId)
     } else if (mode === 'FIXED') {
-      employees = employees.filter(emp => emp.workSchedule?.scheduleType === 'FIXED')
+      employees = employees.filter(emp => Boolean(emp.workScheduleId))
     }
 
     return NextResponse.json({ employees, assignments })
