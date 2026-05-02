@@ -341,7 +341,7 @@ export function AppSidebar({
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5 no-scrollbar"
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5 sidebar-scroll-minimal"
         style={{ padding: collapsed ? '0.75rem 0.5rem' : '0.75rem 0.75rem' }}
       >
         {navItems.map(item => (

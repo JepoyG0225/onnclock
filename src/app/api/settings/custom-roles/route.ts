@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { type Permission, ROLE_PERMISSIONS } from '@/lib/auth/permissions'
 import { ensureCustomRoleTables, listCompanyCustomRoles } from '@/lib/custom-roles'
 
+const MANAGE_ROLE_ACCESS = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
+
 const createSchema = z.object({
   name: z.string().trim().min(2).max(60),
   baseRole: z.enum(['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']),
@@ -19,14 +21,14 @@ const updateSchema = z.object({
 })
 
 export async function GET() {
-  const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
+  const { ctx, error } = await requireAuth(MANAGE_ROLE_ACCESS)
   if (error) return error
   const roles = await listCompanyCustomRoles(ctx.companyId)
   return NextResponse.json({ roles })
 }
 
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
+  const { ctx, error } = await requireAuth(MANAGE_ROLE_ACCESS)
   if (error) return error
   const body = await req.json().catch(() => null)
   const parsed = createSchema.safeParse(body)
@@ -34,15 +36,24 @@ export async function POST(req: NextRequest) {
   await ensureCustomRoleTables()
   const id = randomUUID()
   const permissions = ROLE_PERMISSIONS[parsed.data.baseRole] as Permission[]
-  await prisma.$executeRaw`
-    INSERT INTO "company_custom_roles" ("id", "companyId", "name", "baseRole", "permissions", "createdAt", "updatedAt")
-    VALUES (${id}, ${ctx.companyId}, ${parsed.data.name}, ${parsed.data.baseRole}, ${permissions as unknown as object}, NOW(), NOW())
-  `
+  try {
+    await prisma.$executeRaw`
+      INSERT INTO "company_custom_roles" ("id", "companyId", "name", "baseRole", "permissions", "createdAt", "updatedAt")
+      VALUES (${id}, ${ctx.companyId}, ${parsed.data.name}, ${parsed.data.baseRole}, ${permissions as unknown as object}, NOW(), NOW())
+    `
+  } catch (error) {
+    const message = String((error as { message?: string })?.message ?? '')
+    if (message.includes('company_custom_roles_companyId_name_key')) {
+      return NextResponse.json({ error: 'A custom role with that name already exists.' }, { status: 409 })
+    }
+    console.error('[POST /api/settings/custom-roles]', error)
+    return NextResponse.json({ error: 'Failed to create custom role.' }, { status: 500 })
+  }
   return NextResponse.json({ success: true, id })
 }
 
 export async function PATCH(req: NextRequest) {
-  const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
+  const { ctx, error } = await requireAuth(MANAGE_ROLE_ACCESS)
   if (error) return error
   const body = await req.json().catch(() => null)
   const parsed = updateSchema.safeParse(body)
@@ -67,7 +78,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
+  const { ctx, error } = await requireAuth(MANAGE_ROLE_ACCESS)
   if (error) return error
   const id = new URL(req.url).searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })

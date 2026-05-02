@@ -162,3 +162,26 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Minimal visible sidebar scrollbar */
+.sidebar-scroll-minimal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+
+.sidebar-scroll-minimal::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-scroll-minimal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll-minimal::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+}
+
+.sidebar-scroll-minimal::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}

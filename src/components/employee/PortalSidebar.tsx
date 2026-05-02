@@ -139,7 +139,7 @@ export function PortalSidebar({
       </div>
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5 sidebar-scroll-minimal">
         {NAV_TABS.map(tab => {
           const isActive = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
           return (
