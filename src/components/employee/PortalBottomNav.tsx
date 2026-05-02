@@ -13,7 +13,6 @@ const PRIMARY_TABS: { href: string; label: string; icon: IconComponent; exact: b
   { href: '/portal/clock',    label: 'Attendance', icon: Clock,       exact: false },
   { href: '/portal/leaves',   label: 'Leave',      icon: FileText,    exact: false },
   { href: '/portal/payslips', label: 'Payslips',   icon: CreditCard,  exact: false },
-  { href: '/portal/profile',  label: 'Profile',    icon: User,        exact: false },
 ]
 
 // Extra items exposed in the "More" drawer
@@ -30,6 +29,7 @@ const ALL_MORE_TABS: MoreTab[] = [
   { href: '/portal/budget-requisitions', label: 'Budget Requisitions', icon: ClipboardList, budgetReq: true  },
   { href: '/portal/reviews',             label: 'Performance Reviews', icon: BarChart3                       },
   { href: '/portal/disciplinary',        label: 'Disciplinary',        icon: AlertTriangle, pro: true        },
+  { href: '/portal/profile',             label: 'Profile',             icon: User                            },
 ]
 
 export function PortalBottomNav({

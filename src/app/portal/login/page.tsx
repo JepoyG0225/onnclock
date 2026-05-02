@@ -124,8 +124,15 @@ export default function PortalLoginPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ backgroundImage: "url('/login-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
+      style={{
+        background:
+          'radial-gradient(1200px 700px at -10% -15%, rgba(250,94,1,0.24), transparent 55%), radial-gradient(900px 600px at 110% 115%, rgba(59,130,246,0.18), transparent 60%), linear-gradient(155deg, #0f1a2b 0%, #1A2D42 45%, #223a56 100%)',
+      }}
     >
+      <div className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px)', backgroundSize: '34px 34px' }} />
+      <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full blur-3xl" style={{ background: 'rgba(250,94,1,0.3)' }} />
+      <div className="pointer-events-none absolute -bottom-24 -right-20 h-80 w-80 rounded-full blur-3xl" style={{ background: 'rgba(67,168,218,0.28)' }} />
+
       <div className="relative w-full max-w-[420px]">
         <div className="text-center mb-6 space-y-2">
           {company?.logoUrl ? (

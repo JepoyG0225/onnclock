@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasScreenCaptureFeature, isDesktopApp } from '@/lib/feature-gates'
 import { resolvePortalEmployeeId } from '@/lib/portal-employee'
+import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import { z } from 'zod'
 import { differenceInMinutes } from 'date-fns'
 
@@ -455,6 +456,15 @@ export async function POST(req: NextRequest) {
         recordedAt: new Date(),
       } : null,
     },
+  })
+
+  await syncAutoOvertimeRequest({
+    companyId: ctx.companyId,
+    employeeId: employee.id,
+    date: record.date,
+    timeIn: record.timeIn,
+    timeOut: record.timeOut,
+    overtimeHours: Number(record.overtimeHours ?? 0),
   })
 
   // Strip clockInPhoto — large base64 payload not needed by clients

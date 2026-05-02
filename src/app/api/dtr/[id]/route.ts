@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import { differenceInMinutes } from 'date-fns'
 import { z } from 'zod'
 
@@ -113,6 +114,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(computed ?? {}),
       ...(remarks !== undefined ? { remarks } : {}),
     },
+  })
+
+  await syncAutoOvertimeRequest({
+    companyId,
+    employeeId: record.employeeId,
+    date: updated.date,
+    timeIn: updated.timeIn,
+    timeOut: updated.timeOut,
+    overtimeHours: Number(updated.overtimeHours ?? 0),
   })
 
   // Strip clockInPhoto — large base64 payload not needed by admin clients

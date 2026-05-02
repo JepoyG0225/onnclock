@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import { differenceInMinutes } from 'date-fns'
 import { z } from 'zod'
 
@@ -214,6 +215,16 @@ export async function POST(req: NextRequest) {
         undertimeMinutes,
       },
     })
+
+    await syncAutoOvertimeRequest({
+      companyId: ctx.companyId,
+      employeeId: employee.id,
+      date: record.date,
+      timeIn: record.timeIn,
+      timeOut: record.timeOut,
+      overtimeHours: Number(record.overtimeHours ?? 0),
+    })
+
     return NextResponse.json({ record, message: `${employee.firstName} ${employee.lastName} clocked out successfully` })
   }
 }

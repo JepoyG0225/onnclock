@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { buildOtMapKey, getApprovedOtHoursMap, syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import { HolidayType } from '@prisma/client'
 import { z } from 'zod'
 
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
     where.timeOut = { not: null }
   }
 
-  const [records, total] = await Promise.all([
+  const [records, total, approvedOtMap] = await Promise.all([
     prisma.dTRRecord.findMany({
       where,
       include: {
@@ -82,10 +83,18 @@ export async function GET(req: NextRequest) {
       take: limit,
     }),
     prisma.dTRRecord.count({ where }),
+    periodStart && periodEnd
+      ? getApprovedOtHoursMap({
+          companyId,
+          dateFrom: new Date(periodStart),
+          dateTo: new Date(periodEnd),
+        })
+      : Promise.resolve(new Map<string, number>()),
   ])
 
   const normalized = records.map(({ _count, ...record }) => ({
     ...record,
+    overtimeHours: approvedOtMap.get(buildOtMapKey(record.employeeId, record.date)) ?? 0,
     screenCaptureCount: _count.screenCaptures,
   }))
 
@@ -156,6 +165,15 @@ export async function POST(req: NextRequest) {
       holidayType:     (data.holidayType ?? null) as HolidayType | null,
       remarks:         data.remarks ?? null,
     },
+  })
+
+  await syncAutoOvertimeRequest({
+    companyId,
+    employeeId: data.employeeId,
+    date: record.date,
+    timeIn: record.timeIn,
+    timeOut: record.timeOut,
+    overtimeHours: Number(record.overtimeHours ?? 0),
   })
 
   return NextResponse.json(record, { status: 201 })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { buildOtMapKey, getApprovedOtHoursMap } from '@/lib/overtime-requests'
 import { computePayroll } from '@/lib/payroll/engine'
 import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
 import { z } from 'zod'
@@ -251,6 +252,11 @@ export async function POST(
   const holidayMap = new Map(
     companyHolidays.map(h => [h.date.toISOString().split('T')[0], h])
   )
+  const approvedOtMap = await getApprovedOtHoursMap({
+    companyId: ctx.companyId,
+    dateFrom: run.periodStart,
+    dateTo: run.periodEnd,
+  })
 
   // ── Build payslip input data for each employee ─────────────────────────────
   type PayslipBuildItem = {
@@ -305,7 +311,7 @@ export async function POST(
         ...d,
         isHoliday: !!holiday,
         holidayType: holiday?.type ?? d.holidayType,
-        overtimeHours,
+        overtimeHours: approvedOtMap.get(buildOtMapKey(emp.id, d.date)) ?? 0,
         nightDiffHours,
       }
     })
