@@ -9,7 +9,6 @@ import {
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 interface SubscriptionData {
   subscription: {
@@ -247,7 +246,6 @@ export default function BillingPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      <SettingsTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Billing & Subscription</h1>

@@ -81,7 +81,7 @@ export default function PayrollActionButtons({
   const portalTarget = typeof document !== 'undefined' ? document.body : null
 
   function downloadExcel() {
-    window.open(`/api/payroll/${runId}/download`, '_blank')
+    window.location.assign(`/api/payroll/${runId}/download`)
   }
 
   return (
@@ -268,4 +268,3 @@ export default function PayrollActionButtons({
     </>
   )
 }
-

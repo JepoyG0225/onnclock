@@ -78,6 +78,16 @@ export default function InvoicePage() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
+    const desktop = /OnClock-Desktop\//i.test(ua)
+    if (!desktop) return
+
+    document.body.classList.add('desktop-invoice-mode')
+    return () => {
+      document.body.classList.remove('desktop-invoice-mode')
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -316,6 +326,20 @@ export default function InvoicePage() {
 
       {/* Print styles */}
       <style jsx global>{`
+        body.desktop-invoice-mode aside,
+        body.desktop-invoice-mode header {
+          display: none !important;
+        }
+        body.desktop-invoice-mode main {
+          margin-left: 0 !important;
+          padding-top: 0 !important;
+        }
+        body.desktop-invoice-mode main > div {
+          padding: 0 !important;
+        }
+        body.desktop-invoice-mode .invoice-document {
+          margin-top: 0.75rem !important;
+        }
         @media print {
           /* Print only the invoice content, hide dashboard shell (sidebar/header/chat/etc). */
           body * {
