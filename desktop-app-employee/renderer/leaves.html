@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Leaves — OnClock</title>
+<style>
+@font-face{
+  font-family:'Montserrat';
+  src:url('../assets/fonts/Montserrat-Regular.ttf') format('truetype');
+  font-weight:400;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:'Montserrat';
+  src:url('../assets/fonts/Montserrat-Bold.ttf') format('truetype');
+  font-weight:700;font-style:normal;font-display:swap;
+}
+:root{
+  --navy:#0d1b2a;--navy-mid:#1a2d42;--navy-light:#2e4a6a;
+  --orange:#fa5e01;--orange-dim:#c44d00;--orange-bg:#fff3eb;
+  --amber:#f59e0b;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --bg:#eef2f7;--surface:#fff;--border:#e2e8f0;--border-mid:#cbd5e1;
+  --text:#0f172a;--muted:#64748b;--subtle:#94a3b8;
+  --radius:12px;--radius-sm:8px;
+  --shadow-sm:0 1px 3px rgba(13,27,42,.07),0 1px 2px rgba(13,27,42,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+body{display:flex;flex-direction:column;overflow:hidden;}
+
+/* Header */
+.hdr{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);
+  padding:0 20px;height:56px;display:flex;align-items:center;gap:12px;
+  flex-shrink:0;-webkit-app-region:drag;
+}
+.hdr-icon{width:30px;height:30px;border-radius:7px;background:var(--orange);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.hdr-icon img{width:100%;height:100%;object-fit:cover;}
+.hdr-title{font-size:14px;font-weight:700;color:#fff;flex:1;}
+.hdr-new{
+  background:var(--orange);color:#fff;border:none;border-radius:8px;
+  padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:background .15s;-webkit-app-region:no-drag;
+}
+.hdr-new:hover{background:var(--orange-dim);}
+
+/* Filter tabs */
+.filter-bar{
+  display:flex;gap:4px;padding:12px 20px 0;background:var(--surface);
+  border-bottom:1.5px solid var(--border);flex-shrink:0;
+}
+.filter-tab{
+  padding:8px 16px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;
+  background:none;border:none;color:var(--muted);cursor:pointer;font-family:inherit;
+  border-bottom:2.5px solid transparent;margin-bottom:-1.5px;transition:color .15s;
+}
+.filter-tab.active{color:var(--orange);border-bottom-color:var(--orange);}
+.filter-tab:hover:not(.active){color:var(--text);}
+
+/* Main scrollable */
+.main{flex:1;overflow-y:auto;padding:16px 20px 24px;}
+.main::-webkit-scrollbar{width:5px;}
+.main::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:3px;}
+
+/* Balance chips */
+.bal-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.bal-chip{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:20px;padding:5px 12px;font-size:11px;font-weight:600;color:var(--muted);
+}
+.bal-chip strong{color:var(--orange);}
+
+/* Leave cards */
+.leave-card{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;
+  box-shadow:var(--shadow-sm);
+}
+.lc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.lc-type{font-size:13px;font-weight:700;color:var(--text);}
+.lc-dates{font-size:11px;color:var(--muted);margin-top:3px;}
+.lc-reason{font-size:11px;color:var(--muted);margin-top:5px;font-style:italic;line-height:1.4;}
+.badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+.badge-pending {background:var(--amber-bg);color:#92400e;border:1px solid var(--amber-border);}
+.badge-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.badge-rejected{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
+.badge-cancelled{background:var(--bg);color:var(--muted);border:1px solid var(--border);}
+
+/* Empty / loading */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:48px 20px;color:var(--subtle);}
+.empty-icon{font-size:40px;opacity:.4;}
+.empty-text{font-size:12px;text-align:center;line-height:1.5;}
+.spin{display:inline-block;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Error */
+.err-banner{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);
+  padding:9px 13px;border-radius:var(--radius-sm);font-size:12px;display:flex;
+  align-items:flex-start;gap:7px;margin-bottom:12px;}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border-radius:18px 18px 0 0;
+  padding:22px 22px 32px;width:100%;max-height:92vh;overflow-y:auto;}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:16px;}
+label.lbl{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;}
+select.inp,input.inp,textarea.inp{
+  width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);
+  background:var(--surface);outline:none;margin-bottom:12px;
+}
+textarea.inp{resize:vertical;min-height:72px;}
+select.inp:focus,input.inp:focus,textarea.inp:focus{
+  border-color:var(--orange);box-shadow:0 0 0 3px rgba(250,94,1,.12);}
+.row{display:flex;gap:10px;}
+.row>div{flex:1;}
+.btn-row{display:flex;gap:10px;margin-top:4px;}
+.btn{padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;
+  font-family:inherit;border:none;cursor:pointer;transition:opacity .15s,background .15s;
+  display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-orange{background:var(--orange);color:#fff;flex:1;}
+.btn-orange:hover:not(:disabled){background:var(--orange-dim);}
+.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);flex:1;}
+.btn-ghost:hover:not(:disabled){background:var(--bg);}
+</style>
+</head>
+<body>
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-icon">
+    <img src="../assets/icon.png" alt="" onerror="this.style.display='none'"/>
+  </div>
+  <div class="hdr-title">Leave Requests</div>
+  <button class="hdr-new" id="new-btn">+ File Leave</button>
+</div>
+
+<!-- Filter tabs -->
+<div class="filter-bar">
+  <button class="filter-tab active" data-filter="ALL">All</button>
+  <button class="filter-tab" data-filter="PENDING">Pending</button>
+  <button class="filter-tab" data-filter="APPROVED">Approved</button>
+  <button class="filter-tab" data-filter="REJECTED">Rejected</button>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="bal-row" id="bal-row"></div>
+  <div id="loading" class="empty"><div class="spin" style="font-size:28px;">&#8635;</div><div class="empty-text">Loading...</div></div>
+  <div id="list"></div>
+  <div id="empty" class="empty" style="display:none;">
+    <div class="empty-icon">&#128197;</div>
+    <div class="empty-text">No leave requests found.</div>
+  </div>
+</div>
+
+<!-- File Leave Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-title">File a Leave Request</div>
+    <div id="modal-err" class="err-banner" style="display:none;"><span>!</span><span id="modal-err-text"></span></div>
+    <label class="lbl">Leave Type</label>
+    <select class="inp" id="lt-select"><option value="">Loading types...</option></select>
+    <div class="row">
+      <div><label class="lbl">Start Date</label><input type="date" class="inp" id="start-date"/></div>
+      <div><label class="lbl">End Date</label><input type="date" class="inp" id="end-date"/></div>
+    </div>
+    <label class="lbl">Reason <span style="font-weight:400;color:var(--subtle)">(optional)</span></label>
+    <textarea class="inp" id="reason" placeholder="Reason for leave..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
+      <button class="btn btn-orange" id="submit-btn">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict'
+const api = window.onclock
+
+let allLeaves   = []
+let leaveTypes  = []
+let activeFilter= 'ALL'
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtDate(d){return new Date(d).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})}
+
+// Filter tabs
+document.querySelectorAll('.filter-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active'))
+    tab.classList.add('active')
+    activeFilter = tab.dataset.filter
+    renderLeaves()
+  })
+})
+
+function renderLeaves(){
+  const list = document.getElementById('list')
+  const empty= document.getElementById('empty')
+  const filtered = activeFilter==='ALL' ? allLeaves : allLeaves.filter(l=>l.status===activeFilter)
+  if(!filtered.length){list.innerHTML='';empty.style.display='flex';return}
+  empty.style.display='none'
+  const badgeCls={APPROVED:'badge-approved',REJECTED:'badge-rejected',CANCELLED:'badge-cancelled',PENDING:'badge-pending'}
+  list.innerHTML = filtered.map(l=>`
+    <div class="leave-card">
+      <div class="lc-top">
+        <div class="lc-type">${esc(l.leaveType?.name||'Leave')}</div>
+        <span class="badge ${badgeCls[l.status]||'badge-pending'}">${l.status.charAt(0)+l.status.slice(1).toLowerCase()}</span>
+      </div>
+      <div class="lc-dates">${fmtDate(l.startDate)} – ${fmtDate(l.endDate)} &nbsp;·&nbsp; ${l.totalDays} day${l.totalDays!==1?'s':''} ${l.leaveType?.isWithPay?'<span style="color:var(--green);font-weight:700;">· Paid</span>':'· No Pay'}</div>
+      ${l.reason?`<div class="lc-reason">"${esc(l.reason)}"</div>`:''}
+    </div>`).join('')
+}
+
+async function load(){
+  document.getElementById('loading').style.display='flex'
+  document.getElementById('list').innerHTML=''
+  document.getElementById('empty').style.display='none'
+  try{
+    const res = await api.getLeaves()
+    document.getElementById('loading').style.display='none'
+    if(!res.ok){document.getElementById('empty').style.display='flex';return}
+    allLeaves = res.data.leaves||[]
+    const balances = res.data.balances||[]
+    const balRow = document.getElementById('bal-row')
+    balRow.innerHTML = balances.length
+      ? balances.map(b=>{
+          const avail=Math.max(0,(b.entitled||0)-(b.used||0)-(b.pending||0))
+          return `<div class="bal-chip">${esc(b.leaveType?.name||'Leave')}: <strong>${avail}</strong>d left</div>`
+        }).join('')
+      : ''
+    renderLeaves()
+  }catch{document.getElementById('loading').style.display='none';document.getElementById('empty').style.display='flex'}
+}
+
+// Modal
+async function loadTypes(){
+  try{
+    const res = await api.getLeaveTypes()
+    leaveTypes=(res.data?.types||[]).filter(t=>t.isActive)
+    const sel=document.getElementById('lt-select')
+    sel.innerHTML=leaveTypes.length
+      ?leaveTypes.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}${t.isWithPay?'':' (No Pay)'}</option>`).join('')
+      :'<option value="">No leave types available</option>'
+  }catch{}
+}
+
+function openModal(){
+  const today=new Date().toISOString().slice(0,10)
+  document.getElementById('start-date').value=today
+  document.getElementById('end-date').value=today
+  document.getElementById('reason').value=''
+  document.getElementById('modal-err').style.display='none'
+  document.getElementById('modal').classList.add('open')
+  if(!leaveTypes.length)loadTypes()
+}
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+
+document.getElementById('new-btn').addEventListener('click',openModal)
+document.getElementById('cancel-btn').addEventListener('click',closeModal)
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal()})
+
+document.getElementById('submit-btn').addEventListener('click',async()=>{
+  const typeId=document.getElementById('lt-select').value
+  const startDate=document.getElementById('start-date').value
+  const endDate=document.getElementById('end-date').value
+  const reason=document.getElementById('reason').value.trim()
+  const errEl=document.getElementById('modal-err')
+  const errTxt=document.getElementById('modal-err-text')
+  const btn=document.getElementById('submit-btn')
+  function showErr(m){errTxt.textContent=m;errEl.style.display='flex'}
+  errEl.style.display='none'
+  if(!typeId){showErr('Select a leave type.');return}
+  if(!startDate||!endDate){showErr('Select start and end dates.');return}
+  if(endDate<startDate){showErr('End date must be after start date.');return}
+  btn.disabled=true;btn.textContent='Submitting...'
+  try{
+    const res=await api.fileLeave({leaveTypeId:typeId,startDate,endDate,reason:reason||undefined})
+    if(res.ok){closeModal();load()}
+    else showErr(res.data?.error||'Failed to submit leave.')
+  }catch(e){showErr(e?.message||'Connection error.')}
+  finally{btn.disabled=false;btn.textContent='Submit Request'}
+})
+
+load()
+</script>
+</body>
+</html>
+

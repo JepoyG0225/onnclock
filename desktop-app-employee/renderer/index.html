@@ -1,0 +1,1550 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OnClock Desktop</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    @font-face {
+      font-family: 'Montserrat';
+      src: url('../assets/fonts/Montserrat-Regular.ttf') format('truetype');
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: 'Montserrat';
+      src: url('../assets/fonts/Montserrat-Bold.ttf') format('truetype');
+      font-weight: 700; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      --navy:        #0d1b2a;
+      --navy-mid:    #1a2d42;
+      --navy-light:  #2e4a6a;
+      --orange:      #fa5e01;
+      --orange-dim:  #c44d00;
+      --orange-bg:   #fff3eb;
+      --amber:       #f59e0b;
+      --amber-bg:    #fffbeb;
+      --amber-border:#fde68a;
+      --green:       #16a34a;
+      --green-bg:    #f0fdf4;
+      --green-border:#bbf7d0;
+      --red:         #dc2626;
+      --red-bg:      #fef2f2;
+      --red-border:  #fecaca;
+      --bg:          #eef2f7;
+      --surface:     #ffffff;
+      --border:      #e2e8f0;
+      --border-mid:  #cbd5e1;
+      --text:        #0f172a;
+      --text-muted:  #64748b;
+      --text-subtle: #94a3b8;
+      --shadow-sm:   0 1px 3px rgba(13,27,42,.07), 0 1px 2px rgba(13,27,42,.04);
+      --shadow:      0 4px 12px rgba(13,27,42,.10), 0 1px 3px rgba(13,27,42,.06);
+      --radius:      12px;
+      --radius-sm:   8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+    body { display: flex; flex-direction: column; overflow: hidden; }
+    /* ---- */
+    .header {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      padding: 0 18px; height: 58px;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0; -webkit-app-region: drag; user-select: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .header-icon {
+      width: 34px; height: 34px; border-radius: 8px; overflow: hidden;
+      flex-shrink: 0; background: var(--orange);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .header-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .header-icon-fallback { font-size: 17px; font-weight: 900; color: #fff; }
+    .header-text { flex: 1; }
+    .header-title { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.2; }
+    .header-sub   { font-size: 10px; color: rgba(255,255,255,.50); margin-top: 1px; }
+    .header-version {
+      font-size: 10px; font-weight: 600; color: rgba(255,255,255,.40);
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+      border-radius: 4px; padding: 2px 6px; -webkit-app-region: no-drag;
+    }
+    /* ---- */
+    .content {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 16px 16px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .content::-webkit-scrollbar { width: 5px; }
+    .content::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+    /* ---- */
+    #login-view  { display: flex; flex-direction: column; gap: 14px; }
+    #status-view { display: none; flex-direction: column; gap: 10px; }
+    /* ---- */
+    .login-hero { display: flex; flex-direction: column; align-items: center; padding: 20px 0 10px; gap: 8px; }
+    .login-icon {
+      width: 64px; height: 64px; border-radius: 16px; overflow: hidden;
+      background: var(--orange); display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 24px rgba(250,94,1,.30);
+    }
+    .login-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .login-icon-fallback { font-size: 32px; font-weight: 900; color: #fff; }
+    .login-title { font-size: 17px; font-weight: 700; color: var(--text); }
+    .login-sub   { font-size: 11px; color: var(--text-muted); }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-label { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+    .input-wrap { position: relative; }
+    .input-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); pointer-events: none; }
+    .input-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 2px; color: var(--text-subtle); -webkit-app-region: no-drag; }
+    .input-eye:hover { color: var(--text-muted); }
+    input[type=email], input[type=password], input[type=text] {
+      width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 12px 10px 34px; font-size: 13px; font-family: inherit;
+      color: var(--text); background: var(--surface); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(250,94,1,.12); }
+    /* ---- */
+    .btn {
+      padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
+      font-family: inherit; border: none; cursor: pointer;
+      transition: opacity .15s, background .15s, transform .1s;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      -webkit-app-region: no-drag;
+    }
+    .btn:active:not(:disabled) { transform: scale(.98); }
+    .btn:disabled { opacity: .50; cursor: not-allowed; }
+    .btn-orange { background: var(--orange); color: #fff; }
+    .btn-orange:hover:not(:disabled) { background: var(--orange-dim); }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: var(--red); }
+    .btn-amber  { background: var(--amber); color: #fff; }
+    .btn-amber:hover:not(:disabled)  { background: #d97706; }
+    .btn-ghost  { background: transparent; color: var(--text-muted); border: 1.5px solid var(--border); }
+    .btn-ghost:hover:not(:disabled)  { background: var(--bg); }
+    .btn-green  { background: #22c55e; color: #fff; }
+    .btn-green:hover:not(:disabled)  { background: var(--green); }
+    .btn-lg { padding: 13px 20px; font-size: 14px; border-radius: 10px; }
+    /* ---- */
+    .card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 14px 15px; box-shadow: var(--shadow-sm); }
+    /* ---- */
+    .profile-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px; box-shadow: var(--shadow-sm);
+    }
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--navy-mid), var(--navy-light));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .profile-info { flex: 1; min-width: 0; }
+    .profile-email { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-company { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .signout-btn {
+      background: none; border: none; cursor: pointer; padding: 6px; color: var(--text-subtle);
+      border-radius: 6px; transition: background .15s, color .15s; -webkit-app-region: no-drag;
+    }
+    .signout-btn:hover { background: var(--red-bg); color: var(--red); }
+    /* ---- */
+    .clock-card {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      border: none; border-radius: var(--radius); padding: 16px 18px;
+      box-shadow: var(--shadow); display: flex; align-items: center; justify-content: space-between;
+    }
+    .clock-time   { font-size: 32px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -.5px; }
+    .clock-ampm   { font-size: 14px; font-weight: 600; color: rgba(255,255,255,.55); margin-left: 4px; vertical-align: super; }
+    .clock-date   { font-size: 11px; color: rgba(255,255,255,.50); margin-top: 4px; }
+    .clock-right  { text-align: right; }
+    .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-clocked-in  { background: rgba(22,163,74,.20); color: #4ade80; border: 1px solid rgba(74,222,128,.25); }
+    .badge-clocked-out { background: rgba(255,255,255,.10); color: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.15); }
+    .badge-on-break    { background: rgba(245,158,11,.20); color: #fcd34d; border: 1px solid rgba(252,211,77,.25); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot-green  { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+    .dot-gray   { background: rgba(255,255,255,.40); }
+    .dot-amber  { background: #fcd34d; box-shadow: 0 0 6px #fcd34d; }
+    .dot-pulse  { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .session-time { font-size: 11px; color: rgba(255,255,255,.45); margin-top: 5px; }
+    .session-duration { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.70); }
+    /* ---- */
+    .break-banner {
+      background: var(--amber-bg); border: 1.5px solid var(--amber-border);
+      border-radius: var(--radius); padding: 12px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .break-icon { font-size: 22px; flex-shrink: 0; }
+    .break-info { flex: 1; }
+    .break-title { font-size: 12px; font-weight: 700; color: #92400e; }
+    .break-sub   { font-size: 11px; color: #b45309; margin-top: 2px; }
+    .break-duration { font-size: 13px; font-weight: 700; color: #d97706; }
+    .break-remaining { font-size: 11px; font-weight: 700; color: #b45309; margin-top: 2px; }
+    .break-remaining.over { color: #dc2626; }
+
+    /* UPDATE BANNER */
+    .update-banner {
+      background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: var(--radius);
+      padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .update-title { font-size: 12px; font-weight: 700; color: #1e3a8a; }
+    .update-sub { font-size: 10px; color: #1d4ed8; margin-top: 1px; }
+    .update-actions { display: flex; gap: 6px; }
+    /* ---- */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .section-title  { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-subtle); display: flex; align-items: center; gap: 5px; }
+    .capture-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; animation: pulse 1.5s ease-in-out infinite; }
+    .capture-count-badge {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 20px; padding: 1px 7px;
+    }
+
+    /* Main screenshot preview */
+    .capture-main {
+      position: relative; width: 100%; aspect-ratio: 16/9;
+      border-radius: 9px; overflow: hidden; cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      transition: border-color .15s;
+    }
+    .capture-main:hover { border-color: var(--orange); }
+    .capture-main img {
+      width: 100%; height: 100%;
+      object-fit: cover; object-position: top; display: block;
+    }
+    .capture-main-empty {
+      width: 100%; height: 100%; display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; color: var(--text-subtle);
+    }
+    .capture-main-empty-icon { font-size: 28px; opacity: .4; }
+    .capture-main-empty-text { font-size: 11px; }
+    .capture-main-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.0); transition: background .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .capture-main:hover .capture-main-overlay { background: rgba(0,0,0,.30); }
+    .capture-zoom-icon { opacity: 0; transition: opacity .15s; font-size: 24px; }
+    .capture-main:hover .capture-zoom-icon { opacity: 1; }
+    .capture-main-ts {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.65) 0%, transparent 100%);
+      padding: 12px 10px 7px; font-size: 10px; color: rgba(255,255,255,.85); font-weight: 600;
+    }
+    .capture-paused {
+      width: 100%; aspect-ratio: 16/9;
+      border-radius: 9px; border: 1.5px dashed var(--amber-border);
+      background: var(--amber-bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 5px;
+      color: #92400e; font-size: 11px; font-weight: 600;
+    }
+    .capture-paused-icon { font-size: 24px; }
+    /* ---- */
+    .loc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .loc-title  { font-size: 11px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 5px; }
+    .loc-refresh-btn {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 6px; padding: 3px 9px; cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+      transition: background .15s; -webkit-app-region: no-drag;
+    }
+    .loc-refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .loc-refresh-btn:hover:not(:disabled) { background: var(--border); }
+    #map { width: 100%; height: 145px; border-radius: 9px; overflow: hidden; border: 1.5px solid var(--border); background: #e8edf2; }
+    #map-placeholder { width: 100%; height: 145px; border-radius: 9px; border: 1.5px solid var(--border); background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-subtle); font-size: 11px; }
+    .loc-address { font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-top: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .loc-coords  { font-size: 10px; color: var(--text-subtle); margin-top: 2px; font-family: 'Consolas', monospace; }
+    .leaflet-control-attribution { font-size: 8px !important; }
+    /* ---- */
+    .action-row { display: flex; gap: 8px; }
+    .action-row .btn { flex: 1; }
+    .history-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow-sm); }
+    .history-title { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 9px; }
+    .history-list { display: flex; flex-direction: column; gap: 7px; }
+    .history-item { background: #f8fafc; border-radius: 8px; padding: 8px 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .history-date { font-size: 11px; font-weight: 700; color: var(--text); }
+    .history-time { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .history-hours { font-size: 11px; font-weight: 700; color: var(--navy-mid); text-align: right; }
+    .history-late { font-size: 10px; color: #d97706; margin-top: 2px; text-align: right; }
+    .history-empty { font-size: 11px; color: var(--text-subtle); }
+    /* ---- */
+    .error-banner { background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red); padding: 9px 13px; border-radius: var(--radius-sm); font-size: 12px; display: flex; align-items: flex-start; gap: 7px; }
+    /* ---- */
+    #lightbox { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); align-items: center; justify-content: center; flex-direction: column; gap: 12px; -webkit-app-region: no-drag; }
+    #lightbox.open { display: flex; }
+    #lightbox-img { max-width: calc(100% - 32px); max-height: calc(100% - 100px); border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.6); object-fit: contain; }
+    #lightbox-ts   { font-size: 11px; color: rgba(255,255,255,.50); }
+    #lightbox-close { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,.12); border: none; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; transition: background .15s; }
+    #lightbox-close:hover { background: rgba(255,255,255,.22); }
+    /* ---- Bottom nav ---- */
+    #bottom-nav {
+      flex-shrink: 0;
+      display: none; /* shown only when logged in */
+      background: var(--surface);
+      border-top: 1.5px solid var(--border);
+      padding: 6px 0 8px;
+      -webkit-app-region: no-drag;
+    }
+    .bottom-nav-inner {
+      display: flex; align-items: stretch;
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: 6px 4px; background: none; border: none; cursor: pointer;
+      color: var(--text-subtle); font-family: inherit; font-size: 10px; font-weight: 600;
+      border-radius: 8px; margin: 0 4px;
+      transition: background .12s, color .12s;
+      -webkit-app-region: no-drag;
+    }
+    .nav-btn:hover { background: var(--bg); color: var(--text-muted); }
+    .nav-btn:active { transform: scale(.95); }
+    .nav-btn.active { color: var(--orange); }
+    .nav-btn.active svg { stroke: var(--orange); }
+    .nav-btn svg { flex-shrink: 0; }
+    .nav-btn span { line-height: 1; }
+    #more-panel {
+      position: fixed; left: 12px; right: 12px; bottom: 74px; z-index: 120;
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
+      box-shadow: var(--shadow); padding: 8px; display: none;
+    }
+    #more-panel.open { display: block; }
+    .more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .more-btn {
+      border: 1.5px solid var(--border); border-radius: 10px; background: #fff; color: var(--text);
+      padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer;
+      transition: background .12s, border-color .12s, color .12s;
+    }
+    .more-btn:hover { background: var(--bg); border-color: var(--border-mid); color: var(--navy-mid); }
+    #more-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.18); z-index: 115; display: none;
+    }
+    #more-overlay.open { display: block; }
+    #ann-overlay {
+      display:none; position:fixed; inset:0; z-index:400;
+      background:rgba(2,6,23,.45); backdrop-filter: blur(1px);
+      align-items:center; justify-content:center; padding:14px;
+    }
+    #ann-overlay.open { display:flex; }
+    .ann-card {
+      width:100%; max-width:420px; max-height:80vh; overflow:hidden;
+      background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow);
+      display:flex; flex-direction:column;
+    }
+    .ann-head { padding:14px 14px 12px; border-bottom:1px solid var(--border); }
+    .ann-label { font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--orange); }
+    .ann-title { font-size:17px; font-weight:700; color:var(--text); margin-top:3px; line-height:1.25; }
+    .ann-time { font-size:10px; color:var(--text-subtle); margin-top:5px; }
+    .ann-body { padding:14px; overflow:auto; font-size:12px; color:var(--text-muted); line-height:1.55; white-space:pre-wrap; }
+    .ann-foot { padding:10px 14px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; background:#f8fafc; }
+    /* ---- */
+    .portal-link { color: var(--orange); text-decoration: none; }
+
+    /* ---- View header ---- */
+    .view-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .view-title   { font-size:15px; font-weight:700; color:var(--text); flex:1; }
+    .back-btn {
+      background:none; border:none; cursor:pointer; padding:5px; color:var(--text-muted);
+      border-radius:6px; transition:background .12s; -webkit-app-region:no-drag;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .back-btn:hover { background:var(--bg); color:var(--text); }
+
+    /* ---- Leave balances ---- */
+    .balance-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+    .balance-chip {
+      background:var(--surface); border:1.5px solid var(--border);
+      border-radius:20px; padding:4px 10px; font-size:10px; font-weight:600; color:var(--text-muted);
+    }
+    .balance-chip strong { color:var(--orange); }
+
+    /* ---- Leave list ---- */
+    .leave-item {
+      background:var(--surface); border:1.5px solid var(--border);
+      border-radius:var(--radius); padding:11px 13px; margin-bottom:7px;
+    }
+    .leave-item-row { display:flex; align-items:center; justify-content:space-between; }
+    .leave-type-name { font-size:12px; font-weight:700; color:var(--text); }
+    .leave-dates  { font-size:10px; color:var(--text-muted); margin-top:2px; }
+    .leave-reason { font-size:11px; color:var(--text-muted); margin-top:4px; font-style:italic; }
+    .badge-status { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; }
+    .badge-pending  { background:var(--amber-bg);  color:#92400e; border:1px solid var(--amber-border); }
+    .badge-approved { background:var(--green-bg);  color:var(--green); border:1px solid var(--green-border); }
+    .badge-rejected { background:var(--red-bg);    color:var(--red);   border:1px solid var(--red-border); }
+
+    /* ---- Modal sheet ---- */
+    .modal-overlay {
+      display:none; position:fixed; inset:0; z-index:300;
+      background:rgba(0,0,0,.45); align-items:flex-end; justify-content:center;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal-sheet {
+      background:var(--surface); border-radius:18px 18px 0 0;
+      padding:20px 18px 30px; width:100%; max-height:85vh; overflow-y:auto;
+    }
+    .modal-title { font-size:14px; font-weight:700; color:var(--text); margin-bottom:14px; }
+    .form-select {
+      width:100%; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+      padding:9px 12px; font-size:13px; font-family:inherit;
+      color:var(--text); background:var(--surface); outline:none;
+    }
+    .form-select:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(250,94,1,.12); }
+    textarea.form-ta {
+      width:100%; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+      padding:9px 12px; font-size:13px; font-family:inherit;
+      color:var(--text); background:var(--surface); outline:none;
+      resize:vertical; min-height:68px;
+    }
+    textarea.form-ta:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(250,94,1,.12); }
+
+    /* ---- Contacts ---- */
+    .contact-item {
+      display:flex; align-items:center; gap:10px;
+      background:var(--surface); border:1.5px solid var(--border);
+      border-radius:var(--radius); padding:10px 13px; margin-bottom:7px;
+      cursor:pointer; transition:background .12s; -webkit-app-region:no-drag;
+    }
+    .contact-item:hover { background:var(--bg); }
+    .contact-avatar {
+      width:36px; height:36px; border-radius:50%;
+      background:linear-gradient(135deg,var(--navy-mid),var(--navy-light));
+      display:flex; align-items:center; justify-content:center;
+      font-size:12px; font-weight:700; color:#fff; flex-shrink:0; position:relative;
+    }
+    .online-dot {
+      position:absolute; bottom:0; right:0;
+      width:9px; height:9px; border-radius:50%;
+      background:var(--green); border:2px solid var(--surface);
+    }
+    .contact-info { flex:1; min-width:0; }
+    .contact-name { font-size:12px; font-weight:700; color:var(--text); }
+    .contact-last { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+    .unread-badge {
+      background:var(--orange); color:#fff; font-size:10px; font-weight:700;
+      padding:2px 7px; border-radius:20px; flex-shrink:0;
+    }
+
+    /* ---- Thread ---- */
+    .thread-messages { display:flex; flex-direction:column; gap:6px; padding:4px 0 8px; }
+    .msg-wrap { display:flex; flex-direction:column; }
+    .msg-wrap.mine   { align-items:flex-end; }
+    .msg-wrap.theirs { align-items:flex-start; }
+    .msg-bubble {
+      max-width:76%; padding:8px 11px; border-radius:14px;
+      font-size:12px; line-height:1.45; word-break:break-word;
+    }
+    .msg-bubble.mine   { background:var(--orange); color:#fff; border-radius:14px 14px 3px 14px; }
+    .msg-bubble.theirs { background:var(--surface); border:1.5px solid var(--border); color:var(--text); border-radius:14px 14px 14px 3px; }
+    .msg-time { font-size:9px; color:var(--text-subtle); margin-top:2px; padding:0 3px; }
+    .thread-input-row {
+      display:flex; gap:7px; padding:10px 0 2px; border-top:1.5px solid var(--border); align-items:flex-end;
+    }
+    .thread-ta {
+      flex:1; border:1.5px solid var(--border); border-radius:20px;
+      padding:8px 13px; font-size:13px; font-family:inherit;
+      color:var(--text); background:var(--surface); outline:none; resize:none; line-height:1.4;
+    }
+    .thread-ta:focus { border-color:var(--orange); }
+    .send-btn {
+      width:36px; height:36px; border-radius:50%; border:none; cursor:pointer;
+      background:var(--orange); color:#fff; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      transition:background .12s; -webkit-app-region:no-drag;
+    }
+    .send-btn:hover { background:var(--orange-dim); }
+    .send-btn:disabled { opacity:.5; cursor:not-allowed; }
+
+    /* ---- Profile card ---- */
+    .profile-card-lg {
+      background:var(--surface); border:1.5px solid var(--border);
+      border-radius:var(--radius); padding:20px 16px;
+      display:flex; flex-direction:column; align-items:center; gap:8px;
+    }
+    .avatar-lg {
+      width:64px; height:64px; border-radius:50%;
+      background:linear-gradient(135deg,var(--navy-mid),var(--navy-light));
+      display:flex; align-items:center; justify-content:center;
+      font-size:22px; font-weight:700; color:#fff;
+    }
+    .profile-full-name { font-size:16px; font-weight:700; color:var(--text); }
+    .profile-role-dept { font-size:11px; color:var(--text-muted); }
+    .detail-table { width:100%; margin-top:8px; display:flex; flex-direction:column; gap:0; }
+    .detail-row { display:flex; align-items:baseline; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); }
+    .detail-row:last-child { border-bottom:none; }
+    .detail-lbl { font-size:10px; font-weight:700; color:var(--text-subtle); text-transform:uppercase; width:90px; flex-shrink:0; }
+    .detail-val { font-size:12px; color:var(--text); flex:1; word-break:break-all; }
+
+    /* ---- Empty / loading states ---- */
+    .empty-state {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:8px; padding:36px 20px; color:var(--text-subtle);
+    }
+    .empty-icon { font-size:34px; opacity:.4; }
+    .empty-text { font-size:12px; text-align:center; line-height:1.5; }
+    .portal-link:hover { text-decoration: underline; }
+    .spinning { display: inline-block; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Loading screen ---- */
+    #loading-view {
+      position: absolute; inset: 0; z-index: 1000;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 18px;
+      background: var(--bg);
+      transition: opacity .35s ease;
+    }
+    #loading-view.fade-out { opacity: 0; pointer-events: none; }
+    .loading-logo {
+      width: 60px; height: 60px; border-radius: 14px; overflow: hidden;
+      background: var(--orange); display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 28px rgba(250,94,1,.32);
+      animation: loadPop .4s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes loadPop { from { transform: scale(.7); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+    .loading-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .loading-logo-fallback { font-size: 28px; font-weight: 900; color: #fff; }
+    .loading-label {
+      font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: .04em;
+    }
+    .loading-dots {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .loading-dots span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--orange); opacity: .25;
+      animation: dotBounce 1.2s ease-in-out infinite;
+    }
+    .loading-dots span:nth-child(2) { animation-delay: .18s; }
+    .loading-dots span:nth-child(3) { animation-delay: .36s; }
+    @keyframes dotBounce {
+      0%,80%,100% { opacity: .25; transform: scale(.8); }
+      40%         { opacity: 1;   transform: scale(1.2); }
+    }
+  </style>
+</head>
+<body>
+<!-- ---- -->
+<div class="header">
+  <div class="header-icon">
+    <img src="../assets/icon.png" alt="OnClock" onerror="this.style.display='none';document.getElementById('hif').style.display='block'" />
+    <span class="header-icon-fallback" id="hif" style="display:none;">O</span>
+  </div>
+  <div class="header-text">
+    <div class="header-title">OnClock Desktop</div>
+    <div class="header-sub">Time &amp; activity monitoring</div>
+  </div>
+  <span class="header-version" id="app-version"></span>
+</div>
+<!-- ---- -->
+<div class="content" style="position:relative;">
+<!-- ---- Loading screen (shown on startup until init() completes) ---- -->
+  <div id="loading-view">
+    <div class="loading-logo">
+      <img src="../assets/icon.png" alt="OnClock" onerror="this.style.display='none';document.getElementById('llif').style.display='block'" />
+      <span class="loading-logo-fallback" id="llif" style="display:none;">O</span>
+    </div>
+    <div class="loading-label">Loading your workspace...</div>
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+  </div>
+<!-- ---- -->
+  <div id="login-view" style="display:none;">
+    <div class="login-hero">
+      <div class="login-icon">
+        <img src="../assets/icon.png" alt="OnClock" onerror="this.style.display='none';document.getElementById('lif').style.display='block'" />
+        <span class="login-icon-fallback" id="lif" style="display:none;">O</span>
+      </div>
+      <div class="login-title">Welcome back</div>
+      <div class="login-sub">Sign in with your OnClock credentials</div>
+    </div>
+
+    <div id="login-error" class="error-banner" style="display:none;">
+      <span>!</span><span id="login-error-text"></span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="email">Email address</label>
+      <div class="input-wrap">
+        <span class="input-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="16" height="12" rx="2"/><path d="M2 7l8 5 8-5"/></svg></span>
+        <input type="email" id="email" placeholder="you@company.com" autocomplete="email" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Password</label>
+      <div class="input-wrap">
+        <span class="input-icon"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="14" height="10" rx="2"/><path d="M7 8V6a3 3 0 016 0v2"/></svg></span>
+        <input type="password" id="password" placeholder="********" autocomplete="current-password" />
+        <button class="input-eye" id="pw-toggle" tabindex="-1">
+          <svg id="pw-eye-open" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 10s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.5"/></svg>
+          <svg id="pw-eye-closed" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none"><path d="M3 3l14 14M10.6 6.1A4 4 0 0114 10m-1.4 3.4A4 4 0 016 10m-3.5-1C3.5 7 5.1 5.2 7 4.2M13 3.5C15 5 17 7.5 17 10"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="btn btn-orange btn-lg" id="login-btn" style="margin-top:4px;width:100%;">Sign In</button>
+    <p style="font-size:10px;color:var(--text-subtle);text-align:center;margin-top:4px;">
+      Trouble signing in? <a href="#" id="open-portal" class="portal-link">Open portal -></a>
+    </p>
+  </div>
+<!-- ---- -->
+  <div id="status-view">
+
+    <!-- Profile -->
+    <div class="profile-row">
+      <div class="avatar" id="user-avatar">?</div>
+      <div class="profile-info">
+        <div class="profile-email"  id="user-email">-</div>
+        <div class="profile-company" id="user-company"></div>
+      </div>
+      <button class="signout-btn" id="signout-btn" title="Sign out">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 3h4v14h-4M9 14l4-4-4-4M13 10H3"/></svg>
+      </button>
+    </div>
+
+    <div class="update-banner" id="update-banner" style="display:none;">
+      <div>
+        <div class="update-title" id="update-title">Update available</div>
+        <div class="update-sub" id="update-sub">A newer desktop version is ready.</div>
+      </div>
+      <div class="update-actions">
+        <button class="btn btn-ghost" id="update-check-btn" style="padding:6px 10px;font-size:11px;">Check</button>
+        <button class="btn btn-orange" id="update-install-btn" style="padding:6px 10px;font-size:11px;">Update</button>
+      </div>
+    </div>
+
+    <!-- Clock hero -->
+    <div class="clock-card">
+      <div>
+        <div><span class="clock-time" id="clock-time">12:00</span><span class="clock-ampm" id="clock-ampm">AM</span></div>
+        <div class="clock-date" id="clock-date">-</div>
+      </div>
+      <div class="clock-right">
+        <div class="status-badge badge-clocked-out" id="status-badge">
+          <span class="dot dot-gray" id="status-dot"></span>
+          <span id="status-label">Not Clocked In</span>
+        </div>
+        <div class="session-time" id="session-time-row" style="display:none;">
+          <div style="font-size:9px;color:rgba(255,255,255,.35);">Session</div>
+          <div class="session-duration" id="session-duration">0m</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Break banner (visible when on break) -->
+    <div class="break-banner" id="break-banner" style="display:none;">
+      <div class="break-icon">BRK</div>
+      <div class="break-info">
+        <div class="break-title">On Break</div>
+        <div class="break-sub">Screen monitoring is paused</div>
+        <div class="break-duration" id="break-duration">0m</div>
+        <div class="break-remaining" id="break-remaining">Remaining: --</div>
+      </div>
+    </div>
+
+    <!-- Screenshot section (only when clocked in + screen capture enabled) -->
+    <div id="capture-section" style="display:none;">
+      <div class="section-header">
+        <div class="section-title">
+          <span class="capture-live-dot" id="capture-live-dot"></span>
+          Recent Capture
+        </div>
+        <span class="capture-count-badge" id="capture-count-badge">0 captures</span>
+      </div>
+
+      <!-- Main screenshot or paused placeholder -->
+      <div id="capture-main-wrap">
+        <!-- Shown when NOT on break -->
+        <div class="capture-main" id="capture-main-img-wrap" title="Click to enlarge">
+          <div class="capture-main-empty" id="capture-main-empty">
+            <span class="capture-main-empty-icon">[CAM]</span>
+            <span class="capture-main-empty-text">Waiting for first capture...</span>
+          </div>
+          <img id="capture-main-img" src="" alt="Latest screenshot" style="display:none;" />
+          <div class="capture-main-overlay"><span class="capture-zoom-icon">[+]</span></div>
+          <div class="capture-main-ts" id="capture-main-ts" style="display:none;"></div>
+        </div>
+        <!-- Shown when on break -->
+        <div class="capture-paused" id="capture-paused-wrap" style="display:none;">
+          <span class="capture-paused-icon">[PAUSE]</span>
+          <span>Screen capture paused during break</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Location card -->
+    <div class="card" id="location-card" style="display:none; padding:12px 14px;">
+      <div class="loc-header">
+        <div class="loc-title">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2a6 6 0 016 6c0 4-6 10-6 10S4 12 4 8a6 6 0 016-6z"/><circle cx="10" cy="8" r="2"/></svg>
+          Current Location
+        </div>
+        <button class="loc-refresh-btn" id="loc-refresh-btn"><span id="loc-refresh-icon">&#8635;</span> Refresh</button>
+      </div>
+      <div id="map-placeholder"><span style="font-size:20px;">[PIN]</span><span id="map-placeholder-text">Getting your location...</span></div>
+      <div id="map" style="display:none;"></div>
+      <div id="loc-address" class="loc-address" style="display:none;"></div>
+      <div id="loc-coords"  class="loc-coords"  style="display:none;"></div>
+    </div>
+
+    <!-- Error -->
+    <div id="action-error" class="error-banner" style="display:none;">
+      <span>!</span><span id="action-error-text"></span>
+    </div>
+
+    <!-- Action button -->
+    <div class="action-row" id="action-row-main">
+      <button class="btn btn-orange btn-lg" id="primary-action-btn" style="flex:1;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg>
+        Clock In
+      </button>
+    </div>
+
+    <div class="history-card">
+      <div class="history-title">Attendance History</div>
+      <div class="history-list" id="attendance-history-list">
+        <div class="history-empty">Loading attendance history...</div>
+      </div>
+    </div>
+
+  </div><!-- /status-view -->
+
+  <!-- sub-views live in separate windows -->
+  <div id="leaves-view" style="display:none;">
+    <div class="view-header">
+      <div class="view-title">Leave Requests</div>
+      <button class="btn btn-orange" id="file-leave-btn" style="padding:6px 12px;font-size:11px;flex-shrink:0;">+ File Leave</button>
+    </div>
+    <div id="leaves-balances" class="balance-chips"></div>
+    <div id="leaves-loading" class="empty-state" style="display:none;">
+      <div class="spinning" style="font-size:26px;">&#8635;</div>
+      <div class="empty-text">Loading...</div>
+    </div>
+    <div id="leaves-list"></div>
+    <div id="leaves-empty" class="empty-state" style="display:none;">
+      <div class="empty-icon">&#128197;</div>
+      <div class="empty-text">No leave requests yet.<br>Tap "+ File Leave" to submit one.</div>
+    </div>
+  </div>
+
+  <!-- File Leave Modal -->
+  <div class="modal-overlay" id="file-leave-modal">
+    <div class="modal-sheet">
+      <div class="modal-title">File a Leave Request</div>
+      <div id="file-leave-error" class="error-banner" style="display:none;margin-bottom:10px;">
+        <span>!</span><span id="file-leave-error-text"></span>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label class="form-label">Leave Type</label>
+        <select class="form-select" id="leave-type-select"><option value="">Loading...</option></select>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Start Date</label>
+          <input type="date" class="form-select" id="leave-start-date" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">End Date</label>
+          <input type="date" class="form-select" id="leave-end-date" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label">Reason (optional)</label>
+        <textarea class="form-ta" id="leave-reason" placeholder="Reason for leave..."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="file-leave-cancel" style="flex:1;">Cancel</button>
+        <button class="btn btn-orange" id="file-leave-submit" style="flex:1;">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MESSAGES VIEW ===== -->
+  <div id="messages-view" style="display:none;">
+    <!-- Contacts panel -->
+    <div id="contacts-panel">
+      <div class="view-title" style="margin-bottom:12px;">Messages</div>
+      <div id="contacts-loading" class="empty-state" style="display:none;">
+        <div class="spinning" style="font-size:26px;">&#8635;</div>
+        <div class="empty-text">Loading contacts...</div>
+      </div>
+      <div id="contacts-list"></div>
+      <div id="contacts-empty" class="empty-state" style="display:none;">
+        <div class="empty-icon">&#128172;</div>
+        <div class="empty-text">No conversations yet.</div>
+      </div>
+    </div>
+    <!-- Thread panel -->
+    <div id="thread-panel" style="display:none;">
+      <div class="view-header">
+        <button class="back-btn" id="thread-back-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="view-title" id="thread-title" style="font-size:13px;"></div>
+      </div>
+      <div class="thread-messages" id="thread-messages"></div>
+      <div class="thread-input-row">
+        <textarea class="thread-ta" id="message-input" placeholder="Type a message..." rows="1"></textarea>
+        <button class="send-btn" id="send-message-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13M22 2L15 22 11 13 2 9z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PROFILE VIEW ===== -->
+  <div id="profile-view" style="display:none;">
+    <div class="view-title" style="margin-bottom:12px;">My Profile</div>
+    <div id="profile-loading" class="empty-state" style="display:none;">
+      <div class="spinning" style="font-size:26px;">&#8635;</div>
+      <div class="empty-text">Loading...</div>
+    </div>
+    <div id="profile-content"></div>
+  </div>
+
+</div><!-- /content -->
+<!-- ---- Bottom navigation ---- -->
+<nav id="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="nav-btn active" id="nav-home" title="Home">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
+      </svg>
+      <span>Home</span>
+    </button>
+    <button class="nav-btn" id="nav-leaves" title="Leaves">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+      </svg>
+      <span>Leaves</span>
+    </button>
+    <button class="nav-btn" id="nav-messages" title="Messages">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      </svg>
+      <span>Messages</span>
+    </button>
+    <button class="nav-btn" id="nav-payslips" title="Payslips">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/>
+      </svg>
+      <span>Payslips</span>
+    </button>
+    <button class="nav-btn" id="nav-more" title="More">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="1.5"/><circle cx="6" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/>
+      </svg>
+      <span>More</span>
+    </button>
+  </div>
+</nav>
+<div id="more-overlay"></div>
+<div id="more-panel" aria-hidden="true">
+  <div class="more-grid">
+    <button class="more-btn" id="more-budget">Budget</button>
+    <button class="more-btn" id="more-timefix">Time Fix</button>
+    <button class="more-btn" id="more-profile">Profile</button>
+  </div>
+</div>
+<div id="ann-overlay">
+  <div class="ann-card">
+    <div class="ann-head">
+      <div class="ann-label">Company Announcement</div>
+      <div class="ann-title" id="ann-title"></div>
+      <div class="ann-time" id="ann-time"></div>
+    </div>
+    <div class="ann-body" id="ann-body"></div>
+    <div class="ann-foot">
+      <button class="btn btn-orange" id="ann-read-btn" style="padding:8px 14px;font-size:12px;">Mark as Read</button>
+    </div>
+  </div>
+</div>
+<!-- ---- -->
+<div id="lightbox">
+  <button id="lightbox-close">x</button>
+  <img id="lightbox-img" src="" alt="Screenshot" />
+  <div id="lightbox-ts"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+'use strict'
+const api = window.onclock
+// ----
+const loginView       = document.getElementById('login-view')
+const statusView      = document.getElementById('status-view')
+const loginBtn        = document.getElementById('login-btn')
+const loginError      = document.getElementById('login-error')
+const loginErrorText  = document.getElementById('login-error-text')
+const emailInput      = document.getElementById('email')
+const passInput       = document.getElementById('password')
+const pwToggle        = document.getElementById('pw-toggle')
+const pwEyeOpen       = document.getElementById('pw-eye-open')
+const pwEyeClosed     = document.getElementById('pw-eye-closed')
+const primaryActionBtn = document.getElementById('primary-action-btn')
+const signoutBtn      = document.getElementById('signout-btn')
+const openPortal      = document.getElementById('open-portal')
+const appVersionEl    = document.getElementById('app-version')
+const userAvatar      = document.getElementById('user-avatar')
+const userEmail       = document.getElementById('user-email')
+const userCompany     = document.getElementById('user-company')
+const clockTimeEl     = document.getElementById('clock-time')
+const clockAmpmEl     = document.getElementById('clock-ampm')
+const clockDateEl     = document.getElementById('clock-date')
+const statusBadge     = document.getElementById('status-badge')
+const statusDot       = document.getElementById('status-dot')
+const statusLabel     = document.getElementById('status-label')
+const sessionTimeRow  = document.getElementById('session-time-row')
+const sessionDuration = document.getElementById('session-duration')
+const breakBanner     = document.getElementById('break-banner')
+const breakDuration   = document.getElementById('break-duration')
+const breakRemaining  = document.getElementById('break-remaining')
+const captureSection  = document.getElementById('capture-section')
+const captureCountBadge = document.getElementById('capture-count-badge')
+const captureLiveDot  = document.getElementById('capture-live-dot')
+const captureMainImgWrap = document.getElementById('capture-main-img-wrap')
+const captureMainImg  = document.getElementById('capture-main-img')
+const captureMainEmpty = document.getElementById('capture-main-empty')
+const captureMainTs   = document.getElementById('capture-main-ts')
+const capturePausedWrap = document.getElementById('capture-paused-wrap')
+const locationCard    = document.getElementById('location-card')
+const actionError     = document.getElementById('action-error')
+const actionErrorText = document.getElementById('action-error-text')
+const actionRowMain    = document.getElementById('action-row-main')
+const attendanceHistoryList = document.getElementById('attendance-history-list')
+const bottomNav       = document.getElementById('bottom-nav')
+const navHome         = document.getElementById('nav-home')
+const navLeaves       = document.getElementById('nav-leaves')
+const navMessages     = document.getElementById('nav-messages')
+const navPayslips     = document.getElementById('nav-payslips')
+const navMore         = document.getElementById('nav-more')
+const moreOverlay     = document.getElementById('more-overlay')
+const morePanel       = document.getElementById('more-panel')
+const moreBudget      = document.getElementById('more-budget')
+const moreTimeFix     = document.getElementById('more-timefix')
+const moreProfile     = document.getElementById('more-profile')
+const annOverlay      = document.getElementById('ann-overlay')
+const annTitle        = document.getElementById('ann-title')
+const annTime         = document.getElementById('ann-time')
+const annBody         = document.getElementById('ann-body')
+const annReadBtn      = document.getElementById('ann-read-btn')
+const leavesView      = document.getElementById('leaves-view')
+const messagesView    = document.getElementById('messages-view')
+const profileView     = document.getElementById('profile-view')
+const contentEl       = document.querySelector('.content')
+const lightbox        = document.getElementById('lightbox')
+const lightboxImg     = document.getElementById('lightbox-img')
+const lightboxTs      = document.getElementById('lightbox-ts')
+const lightboxClose   = document.getElementById('lightbox-close')
+const mapEl           = document.getElementById('map')
+const mapPlaceholder  = document.getElementById('map-placeholder')
+const mapPlaceholderText = document.getElementById('map-placeholder-text')
+const locAddress      = document.getElementById('loc-address')
+const locCoords       = document.getElementById('loc-coords')
+const locRefreshBtn   = document.getElementById('loc-refresh-btn')
+const locRefreshIcon  = document.getElementById('loc-refresh-icon')
+const updateBanner    = document.getElementById('update-banner')
+const updateTitle     = document.getElementById('update-title')
+const updateSub       = document.getElementById('update-sub')
+const updateCheckBtn  = document.getElementById('update-check-btn')
+const updateInstallBtn= document.getElementById('update-install-btn')
+// ----
+let portalUrl        = 'https://onclockph.com/portal'
+let currentLocation  = null
+let leafletMap       = null
+let leafletMarker    = null
+let clockTickTimer   = null
+let sessionTimer     = null
+let breakTimer       = null
+let capturePoller    = null
+let captureAgoTimer  = null
+let clockInTimestamp = null
+let breakStartTimestamp = null
+let breakAllowanceMinutes = 0
+let latestCaptureTs  = null
+let latestCaptureSrc = null
+let currentActionPhase = 'clockin'
+let currentUpdateInfo = null
+let attendanceLoadInFlight = false
+let announcementsShownForSession = false
+let activeAnnouncement = null
+// ----
+function tickClock() {
+  const now = new Date()
+  let h = now.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12
+  clockTimeEl.textContent = `${h}:${String(now.getMinutes()).padStart(2,'0')}`
+  clockAmpmEl.textContent = ampm
+  clockDateEl.textContent = now.toLocaleDateString('en-PH', { weekday:'long', month:'short', day:'numeric' })
+}
+function startClockTick() { tickClock(); clearInterval(clockTickTimer); clockTickTimer = setInterval(tickClock, 10000) }
+// ----
+function fmtDur(ms) {
+  const s = Math.max(0, Math.floor(ms/1000))
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+function tickSession() {
+  if (!clockInTimestamp) return
+  sessionDuration.textContent = fmtDur(Date.now() - clockInTimestamp.getTime())
+}
+function startSessionTimer(iso) {
+  clockInTimestamp = iso ? new Date(iso) : new Date()
+  tickSession(); clearInterval(sessionTimer)
+  sessionTimer = setInterval(tickSession, 30000)
+  sessionTimeRow.style.display = 'block'
+}
+function stopSessionTimer() { clearInterval(sessionTimer); sessionTimer=null; clockInTimestamp=null; sessionTimeRow.style.display='none' }
+
+function tickBreak() {
+  if (!breakStartTimestamp) return
+  const elapsedMs = Math.max(0, Date.now() - breakStartTimestamp.getTime())
+  const allowedMs = Math.max(0, breakAllowanceMinutes) * 60 * 1000
+  breakDuration.textContent = fmtDur(elapsedMs)
+  if (!breakRemaining) return
+  if (allowedMs <= 0) {
+    breakRemaining.textContent = 'Remaining: --'
+    breakRemaining.classList.remove('over')
+    return
+  }
+  const remainingMs = allowedMs - elapsedMs
+  if (remainingMs >= 0) {
+    breakRemaining.textContent = `Remaining: ${fmtDur(remainingMs)}`
+    breakRemaining.classList.remove('over')
+    return
+  }
+  breakRemaining.textContent = `Over by: ${fmtDur(Math.abs(remainingMs))}`
+  breakRemaining.classList.add('over')
+}
+function startBreakTimer(iso) {
+  breakStartTimestamp = iso ? new Date(iso) : new Date()
+  tickBreak(); clearInterval(breakTimer)
+  breakTimer = setInterval(tickBreak, 1000)
+}
+function stopBreakTimer() {
+  clearInterval(breakTimer)
+  breakTimer = null
+  breakStartTimestamp = null
+  if (breakRemaining) {
+    breakRemaining.textContent = 'Remaining: --'
+    breakRemaining.classList.remove('over')
+  }
+}
+// ----
+function updateCaptureAgoText() {
+  if (!latestCaptureTs || !captureMainTs) return
+  const mins = Math.floor((Date.now() - latestCaptureTs.getTime()) / 60000)
+  captureMainTs.textContent = mins < 1 ? 'Just now' : `${mins} min ago`
+}
+async function refreshCapture() {
+  try {
+    const dataUrl = await api.getLatestCapture()
+    if (dataUrl && dataUrl !== latestCaptureSrc) {
+      captureMainImg.src = dataUrl
+      captureMainImg.style.display = 'block'
+      captureMainEmpty.style.display = 'none'
+      latestCaptureSrc = dataUrl
+      latestCaptureTs  = new Date()
+      captureMainTs.textContent = 'Just now'
+      captureMainTs.style.display = 'block'
+    } else {
+      updateCaptureAgoText()
+    }
+  } catch {}
+}
+function startCapturePoller(freqMinutes) {
+  const intervalMs = Math.max(1, freqMinutes || 5) * 60 * 1000
+  clearInterval(capturePoller); clearInterval(captureAgoTimer)
+  refreshCapture()
+  capturePoller   = setInterval(refreshCapture, intervalMs)
+  captureAgoTimer = setInterval(updateCaptureAgoText, 60000)
+}
+function stopCapturePoller() {
+  clearInterval(capturePoller); capturePoller = null
+  clearInterval(captureAgoTimer); captureAgoTimer = null
+}
+
+function fmtHistoryDate(v){
+  if(!v) return '-'
+  const d = new Date(v)
+  if(Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleDateString('en-PH',{ weekday:'short', month:'short', day:'numeric' })
+}
+function fmtHistoryTime(v){
+  if(!v) return '--'
+  const d = new Date(v)
+  if(Number.isNaN(d.getTime())) return '--'
+  return d.toLocaleTimeString('en-PH',{ hour:'2-digit', minute:'2-digit' })
+}
+function renderAttendanceHistory(records){
+  if(!attendanceHistoryList) return
+  if(!Array.isArray(records) || records.length===0){
+    attendanceHistoryList.innerHTML = '<div class=\"history-empty\">No attendance logs yet.</div>'
+    return
+  }
+  attendanceHistoryList.innerHTML = records.map(r => {
+    const hours = Number(r?.regularHours ?? 0)
+    const late = Number(r?.lateMinutes ?? 0)
+    return `
+      <div class=\"history-item\">
+        <div>
+          <div class=\"history-date\">${fmtHistoryDate(r?.date)}</div>
+          <div class=\"history-time\">In ${fmtHistoryTime(r?.timeIn)} | Out ${fmtHistoryTime(r?.timeOut)}</div>
+        </div>
+        <div>
+          <div class=\"history-hours\">${hours.toFixed(1)}h</div>
+          ${late > 0 ? `<div class=\"history-late\">${late}m late</div>` : ''}
+        </div>
+      </div>
+    `
+  }).join('')
+}
+async function loadAttendanceHistory(){
+  if(attendanceLoadInFlight || !attendanceHistoryList) return
+  attendanceLoadInFlight = true
+  try{
+    const res = await api.getAttendanceLogs(7)
+    renderAttendanceHistory(res?.data?.records || [])
+  }catch{
+    attendanceHistoryList.innerHTML = '<div class=\"history-empty\">Unable to load attendance history.</div>'
+  }finally{
+    attendanceLoadInFlight = false
+  }
+}
+// ----
+function openLightbox(src, label) { lightboxImg.src = src; lightboxTs.textContent = label||''; lightbox.classList.add('open') }
+function closeLightbox() { lightbox.classList.remove('open'); lightboxImg.src = '' }
+
+captureMainImgWrap.addEventListener('click', () => { if (latestCaptureSrc) openLightbox(latestCaptureSrc, captureMainTs.textContent||'') })
+lightboxClose.addEventListener('click', closeLightbox)
+lightbox.addEventListener('click', e => { if (e.target===lightbox) closeLightbox() })
+// ----
+pwToggle.addEventListener('click', () => {
+  const show = passInput.type === 'password'
+  passInput.type = show ? 'text' : 'password'
+  pwEyeOpen.style.display   = show ? 'none'  : 'block'
+  pwEyeClosed.style.display = show ? 'block' : 'none'
+})
+// ----
+function showLoginError(msg)  { loginErrorText.textContent=msg; loginError.style.display='flex' }
+function hideLoginError()     { loginError.style.display='none' }
+function showActionError(msg) { actionErrorText.textContent=msg; actionError.style.display='flex'; setTimeout(()=>{actionError.style.display='none'},8000) }
+function hideActionError()    { actionError.style.display='none' }
+
+function renderUpdateBanner(update) {
+  currentUpdateInfo = update || null
+  const hasUpdate = Boolean(update?.updateAvailable && update?.latestVersion && update?.downloadUrl)
+  updateBanner.style.display = hasUpdate ? 'flex' : 'none'
+  if (!hasUpdate) return
+  updateTitle.textContent = `Update available: v${update.latestVersion}`
+  updateSub.textContent = update.notes || 'Download and install the latest desktop version.'
+}
+
+function closeMorePanel() {
+  moreOverlay.classList.remove('open')
+  morePanel.classList.remove('open')
+  navMore.classList.remove('active')
+}
+
+function toggleMorePanel() {
+  const open = morePanel.classList.contains('open')
+  if (open) closeMorePanel()
+  else {
+    moreOverlay.classList.add('open')
+    morePanel.classList.add('open')
+    navMore.classList.add('active')
+  }
+}
+
+function announcementStorageKey(status) {
+  const company = String(status?.companyName || 'company')
+  const email = String(status?.email || 'user')
+  return `desktop_read_announcements:${company}:${email}`
+}
+
+function getReadAnnouncementIds(key) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || '[]')
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function setReadAnnouncementIds(key, ids) {
+  localStorage.setItem(key, JSON.stringify(ids))
+}
+
+function hideAnnouncementPopup() {
+  annOverlay.classList.remove('open')
+  activeAnnouncement = null
+}
+
+function showAnnouncementPopup(item) {
+  activeAnnouncement = item
+  annTitle.textContent = item.title || 'Announcement'
+  annBody.textContent = item.content || ''
+  annTime.textContent = item.publishedAt ? `Posted ${new Date(item.publishedAt).toLocaleString()}` : ''
+  annOverlay.classList.add('open')
+}
+
+async function loadAnnouncementPopup(statusData) {
+  try {
+    const res = await api.getAnnouncements()
+    if (!res?.ok) return
+    const list = Array.isArray(res?.data?.announcements) ? res.data.announcements : []
+    const key = announcementStorageKey(statusData)
+    const readIds = getReadAnnouncementIds(key)
+    const now = Date.now()
+    const current = list.find((item) => {
+      if (!item?.id || readIds.includes(item.id)) return false
+      if (!item?.isActive) return false
+      if (item.expiresAt && new Date(item.expiresAt).getTime() < now) return false
+      return true
+    })
+    if (current) showAnnouncementPopup(current)
+  } catch {}
+}
+
+function getActionPhase(data) {
+  const clocked = Boolean(data.isClockedIn)
+  const onBreak = Boolean(data.isOnBreak)
+  const breakCompleted = Boolean(data.breakCompleted)
+  const breakMinutes = Number(data.breakMinutes ?? 60)
+  if (!clocked) return 'clockin'
+  if (breakMinutes <= 0) return onBreak ? 'end-break' : 'clockout'
+  if (onBreak) return 'end-break'
+  if (!breakCompleted) return 'break'
+  return 'clockout'
+}
+
+function setPrimaryActionButton(phase) {
+  if (phase === 'clockin') {
+    primaryActionBtn.className = 'btn btn-orange btn-lg'
+    primaryActionBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg> Clock In'
+    return
+  }
+  if (phase === 'break') {
+    primaryActionBtn.className = 'btn btn-amber btn-lg'
+    primaryActionBtn.textContent = 'Break'
+    return
+  }
+  if (phase === 'end-break') {
+    primaryActionBtn.className = 'btn btn-green btn-lg'
+    primaryActionBtn.textContent = 'End Break'
+    return
+  }
+  primaryActionBtn.className = 'btn btn-danger btn-lg'
+  primaryActionBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8"/><path d="M7 7l6 6M13 7l-6 6"/></svg> Clock Out'
+}
+// ----
+function initMap(lat, lng) {
+  mapPlaceholder.style.display = 'none'; mapEl.style.display = 'block'
+  if (!leafletMap) {
+    leafletMap = L.map('map', { zoomControl: true, attributionControl: true })
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '(c) <a href="https://openstreetmap.org">OSM</a>', maxZoom: 19 }).addTo(leafletMap)
+    const pinIcon = L.divIcon({ className: '', html: `<div style="width:22px;height:22px;background:var(--orange);border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.35);"></div>`, iconSize:[22,22], iconAnchor:[11,22], popupAnchor:[0,-24] })
+    leafletMarker = L.marker([lat,lng],{icon:pinIcon}).addTo(leafletMap)
+  } else { leafletMarker.setLatLng([lat,lng]) }
+  leafletMap.setView([lat,lng],16)
+}
+async function reverseGeocode(lat,lng) {
+  try { const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,{headers:{'Accept-Language':'en'}}); const d=await r.json(); return d.display_name??null } catch{return null}
+}
+async function getLocation() {
+// ----
+  locRefreshBtn.disabled    = true
+  locRefreshIcon.className  = 'spinning'
+  locRefreshIcon.innerHTML = '&#8635;'
+  mapPlaceholder.style.display = 'flex'
+  mapEl.style.display          = 'none'
+  locAddress.style.display     = 'none'
+  locCoords.style.display      = 'none'
+  mapPlaceholderText.textContent = 'Getting your location...'
+// ----
+  function geoGet(highAccuracy, timeoutMs) {
+    return new Promise(resolve => {
+      if (!navigator.geolocation) { resolve(null); return }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve(pos),
+        ()  => resolve(null),
+        { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: 60000 }
+      )
+    })
+  }
+
+  async function applyLocation(lat, lng, accuracy, sourceLabel) {
+    initMap(lat, lng)
+    const accuracyStr = accuracy < 5000
+      ? `+/-${Math.round(accuracy)}m`
+      : `~${Math.round(accuracy / 1000)}km (${sourceLabel})`
+    locCoords.textContent    = `${lat.toFixed(5)}, ${lng.toFixed(5)}  ${accuracyStr}`
+    locCoords.style.display  = 'block'
+    locAddress.textContent   = 'Resolving address...'
+    locAddress.style.display = 'block'
+    const addr = await reverseGeocode(lat, lng)
+    locAddress.textContent   = addr || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+    if (addr) leafletMarker?.bindPopup(`<b style="font-size:10px">${addr}</b>`).openPopup()
+    locRefreshBtn.disabled    = false
+    locRefreshIcon.className  = ''
+    locRefreshIcon.innerHTML = '&#8635;'
+    currentLocation = { lat, lng, accuracy, address: addr ?? undefined }
+    // Push to main process so it can ping the location server
+    try { await api.setLocation(currentLocation) } catch {}
+    return currentLocation
+  }
+// ----
+  const geoPos = await geoGet(false, 6000)
+  if (geoPos) return applyLocation(
+    geoPos.coords.latitude, geoPos.coords.longitude, geoPos.coords.accuracy, 'WiFi')
+// ----
+  mapPlaceholderText.textContent = 'Trying IP location...'
+  try {
+    const ip = await api.getIpLocation()
+    if (ip?.ok) {
+      const result = await applyLocation(ip.lat, ip.lng, 50000, 'IP')
+      // Append city label so user knows it's IP-based
+      if (ip.label) locCoords.textContent += `  - ${ip.label}`
+      return result
+    }
+  } catch {}
+// ----
+  mapPlaceholderText.textContent = 'Trying GPS...'
+  const gpsPos = await geoGet(true, 8000)
+  if (gpsPos) return applyLocation(
+    gpsPos.coords.latitude, gpsPos.coords.longitude, gpsPos.coords.accuracy, 'GPS')
+// ----
+  mapPlaceholderText.textContent = 'Location unavailable - clock-in still works'
+  locRefreshBtn.disabled    = false
+  locRefreshIcon.className  = ''
+  locRefreshIcon.innerHTML = '&#8635;'
+  currentLocation = null
+  return null
+}
+locRefreshBtn.addEventListener('click',()=>getLocation())
+// ----
+function getInitials(email) {
+  const name = (email||'').split('@')[0]; const parts = name.split(/[._-]/)
+  return parts.length>=2 ? (parts[0][0]+parts[1][0]).toUpperCase() : name.slice(0,2).toUpperCase()
+}
+
+function showLoginView() {
+  loginView.style.display='flex'; statusView.style.display='none'
+  bottomNav.style.display='none'
+  announcementsShownForSession = false
+  closeMorePanel()
+  hideAnnouncementPopup()
+  if (attendanceHistoryList) attendanceHistoryList.innerHTML = '<div class="history-empty">Loading attendance history...</div>'
+  stopSessionTimer(); stopBreakTimer(); stopCapturePoller(); startClockTick()
+}
+
+function showStatusView(data) {
+  loginView.style.display='none'; statusView.style.display='flex'
+  bottomNav.style.display='block'
+  locationCard.style.display='block'
+
+  // Profile
+  const email=data.email||''; const company=data.companyName||''
+  userEmail.textContent=email||'Unknown'; userAvatar.textContent=getInitials(email); userCompany.textContent=company
+  renderUpdateBanner(data.update)
+
+  const clocked   = Boolean(data.isClockedIn)
+  const onBreak   = Boolean(data.isOnBreak)
+  breakAllowanceMinutes = Math.max(0, Number(data.breakMinutes ?? 0))
+  const hasCapture = clocked && Boolean(data.screenCaptureEnabled)
+
+  // Status badge + clock hero right side
+  if (clocked && onBreak) {
+    statusBadge.className='status-badge badge-on-break'; statusDot.className='dot dot-amber dot-pulse'; statusLabel.textContent='On Break'
+  } else if (clocked) {
+    statusBadge.className='status-badge badge-clocked-in'; statusDot.className='dot dot-green dot-pulse'; statusLabel.textContent='Clocked In'
+  } else {
+    statusBadge.className='status-badge badge-clocked-out'; statusDot.className='dot dot-gray'; statusLabel.textContent='Not Clocked In'
+  }
+
+  // Session timer
+  if (clocked) { startSessionTimer(data.clockInTime) } else { stopSessionTimer() }
+
+  // Break banner + timers
+  if (clocked && onBreak) {
+    breakBanner.style.display='flex'; startBreakTimer(data.breakStartTime)
+  } else {
+    breakBanner.style.display='none'; stopBreakTimer()
+  }
+
+  // Single phase-based action button (Clock In -> Break -> End Break -> Clock Out)
+  actionRowMain.style.display = 'flex'
+  currentActionPhase = getActionPhase(data)
+  setPrimaryActionButton(currentActionPhase)
+  void loadAttendanceHistory()
+  if (!announcementsShownForSession) {
+    announcementsShownForSession = true
+    void loadAnnouncementPopup(data)
+  }
+
+  // Screenshot section
+  if (hasCapture) {
+    captureSection.style.display = 'block'
+    captureCountBadge.textContent = `${data.captureCount??0} capture${(data.captureCount??0)!==1?'s':''}`
+    // Show paused vs live
+    if (onBreak) {
+      captureMainImgWrap.style.display = 'none'; capturePausedWrap.style.display = 'flex'
+      captureLiveDot.style.animationPlayState = 'paused'
+      stopCapturePoller()
+    } else {
+      captureMainImgWrap.style.display = 'block'; capturePausedWrap.style.display = 'none'
+      captureLiveDot.style.animationPlayState = 'running'
+      startCapturePoller(data.frequencyMinutes)
+    }
+  } else {
+    captureSection.style.display = 'none'; stopCapturePoller()
+  }
+
+  startClockTick()
+  if (!currentLocation) { getLocation() } else if (leafletMap) { setTimeout(()=>leafletMap.invalidateSize(),100) }
+}
+
+function updateStatus(data) { if(!data.loggedIn){showLoginView();return}; showStatusView(data) }
+
+// ======== NAV — open sub-windows ========
+navHome.addEventListener('click',     () => { /* already on home */ })
+navLeaves.addEventListener('click',   () => api.openLeaves())
+navMessages.addEventListener('click', () => api.openMessages())
+navPayslips.addEventListener('click',  () => api.openPayslips())
+navMore.addEventListener('click',      () => toggleMorePanel())
+moreOverlay.addEventListener('click',  () => closeMorePanel())
+moreBudget.addEventListener('click',   () => { closeMorePanel(); api.openBudgetReq() })
+moreTimeFix.addEventListener('click',  () => { closeMorePanel(); api.openTimeFix() })
+moreProfile.addEventListener('click',  () => { closeMorePanel(); api.openProfile() })
+annReadBtn.addEventListener('click', () => {
+  if (!activeAnnouncement?.id) return hideAnnouncementPopup()
+  api.getStatus().then((s) => {
+    const key = announcementStorageKey(s)
+    const next = Array.from(new Set([...getReadAnnouncementIds(key), activeAnnouncement.id]))
+    setReadAnnouncementIds(key, next)
+    hideAnnouncementPopup()
+  }).catch(() => hideAnnouncementPopup())
+})
+annOverlay.addEventListener('click', (e) => { if (e.target === annOverlay) hideAnnouncementPopup() })
+
+// ----
+const loadingView = document.getElementById('loading-view')
+function hideLoadingScreen() {
+  loadingView.classList.add('fade-out')
+  setTimeout(() => { loadingView.style.display = 'none' }, 370)
+}
+
+async function init() {
+  try { const v=await api.getVersion(); if(v)appVersionEl.textContent=`v${v}` } catch{}
+  try { const u=await api.getPortalUrl(); if(u)portalUrl=u } catch{}
+  const session = await api.getSession()
+  try { renderUpdateBanner(await api.getUpdateInfo()) } catch {}
+  if (session.loggedIn) { showStatusView(await api.getStatus()) } else { showLoginView() }
+  hideLoadingScreen()
+}
+// ----
+async function doLogin() {
+  const email=emailInput.value.trim(),pass=passInput.value
+  if(!email||!pass){showLoginError('Please enter your email and password.');return}
+  hideLoginError(); loginBtn.disabled=true; loginBtn.innerHTML='<span class="spinning">&#8635;</span> Signing in...'
+  try {
+    const result=await api.login(email,pass)
+    loginBtn.disabled=false; loginBtn.innerHTML='Sign In'
+    if(result.ok){passInput.value='';showStatusView(await api.getStatus())}
+    else showLoginError(result.error??'Login failed.')
+  } catch(err){loginBtn.disabled=false;loginBtn.innerHTML='Sign In';showLoginError(err?.message??'Connection failed.')}
+}
+loginBtn.addEventListener('click',doLogin)
+passInput.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()})
+emailInput.addEventListener('keydown',e=>{if(e.key==='Enter')passInput.focus()})
+// ----
+async function doClockInAction() {
+  let loc=currentLocation
+  if(!loc)loc=await getLocation()
+  const r=await api.clockIn(loc??undefined)
+  if(r&&!r.ok) throw new Error(r.error || 'Clock-in failed.')
+}
+
+async function doClockOutAction() {
+  let loc=currentLocation
+  if(!loc)loc=await getLocation()
+  const r=await api.clockOut(loc??undefined)
+  if(r&&!r.ok) throw new Error(r.error || 'Clock-out failed.')
+}
+
+async function doStartBreakAction() {
+  const r=await api.startBreak()
+  if(r&&!r.ok) throw new Error(r.error || 'Failed to start break.')
+}
+
+async function doEndBreakAction() {
+  const r=await api.endBreak()
+  if(r&&!r.ok) throw new Error(r.error || 'Failed to end break.')
+}
+
+primaryActionBtn.addEventListener('click', async()=>{
+  // Always resolve phase from fresh status before executing action.
+  // This avoids stale UI phase when state changed from browser/tray sync.
+  const latestStatus = await api.getStatus().catch(() => null)
+  if (latestStatus) {
+    currentActionPhase = getActionPhase(latestStatus)
+  }
+
+  primaryActionBtn.disabled=true
+  primaryActionBtn.innerHTML="<span class='spinning'>&#8635;</span> Processing..."
+  hideActionError()
+  try{
+    if(currentActionPhase==='clockin'){
+      await doClockInAction()
+    } else if(currentActionPhase==='break'){
+      await doStartBreakAction()
+    } else if(currentActionPhase==='end-break'){
+      await doEndBreakAction()
+    } else {
+      await doClockOutAction()
+    }
+  } catch(e){
+    showActionError(e?.message??'Action failed.')
+  } finally{
+    primaryActionBtn.disabled=false
+    const refreshed = await api.getStatus().catch(() => null)
+    if (refreshed) showStatusView(refreshed)
+  }
+})
+// ----
+signoutBtn.addEventListener('click',async()=>{
+  currentLocation=null; stopCapturePoller(); stopSessionTimer(); stopBreakTimer()
+  await api.logout(); showLoginView()
+})
+updateCheckBtn.addEventListener('click', async () => {
+  updateCheckBtn.disabled = true
+  updateCheckBtn.textContent = 'Checking...'
+  try {
+    await api.checkForUpdates()
+    const status = await api.getStatus()
+    renderUpdateBanner(status.update)
+  } finally {
+    updateCheckBtn.disabled = false
+    updateCheckBtn.textContent = 'Check'
+  }
+})
+updateInstallBtn.addEventListener('click', async () => {
+  if (!currentUpdateInfo?.downloadUrl) return
+  await api.openExternal(currentUpdateInfo.downloadUrl)
+})
+openPortal.addEventListener('click',e=>{e.preventDefault();window.open(portalUrl,'_blank')})
+// ----
+api.onStatusChange(data=>updateStatus(data))
+api.onLog(()=>{}) // log suppressed - no log UI in this version
+
+init()
+</script>
+</body>
+</html>
+
