@@ -1,6 +1,6 @@
 {
   "name": "onclock-desktop",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "description": "OnClock Desktop — Silent screen monitoring for remote employees",
   "main": "main.js",
   "author": "OnClock PH",
