@@ -121,7 +121,8 @@ export default function BillingPage() {
       if (methodRes.ok) {
         const list = (await methodRes.json()).methods ?? []
         setMethods(list)
-        if (list[0]?.code) setPaymentCode((prev) => prev ?? list[0].code)
+        const visibleList = list.filter((method: PaymentMethod) => !String(method.code ?? '').toUpperCase().includes('MAYA'))
+        if (visibleList[0]?.code) setPaymentCode((prev) => prev ?? visibleList[0].code)
       }
     } catch {
       toast.error('Failed to load billing information')
@@ -153,11 +154,21 @@ export default function BillingPage() {
           proofOfPaymentDataUrl: isMaya ? undefined : (proofDataUrl ?? undefined),
         }),
       })
-      const payload = await res.json()
-      if (!res.ok) throw new Error(payload.error ?? 'Subscription failed')
-      if (isMaya && payload?.maya?.checkoutUrl) {
+      const rawText = await res.text()
+      let payload: Record<string, unknown> = {}
+      if (rawText) {
+        try {
+          payload = JSON.parse(rawText) as Record<string, unknown>
+        } catch {
+          payload = { error: rawText.slice(0, 200) }
+        }
+      }
+      const errorMessage = typeof payload.error === 'string' ? payload.error : 'Subscription failed'
+      if (!res.ok) throw new Error(errorMessage)
+      const mayaPayload = payload.maya as { checkoutUrl?: string } | undefined
+      if (isMaya && typeof mayaPayload?.checkoutUrl === 'string' && mayaPayload.checkoutUrl) {
         toast.success('Redirecting to Maya checkout...')
-        window.location.href = payload.maya.checkoutUrl as string
+        window.location.href = mayaPayload.checkoutUrl
         return
       }
       toast.success('Subscription updated and invoice generated.')
@@ -220,12 +231,20 @@ export default function BillingPage() {
     return Math.max(0, Math.round((annualTotal - remainingCredit) * 100) / 100)
   })()
 
-  const selectedMethod = methods.find((m) => m.code === paymentCode) ?? null
+  const visibleMethods = methods.filter((m) => !String(m.code ?? '').toUpperCase().includes('MAYA'))
+  const selectedMethod = visibleMethods.find((m) => m.code === paymentCode) ?? null
   const isMayaSelected = Boolean(
     selectedMethod &&
     ((selectedMethod.code || '').toUpperCase().includes('MAYA') ||
       (selectedMethod.label || '').toUpperCase().includes('MAYA'))
   )
+
+  useEffect(() => {
+    if (!visibleMethods.length) return
+    if (!paymentCode || !visibleMethods.some((m) => m.code === paymentCode)) {
+      setPaymentCode(visibleMethods[0].code)
+    }
+  }, [visibleMethods, paymentCode])
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
@@ -385,12 +404,12 @@ export default function BillingPage() {
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Payment Options</p>
               <Tabs
-                value={paymentCode ?? methods[0]?.code ?? ''}
+                value={paymentCode ?? visibleMethods[0]?.code ?? ''}
                 onValueChange={setPaymentCode}
                 className="w-full"
               >
                 <TabsList className="w-full h-auto p-1 grid gap-1 grid-cols-2">
-                  {methods.map((method) => (
+                  {visibleMethods.map((method) => (
                     <TabsTrigger
                       key={method.id}
                       value={method.code}
@@ -401,7 +420,7 @@ export default function BillingPage() {
                   ))}
                 </TabsList>
 
-                {methods.map((method) => (
+                {visibleMethods.map((method) => (
                   <TabsContent key={method.id} value={method.code} className="mt-3">
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                       {method.accountName && (
@@ -509,4 +528,3 @@ export default function BillingPage() {
     </div>
   )
 }
-
