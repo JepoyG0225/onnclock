@@ -16,7 +16,9 @@
     "build:mac:dir": "electron-builder --mac --x64 --arm64 --dir --config.directories.output=dist/employee",
     "build:admin:win": "electron-builder --win --x64 --config builder.admin.json --config.directories.output=dist/admin",
     "build:admin:mac": "electron-builder --mac zip --x64 --arm64 --config builder.admin.json --config.directories.output=dist/admin",
-    "build:admin:mac:dmg": "electron-builder --mac dmg --x64 --arm64 --config builder.admin.json --config.directories.output=dist/admin"
+    "build:admin:mac:dmg": "electron-builder --mac dmg --x64 --arm64 --config builder.admin.json --config.directories.output=dist/admin",
+    "build:selfsigned:employee:win": "electron-builder --win --x64 --config.directories.output=dist/employee --config.win.certificateSubjectName=\"OnClock Employee Desktop Self Signed\"",
+    "build:selfsigned:admin:win": "electron-builder --win --x64 --config builder.admin.json --config.directories.output=dist/admin --config.win.certificateSubjectName=\"OnClock Admin Desktop Self Signed\""
   },
   "build": {
     "appId": "com.onclock.desktop",
@@ -24,6 +26,7 @@
     "copyright": "Copyright © 2026 OnClock PH",
     "win": {
       "publisherName": "OnClock PH",
+      "certificateSubjectName": "OnClock Employee Desktop Self Signed",
       "icon": "assets/icon.ico",
       "target": [
         {
@@ -37,6 +40,9 @@
     "mac": {
       "icon": "assets/icon.icns",
       "category": "public.app-category.business",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
       "target": [
         {
           "target": "dmg",
@@ -76,7 +82,8 @@
     "publish": null
   },
   "dependencies": {
-    "electron-store": "^8.2.0"
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "electron": "^29.1.0",

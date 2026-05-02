@@ -5,6 +5,7 @@
   "copyright": "Copyright © 2026 OnClock PH",
   "win": {
     "publisherName": "OnClock PH",
+    "certificateSubjectName": "OnClock Admin Desktop Self Signed",
     "icon": "assets/icon.ico",
     "target": [
       {
@@ -16,6 +17,9 @@
   "mac": {
     "icon": "assets/icon.icns",
     "category": "public.app-category.business",
+    "identity": null,
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
     "target": [
       { "target": "dmg", "arch": ["x64", "arm64"] },
       { "target": "zip", "arch": ["x64", "arm64"] }

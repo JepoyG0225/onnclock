@@ -132,6 +132,20 @@ export default function BillingPage() {
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
+  const visibleMethods = methods.filter((m) => !String(m.code ?? '').toUpperCase().includes('MAYA'))
+  const selectedMethod = visibleMethods.find((m) => m.code === paymentCode) ?? null
+  const isMayaSelected = Boolean(
+    selectedMethod &&
+    ((selectedMethod.code || '').toUpperCase().includes('MAYA') ||
+      (selectedMethod.label || '').toUpperCase().includes('MAYA'))
+  )
+
+  useEffect(() => {
+    if (!visibleMethods.length) return
+    if (!paymentCode || !visibleMethods.some((m) => m.code === paymentCode)) {
+      setPaymentCode(visibleMethods[0].code)
+    }
+  }, [visibleMethods, paymentCode])
 
   async function confirmPlan() {
     if (!paymentCode) return
@@ -230,21 +244,6 @@ export default function BillingPage() {
     }
     return Math.max(0, Math.round((annualTotal - remainingCredit) * 100) / 100)
   })()
-
-  const visibleMethods = methods.filter((m) => !String(m.code ?? '').toUpperCase().includes('MAYA'))
-  const selectedMethod = visibleMethods.find((m) => m.code === paymentCode) ?? null
-  const isMayaSelected = Boolean(
-    selectedMethod &&
-    ((selectedMethod.code || '').toUpperCase().includes('MAYA') ||
-      (selectedMethod.label || '').toUpperCase().includes('MAYA'))
-  )
-
-  useEffect(() => {
-    if (!visibleMethods.length) return
-    if (!paymentCode || !visibleMethods.some((m) => m.code === paymentCode)) {
-      setPaymentCode(visibleMethods[0].code)
-    }
-  }, [visibleMethods, paymentCode])
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
