@@ -187,6 +187,13 @@ function deriveDayOffDaysFromWorkDays(workDays: number[] | null | undefined): nu
   return [0, 1, 2, 3, 4, 5, 6].filter(day => !set.has(day))
 }
 
+function withCompanyId(path: string, companyId?: string): string {
+  const normalized = (companyId ?? '').trim()
+  if (!normalized) return path
+  const joiner = path.includes('?') ? '&' : '?'
+  return `${path}${joiner}companyId=${encodeURIComponent(normalized)}`
+}
+
 // â”€â”€â”€ Fixed Schedule Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
@@ -217,12 +224,14 @@ const ALL_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 function ShiftTemplateModal({
   initial,
   defaultBreakMinutes,
+  companyId,
   onClose,
   onSaved,
   onDeleted,
 }: {
   initial: WorkSchedule | null   // null = create mode
   defaultBreakMinutes?: number
+  companyId?: string
   onClose: () => void
   onSaved: () => void
   onDeleted?: () => void
@@ -284,8 +293,8 @@ function ShiftTemplateModal({
         workDaysPerWeek: form.workDays.length,
       }
       const res = initial
-        ? await fetch(`/api/schedules/${initial.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        : await fetch('/api/schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        ? await fetch(withCompanyId(`/api/schedules/${initial.id}`, companyId), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        : await fetch(withCompanyId('/api/schedules', companyId), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data?.error ?? 'Failed to save'); return }
       toast.success(initial ? 'Work hours updated' : 'Work hours added')
@@ -298,7 +307,7 @@ function ShiftTemplateModal({
     if (!initial) return
     setDeleting(true)
     try {
-      const res = await fetch(`/api/schedules/${initial.id}`, { method: 'DELETE' })
+      const res = await fetch(withCompanyId(`/api/schedules/${initial.id}`, companyId), { method: 'DELETE' })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data?.error ?? 'Cannot delete'); setConfirmDelete(false); return }
       toast.success('Shift deleted')
@@ -502,12 +511,14 @@ function FlexibleScheduleTab({
   onRefreshSchedules,
   variant = 'FLEXIBLE',
   companyBreakMinutes = 60,
+  companyId,
 }: {
   schedules: WorkSchedule[]
   loadingSchedules: boolean
   onRefreshSchedules: () => void
   variant?: 'FIXED' | 'FLEXIBLE'
   companyBreakMinutes?: number
+  companyId?: string
 }) {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
   const [employees, setEmployees] = useState<ScheduleEmployee[]>([])
@@ -527,17 +538,17 @@ function FlexibleScheduleTab({
 
   // Fetch departments
   useEffect(() => {
-    fetch('/api/departments')
+    fetch(withCompanyId('/api/departments', companyId))
       .then(r => r.json())
       .then(d => setDepartments(d.departments ?? []))
       .catch(() => {})
-  }, [])
+  }, [companyId])
 
   const loadGrid = useCallback(async () => {
     setLoadingGrid(true)
     try {
       const modeQuery = `&mode=${variant}`
-      const url = `/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}${modeQuery}${deptFilter ? `&departmentId=${deptFilter}` : ''}`
+      const url = withCompanyId(`/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}${modeQuery}${deptFilter ? `&departmentId=${deptFilter}` : ''}`, companyId)
       const res = await fetch(url)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -551,7 +562,7 @@ function FlexibleScheduleTab({
       setAssignments(data.assignments ?? [])
     } finally {
       setLoadingGrid(false) }
-  }, [startStr, endStr, deptFilter, variant])
+  }, [startStr, endStr, deptFilter, variant, companyId])
 
   useEffect(() => { loadGrid() }, [loadGrid])
 
@@ -613,7 +624,7 @@ function FlexibleScheduleTab({
     })
 
     try {
-      const res = await fetch('/api/schedules/assignments', {
+      const res = await fetch(withCompanyId('/api/schedules/assignments', companyId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -639,7 +650,7 @@ function FlexibleScheduleTab({
 
   async function deleteAssignment(id: string, empId: string, dateStr: string) {
     try {
-      const res = await fetch(`/api/schedules/assignments/${id}`, { method: 'DELETE' })
+      const res = await fetch(withCompanyId(`/api/schedules/assignments/${id}`, companyId), { method: 'DELETE' })
       if (!res.ok) { toast.error('Failed to remove'); return }
       setAssignments(prev => prev.filter(a => !(a.employeeId === empId && a.date.slice(0, 10) === dateStr)))
     } catch {
@@ -952,6 +963,7 @@ function FlexibleScheduleTab({
         <ShiftTemplateModal
           initial={shiftModal.mode === 'edit' ? shiftModal.schedule : null}
           defaultBreakMinutes={companyBreakMinutes}
+          companyId={companyId}
           onClose={() => setShiftModal(null)}
           onSaved={onRefreshSchedules}
           onDeleted={onRefreshSchedules}
@@ -1123,6 +1135,7 @@ function AssignmentModal({
 
 export default function SchedulesPage() {
   const searchParams = useSearchParams()
+  const companyId = searchParams.get('companyId')?.trim() ?? ''
   const [mode, setMode] = useState<ScheduleMode>('FIXED')
   const [schedules, setSchedules] = useState<WorkSchedule[]>([])
   const [loadingSchedules, setLoadingSchedules] = useState(false)
@@ -1130,18 +1143,18 @@ export default function SchedulesPage() {
   const [companyBreakMins, setCompanyBreakMins] = useState(0)
   const [savingCompanyBreak, setSavingCompanyBreak] = useState(false)
 
-  async function loadSchedules() {
+  const loadSchedules = useCallback(async () => {
     setLoadingSchedules(true)
     try {
-      const res = await fetch('/api/schedules')
+      const res = await fetch(withCompanyId('/api/schedules', companyId))
       const data = await res.json().catch(() => ({}))
       setSchedules(data.schedules ?? [])
     } finally {
       setLoadingSchedules(false)
     }
-  }
+  }, [companyId])
 
-  useEffect(() => { loadSchedules() }, [])
+  useEffect(() => { loadSchedules() }, [loadSchedules])
 
   useEffect(() => {
     fetch('/api/settings')
@@ -1176,7 +1189,7 @@ export default function SchedulesPage() {
         return
       }
 
-      const jobs = schedules.map(s => fetch(`/api/schedules/${s.id}`, {
+      const jobs = schedules.map(s => fetch(withCompanyId(`/api/schedules/${s.id}`, companyId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ breakMinutes: nextBreakMinutes }),
@@ -1321,6 +1334,7 @@ export default function SchedulesPage() {
           onRefreshSchedules={loadSchedules}
           variant="FIXED"
           companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
+          companyId={companyId}
         />
       ) : (
         <FlexibleScheduleTab
@@ -1329,6 +1343,7 @@ export default function SchedulesPage() {
           onRefreshSchedules={loadSchedules}
           variant="FLEXIBLE"
           companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
+          companyId={companyId}
         />
       )}
     </div>
@@ -1336,7 +1351,7 @@ export default function SchedulesPage() {
 }
 
 // Wrapper so "Add Schedule" button in header can open the form inside FixedScheduleTab
-function FixedScheduleTabWrapper(props: { schedules: WorkSchedule[]; loading: boolean; onRefresh: () => void }) {
+function FixedScheduleTabWrapper(props: { schedules: WorkSchedule[]; loading: boolean; onRefresh: () => void; companyId?: string }) {
   const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
@@ -1352,12 +1367,14 @@ function FixedScheduleTabInner({
   schedules,
   loading,
   onRefresh,
+  companyId,
   externalShowForm,
   onFormClose,
 }: {
   schedules: WorkSchedule[]
   loading: boolean
   onRefresh: () => void
+  companyId?: string
   externalShowForm: boolean
   onFormClose: () => void
 }) {
@@ -1379,7 +1396,7 @@ function FixedScheduleTabInner({
     const endStr = toDateStr(addDays(weekStart, 6))
     setLoadingFixedEmployees(true)
     try {
-      const url = `/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}&mode=FIXED${fixedDeptFilter ? `&departmentId=${fixedDeptFilter}` : ''}`
+      const url = withCompanyId(`/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}&mode=FIXED${fixedDeptFilter ? `&departmentId=${fixedDeptFilter}` : ''}`, companyId)
       const res = await fetch(url)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -1404,14 +1421,14 @@ function FixedScheduleTabInner({
     } finally {
       setLoadingFixedEmployees(false)
     }
-  }, [fixedDeptFilter, schedules])
+  }, [fixedDeptFilter, schedules, companyId])
 
   useEffect(() => {
-    fetch('/api/departments')
+    fetch(withCompanyId('/api/departments', companyId))
       .then(r => r.json())
       .then(d => setFixedDepartments(d.departments ?? []))
       .catch(() => {})
-  }, [])
+  }, [companyId])
 
   useEffect(() => {
     loadFixedEmployees()
@@ -1438,7 +1455,7 @@ function FixedScheduleTabInner({
     if (form.workDays.length === 0) { toast.error('Select at least one work day.'); return }
     setSaving(true)
     try {
-      const res = await fetch('/api/schedules', {
+      const res = await fetch(withCompanyId('/api/schedules', companyId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, breakEnabled: form.breakEnabled, breakMinutes: form.breakEnabled ? Number(form.breakMinutes) : 0, workHoursPerDay: Number(form.workHoursPerDay), workDaysPerWeek: Number(form.workDaysPerWeek) }),
@@ -1458,7 +1475,7 @@ function FixedScheduleTabInner({
     if (editForm.workDays.length === 0) { toast.error('Select at least one work day.'); return }
     setSavingEditId(scheduleId)
     try {
-      const res = await fetch(`/api/schedules/${scheduleId}`, {
+      const res = await fetch(withCompanyId(`/api/schedules/${scheduleId}`, companyId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...editForm, breakMinutes: Number(editForm.breakMinutes), workHoursPerDay: Number(editForm.workHoursPerDay), workDaysPerWeek: Number(editForm.workDaysPerWeek) }),
