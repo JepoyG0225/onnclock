@@ -19,13 +19,17 @@ const schema = z.object({
     .optional(),
 })
 
-function nextInvoiceNo(existing: string | null): string {
+async function nextInvoiceNo(): Promise<string> {
   const now = new Date()
   const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  const seq = existing
-    ? (parseInt(existing.split('-')[2] ?? '0', 10) + 1)
-    : 1
-  return `INV-${ym}-${String(seq).padStart(4, '0')}`
+  const prefix = `INV-${ym}-`
+  const last = await prisma.invoice.findFirst({
+    where: { invoiceNo: { startsWith: prefix } },
+    orderBy: { invoiceNo: 'desc' },
+    select: { invoiceNo: true },
+  })
+  const seq = last ? parseInt(last.invoiceNo.slice(prefix.length), 10) + 1 : 1
+  return `${prefix}${String(seq).padStart(4, '0')}`
 }
 
 export async function POST(req: NextRequest) {
@@ -155,12 +159,7 @@ export async function POST(req: NextRequest) {
   const dueDate = new Date(now)
   dueDate.setDate(dueDate.getDate() + 7)
 
-  const lastInvoice = await prisma.invoice.findFirst({
-    where: { companyId: ctx.companyId },
-    orderBy: { createdAt: 'desc' },
-    select: { invoiceNo: true },
-  })
-  const invoiceNo = nextInvoiceNo(lastInvoice?.invoiceNo ?? null)
+  const invoiceNo = await nextInvoiceNo()
 
   const sub = await prisma.subscription.upsert({
     where: { companyId: ctx.companyId },
