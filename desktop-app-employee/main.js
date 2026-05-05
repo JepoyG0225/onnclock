@@ -58,8 +58,11 @@ let updateInfo = {
   updateAvailable: false,
   latestVersion: null,
   downloadUrl: null,
+  downloadUrlWindows: null,
+  downloadUrlMac: null,
   notes: null,
 }
+let updateDownloadInProgress = false
 
 const CLOCK_STATE_SYNC_INTERVAL_MS = 30 * 1000
 const BREAK_WARNING_INTERVAL_MS = 15 * 1000
@@ -277,21 +280,23 @@ async function checkForAppUpdates(source = 'manual') {
     const currentVersion = app.getVersion()
     const latestVersion = String(res.data?.latestVersion ?? '').trim()
     const hasUpdate = Boolean(res.ok && latestVersion && compareSemver(latestVersion, currentVersion) > 0)
-    const downloadUrl = res.data?.downloadUrl ? `${getServerUrl()}${res.data.downloadUrl}` : null
+    const base = getServerUrl()
 
     const previousAvailable = updateInfo.updateAvailable
     updateInfo = {
       checkedAt: new Date().toISOString(),
       updateAvailable: hasUpdate,
       latestVersion: latestVersion || null,
-      downloadUrl,
+      downloadUrl:        res.data?.downloadUrl        ? `${base}${res.data.downloadUrl}`        : null,
+      downloadUrlWindows: res.data?.downloadUrlWindows ? `${base}${res.data.downloadUrlWindows}` : null,
+      downloadUrlMac:     res.data?.downloadUrlMac     ? `${base}${res.data.downloadUrlMac}`     : null,
       notes: res.data?.notes ?? null,
     }
 
     if (hasUpdate && !previousAvailable) {
       new Notification({
         title: 'OnClock Update Available',
-        body: `Version ${latestVersion} is available. Click update in the app.`,
+        body: `Version ${latestVersion} is ready. Open OnClock Desktop to install.`,
       }).show()
       log(`Update available: ${currentVersion} -> ${latestVersion}`)
     }
@@ -840,6 +845,8 @@ function getStatusPayload() {
     breakCompleted,
     breakMinutes: allowedBreakMinutes,
     update: updateInfo,
+    updateDownloadInProgress,
+    platform: process.platform,   // 'win32' | 'darwin' | 'linux'
     email: store.get('userEmail', ''),
     companyName: store.get('companyName', ''),
     screenCaptureEnabled: store.get('screenCaptureEnabled', false),
@@ -1018,6 +1025,100 @@ ipcMain.handle('app:getServerUrl', () => getServerUrl())
 ipcMain.handle('app:getPortalUrl', () => getPortalUrl())
 ipcMain.handle('app:getUpdateInfo', () => updateInfo)
 ipcMain.handle('app:checkForUpdates', () => checkForAppUpdates('manual'))
+
+// ── Auto-download update installer ──────────────────────────────────────────
+ipcMain.handle('app:downloadUpdate', async () => {
+  if (updateDownloadInProgress) return { ok: false, error: 'Download already in progress.' }
+  if (!updateInfo.updateAvailable) return { ok: false, error: 'No update available.' }
+
+  const isWin = process.platform === 'win32'
+  const isMac = process.platform === 'darwin'
+
+  const url = isWin
+    ? (updateInfo.downloadUrlWindows || updateInfo.downloadUrl)
+    : isMac
+      ? (updateInfo.downloadUrlMac || updateInfo.downloadUrl)
+      : updateInfo.downloadUrl
+
+  if (!url) return { ok: false, error: 'No download URL available for this platform.' }
+
+  const ext = isMac ? 'dmg' : 'exe'
+  const version = updateInfo.latestVersion || 'latest'
+  const filename = `OnClock-Desktop-${version}.${ext}`
+  const savePath = path.join(app.getPath('downloads'), filename)
+
+  updateDownloadInProgress = true
+  broadcastStatus()
+
+  function sendProgress(percent, downloaded, total) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:download-progress', { percent, downloaded, total })
+    }
+  }
+
+  return new Promise((resolve) => {
+    const platformLabel = isWin ? 'Windows' : isMac ? 'macOS' : process.platform
+    const request = net.request({
+      method: 'GET',
+      url,
+      headers: {
+        'User-Agent': `OnClock-Desktop/${app.getVersion()} (${platformLabel})`,
+      },
+    })
+
+    const chunks = []
+    let downloaded = 0
+    let total = 0
+
+    request.on('response', (res) => {
+      total = parseInt(String(res.headers['content-length'] || '0'), 10) || 0
+      sendProgress(0, 0, total)
+
+      res.on('data', (chunk) => {
+        chunks.push(chunk)
+        downloaded += chunk.length
+        const percent = total > 0 ? Math.min(99, Math.round((downloaded / total) * 100)) : 0
+        sendProgress(percent, downloaded, total)
+      })
+
+      res.on('end', async () => {
+        updateDownloadInProgress = false
+        broadcastStatus()
+        const status = Number(res.statusCode || 0)
+        if (status < 200 || status >= 300) {
+          sendProgress(0, 0, 0)
+          resolve({ ok: false, error: `Server returned HTTP ${status}` })
+          return
+        }
+        try {
+          await fs.promises.writeFile(savePath, Buffer.concat(chunks))
+          sendProgress(100, downloaded, total)
+          log(`Update downloaded to ${savePath} — opening installer`)
+          // Open the installer — on Windows runs NSIS, on macOS mounts DMG
+          const openErr = await shell.openPath(savePath)
+          if (openErr) {
+            // fallback to shell.openExternal if openPath returns an error string
+            shell.openExternal(`file://${savePath}`)
+          }
+          resolve({ ok: true, path: savePath })
+        } catch (err) {
+          sendProgress(0, 0, 0)
+          resolve({ ok: false, error: `Failed to save installer: ${err?.message ?? err}` })
+        }
+      })
+    })
+
+    request.on('error', (err) => {
+      updateDownloadInProgress = false
+      broadcastStatus()
+      sendProgress(0, 0, 0)
+      resolve({ ok: false, error: `Download failed: ${err?.message ?? 'Network error'}` })
+    })
+
+    request.end()
+  })
+})
+
 ipcMain.handle('app:openExternal', (_e, url) => {
   if (!url || typeof url !== 'string') return false
   shell.openExternal(url)

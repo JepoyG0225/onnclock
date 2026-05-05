@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('onclock', {
   getIpLocation: () => ipcRenderer.invoke('app:getIpLocation'),
   getUpdateInfo: () => ipcRenderer.invoke('app:getUpdateInfo'),
   checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+  downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 
   // Sub-windows
@@ -73,6 +74,11 @@ contextBridge.exposeInMainWorld('onclock', {
   onStatusChange: (cb) => {
     ipcRenderer.on('status:update', (_e, data) => cb(data))
     return () => ipcRenderer.removeAllListeners('status:update')
+  },
+  // Update download progress events (percent 0-100, downloaded bytes, total bytes)
+  onUpdateProgress: (cb) => {
+    ipcRenderer.on('update:download-progress', (_e, data) => cb(data))
+    return () => ipcRenderer.removeAllListeners('update:download-progress')
   },
   onLog: (cb) => {
     ipcRenderer.on('log', (_e, msg) => cb(msg))

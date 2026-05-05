@@ -873,6 +873,71 @@
   <div id="lightbox-ts"></div>
 </div>
 
+<!-- ── Update Modal ─────────────────────────────────────────── -->
+<div id="update-modal" style="
+  display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(13,27,42,.6);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:20px;
+">
+  <div style="
+    background:#fff;border-radius:18px;padding:28px 26px 24px;
+    width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.35);
+    font-family:'Montserrat',system-ui,sans-serif;
+  ">
+    <!-- Icon + title -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <div style="width:44px;height:44px;border-radius:12px;background:#eff6ff;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">🔄</div>
+      <div>
+        <div id="um-title" style="font-size:15px;font-weight:700;color:#0f172a;">Update Available</div>
+        <div id="um-version" style="font-size:11px;color:#64748b;margin-top:1px;"></div>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div id="um-notes" style="
+      font-size:12px;color:#475569;line-height:1.55;
+      background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+      padding:10px 12px;margin-bottom:16px;min-height:40px;
+    "></div>
+
+    <!-- Progress bar (hidden until download starts) -->
+    <div id="um-progress-wrap" style="display:none;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span id="um-progress-label" style="font-size:11px;font-weight:600;color:#1d4ed8;">Downloading…</span>
+        <span id="um-progress-pct" style="font-size:11px;color:#64748b;">0%</span>
+      </div>
+      <div style="height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;">
+        <div id="um-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fa5e01,#f59e0b);
+          border-radius:99px;transition:width .2s ease;"></div>
+      </div>
+      <div id="um-progress-bytes" style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:right;"></div>
+    </div>
+
+    <!-- Error -->
+    <div id="um-error" style="
+      display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;
+      font-size:11px;border-radius:8px;padding:8px 12px;margin-bottom:14px;
+    "></div>
+
+    <!-- Buttons -->
+    <div style="display:flex;gap:10px;">
+      <button id="um-later-btn" style="
+        flex:1;padding:10px;border-radius:10px;border:1.5px solid #e2e8f0;
+        background:transparent;font-size:13px;font-weight:700;color:#64748b;
+        cursor:pointer;font-family:inherit;
+      ">Later</button>
+      <button id="um-download-btn" style="
+        flex:1;padding:10px;border-radius:10px;border:none;
+        background:#fa5e01;color:#fff;font-size:13px;font-weight:700;
+        cursor:pointer;font-family:inherit;display:flex;align-items:center;
+        justify-content:center;gap:6px;
+      ">⬇ Download &amp; Install</button>
+    </div>
+    <p id="um-caption" style="font-size:10px;color:#94a3b8;text-align:center;margin-top:10px;"></p>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 'use strict'
@@ -1139,11 +1204,21 @@ function hideActionError()    { actionError.style.display='none' }
 
 function renderUpdateBanner(update) {
   currentUpdateInfo = update || null
-  const hasUpdate = Boolean(update?.updateAvailable && update?.latestVersion && update?.downloadUrl)
+  const hasUpdate = Boolean(update?.updateAvailable && update?.latestVersion &&
+    (update?.downloadUrl || update?.downloadUrlWindows || update?.downloadUrlMac))
   updateBanner.style.display = hasUpdate ? 'flex' : 'none'
   if (!hasUpdate) return
   updateTitle.textContent = `Update available: v${update.latestVersion}`
   updateSub.textContent = update.notes || 'Download and install the latest desktop version.'
+  // Populate the modal fields
+  const umTitle   = document.getElementById('um-title')
+  const umVersion = document.getElementById('um-version')
+  const umNotes   = document.getElementById('um-notes')
+  const umCaption = document.getElementById('um-caption')
+  if (umTitle)   umTitle.textContent   = 'Update Available'
+  if (umVersion) umVersion.textContent = `Version ${update.latestVersion} is ready`
+  if (umNotes)   umNotes.textContent   = update.notes || 'A new version of OnClock Desktop is available. Download and install it now to get the latest improvements.'
+  if (umCaption) umCaption.textContent = 'The installer will open automatically after downloading.'
 }
 
 function closeMorePanel() {
@@ -1534,10 +1609,100 @@ updateCheckBtn.addEventListener('click', async () => {
     updateCheckBtn.textContent = 'Check'
   }
 })
-updateInstallBtn.addEventListener('click', async () => {
-  if (!currentUpdateInfo?.downloadUrl) return
-  await api.openExternal(currentUpdateInfo.downloadUrl)
+// ── Update modal wiring ──────────────────────────────────────
+const updateModal     = document.getElementById('update-modal')
+const umLaterBtn      = document.getElementById('um-later-btn')
+const umDownloadBtn   = document.getElementById('um-download-btn')
+const umProgressWrap  = document.getElementById('um-progress-wrap')
+const umProgressBar   = document.getElementById('um-progress-bar')
+const umProgressPct   = document.getElementById('um-progress-pct')
+const umProgressBytes = document.getElementById('um-progress-bytes')
+const umProgressLabel = document.getElementById('um-progress-label')
+const umError         = document.getElementById('um-error')
+let   updateProgressCleanup = null
+
+function openUpdateModal() {
+  if (!currentUpdateInfo?.updateAvailable) return
+  // Re-populate in case renderUpdateBanner ran before modal existed
+  const umTitle   = document.getElementById('um-title')
+  const umVersion = document.getElementById('um-version')
+  const umNotes   = document.getElementById('um-notes')
+  const umCaption = document.getElementById('um-caption')
+  if (umTitle)   umTitle.textContent   = 'Update Available'
+  if (umVersion) umVersion.textContent = `Version ${currentUpdateInfo.latestVersion} is ready`
+  if (umNotes)   umNotes.textContent   = currentUpdateInfo.notes || 'A new version of OnClock Desktop is available. Download and install it now to get the latest improvements.'
+  if (umCaption) umCaption.textContent = 'The installer will open automatically after downloading.'
+  // Reset state
+  umError.style.display        = 'none'
+  umProgressWrap.style.display = 'none'
+  umProgressBar.style.width    = '0%'
+  umProgressPct.textContent    = '0%'
+  umProgressBytes.textContent  = ''
+  umDownloadBtn.disabled       = false
+  umDownloadBtn.innerHTML      = '⬇ Download &amp; Install'
+  umLaterBtn.disabled          = false
+  updateModal.style.display    = 'flex'
+}
+
+function closeUpdateModal() {
+  updateModal.style.display = 'none'
+  if (updateProgressCleanup) { updateProgressCleanup(); updateProgressCleanup = null }
+}
+
+function fmtBytes(n) {
+  if (!n || n < 0) return ''
+  if (n < 1024 * 1024) return `${(n/1024).toFixed(1)} KB`
+  return `${(n/1024/1024).toFixed(1)} MB`
+}
+
+umLaterBtn.addEventListener('click', closeUpdateModal)
+
+umDownloadBtn.addEventListener('click', async () => {
+  umDownloadBtn.disabled   = true
+  umDownloadBtn.innerHTML  = '<span class="spinning">&#8635;</span> Starting…'
+  umLaterBtn.disabled      = true
+  umError.style.display    = 'none'
+  umProgressWrap.style.display = 'block'
+  umProgressLabel.textContent  = 'Downloading…'
+  umProgressBar.style.width    = '0%'
+  umProgressPct.textContent    = '0%'
+  umProgressBytes.textContent  = ''
+
+  // Listen for progress events
+  updateProgressCleanup = api.onUpdateProgress((data) => {
+    const pct = Math.min(100, Math.round(data.percent || 0))
+    umProgressBar.style.width   = `${pct}%`
+    umProgressPct.textContent   = `${pct}%`
+    if (data.downloaded && data.total) {
+      umProgressBytes.textContent = `${fmtBytes(data.downloaded)} / ${fmtBytes(data.total)}`
+    }
+  })
+
+  try {
+    await api.downloadUpdate()
+    // Download complete — installer has been opened
+    umProgressBar.style.width    = '100%'
+    umProgressPct.textContent    = '100%'
+    umProgressLabel.textContent  = 'Download complete!'
+    umDownloadBtn.disabled       = false
+    umDownloadBtn.innerHTML      = '✓ Installer Opened'
+    umDownloadBtn.style.background = '#16a34a'
+    umLaterBtn.disabled          = false
+    umLaterBtn.textContent       = 'Close'
+    if (updateProgressCleanup) { updateProgressCleanup(); updateProgressCleanup = null }
+  } catch (err) {
+    umError.textContent      = err?.message || 'Download failed. Please try again.'
+    umError.style.display    = 'block'
+    umDownloadBtn.disabled   = false
+    umDownloadBtn.innerHTML  = '⬇ Retry Download'
+    umLaterBtn.disabled      = false
+    umProgressWrap.style.display = 'none'
+    if (updateProgressCleanup) { updateProgressCleanup(); updateProgressCleanup = null }
+  }
 })
+
+// "Install Update" banner button opens the modal instead of the browser
+updateInstallBtn.addEventListener('click', () => openUpdateModal())
 openPortal.addEventListener('click',e=>{e.preventDefault();window.open(portalUrl,'_blank')})
 // ----
 api.onStatusChange(data=>updateStatus(data))
