@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ClipboardList, Paperclip, Download } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { BudgetReqActionButtons } from '@/components/budget/BudgetReqActionButtons'
+import { BudgetReqAttachmentsModal } from '@/components/budget/BudgetReqAttachmentsModal'
 
 function fmtDate(d: Date | string | null) {
   if (!d) return '—'
@@ -150,27 +151,10 @@ export default async function BudgetRequisitionsAdminPage({
                       </td>
                       <td className="p-4 text-gray-600">{req.items.length}</td>
                       <td className="p-4">
-                        {req.attachments.length === 0 ? (
-                          <span className="text-gray-300 text-xs">—</span>
-                        ) : (
-                          <div className="space-y-1">
-                            {req.attachments.map(att => (
-                              <a
-                                key={att.id}
-                                href={att.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={att.fileName}
-                                className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                                title={`${att.fileName} (${(att.fileSize / 1024).toFixed(0)} KB)`}
-                              >
-                                <Paperclip className="w-3 h-3 shrink-0" />
-                                <span className="truncate max-w-[120px]">{att.fileName}</span>
-                                <Download className="w-3 h-3 shrink-0 opacity-60" />
-                              </a>
-                            ))}
-                          </div>
-                        )}
+                        <BudgetReqAttachmentsModal
+                          attachments={req.attachments}
+                          requisitionTitle={req.title}
+                        />
                       </td>
                       <td className="p-4 text-gray-600 text-xs">{fmtDate(req.neededBy)}</td>
                       <td className="p-4 text-gray-600 text-xs">{fmtDate(req.createdAt)}</td>
