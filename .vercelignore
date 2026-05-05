@@ -1,4 +1,7 @@
 desktop-app/node_modules
 desktop-app/dist
 desktop-app/out
+desktop-app-employee/node_modules
+desktop-app-employee/dist
+desktop-app-employee/out
 .claude

@@ -1158,9 +1158,17 @@ ipcMain.handle('payroll:downloadPayslipPdf', async (_e, payslipId) => {
   })
 })
 
+// ---- Auth token (for renderer-side fetch with file uploads) ----
+ipcMain.handle('auth:getToken', () => getToken())
+
 // ---- Budget Requisitions ----
 ipcMain.handle('budgetreq:get',    async ()         => apiRequest('GET',  '/api/budget-requisitions?limit=50', null))
 ipcMain.handle('budgetreq:submit', async (_e, data) => apiRequest('POST', '/api/budget-requisitions', data))
+ipcMain.handle('budgetreq:cancel', async (_e, id) => {
+  const safeId = encodeURIComponent(String(id || '').trim())
+  if (!safeId) return { ok: false, status: 400, data: { error: 'Missing requisition id' } }
+  return apiRequest('PATCH', `/api/budget-requisitions/${safeId}`, { status: 'CANCELLED' })
+})
 ipcMain.handle('timeCorrections:get', async () => apiRequest('GET', '/api/time-corrections', null))
 ipcMain.handle('timeCorrections:create', async (_e, data) => apiRequest('POST', '/api/time-corrections', data))
 ipcMain.handle('timeCorrections:cancel', async (_e, id) => {

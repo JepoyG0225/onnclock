@@ -61,15 +61,72 @@ body{display:flex;flex-direction:column;overflow:hidden;}
 /* Requisition cards */
 .req-card{
   background:var(--surface);border:1.5px solid var(--border);
-  border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;
-  box-shadow:var(--shadow-sm);
+  border-radius:var(--radius);margin-bottom:10px;
+  box-shadow:var(--shadow-sm);overflow:hidden;
 }
+.rc-summary{
+  padding:14px 16px;cursor:pointer;display:flex;align-items:flex-start;gap:10px;
+  transition:background .1s;
+}
+.rc-summary:hover{background:rgba(250,94,1,.03);}
+.rc-icon{width:34px;height:34px;border-radius:8px;background:var(--orange-bg);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.rc-body{flex:1;min-width:0;}
 .rc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
 .rc-title{font-size:13px;font-weight:700;color:var(--text);}
 .rc-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5;}
-.rc-amount{font-size:15px;font-weight:700;color:var(--navy-mid);margin-top:8px;}
-.rc-items{font-size:10px;color:var(--muted);margin-top:2px;}
-.rc-purpose{font-size:11px;color:var(--muted);margin-top:6px;font-style:italic;line-height:1.4;}
+.rc-amount{font-size:15px;font-weight:700;color:var(--navy-mid);margin-top:6px;}
+.rc-foot{display:flex;align-items:center;gap:10px;margin-top:3px;}
+.rc-items-count{font-size:10px;color:var(--muted);}
+.rc-attach-badge{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:3px;}
+.rc-chevron{font-size:11px;color:var(--subtle);transition:transform .18s;flex-shrink:0;margin-top:2px;}
+.rc-chevron.open{transform:rotate(180deg);}
+
+/* Expanded detail */
+.rc-detail{display:none;border-top:1.5px solid var(--border);padding:14px 16px;
+  background:#fafbfd;space-y:10px;}
+.rc-detail.open{display:block;}
+.rc-purpose{font-size:11px;color:var(--muted);font-style:italic;line-height:1.5;margin-bottom:10px;}
+
+/* Items mini-table */
+.items-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;
+  border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.items-tbl th{background:#f1f5f9;font-weight:700;color:var(--muted);text-align:right;
+  padding:6px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
+.items-tbl th:first-child{text-align:left;}
+.items-tbl td{padding:7px 10px;border-top:1px solid #f1f5f9;color:var(--text);}
+.items-tbl td:not(:first-child){text-align:right;}
+.items-tbl tfoot td{background:#f8fafc;font-weight:700;border-top:1.5px solid var(--border);}
+
+/* Attachments */
+.attach-section{margin-bottom:10px;}
+.attach-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+.attach-list{display:flex;flex-direction:column;gap:4px;}
+.attach-item{display:flex;align-items:center;gap:8px;background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;padding:7px 10px;}
+.attach-name{flex:1;font-size:11px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.attach-size{font-size:10px;color:var(--subtle);flex-shrink:0;}
+.attach-open{background:var(--orange);color:#fff;border:none;border-radius:6px;
+  padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;
+  transition:background .12s;flex-shrink:0;}
+.attach-open:hover{background:var(--orange-dim);}
+
+/* Review note */
+.review-note{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;
+  padding:8px 12px;margin-bottom:8px;}
+.review-note-label{font-size:10px;font-weight:700;color:#0369a1;text-transform:uppercase;
+  letter-spacing:.04em;margin-bottom:2px;}
+.review-note-text{font-size:11px;color:#0c4a6e;}
+
+/* Card actions */
+.rc-actions{display:flex;gap:8px;margin-top:8px;}
+.btn-cancel-req{background:none;border:1.5px solid var(--red-border);border-radius:8px;
+  color:var(--red);padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:background .12s;}
+.btn-cancel-req:hover{background:var(--red-bg);}
+.btn-cancel-req:disabled{opacity:.5;cursor:not-allowed;}
 
 .badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
 .badge-pending {background:var(--amber-bg);color:#92400e;border:1px solid var(--amber-border);}
@@ -90,7 +147,7 @@ body{display:flex;flex-direction:column;overflow:hidden;}
   padding:9px 13px;border-radius:var(--radius-sm);font-size:12px;display:flex;
   align-items:flex-start;gap:7px;margin-bottom:12px;}
 
-/* Modal */
+/* ── Modal ── */
 .modal-bg{display:none;position:fixed;inset:0;z-index:200;
   background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center;}
 .modal-bg.open{display:flex;}
@@ -109,18 +166,42 @@ input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3
 
 /* Items table */
 .items-section{margin-bottom:12px;}
-.items-label{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
-.add-item-btn{font-size:11px;font-weight:700;color:var(--orange);background:none;border:none;cursor:pointer;font-family:inherit;padding:0;}
+.items-label{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;
+  display:flex;align-items:center;justify-content:space-between;}
+.add-item-btn{font-size:11px;font-weight:700;color:var(--orange);background:none;
+  border:none;cursor:pointer;font-family:inherit;padding:0;}
 .add-item-btn:hover{color:var(--orange-dim);}
-.item-row{display:grid;grid-template-columns:1fr 70px 60px 90px 32px;gap:6px;align-items:center;margin-bottom:6px;}
+.item-row{display:grid;grid-template-columns:1fr 70px 60px 90px 32px;gap:6px;
+  align-items:center;margin-bottom:6px;}
 .item-row input{margin:0;padding:8px 10px;font-size:12px;}
 .item-row input:focus{border-color:var(--orange);box-shadow:0 0 0 2px rgba(250,94,1,.10);}
-.remove-item-btn{background:none;border:1.5px solid var(--red-border);border-radius:6px;cursor:pointer;
-  color:var(--red);width:30px;height:36px;display:flex;align-items:center;justify-content:center;font-size:14px;
-  transition:background .12s;}
+.remove-item-btn{background:none;border:1.5px solid var(--red-border);border-radius:6px;
+  cursor:pointer;color:var(--red);width:30px;height:36px;display:flex;align-items:center;
+  justify-content:center;font-size:14px;transition:background .12s;}
 .remove-item-btn:hover{background:var(--red-bg);}
 .item-hdr{font-size:10px;font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em;}
-.item-total-row{text-align:right;font-size:12px;font-weight:700;color:var(--navy-mid);margin-top:4px;padding-top:8px;border-top:1px solid var(--border);}
+.item-total-row{text-align:right;font-size:12px;font-weight:700;color:var(--navy-mid);
+  margin-top:4px;padding-top:8px;border-top:1px solid var(--border);}
+
+/* File upload zone */
+.file-zone{
+  border:2px dashed var(--border-mid);border-radius:var(--radius-sm);
+  padding:14px 12px;text-align:center;cursor:pointer;
+  transition:border-color .15s,background .15s;margin-bottom:8px;
+}
+.file-zone:hover{border-color:var(--orange);background:var(--orange-bg);}
+.file-zone-text{font-size:11px;color:var(--muted);line-height:1.5;}
+.file-zone-sub{font-size:10px;color:var(--subtle);}
+.selected-files{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.sel-file{display:flex;align-items:center;gap:8px;background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
+.sel-file-name{flex:1;font-size:11px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sel-file-size{font-size:10px;color:var(--subtle);flex-shrink:0;}
+.sel-file-rm{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;
+  padding:0;line-height:1;flex-shrink:0;}
+.upload-progress{font-size:11px;color:var(--orange);font-weight:600;
+  display:flex;align-items:center;gap:6px;margin-bottom:8px;}
 
 .btn-row{display:flex;gap:10px;margin-top:4px;}
 .btn{padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;
@@ -182,7 +263,6 @@ input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3
         <span>Line Items</span>
         <button class="add-item-btn" id="add-item-btn">+ Add Item</button>
       </div>
-      <!-- header row -->
       <div class="item-row" style="margin-bottom:2px;">
         <span class="item-hdr">Description</span>
         <span class="item-hdr">Qty</span>
@@ -192,6 +272,20 @@ input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3
       </div>
       <div id="items-container"></div>
       <div class="item-total-row" id="grand-total">Total: ₱0.00</div>
+    </div>
+
+    <!-- Attachments -->
+    <label class="lbl">
+      Attachments <span style="font-weight:400;color:var(--subtle)">(optional · PDF, image, Word, Excel · max 20 MB)</span>
+    </label>
+    <div class="file-zone" id="file-zone">
+      <div class="file-zone-text">📎 Click to attach files</div>
+      <div class="file-zone-sub">Up to 10 files</div>
+    </div>
+    <input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" style="display:none"/>
+    <div class="selected-files" id="selected-files"></div>
+    <div class="upload-progress" id="upload-progress" style="display:none;">
+      <span class="spin">&#8635;</span><span id="upload-progress-text"></span>
     </div>
 
     <div class="btn-row">
@@ -205,8 +299,14 @@ input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3
 'use strict'
 const api = window.onclock
 
-let allReqs     = []
-let activeFilter= 'ALL'
+let allReqs      = []
+let activeFilter = 'ALL'
+let expandedId   = null
+let selectedFiles= []
+let serverUrl    = ''
+
+// Pre-fetch serverUrl
+api.getServerUrl().then(u => { serverUrl = u || '' })
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function fmtDate(d){
@@ -214,42 +314,148 @@ function fmtDate(d){
   return new Date(d).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
 }
 function fmtPeso(n){
-  const num = parseFloat(n)||0
-  return '₱'+num.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})
+  return '₱'+(parseFloat(n)||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})
+}
+function fmtBytes(b){
+  b=Number(b)||0
+  if(b>=1024*1024) return (b/(1024*1024)).toFixed(1)+' MB'
+  if(b>=1024) return Math.round(b/1024)+' KB'
+  return b+' B'
 }
 
-// Filter tabs
+// ─── Filter tabs ────────────────────────────────────────────
 document.querySelectorAll('.filter-tab').forEach(tab=>{
   tab.addEventListener('click',()=>{
     document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active'))
     tab.classList.add('active')
     activeFilter = tab.dataset.filter
+    expandedId = null
     renderList()
   })
 })
 
+// ─── Render cards ────────────────────────────────────────────
 function renderList(){
-  const list  = document.getElementById('list')
-  const empty = document.getElementById('empty')
+  const listEl  = document.getElementById('list')
+  const emptyEl = document.getElementById('empty')
   const filtered = activeFilter==='ALL' ? allReqs : allReqs.filter(r=>r.status===activeFilter)
-  if(!filtered.length){list.innerHTML='';empty.style.display='flex';return}
-  empty.style.display='none'
+  if(!filtered.length){listEl.innerHTML='';emptyEl.style.display='flex';return}
+  emptyEl.style.display='none'
   const badgeCls={APPROVED:'badge-approved',REJECTED:'badge-rejected',CANCELLED:'badge-cancelled',PENDING:'badge-pending'}
-  list.innerHTML = filtered.map(r=>`
-    <div class="req-card">
-      <div class="rc-top">
-        <div>
-          <div class="rc-title">${esc(r.title)}</div>
-          <div class="rc-meta">Filed ${fmtDate(r.createdAt)}${r.neededBy?' &nbsp;·&nbsp; Needed by '+fmtDate(r.neededBy):''}</div>
+
+  listEl.innerHTML = filtered.map(r=>{
+    const isOpen = r.id === expandedId
+    const attachCount = (r.attachments||[]).length
+    const itemCount   = (r.items||[]).length
+
+    // Items table rows
+    const itemsHtml = (r.items||[]).map(it=>`
+      <tr>
+        <td>${esc(it.description)}${it.unit?` <span style="color:var(--subtle)">(${esc(it.unit)})</span>`:''}</td>
+        <td>${it.quantity}</td>
+        <td>${fmtPeso(it.unitCost)}</td>
+        <td style="font-weight:700">${fmtPeso(it.totalCost)}</td>
+      </tr>`).join('')
+
+    // Attachments
+    const attachHtml = attachCount>0 ? `
+      <div class="attach-section">
+        <div class="attach-label">📎 Attachments</div>
+        <div class="attach-list">
+          ${(r.attachments||[]).map(a=>`
+            <div class="attach-item">
+              <span class="attach-name" title="${esc(a.fileName)}">${esc(a.fileName)}</span>
+              <span class="attach-size">${fmtBytes(a.fileSize)}</span>
+              <button class="attach-open" data-url="${esc(serverUrl+a.fileUrl)}">Open</button>
+            </div>`).join('')}
         </div>
-        <span class="badge ${badgeCls[r.status]||'badge-pending'}">${r.status.charAt(0)+r.status.slice(1).toLowerCase()}</span>
-      </div>
-      <div class="rc-amount">${fmtPeso(r.totalAmount)}</div>
-      <div class="rc-items">${(r.items||[]).length} item${(r.items||[]).length!==1?'s':''}</div>
-      ${r.purpose?`<div class="rc-purpose">"${esc(r.purpose)}"</div>`:''}
-    </div>`).join('')
+      </div>` : ''
+
+    // Review note
+    const noteHtml = r.reviewNote ? `
+      <div class="review-note">
+        <div class="review-note-label">Review Note</div>
+        <div class="review-note-text">${esc(r.reviewNote)}</div>
+      </div>` : ''
+
+    // Cancel button
+    const cancelHtml = r.status==='PENDING' ? `
+      <div class="rc-actions">
+        <button class="btn-cancel-req" data-id="${esc(r.id)}">Cancel Request</button>
+      </div>` : ''
+
+    return `
+      <div class="req-card" id="card-${esc(r.id)}">
+        <div class="rc-summary" data-id="${esc(r.id)}">
+          <div class="rc-icon">📋</div>
+          <div class="rc-body">
+            <div class="rc-top">
+              <div class="rc-title">${esc(r.title)}</div>
+              <span class="badge ${badgeCls[r.status]||'badge-pending'}">${r.status.charAt(0)+r.status.slice(1).toLowerCase()}</span>
+            </div>
+            <div class="rc-meta">Filed ${fmtDate(r.createdAt)}${r.neededBy?' &nbsp;·&nbsp; Needed by '+fmtDate(r.neededBy):''}</div>
+            <div class="rc-amount">${fmtPeso(r.totalAmount)}</div>
+            <div class="rc-foot">
+              <span class="rc-items-count">${itemCount} item${itemCount!==1?'s':''}</span>
+              ${attachCount>0?`<span class="rc-attach-badge">📎 ${attachCount}</span>`:''}
+            </div>
+          </div>
+          <div class="rc-chevron${isOpen?' open':''}">▼</div>
+        </div>
+        <div class="rc-detail${isOpen?' open':''}">
+          ${r.purpose?`<div class="rc-purpose">"${esc(r.purpose)}"</div>`:''}
+          <table class="items-tbl">
+            <thead><tr>
+              <th>Description</th><th>Qty</th><th>Unit Cost</th><th>Total</th>
+            </tr></thead>
+            <tbody>${itemsHtml}</tbody>
+            <tfoot><tr>
+              <td colspan="3" style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">Total</td>
+              <td style="text-align:right;font-size:13px">${fmtPeso(r.totalAmount)}</td>
+            </tr></tfoot>
+          </table>
+          ${attachHtml}
+          ${noteHtml}
+          ${cancelHtml}
+        </div>
+      </div>`
+  }).join('')
+
+  // Wire expand/collapse
+  listEl.querySelectorAll('.rc-summary').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id = el.dataset.id
+      expandedId = expandedId===id ? null : id
+      renderList()
+    })
+  })
+
+  // Wire attachment open buttons
+  listEl.querySelectorAll('.attach-open').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation()
+      const url = btn.dataset.url
+      if(url) api.openExternal(url)
+    })
+  })
+
+  // Wire cancel buttons
+  listEl.querySelectorAll('.btn-cancel-req').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      e.stopPropagation()
+      const id = btn.dataset.id
+      if(!confirm('Cancel this requisition?')) return
+      btn.disabled=true;btn.textContent='Cancelling…'
+      try{
+        const res = await api.cancelBudgetReq(id)
+        if(res.ok){ expandedId=null; load() }
+        else{ alert(res.data?.error||'Failed to cancel.'); btn.disabled=false; btn.textContent='Cancel Request' }
+      }catch{ btn.disabled=false; btn.textContent='Cancel Request' }
+    })
+  })
 }
 
+// ─── Load data ────────────────────────────────────────────────
 async function load(){
   document.getElementById('loading').style.display='flex'
   document.getElementById('list').innerHTML=''
@@ -266,9 +472,7 @@ async function load(){
   }
 }
 
-// ──────────────────────────────
-// Modal & line items
-// ──────────────────────────────
+// ─── Modal / line items ────────────────────────────────────────
 let itemCount = 0
 
 function addItemRow(container){
@@ -285,54 +489,79 @@ function addItemRow(container){
     <button class="remove-item-btn" data-idx="${idx}" title="Remove">✕</button>
   `
   row.querySelectorAll('.item-qty,.item-cost').forEach(el=>el.addEventListener('input',updateTotal))
-  row.querySelector('.remove-item-btn').addEventListener('click',()=>{
-    row.remove()
-    updateTotal()
-  })
+  row.querySelector('.remove-item-btn').addEventListener('click',()=>{ row.remove(); updateTotal() })
   container.appendChild(row)
   updateTotal()
 }
 
 function updateTotal(){
-  const rows = document.querySelectorAll('#items-container .item-row')
-  let total = 0
-  rows.forEach(row=>{
-    const qty  = parseFloat(row.querySelector('.item-qty').value)||0
-    const cost = parseFloat(row.querySelector('.item-cost').value)||0
-    total += qty*cost
+  let total=0
+  document.querySelectorAll('#items-container .item-row').forEach(row=>{
+    total+=(parseFloat(row.querySelector('.item-qty').value)||0)*(parseFloat(row.querySelector('.item-cost').value)||0)
   })
-  document.getElementById('grand-total').textContent = 'Total: '+fmtPeso(total)
+  document.getElementById('grand-total').textContent='Total: '+fmtPeso(total)
 }
 
+// ─── File selection UI ────────────────────────────────────────
+function renderSelectedFiles(){
+  const el = document.getElementById('selected-files')
+  el.innerHTML = selectedFiles.map((f,i)=>`
+    <div class="sel-file">
+      <span class="sel-file-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span class="sel-file-size">${fmtBytes(f.size)}</span>
+      <button class="sel-file-rm" data-idx="${i}" title="Remove">✕</button>
+    </div>`).join('')
+  el.querySelectorAll('.sel-file-rm').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      selectedFiles.splice(Number(btn.dataset.idx),1)
+      renderSelectedFiles()
+    })
+  })
+}
+
+document.getElementById('file-zone').addEventListener('click',()=>document.getElementById('file-input').click())
+document.getElementById('file-input').addEventListener('change', e=>{
+  const added = Array.from(e.target.files||[])
+  selectedFiles = [...selectedFiles,...added].slice(0,10)
+  renderSelectedFiles()
+  e.target.value=''
+})
+
+// ─── Modal open/close ─────────────────────────────────────────
 function openModal(){
   document.getElementById('req-title').value=''
   document.getElementById('req-purpose').value=''
   document.getElementById('req-needed-by').value=''
   document.getElementById('modal-err').style.display='none'
-  const container=document.getElementById('items-container')
-  container.innerHTML=''
-  itemCount=0
-  addItemRow(container)
+  document.getElementById('items-container').innerHTML=''
+  document.getElementById('selected-files').innerHTML=''
+  document.getElementById('upload-progress').style.display='none'
+  selectedFiles=[];itemCount=0
+  addItemRow(document.getElementById('items-container'))
   document.getElementById('modal').classList.add('open')
 }
-function closeModal(){document.getElementById('modal').classList.remove('open')}
+function closeModal(){ document.getElementById('modal').classList.remove('open') }
 
 document.getElementById('new-btn').addEventListener('click',openModal)
 document.getElementById('cancel-btn').addEventListener('click',closeModal)
 document.getElementById('add-item-btn').addEventListener('click',()=>addItemRow(document.getElementById('items-container')))
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal()})
 
-document.getElementById('submit-btn').addEventListener('click',async()=>{
+// ─── Submit ───────────────────────────────────────────────────
+document.getElementById('submit-btn').addEventListener('click', async()=>{
   const title    = document.getElementById('req-title').value.trim()
   const purpose  = document.getElementById('req-purpose').value.trim()
   const neededBy = document.getElementById('req-needed-by').value||undefined
   const errEl    = document.getElementById('modal-err')
   const errTxt   = document.getElementById('modal-err-text')
   const btn      = document.getElementById('submit-btn')
-  function showErr(m){errTxt.textContent=m;errEl.style.display='flex';errEl.scrollIntoView({behavior:'smooth'})}
+  const progEl   = document.getElementById('upload-progress')
+  const progTxt  = document.getElementById('upload-progress-text')
+
+  function showErr(m){ errTxt.textContent=m; errEl.style.display='flex'; errEl.scrollIntoView({behavior:'smooth'}) }
   errEl.style.display='none'
 
-  if(!title){showErr('Please enter a request title.');return}
+  if(!title)  {showErr('Please enter a request title.');return}
   if(!purpose){showErr('Please describe the purpose of this request.');return}
 
   const rows=[...document.querySelectorAll('#items-container .item-row')]
@@ -340,22 +569,53 @@ document.getElementById('submit-btn').addEventListener('click',async()=>{
 
   const items=[]
   for(const row of rows){
-    const description=row.querySelector('.item-desc').value.trim()
-    const quantity=parseFloat(row.querySelector('.item-qty').value)||0
-    const unit=row.querySelector('.item-unit').value.trim()||undefined
-    const unitCost=parseFloat(row.querySelector('.item-cost').value)||0
+    const description = row.querySelector('.item-desc').value.trim()
+    const quantity    = parseFloat(row.querySelector('.item-qty').value)||0
+    const unit        = row.querySelector('.item-unit').value.trim()||undefined
+    const unitCost    = parseFloat(row.querySelector('.item-cost').value)||0
     if(!description){showErr('Each item must have a description.');return}
     if(quantity<=0){showErr('Quantity must be greater than zero.');return}
     items.push({description,quantity,unit,unitCost})
   }
 
-  btn.disabled=true;btn.textContent='Submitting...'
+  btn.disabled=true; btn.textContent='Submitting…'
+  progEl.style.display='none'
   try{
-    const res=await api.submitBudgetReq({title,purpose,neededBy,items})
-    if(res.ok){closeModal();load()}
-    else showErr(res.data?.error||res.data?.details||'Failed to submit request.')
-  }catch(e){showErr(e?.message||'Connection error.')}
-  finally{btn.disabled=false;btn.textContent='Submit Request'}
+    // Step 1: create requisition
+    const res = await api.submitBudgetReq({title,purpose,neededBy,items})
+    if(!res.ok){
+      showErr(res.data?.error||res.data?.details||'Failed to submit request.')
+      return
+    }
+    const reqId = res.data?.requisition?.id
+
+    // Step 2: upload attachments via renderer-side fetch (needs auth token)
+    if(selectedFiles.length>0 && reqId){
+      const token = await api.getToken()
+      for(let i=0;i<selectedFiles.length;i++){
+        progEl.style.display='flex'
+        progTxt.textContent=`Uploading attachment ${i+1} of ${selectedFiles.length}…`
+        try{
+          const fd=new FormData()
+          fd.append('file',selectedFiles[i])
+          await fetch(`${serverUrl}/api/budget-requisitions/${reqId}/attachments`,{
+            method:'POST',
+            headers:{ Authorization:'Bearer '+token },
+            body:fd,
+          })
+        }catch{/* ignore single file error, don't fail the whole submission */}
+      }
+    }
+
+    progEl.style.display='none'
+    closeModal()
+    load()
+  }catch(e){
+    showErr(e?.message||'Connection error.')
+  }finally{
+    btn.disabled=false; btn.textContent='Submit Request'
+    progEl.style.display='none'
+  }
 })
 
 load()

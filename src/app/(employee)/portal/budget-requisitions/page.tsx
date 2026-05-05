@@ -1,11 +1,23 @@
 'use client'
 
-import { useEffect, useState, Fragment } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, ChevronDown, ChevronUp, X, Loader2, ClipboardList } from 'lucide-react'
+import {
+  Plus, FileText, ChevronDown, ChevronUp, X, Loader2, ClipboardList,
+  Paperclip, Download, Trash2, Upload,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+
+interface ReqAttachment {
+  id: string
+  fileName: string
+  fileUrl: string
+  fileSize: number
+  mimeType: string
+  createdAt: string
+}
 
 interface ReqItem {
   id: string
@@ -28,6 +40,7 @@ interface Requisition {
   reviewedAt: string | null
   createdAt: string
   items: ReqItem[]
+  attachments: ReqAttachment[]
 }
 
 interface FormItem {
@@ -56,11 +69,19 @@ function fmtPeso(n: number | string) {
   return '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function fmtBytes(b: number) {
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`
+  if (b >= 1024) return `${(b / 1024).toFixed(0)} KB`
+  return `${b} B`
+}
+
 const EMPTY_ITEM: FormItem = { description: '', quantity: '1', unit: '', unitCost: '0' }
 const TABS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const
 
 export default function BudgetRequisitionsPage() {
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [reqs, setReqs]           = useState<Requisition[]>([])
   const [loading, setLoading]     = useState(true)
   const [tab, setTab]             = useState<typeof TABS[number]>('ALL')
@@ -72,8 +93,13 @@ export default function BudgetRequisitionsPage() {
   const [purpose, setPurpose]   = useState('')
   const [neededBy, setNeededBy] = useState('')
   const [items, setItems]       = useState<FormItem[]>([{ ...EMPTY_ITEM }])
+  const [formFiles, setFormFiles] = useState<File[]>([])
   const [formErr, setFormErr]   = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState('')
+
+  // Attachment management per-requisition (for deletion)
+  const [deletingAttach, setDeletingAttach] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -104,6 +130,17 @@ export default function BudgetRequisitionsPage() {
     return sum + (parseFloat(it.quantity) || 0) * (parseFloat(it.unitCost) || 0)
   }, 0)
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? [])
+    const combined = [...formFiles, ...selected].slice(0, 10) // max 10
+    setFormFiles(combined)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function removeFormFile(index: number) {
+    setFormFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
   async function handleSubmit() {
     setFormErr('')
     if (!title.trim()) { setFormErr('Please enter a title.'); return }
@@ -113,8 +150,11 @@ export default function BudgetRequisitionsPage() {
       if (!it.description.trim()) { setFormErr('Each item needs a description.'); return }
       if (parseFloat(it.quantity) <= 0) { setFormErr('Quantity must be greater than 0.'); return }
     }
+
     setSubmitting(true)
+    setUploadProgress('')
     try {
+      // Step 1: create the requisition
       const res = await fetch('/api/budget-requisitions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,13 +172,32 @@ export default function BudgetRequisitionsPage() {
       })
       const data = await res.json()
       if (!res.ok) { setFormErr(data.error ?? 'Submission failed.'); return }
+
+      const reqId = data.requisition.id
+
+      // Step 2: upload attachments
+      if (formFiles.length > 0) {
+        for (let i = 0; i < formFiles.length; i++) {
+          setUploadProgress(`Uploading attachment ${i + 1} of ${formFiles.length}…`)
+          const fd = new FormData()
+          fd.append('file', formFiles[i])
+          await fetch(`/api/budget-requisitions/${reqId}/attachments`, {
+            method: 'POST',
+            body: fd,
+          }).catch(() => {/* ignore single file failures */})
+        }
+      }
+
       setShowForm(false)
-      setTitle(''); setPurpose(''); setNeededBy(''); setItems([{ ...EMPTY_ITEM }])
+      setTitle(''); setPurpose(''); setNeededBy('')
+      setItems([{ ...EMPTY_ITEM }]); setFormFiles([])
+      setUploadProgress('')
       load()
     } catch (e: unknown) {
       setFormErr((e as Error)?.message ?? 'Connection error.')
     } finally {
       setSubmitting(false)
+      setUploadProgress('')
     }
   }
 
@@ -154,6 +213,21 @@ export default function BudgetRequisitionsPage() {
     } catch { /* ignore */ }
   }
 
+  async function handleDeleteAttachment(reqId: string, attachId: string) {
+    setDeletingAttach(attachId)
+    try {
+      await fetch(`/api/budget-requisitions/${reqId}/attachments?attachmentId=${attachId}`, {
+        method: 'DELETE',
+      })
+      setReqs(prev => prev.map(r => r.id === reqId
+        ? { ...r, attachments: r.attachments.filter(a => a.id !== attachId) }
+        : r
+      ))
+    } catch { /* ignore */ } finally {
+      setDeletingAttach(null)
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       {/* Page header */}
@@ -163,7 +237,7 @@ export default function BudgetRequisitionsPage() {
           <p className="text-sm text-gray-500 mt-0.5">Submit and track your purchase requests</p>
         </div>
         <Button
-          onClick={() => { setShowForm(true); setFormErr('') }}
+          onClick={() => { setShowForm(true); setFormErr(''); setFormFiles([]) }}
           className="gap-1.5"
           style={{ background: '#fa5e01', color: '#fff' }}
         >
@@ -229,7 +303,15 @@ export default function BudgetRequisitionsPage() {
                   <p className="text-base font-bold mt-1" style={{ color: '#1a2d42' }}>
                     {fmtPeso(req.totalAmount)}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">{req.items.length} item{req.items.length !== 1 ? 's' : ''}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-gray-400">{req.items.length} item{req.items.length !== 1 ? 's' : ''}</p>
+                    {req.attachments.length > 0 && (
+                      <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                        <Paperclip className="w-3 h-3" />
+                        {req.attachments.length}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="shrink-0 text-gray-400">
                   {expanded === req.id
@@ -275,6 +357,51 @@ export default function BudgetRequisitionsPage() {
                       </tfoot>
                     </table>
                   </div>
+
+                  {/* Attachments */}
+                  {req.attachments.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                        <Paperclip className="w-3 h-3" /> Attachments
+                      </p>
+                      <div className="space-y-1.5">
+                        {req.attachments.map(att => (
+                          <div
+                            key={att.id}
+                            className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2"
+                          >
+                            <Paperclip className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-800 truncate">{att.fileName}</p>
+                              <p className="text-[10px] text-gray-400">{fmtBytes(att.fileSize)}</p>
+                            </div>
+                            <a
+                              href={att.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={att.fileName}
+                              className="p-1 rounded hover:bg-gray-200 transition-colors text-gray-500"
+                              title="Download"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                            {req.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleDeleteAttachment(req.id, att.id)}
+                                disabled={deletingAttach === att.id}
+                                className="p-1 rounded hover:bg-red-50 transition-colors text-red-400 disabled:opacity-50"
+                                title="Remove attachment"
+                              >
+                                {deletingAttach === att.id
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <Trash2 className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Review note */}
                   {req.reviewNote && (
@@ -358,7 +485,6 @@ export default function BudgetRequisitionsPage() {
                   <button onClick={addItem} className="text-xs font-bold text-orange-500 hover:text-orange-700 transition-colors">+ Add Item</button>
                 </div>
 
-                {/* Header */}
                 <div className="grid grid-cols-[1fr_60px_64px_88px_28px] gap-1.5 mb-1 px-0.5">
                   {['Description','Qty','Unit','Unit Cost',''].map((h, i) => (
                     <span key={i} className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{h}</span>
@@ -405,7 +531,61 @@ export default function BudgetRequisitionsPage() {
                   Total: {fmtPeso(grandTotal)}
                 </div>
               </div>
+
+              {/* Attachments */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  Attachments <span className="font-normal text-gray-400">(optional · PDF, image, Word, Excel · max 20 MB each)</span>
+                </label>
+
+                {/* Upload trigger */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-gray-200 rounded-xl py-4 flex flex-col items-center gap-2 text-gray-400 hover:border-orange-300 hover:text-orange-400 transition-colors"
+                >
+                  <Upload className="w-5 h-5" />
+                  <span className="text-xs font-medium">Click to attach files</span>
+                  <span className="text-[10px]">Up to 10 files</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
+                {/* Selected files list */}
+                {formFiles.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {formFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                        <Paperclip className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800 truncate">{f.name}</p>
+                          <p className="text-[10px] text-gray-400">{fmtBytes(f.size)}</p>
+                        </div>
+                        <button
+                          onClick={() => removeFormFile(i)}
+                          className="p-1 rounded hover:bg-red-50 text-red-400 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {uploadProgress && (
+              <p className="text-xs text-orange-500 font-medium mt-3 flex items-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {uploadProgress}
+              </p>
+            )}
 
             <div className="flex gap-3 mt-6">
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>

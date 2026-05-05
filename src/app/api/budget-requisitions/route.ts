@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         items: true,
+        attachments: { orderBy: { createdAt: 'asc' } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,

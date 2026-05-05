@@ -48,7 +48,10 @@ export async function GET(
         : { employeeId: employee?.id ?? '__none__' }
       ),
     },
-    include: { items: true },
+    include: {
+      items: true,
+      attachments: { orderBy: { createdAt: 'asc' } },
+    },
   })
 
   if (!requisition) {
@@ -121,7 +124,10 @@ export async function PATCH(
         : {}
       ),
     },
-    include: { items: true },
+    include: {
+      items: true,
+      attachments: { orderBy: { createdAt: 'asc' } },
+    },
   })
 
   return NextResponse.json({ requisition: updated })

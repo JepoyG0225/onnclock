@@ -1717,9 +1717,10 @@ model BudgetRequisition {
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt
 
-  company  Company                  @relation(fields: [companyId], references: [id])
-  employee Employee                 @relation(fields: [employeeId], references: [id])
-  items    BudgetRequisitionItem[]
+  company     Company                       @relation(fields: [companyId], references: [id])
+  employee    Employee                      @relation(fields: [employeeId], references: [id])
+  items       BudgetRequisitionItem[]
+  attachments BudgetRequisitionAttachment[]
 
   @@index([companyId, status])
   @@index([employeeId, createdAt])
@@ -1740,6 +1741,22 @@ model BudgetRequisitionItem {
 
   @@index([requisitionId])
   @@map("budget_requisition_items")
+}
+
+model BudgetRequisitionAttachment {
+  id            String            @id @default(cuid())
+  requisitionId String
+  fileName      String
+  fileUrl       String
+  fileSize      Int
+  mimeType      String
+  uploadedBy    String?
+  createdAt     DateTime          @default(now())
+
+  requisition BudgetRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+
+  @@index([requisitionId])
+  @@map("budget_req_attachments")
 }
 
 enum TimeEntryCorrectionStatus {

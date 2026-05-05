@@ -3,9 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, Paperclip, Download } from 'lucide-react'
 import { BudgetReqActionButtons } from '@/components/budget/BudgetReqActionButtons'
 
 function fmtDate(d: Date | string | null) {
@@ -62,6 +61,7 @@ export default async function BudgetRequisitionsAdminPage({
         },
       },
       items: true,
+      attachments: { orderBy: { createdAt: 'asc' } },
     },
     orderBy: { createdAt: 'desc' },
     take: 100,
@@ -114,9 +114,10 @@ export default async function BudgetRequisitionsAdminPage({
                 <thead>
                   <tr className="border-b bg-gray-50 text-left">
                     <th className="p-4 font-semibold text-gray-600">Employee</th>
-                    <th className="p-4 font-semibold text-gray-600">Title</th>
+                    <th className="p-4 font-semibold text-gray-600">Title / Purpose</th>
                     <th className="p-4 font-semibold text-gray-600">Amount</th>
                     <th className="p-4 font-semibold text-gray-600">Items</th>
+                    <th className="p-4 font-semibold text-gray-600">Attachments</th>
                     <th className="p-4 font-semibold text-gray-600">Needed By</th>
                     <th className="p-4 font-semibold text-gray-600">Filed</th>
                     <th className="p-4 font-semibold text-gray-600">Status</th>
@@ -138,14 +139,42 @@ export default async function BudgetRequisitionsAdminPage({
                       <td className="p-4">
                         <p className="font-medium text-gray-800 max-w-[200px] line-clamp-2">{req.title}</p>
                         <p className="text-xs text-gray-400 mt-0.5 max-w-[200px] line-clamp-1 italic">{req.purpose}</p>
+                        {req.reviewNote && (
+                          <p className="text-xs text-blue-600 mt-1 max-w-[200px] line-clamp-1">
+                            <span className="font-semibold">Note:</span> {req.reviewNote}
+                          </p>
+                        )}
                       </td>
                       <td className="p-4">
                         <span className="font-bold text-gray-900">{fmtPeso(req.totalAmount)}</span>
                       </td>
                       <td className="p-4 text-gray-600">{req.items.length}</td>
+                      <td className="p-4">
+                        {req.attachments.length === 0 ? (
+                          <span className="text-gray-300 text-xs">—</span>
+                        ) : (
+                          <div className="space-y-1">
+                            {req.attachments.map(att => (
+                              <a
+                                key={att.id}
+                                href={att.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download={att.fileName}
+                                className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                title={`${att.fileName} (${(att.fileSize / 1024).toFixed(0)} KB)`}
+                              >
+                                <Paperclip className="w-3 h-3 shrink-0" />
+                                <span className="truncate max-w-[120px]">{att.fileName}</span>
+                                <Download className="w-3 h-3 shrink-0 opacity-60" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </td>
                       <td className="p-4 text-gray-600 text-xs">{fmtDate(req.neededBy)}</td>
                       <td className="p-4 text-gray-600 text-xs">{fmtDate(req.createdAt)}</td>
-                      <td className="p-4">{statusBadge(req.status)}</td>
+                      <td className="p-4">{statusBadge(req.status as string)}</td>
                       <td className="p-4">
                         {req.status === 'PENDING' && (
                           <BudgetReqActionButtons

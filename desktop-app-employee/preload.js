@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('onclock', {
   login: (email, password) => ipcRenderer.invoke('auth:login', { email, password }),
   logout: () => ipcRenderer.invoke('auth:logout'),
   getSession: () => ipcRenderer.invoke('auth:getSession'),
+  getToken: () => ipcRenderer.invoke('auth:getToken'),
 
   // Attendance — location is optional { lat, lng, accuracy, address }
   clockIn: (location) => ipcRenderer.invoke('attendance:clockIn', location),
@@ -61,6 +62,7 @@ contextBridge.exposeInMainWorld('onclock', {
   // Budget Requisitions
   getBudgetReqs:   ()     => ipcRenderer.invoke('budgetreq:get'),
   submitBudgetReq: (data) => ipcRenderer.invoke('budgetreq:submit', data),
+  cancelBudgetReq: (id)   => ipcRenderer.invoke('budgetreq:cancel', id),
 
   // Time Corrections
   getTimeCorrections: () => ipcRenderer.invoke('timeCorrections:get'),

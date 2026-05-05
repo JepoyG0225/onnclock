@@ -14,8 +14,10 @@ interface Props {
 export function BudgetReqActionButtons({ id, title, amount }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
-  const [showRejectModal, setShowRejectModal] = useState(false)
-  const [reviewNote, setReviewNote] = useState('')
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [showRejectModal, setShowRejectModal]   = useState(false)
+  const [approveNote, setApproveNote] = useState('')
+  const [reviewNote, setReviewNote]   = useState('')
 
   async function doAction(status: 'APPROVED' | 'REJECTED', note?: string) {
     setLoading(status === 'APPROVED' ? 'approve' : 'reject')
@@ -36,7 +38,7 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
       <div className="flex items-center gap-1.5">
         <Button
           size="sm"
-          onClick={() => doAction('APPROVED')}
+          onClick={() => setShowApproveModal(true)}
           disabled={loading !== null}
           className="gap-1 text-xs h-7 px-2.5"
           style={{ background: '#16a34a', color: '#fff' }}
@@ -60,6 +62,53 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
         </Button>
       </div>
 
+      {/* ── Approve modal ── */}
+      {showApproveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
+            <div>
+              <h3 className="font-bold text-gray-900 text-base">Approve Requisition</h3>
+              <p className="text-xs text-gray-500 mt-1 line-clamp-1">{title} — {amount}</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                Remarks / Notes <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                rows={3}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 resize-none transition"
+                placeholder="Add any approval notes or conditions..."
+                value={approveNote}
+                onChange={e => setApproveNote(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 text-sm"
+                onClick={() => { setShowApproveModal(false); setApproveNote('') }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 gap-1.5 text-sm"
+                style={{ background: '#16a34a', color: '#fff' }}
+                disabled={loading === 'approve'}
+                onClick={async () => {
+                  await doAction('APPROVED', approveNote)
+                  setShowApproveModal(false)
+                  setApproveNote('')
+                }}
+              >
+                {loading === 'approve' && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirm Approve
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reject modal ── */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
@@ -68,7 +117,9 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
               <p className="text-xs text-gray-500 mt-1 line-clamp-1">{title} — {amount}</p>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Review Note <span className="font-normal text-gray-400">(optional)</span></label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                Review Note <span className="font-normal text-gray-400">(optional)</span>
+              </label>
               <textarea
                 rows={3}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 resize-none transition"
@@ -78,7 +129,11 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
               />
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 text-sm" onClick={() => setShowRejectModal(false)}>
+              <Button
+                variant="outline"
+                className="flex-1 text-sm"
+                onClick={() => { setShowRejectModal(false); setReviewNote('') }}
+              >
                 Cancel
               </Button>
               <Button
