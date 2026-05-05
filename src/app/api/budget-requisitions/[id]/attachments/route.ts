@@ -1,10 +1,9 @@
-import { mkdir, writeFile, unlink } from 'node:fs/promises'
-import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 const HR_ROLES = new Set(['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN'])
 
@@ -43,6 +42,23 @@ function extFromMime(mime: string): string {
   return map[mime] ?? 'bin'
 }
 
+function getStorageBucket() {
+  return process.env.SUPABASE_ATTACHMENTS_BUCKET || process.env.SUPABASE_LOGO_BUCKET || 'company-logos'
+}
+
+/** Extract Supabase Storage object path from its public URL */
+function objectPathFromUrl(publicUrl: string, bucket: string): string | null {
+  try {
+    const url = new URL(publicUrl)
+    const marker = `/storage/v1/object/public/${bucket}/`
+    const idx = url.pathname.indexOf(marker)
+    if (idx === -1) return null
+    return url.pathname.slice(idx + marker.length)
+  } catch {
+    return null
+  }
+}
+
 /** GET  /api/budget-requisitions/[id]/attachments  — list */
 export async function GET(
   _req: NextRequest,
@@ -62,7 +78,6 @@ export async function GET(
     select: { id: true },
   })
 
-  // Verify access to the requisition
   const req = await prisma.budgetRequisition.findFirst({
     where: {
       id,
@@ -102,7 +117,6 @@ export async function POST(
     select: { id: true },
   })
 
-  // Verify access and that req belongs to this company
   const req = await prisma.budgetRequisition.findFirst({
     where: {
       id,
@@ -132,12 +146,12 @@ export async function POST(
   if (!ALLOWED_MIME.has(file.type)) {
     return NextResponse.json({ error: 'Unsupported file type. Allowed: PDF, JPG, PNG, WEBP, DOC, DOCX, XLS, XLSX' }, { status: 400 })
   }
-  const MAX_BYTES = 20 * 1024 * 1024 // 20 MB per file
+  const MAX_BYTES = 20 * 1024 * 1024 // 20 MB
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ error: 'File exceeds 20 MB limit' }, { status: 400 })
   }
 
-  // Count existing attachments (max 10 per requisition)
+  // Max 10 attachments per requisition
   const existingCount = await prisma.budgetRequisitionAttachment.count({
     where: { requisitionId: id },
   })
@@ -145,22 +159,31 @@ export async function POST(
     return NextResponse.json({ error: 'Maximum 10 attachments per requisition' }, { status: 400 })
   }
 
+  // Upload to Supabase Storage
   const ext = extFromMime(file.type)
-  const filename = `${Date.now()}-${randomUUID()}.${ext}`
-  const dir = path.join(process.cwd(), 'public', 'uploads', 'budget-req', req.companyId, id)
-  await mkdir(dir, { recursive: true })
+  const objectPath = `budget-req/${req.companyId}/${id}/${Date.now()}-${randomUUID()}.${ext}`
+  const bucket = getStorageBucket()
 
+  const supabase = getSupabaseAdmin()
   const bytes = Buffer.from(await file.arrayBuffer())
-  const absolutePath = path.join(dir, filename)
-  await writeFile(absolutePath, bytes)
 
-  const fileUrl = `/uploads/budget-req/${req.companyId}/${id}/${filename}`
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(objectPath, bytes, { contentType: file.type, upsert: false })
+
+  if (uploadError) {
+    console.error('[budget-req attachments] Supabase upload error:', uploadError)
+    return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
+  }
+
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(objectPath)
+  const fileUrl = urlData.publicUrl
 
   try {
     const attachment = await prisma.budgetRequisitionAttachment.create({
       data: {
         requisitionId: id,
-        fileName: file.name || filename,
+        fileName: file.name || `file.${ext}`,
         fileUrl,
         fileSize: file.size,
         mimeType: file.type,
@@ -169,8 +192,9 @@ export async function POST(
     })
     return NextResponse.json({ attachment }, { status: 201 })
   } catch (e) {
-    await unlink(absolutePath).catch(() => {})
-    return NextResponse.json({ error: 'Failed to save attachment' }, { status: 500 })
+    // Clean up uploaded file if DB insert fails
+    await supabase.storage.from(bucket).remove([objectPath]).catch(() => {})
+    return NextResponse.json({ error: 'Failed to save attachment record' }, { status: 500 })
   }
 }
 
@@ -207,9 +231,19 @@ export async function DELETE(
   })
   if (!attachment) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  // Delete file from disk
-  if (attachment.fileUrl.startsWith('/uploads/')) {
-    const localPath = path.join(process.cwd(), 'public', attachment.fileUrl.replace(/^\/+/, ''))
+  // Delete from Supabase Storage (full https URL) or legacy local path
+  if (attachment.fileUrl.startsWith('http')) {
+    const bucket = getStorageBucket()
+    const supabase = getSupabaseAdmin()
+    const objectPath = objectPathFromUrl(attachment.fileUrl, bucket)
+    if (objectPath) {
+      await supabase.storage.from(bucket).remove([objectPath]).catch(() => {})
+    }
+  } else if (attachment.fileUrl.startsWith('/uploads/')) {
+    // Legacy local storage fallback (dev only)
+    const { unlink } = await import('node:fs/promises')
+    const { join } = await import('node:path')
+    const localPath = join(process.cwd(), 'public', attachment.fileUrl.replace(/^\/+/, ''))
     await unlink(localPath).catch(() => {})
   }
 

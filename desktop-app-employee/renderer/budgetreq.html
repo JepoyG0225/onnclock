@@ -357,17 +357,19 @@ function renderList(){
         <td style="font-weight:700">${fmtPeso(it.totalCost)}</td>
       </tr>`).join('')
 
-    // Attachments
+    // Attachments — fileUrl may be a full https:// (Supabase) or a relative /uploads/ path
     const attachHtml = attachCount>0 ? `
       <div class="attach-section">
         <div class="attach-label">📎 Attachments</div>
         <div class="attach-list">
-          ${(r.attachments||[]).map(a=>`
+          ${(r.attachments||[]).map(a=>{
+            const attUrl = a.fileUrl.startsWith('http') ? a.fileUrl : serverUrl + a.fileUrl
+            return `
             <div class="attach-item">
               <span class="attach-name" title="${esc(a.fileName)}">${esc(a.fileName)}</span>
               <span class="attach-size">${fmtBytes(a.fileSize)}</span>
-              <button class="attach-open" data-url="${esc(serverUrl+a.fileUrl)}">Open</button>
-            </div>`).join('')}
+              <button class="attach-open" data-url="${esc(attUrl)}">Open</button>
+            </div>`}).join('')}
         </div>
       </div>` : ''
 
