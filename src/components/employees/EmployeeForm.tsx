@@ -755,12 +755,23 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Basic Salary / Rate *" error={errors.basicSalary?.message}>
+              <Field
+                label={
+                  watch('rateType') === 'HOURLY' ? 'Hourly Rate *'
+                  : watch('rateType') === 'DAILY' ? 'Daily Rate *'
+                  : 'Basic Monthly Salary *'
+                }
+                error={errors.basicSalary?.message}
+              >
                 <Input
                   type="number"
                   step="0.01"
                   {...register('basicSalary', { valueAsNumber: true })}
-                  placeholder="30000.00"
+                  placeholder={
+                    watch('rateType') === 'HOURLY' ? '125.00 per hour'
+                    : watch('rateType') === 'DAILY' ? '600.00 per day'
+                    : '30000.00 per month'
+                  }
                 />
               </Field>
               <Field label="Pay Frequency">

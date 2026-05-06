@@ -243,15 +243,33 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <Card>
             <CardHeader><CardTitle className="text-sm">Compensation</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-              {[
-                ['Rate Type', employee.rateType],
-                ['Basic Salary (Monthly)', fmt(Number(employee.basicSalary))],
-                ['Daily Rate', fmt(Number(employee.dailyRate ?? 0) || Number(employee.basicSalary) / 22)],
-                ['Hourly Rate', fmt(Number(employee.hourlyRate ?? 0) || Number(employee.basicSalary) / 22 / 8)],
-                ['Minimum Wage Earner', employee.isMinimumWageEarner ? 'Yes' : 'No'],
-                ['Exempt from Tax', employee.isExemptFromTax ? 'Yes' : 'No'],
-                ['Track Time (DTR-Based Pay)', employee.trackTime ? 'Yes' : 'No'],
-              ].map(([k, v]) => (
+              {(() => {
+                const rt = employee.rateType
+                const base = Number(employee.basicSalary)
+                const WORK_HOURS = 8
+                // Derive display values from the canonical basicSalary per rate type
+                const hourlyRate = rt === 'HOURLY' ? base
+                  : rt === 'DAILY'   ? base / WORK_HOURS
+                  : base / 22 / WORK_HOURS
+                const dailyRate = rt === 'HOURLY' ? base * WORK_HOURS
+                  : rt === 'DAILY'   ? base
+                  : base / 22
+                const monthlyEquiv = rt === 'HOURLY' ? base * WORK_HOURS * 22
+                  : rt === 'DAILY'   ? base * 22
+                  : base
+                return [
+                  ['Rate Type', rt.charAt(0) + rt.slice(1).toLowerCase()],
+                  rt === 'HOURLY' ? ['Hourly Rate',        fmt(hourlyRate)]  : null,
+                  rt === 'DAILY'  ? ['Daily Rate',         fmt(dailyRate)]   : null,
+                  rt === 'MONTHLY'? ['Basic Salary (Monthly)', fmt(monthlyEquiv)] : null,
+                  rt !== 'HOURLY' ? ['Hourly Rate',        fmt(hourlyRate)]  : null,
+                  rt !== 'DAILY'  ? ['Daily Rate',         fmt(dailyRate)]   : null,
+                  rt !== 'MONTHLY'? ['Monthly Equivalent', fmt(monthlyEquiv)]: null,
+                  ['Minimum Wage Earner', employee.isMinimumWageEarner ? 'Yes' : 'No'],
+                  ['Exempt from Tax', employee.isExemptFromTax ? 'Yes' : 'No'],
+                  ['Track Time (DTR-Based Pay)', employee.trackTime ? 'Yes' : 'No'],
+                ].filter(Boolean) as [string, string][]
+              })().map(([k, v]) => (
                 <div key={k} className="flex justify-between border-b pb-2">
                   <span className="text-gray-500">{k}</span>
                   <span className="font-medium">{v}</span>

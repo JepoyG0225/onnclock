@@ -175,9 +175,28 @@ export async function POST(req: NextRequest) {
   // day-off customisation is handled via shift assignments, not by spawning extra schedules.
   const { dayOffDays: _dayOffDays, ...employeeData } = data
 
-  // Auto-compute daily and hourly rates if not provided
-  const dailyRate = employeeData.dailyRate ?? (employeeData.rateType === 'MONTHLY' ? employeeData.basicSalary / 22 : employeeData.basicSalary)
-  const hourlyRate = data.hourlyRate ?? dailyRate / 8
+  // Auto-compute daily and hourly rates from the primary rate entered by the user.
+  // basicSalary stores the canonical rate for each type:
+  //   MONTHLY → monthly salary  (daily = salary/22, hourly = daily/8)
+  //   DAILY   → daily rate       (hourly = daily/8, monthly equiv = daily*22)
+  //   HOURLY  → hourly rate      (daily = hourly*8, monthly equiv = hourly*8*22)
+  const WORK_HOURS_PER_DAY = 8
+  let dailyRate: number
+  let hourlyRate: number
+  if (employeeData.rateType === 'HOURLY') {
+    hourlyRate = employeeData.dailyRate   // dailyRate field may carry hourly value if client sends it
+      ? employeeData.dailyRate            // allow explicit override
+      : employeeData.basicSalary          // basicSalary IS the hourly rate for HOURLY employees
+    if (data.hourlyRate) hourlyRate = data.hourlyRate
+    dailyRate = hourlyRate * WORK_HOURS_PER_DAY
+  } else if (employeeData.rateType === 'DAILY') {
+    dailyRate = employeeData.dailyRate ?? employeeData.basicSalary
+    hourlyRate = data.hourlyRate ?? dailyRate / WORK_HOURS_PER_DAY
+  } else {
+    // MONTHLY
+    dailyRate = employeeData.dailyRate ?? employeeData.basicSalary / 22
+    hourlyRate = data.hourlyRate ?? dailyRate / WORK_HOURS_PER_DAY
+  }
 
   try {
     const employee = await prisma.employee.create({

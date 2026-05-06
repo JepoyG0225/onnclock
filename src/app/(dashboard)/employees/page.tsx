@@ -8,7 +8,7 @@ import { EmployeeDeleteButton } from '@/components/employees/EmployeeDeleteButto
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Users, Search } from 'lucide-react'
-import { formatDate, peso, getStatusColor } from '@/lib/utils'
+import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
 import { EmploymentStatus } from '@prisma/client'
 
 export default async function EmployeesPage({
@@ -41,7 +41,7 @@ export default async function EmployeesPage({
     }),
   }
 
-  const [employees, total, departments] = await Promise.all([
+  const [employees, total, departments, company] = await Promise.all([
     prisma.employee.findMany({
       where,
       include: {
@@ -58,7 +58,10 @@ export default async function EmployeesPage({
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
+    prisma.company.findUnique({ where: { id: companyId }, select: { payrollCurrency: true } }),
   ])
+  const currency = company?.payrollCurrency ?? 'PHP'
+  const fmt = (n: number | string | null | undefined) => formatCurrency(n, currency)
 
   return (
     <div className="space-y-6">
@@ -137,7 +140,7 @@ export default async function EmployeesPage({
                     <th className="text-left p-4 font-semibold text-gray-600">Department</th>
                     <th className="text-left p-4 font-semibold text-gray-600">Position</th>
                     <th className="text-left p-4 font-semibold text-gray-600">Status</th>
-                    <th className="text-right p-4 font-semibold text-gray-600">Basic Salary</th>
+                    <th className="text-right p-4 font-semibold text-gray-600">Rate</th>
                     <th className="text-left p-4 font-semibold text-gray-600">Hire Date</th>
                     <th className="text-center p-4 font-semibold text-gray-600">Actions</th>
                   </tr>
@@ -174,7 +177,10 @@ export default async function EmployeesPage({
                         </Badge>
                       </td>
                       <td className="p-4 text-right font-medium text-gray-800">
-                        {peso(emp.basicSalary.toNumber())}
+                        <span>{fmt(emp.basicSalary.toNumber())}</span>
+                        <span className="block text-[10px] text-gray-400 font-normal">
+                          {emp.rateType === 'HOURLY' ? '/hr' : emp.rateType === 'DAILY' ? '/day' : '/mo'}
+                        </span>
                       </td>
                       <td className="p-4 text-gray-600">{formatDate(emp.hireDate)}</td>
                       <td className="p-4 text-center">

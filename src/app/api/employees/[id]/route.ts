@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Verify the employee belongs to this company first
     const existing = await prisma.employee.findFirst({
       where: { id, companyId: ctx.companyId },
-      select: { id: true, employeeNo: true, workScheduleId: true },
+      select: { id: true, employeeNo: true, workScheduleId: true, rateType: true, basicSalary: true },
     })
     if (!existing) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
@@ -105,6 +105,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         terminationDate:          body.terminationDate    ? new Date(body.terminationDate)    : null,
         rateType:                 body.rateType,
         basicSalary:              body.basicSalary != null ? Number(body.basicSalary) : undefined,
+        // Re-derive dailyRate / hourlyRate whenever basicSalary or rateType is updated.
+        // MONTHLY → daily = salary/22, hourly = daily/8
+        // DAILY   → daily = basicSalary, hourly = daily/8
+        // HOURLY  → hourly = basicSalary, daily = hourly*8
+        ...(() => {
+          if (body.basicSalary == null && body.rateType == null) return {}
+          const rt   = body.rateType ?? existing.rateType
+          const base = body.basicSalary != null ? Number(body.basicSalary) : Number(existing.basicSalary)
+          const WORK_HOURS = 8
+          if (rt === 'HOURLY') return { hourlyRate: base, dailyRate: base * WORK_HOURS }
+          if (rt === 'DAILY')  return { dailyRate: base,  hourlyRate: base / WORK_HOURS }
+          /* MONTHLY */ const daily = base / 22
+          return { dailyRate: daily, hourlyRate: daily / WORK_HOURS }
+        })(),
         payFrequency:             body.payFrequency,
         bankName:                 n(body.bankName),
         bankAccountNo:            n(body.bankAccountNo),
