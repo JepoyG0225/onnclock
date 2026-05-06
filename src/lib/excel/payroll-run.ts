@@ -27,10 +27,12 @@ export interface PayrollRunRow {
   totalEmployerCost: number
 }
 
-function peso(n: number) {
-  return new Intl.NumberFormat('en-PH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+function makePeso(currency: string) {
+  return (n: number) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency || 'PHP',
+    minimumFractionDigits: currency === 'JPY' ? 0 : 2,
+    maximumFractionDigits: currency === 'JPY' ? 0 : 2,
   }).format(n)
 }
 
@@ -38,8 +40,10 @@ export function generatePayrollRunExcel(
   companyName: string,
   period: string,
   payDate: string,
-  rows: PayrollRunRow[]
+  rows: PayrollRunRow[],
+  currency = 'PHP'
 ): ArrayBuffer {
+  const peso = makePeso(currency)
   const wb = XLSX.utils.book_new()
 
   // ── Sheet 1: Payroll Summary ──────────────────────────────────────────────
@@ -119,8 +123,10 @@ export function generatePayrollRunSummaryText(
   companyName: string,
   period: string,
   payDate: string,
-  rows: PayrollRunRow[]
+  rows: PayrollRunRow[],
+  currency = 'PHP'
 ): string {
+  const peso = makePeso(currency)
   const totals = (key: keyof PayrollRunRow) =>
     rows.reduce((s, r) => s + (r[key] as number), 0)
 

@@ -3,9 +3,10 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { format } from 'date-fns'
+import { formatCurrency } from '@/lib/utils'
 
-function peso(n: number) {
-  return `PHP ${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function makePeso(currency: string) {
+  return (n: number) => formatCurrency(n, currency)
 }
 
 function wrap(text: string, maxChars = 52) {
@@ -30,8 +31,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  const company = await prisma.company.findUnique({ where: { id: ctx.companyId } })
+  const company = await prisma.company.findUnique({
+    where: { id: ctx.companyId },
+    select: { name: true, address: true, tin: true, payrollCurrency: true },
+  })
   if (!company) return NextResponse.json({ error: 'No company' }, { status: 403 })
+
+  const currency = (company.payrollCurrency || 'PHP').toUpperCase()
+  const peso = makePeso(currency)
 
   const payslip = await prisma.payslip.findFirst({
     where: { id: payslipId },

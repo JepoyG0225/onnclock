@@ -23,8 +23,12 @@ export async function GET(
   })
   if (!run) return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 })
 
-  const company = await prisma.company.findUnique({ where: { id: ctx.companyId } })
+  const company = await prisma.company.findUnique({
+    where: { id: ctx.companyId },
+    select: { name: true, payrollCurrency: true },
+  })
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
+  const currency = (company.payrollCurrency || 'PHP').toUpperCase()
 
   const payslips = await prisma.payslip.findMany({
     where: { payrollRunId: runId },
@@ -89,7 +93,7 @@ export async function GET(
 
   const payDate = run.payDate ? format(new Date(run.payDate), 'MMMM d, yyyy') : ''
   const slug = run.periodLabel.replace(/[^a-zA-Z0-9-]/g, '_')
-  const buf = generatePayrollRunExcel(company.name, run.periodLabel, payDate, rows)
+  const buf = generatePayrollRunExcel(company.name, run.periodLabel, payDate, rows, currency)
 
   return new NextResponse(Buffer.from(buf), {
     headers: {

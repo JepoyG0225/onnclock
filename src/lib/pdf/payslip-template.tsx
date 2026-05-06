@@ -299,18 +299,20 @@ const s = StyleSheet.create({
   },
 })
 
-// ─── Peso formatter (₱ from Montserrat latin-ext) ───────────────────────────
-function P(value: number) {
-  const formatted = value.toLocaleString('en-PH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-  return `\u20B1${formatted}` // U+20B1 = ₱
+// ─── Currency formatter ─────────────────────────────────────────────────────
+function makeFmt(currency: string) {
+  return (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'PHP',
+      minimumFractionDigits: currency === 'JPY' ? 0 : 2,
+      maximumFractionDigits: currency === 'JPY' ? 0 : 2,
+    }).format(value)
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export interface PayslipData {
-  company: { name: string; address: string | null; tinNo: string | null }
+  company: { name: string; address: string | null; tinNo: string | null; currency?: string }
   employee: {
     firstName: string; lastName: string; employeeNo: string | null
     department: string | null; position: string | null
@@ -334,6 +336,7 @@ export interface PayslipData {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export function PayslipDocument({ data }: { data: PayslipData }) {
+  const P = makeFmt(data.company.currency ?? 'PHP')
   const e = data.earnings
   const d = data.deductions
 
