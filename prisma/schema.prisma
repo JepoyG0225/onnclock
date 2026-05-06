@@ -657,7 +657,7 @@ model EmployeeShiftAssignment {
   employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   schedule WorkSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 
-  @@unique([employeeId, date])
+  @@index([employeeId, date])
   @@index([companyId, date])
   @@map("employee_shift_assignments")
 }

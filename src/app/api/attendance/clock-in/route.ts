@@ -66,41 +66,40 @@ async function canAttendToday(params: {
 }) {
   const { companyId, employeeId, workScheduleId, fixedWorkDays, manilaDate, dayOfWeek } = params
 
-  // Always look up today's shift assignment — it acts as an override/exception
-  // for both fixed-schedule and flexible employees.
-  const assignment = await prisma.employeeShiftAssignment.findFirst({
+  // Look up ALL shift assignments for today — supports multiple shifts per day.
+  const assignmentsToday = await prisma.employeeShiftAssignment.findMany({
     where: { companyId, employeeId, date: manilaDate },
     select: { scheduleId: true, timeIn: true, timeOut: true, isRestDay: true },
   })
 
-  const assignmentIsWorkDay =
-    !!assignment &&
-    !assignment.isRestDay &&
-    (!!assignment.scheduleId || (!!assignment.timeIn && !!assignment.timeOut))
+  // Any single non-rest-day assignment counts as a work day
+  const hasWorkShift = assignmentsToday.some(
+    a => !a.isRestDay && (!!a.scheduleId || (!!a.timeIn && !!a.timeOut))
+  )
+  const allMarkedRestDay =
+    assignmentsToday.length > 0 && assignmentsToday.every(a => a.isRestDay)
 
   if (workScheduleId) {
     // Fixed schedule employee: allowed on their scheduled work days OR when an
     // explicit shift assignment overrides a rest day (e.g. admin plots extra work day).
     const scheduledWorkDay = Array.isArray(fixedWorkDays) && fixedWorkDays.includes(dayOfWeek)
-    if (scheduledWorkDay || assignmentIsWorkDay) {
+    if (scheduledWorkDay || hasWorkShift) {
       return { allowed: true, message: null as string | null }
     }
-    // Explicit rest-day assignment blocks even if schedule would otherwise allow it
-    if (assignment?.isRestDay) {
+    if (allMarkedRestDay) {
       return { allowed: false, message: 'Today is marked as rest day in your schedule.' }
     }
     return { allowed: false, message: 'Today is your rest day based on your fixed schedule.' }
   }
 
-  // Flexible employee: must have a non-rest-day assignment today.
-  if (!assignment) {
+  // Flexible employee: must have at least one non-rest-day assignment today.
+  if (assignmentsToday.length === 0) {
     return { allowed: false, message: 'No flexible schedule is set for today. You cannot clock in.' }
   }
-  if (assignment.isRestDay) {
+  if (allMarkedRestDay) {
     return { allowed: false, message: 'Today is marked as rest day in your flexible schedule.' }
   }
-  const hasSchedule = !!assignment.scheduleId || (!!assignment.timeIn && !!assignment.timeOut)
-  if (!hasSchedule) {
+  if (!hasWorkShift) {
     return { allowed: false, message: 'No flexible schedule is set for today. You cannot clock in.' }
   }
   return { allowed: true, message: null as string | null }

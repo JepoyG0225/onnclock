@@ -63,11 +63,14 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         .map(v => Number(v))
         .filter(v => Number.isInteger(v) && v >= 0 && v <= 6)
     : [1, 2, 3, 4, 5]
-  const dayOffs = dayLabels
-    .map((d, idx) => ({ d, idx }))
-    .filter(x => !workDays.includes(x.idx))
-    .map(x => x.d)
-    .join(', ') || '—'
+  const isFlexible = !employee.workScheduleId
+  const dayOffs = isFlexible
+    ? 'Flexible'
+    : dayLabels
+        .map((d, idx) => ({ d, idx }))
+        .filter(x => !workDays.includes(x.idx))
+        .map(x => x.d)
+        .join(', ') || '—'
   const statusColors: Record<string, string> = {
     PROBATIONARY: 'bg-[#C0C8CA] text-[#2E4156]',
     REGULAR:      'bg-green-100 text-green-800',
@@ -231,7 +234,11 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               <CardContent>
                 <EmployeeScheduleSetup
                   employeeId={employee.id}
-                  defaultMode={employee.workSchedule?.scheduleType === 'FLEXITIME' ? 'FLEXIBLE' : 'FIXED'}
+                  defaultMode={
+                    !employee.workScheduleId ? 'FLEXIBLE'
+                    : employee.workSchedule?.scheduleType === 'FLEXITIME' ? 'FLEXIBLE'
+                    : 'FIXED'
+                  }
                 />
               </CardContent>
             </Card>

@@ -374,7 +374,12 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
 
   useEffect(() => {
     if (isCreate) return
-    const selectedSchedule = workSchedules.find(s => s.id === defaultValues?.workScheduleId)
+    // No workScheduleId → employee is on flexible scheduling (no fixed template)
+    if (!defaultValues?.workScheduleId) {
+      setEditScheduleMode('FLEXIBLE')
+      return
+    }
+    const selectedSchedule = workSchedules.find(s => s.id === defaultValues.workScheduleId)
     setEditScheduleMode(selectedSchedule?.scheduleType === 'FLEXITIME' ? 'FLEXIBLE' : 'FIXED')
   }, [defaultValues?.workScheduleId, isCreate, workSchedules])
 
@@ -427,7 +432,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     }
   }
 
-  function openScheduleSetup() {
+  async function openScheduleSetup() {
     if (!employeeId) {
       toast.error('Save employee first before setting up work schedule.')
       return
@@ -435,6 +440,25 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     if (isDirty) {
       toast.error('Please save changes first before opening Work Schedules.')
       return
+    }
+
+    // When switching to Flexible, clear the fixed workScheduleId in the DB
+    // so the employee appears in the flexible grid immediately.
+    if (editScheduleMode === 'FLEXIBLE') {
+      try {
+        const res = await fetch(`/api/employees/${employeeId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workScheduleId: '' }),
+        })
+        if (!res.ok) {
+          toast.error('Failed to switch to flexible schedule')
+          return
+        }
+      } catch {
+        toast.error('Failed to switch to flexible schedule')
+        return
+      }
     }
 
     router.push(`/schedules?mode=${editScheduleMode}&employeeId=${employeeId}`)
@@ -666,7 +690,14 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                   <Field label="Work Schedule">
                     <Select
                       value={editScheduleMode}
-                      onValueChange={v => setEditScheduleMode(v as ScheduleMode)}
+                      onValueChange={v => {
+                        setEditScheduleMode(v as ScheduleMode)
+                        // Clear the fixed schedule when switching to Flexible so
+                        // the form submission sets workScheduleId = null in the DB.
+                        if (v === 'FLEXIBLE') {
+                          setValue('workScheduleId', '', { shouldDirty: true })
+                        }
+                      }}
                     >
                       <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
                       <SelectContent>

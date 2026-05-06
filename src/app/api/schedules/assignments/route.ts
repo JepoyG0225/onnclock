@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
 const upsertSchema = z.object({
+  id: z.string().optional().nullable(),           // if provided → UPDATE that specific record
   employeeId: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   mode: z.enum(['FIXED', 'FLEXIBLE']).optional(),
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate')
     const deptId = searchParams.get('departmentId') || undefined
     const mode = (searchParams.get('mode') || '').toUpperCase() as '' | 'FIXED' | 'FLEXIBLE'
+    const focusEmployeeId = searchParams.get('employeeId') || undefined
 
     if (!startDate || !endDate) {
       return NextResponse.json({ error: 'startDate and endDate are required' }, { status: 400 })
@@ -176,10 +178,12 @@ export async function GET(req: NextRequest) {
 
     // Route employees based on the Employee Profile "Work Schedule" dropdown.
     // If profile workScheduleId is set => FIXED tab, otherwise => FLEXIBLE tab.
+    // Exception: if a specific employeeId is requested (coming from "Setup Schedule" button),
+    // always include that employee so they can be switched between modes.
     if (mode === 'FLEXIBLE') {
-      employees = employees.filter(emp => !emp.workScheduleId)
+      employees = employees.filter(emp => !emp.workScheduleId || emp.id === focusEmployeeId)
     } else if (mode === 'FIXED') {
-      employees = employees.filter(emp => Boolean(emp.workScheduleId))
+      employees = employees.filter(emp => Boolean(emp.workScheduleId) || emp.id === focusEmployeeId)
     }
 
     return NextResponse.json({ employees, assignments })
@@ -205,7 +209,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
     }
 
-    const { employeeId, date, mode, scheduleId, timeIn, timeOut, isRestDay, notes } = parsed.data
+    const { id: assignmentId, employeeId, date, mode, scheduleId, timeIn, timeOut, isRestDay, notes } = parsed.data
 
     // Verify employee belongs to this company
     const emp = await prisma.employee.findFirst({
@@ -255,98 +259,95 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Upsert with Prisma delegate when available, otherwise fallback to raw SQL
-    const assignmentModel = (prisma as unknown as {
-      employeeShiftAssignment?: {
-        findFirst: (args: unknown) => Promise<{ id: string } | null>
-        update: (args: unknown) => Promise<unknown>
-        create: (args: unknown) => Promise<unknown>
-      }
-    }).employeeShiftAssignment
+    // ── Persist the assignment ──────────────────────────────────────────
+    // Strategy:
+    //   • assignmentId provided  → UPDATE that specific record (works for both FIXED & FLEXIBLE)
+    //   • no id + mode = FIXED   → upsert by (employeeId, date) — one shift per day stays the rule
+    //   • no id + mode = FLEXIBLE → always INSERT a brand-new record (multi-shift support)
+
+    const updateData = {
+      scheduleId: scheduleId ?? null,
+      timeIn: isRestDay ? null : (resolvedTimeIn ?? null),
+      timeOut: isRestDay ? null : (resolvedTimeOut ?? null),
+      isRestDay: isRestDay ?? false,
+      notes: notes ?? null,
+    }
 
     let assignment: unknown
-    if (assignmentModel?.findFirst) {
-      const existing = await assignmentModel.findFirst({
-        where: { employeeId, date: dateObj },
-      })
 
-      if (existing) {
-        assignment = await assignmentModel.update({
-          where: { id: existing.id },
-          data: {
-            scheduleId: scheduleId ?? null,
-            timeIn: isRestDay ? null : (resolvedTimeIn ?? null),
-            timeOut: isRestDay ? null : (resolvedTimeOut ?? null),
-            isRestDay: isRestDay ?? false,
-            notes: notes ?? null,
-            updatedAt: new Date(),
-          },
-          include: { schedule: { select: { id: true, name: true, timeIn: true, timeOut: true } } },
-        })
-      } else {
-        assignment = await assignmentModel.create({
-          data: {
-            id: randomUUID(),
-            companyId: ctx.companyId,
-            employeeId,
-            date: dateObj,
-            scheduleId: scheduleId ?? null,
-            timeIn: isRestDay ? null : (resolvedTimeIn ?? null),
-            timeOut: isRestDay ? null : (resolvedTimeOut ?? null),
-            isRestDay: isRestDay ?? false,
-            notes: notes ?? null,
-          },
-          include: { schedule: { select: { id: true, name: true, timeIn: true, timeOut: true } } },
-        })
+    if (assignmentId) {
+      // ── UPDATE by id ──────────────────────────────────────────────────
+      await prisma.$executeRaw`
+        UPDATE "employee_shift_assignments"
+        SET "scheduleId" = ${updateData.scheduleId},
+            "timeIn"     = ${updateData.timeIn},
+            "timeOut"    = ${updateData.timeOut},
+            "isRestDay"  = ${updateData.isRestDay},
+            "notes"      = ${updateData.notes},
+            "updatedAt"  = NOW()
+        WHERE "id" = ${assignmentId}
+          AND "companyId" = ${ctx.companyId}
+      `
+      assignment = {
+        id: assignmentId,
+        employeeId,
+        date: dateObj,
+        ...updateData,
+        schedule: scheduleId && !isRestDay
+          ? { id: scheduleId, name: resolvedSchedule?.name ?? '', timeIn: resolvedSchedule?.timeIn ?? null, timeOut: resolvedSchedule?.timeOut ?? null }
+          : null,
       }
-    } else {
+    } else if (mode !== 'FLEXIBLE') {
+      // ── FIXED: upsert by (employeeId, date) — keep 1 shift per day ───
       const existingRows = await prisma.$queryRaw<Array<{ id: string }>>`
-        SELECT "id"
-        FROM "employee_shift_assignments"
-        WHERE "employeeId" = ${employeeId}
-          AND "date" = ${date}::date
+        SELECT "id" FROM "employee_shift_assignments"
+        WHERE "employeeId" = ${employeeId} AND "date" = ${date}::date
         LIMIT 1
       `
-
       const nextId = existingRows[0]?.id ?? randomUUID()
       if (existingRows[0]?.id) {
         await prisma.$executeRaw`
           UPDATE "employee_shift_assignments"
-          SET "scheduleId" = ${scheduleId ?? null},
-              "timeIn" = ${isRestDay ? null : (resolvedTimeIn ?? null)},
-              "timeOut" = ${isRestDay ? null : (resolvedTimeOut ?? null)},
-              "isRestDay" = ${isRestDay ?? false},
-              "notes" = ${notes ?? null},
-              "updatedAt" = NOW()
+          SET "scheduleId" = ${updateData.scheduleId},
+              "timeIn"     = ${updateData.timeIn},
+              "timeOut"    = ${updateData.timeOut},
+              "isRestDay"  = ${updateData.isRestDay},
+              "notes"      = ${updateData.notes},
+              "updatedAt"  = NOW()
           WHERE "id" = ${nextId}
         `
       } else {
         await prisma.$executeRaw`
           INSERT INTO "employee_shift_assignments"
-            ("id", "companyId", "employeeId", "date", "scheduleId", "timeIn", "timeOut", "isRestDay", "notes", "createdAt", "updatedAt")
+            ("id","companyId","employeeId","date","scheduleId","timeIn","timeOut","isRestDay","notes","createdAt","updatedAt")
           VALUES
-            (${nextId}, ${ctx.companyId}, ${employeeId}, ${date}::date, ${scheduleId ?? null}, ${isRestDay ? null : (resolvedTimeIn ?? null)}, ${isRestDay ? null : (resolvedTimeOut ?? null)}, ${isRestDay ?? false}, ${notes ?? null}, NOW(), NOW())
+            (${nextId},${ctx.companyId},${employeeId},${date}::date,
+             ${updateData.scheduleId},${updateData.timeIn},${updateData.timeOut},
+             ${updateData.isRestDay},${updateData.notes},NOW(),NOW())
         `
       }
-
       assignment = {
-        id: nextId,
-        employeeId,
-        date: dateObj,
-        scheduleId: scheduleId ?? null,
-        timeIn: isRestDay ? null : (resolvedTimeIn ?? null),
-        timeOut: isRestDay ? null : (resolvedTimeOut ?? null),
-        isRestDay: isRestDay ?? false,
-        notes: notes ?? null,
-        schedule:
-          scheduleId && !isRestDay
-            ? {
-                id: scheduleId,
-                name: resolvedSchedule?.name ?? '',
-                timeIn: resolvedSchedule?.timeIn ?? null,
-                timeOut: resolvedSchedule?.timeOut ?? null,
-              }
-            : null,
+        id: nextId, employeeId, date: dateObj, ...updateData,
+        schedule: scheduleId && !isRestDay
+          ? { id: scheduleId, name: resolvedSchedule?.name ?? '', timeIn: resolvedSchedule?.timeIn ?? null, timeOut: resolvedSchedule?.timeOut ?? null }
+          : null,
+      }
+    } else {
+      // ── FLEXIBLE: always INSERT a new record (multi-shift per day) ────
+      const newId = randomUUID()
+      await prisma.$executeRaw`
+        INSERT INTO "employee_shift_assignments"
+          ("id","companyId","employeeId","date","scheduleId","timeIn","timeOut","isRestDay","notes","createdAt","updatedAt")
+        VALUES
+          (${newId},${ctx.companyId},${employeeId},${date}::date,
+           ${updateData.scheduleId},${updateData.timeIn},${updateData.timeOut},
+           ${updateData.isRestDay},${updateData.notes},NOW(),NOW())
+      `
+      assignment = {
+        id: newId, employeeId, date: dateObj, ...updateData,
+        schedule: scheduleId && !isRestDay
+          ? { id: scheduleId, name: resolvedSchedule?.name ?? '', timeIn: resolvedSchedule?.timeIn ?? null, timeOut: resolvedSchedule?.timeOut ?? null }
+          : null,
       }
     }
 

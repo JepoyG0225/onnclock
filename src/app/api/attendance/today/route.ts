@@ -62,9 +62,8 @@ export async function GET(req: NextRequest) {
   let scheduleMessage: string | null = null
   const companyDefaultBreakMinutes = await getCompanyDefaultBreakMinutes(ctx.companyId)
 
-  // Always look up today's shift assignment — it acts as an override for both
-  // fixed-schedule employees (rest-day exception) and flexible employees.
-  const assignment = await prisma.employeeShiftAssignment.findFirst({
+  // Look up ALL shift assignments for today (multi-shift support).
+  const assignmentsToday = await prisma.employeeShiftAssignment.findMany({
     where: { companyId: ctx.companyId, employeeId: employee.id, date: manilaDate },
     select: {
       scheduleId: true,
@@ -75,10 +74,12 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  const assignmentIsWorkDay =
-    !!assignment &&
-    !assignment.isRestDay &&
-    (!!assignment.scheduleId || (!!assignment.timeIn && !!assignment.timeOut))
+  // First non-rest-day assignment (used for break minutes priority)
+  const workAssignment = assignmentsToday.find(
+    a => !a.isRestDay && (!!a.scheduleId || (!!a.timeIn && !!a.timeOut))
+  )
+  const assignmentIsWorkDay = !!workAssignment
+  const allMarkedRestDay = assignmentsToday.length > 0 && assignmentsToday.every(a => a.isRestDay)
 
   if (fixedScheduleSet) {
     // Fixed schedule: check if today is in the scheduled work days
@@ -90,13 +91,15 @@ export async function GET(req: NextRequest) {
       scheduleReady = true
     } else {
       scheduleReady = false
-      scheduleMessage = 'Today is your rest day based on your fixed schedule.'
+      scheduleMessage = allMarkedRestDay
+        ? 'Today is marked as rest day in your schedule.'
+        : 'Today is your rest day based on your fixed schedule.'
     }
   } else {
-    // Flexible employee: must have a non-rest-day assignment today
+    // Flexible employee: must have at least one non-rest-day assignment today
     if (assignmentIsWorkDay) {
       scheduleReady = true
-    } else if (assignment?.isRestDay) {
+    } else if (allMarkedRestDay) {
       scheduleReady = false
       scheduleMessage = 'Today is marked as rest day in your flexible schedule.'
     } else {
@@ -108,7 +111,7 @@ export async function GET(req: NextRequest) {
   // breakMinutes: 0 = break disabled, >0 = allowed break duration in minutes
   // Priority: explicit assignment schedule override > fixed employee schedule > company default.
   const breakMinutes = normalizeBreakMinutes(
-    assignment?.schedule?.breakMinutes ??
+    workAssignment?.schedule?.breakMinutes ??
       employee.workSchedule?.breakMinutes ??
       companyDefaultBreakMinutes
   )

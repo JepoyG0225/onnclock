@@ -527,6 +527,7 @@ function FlexibleScheduleTab({
   variant = 'FLEXIBLE',
   companyBreakMinutes = 60,
   companyId,
+  focusEmployeeId,
 }: {
   schedules: WorkSchedule[]
   loadingSchedules: boolean
@@ -534,6 +535,7 @@ function FlexibleScheduleTab({
   variant?: 'FIXED' | 'FLEXIBLE'
   companyBreakMinutes?: number
   companyId?: string
+  focusEmployeeId?: string
 }) {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
   const [employees, setEmployees] = useState<ScheduleEmployee[]>([])
@@ -569,7 +571,8 @@ function FlexibleScheduleTab({
     setLoadingGrid(true)
     try {
       const modeQuery = `&mode=${variant}`
-      const url = withCompanyId(`/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}${modeQuery}${deptFilter ? `&departmentId=${deptFilter}` : ''}`, companyId)
+      const focusQuery = focusEmployeeId ? `&employeeId=${encodeURIComponent(focusEmployeeId)}` : ''
+      const url = withCompanyId(`/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}${modeQuery}${deptFilter ? `&departmentId=${deptFilter}` : ''}${focusQuery}`, companyId)
       const res = await fetch(url)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -588,12 +591,12 @@ function FlexibleScheduleTab({
       setAssignments(data.assignments ?? [])
     } finally {
       setLoadingGrid(false) }
-  }, [startStr, endStr, deptFilter, variant, companyId])
+  }, [startStr, endStr, deptFilter, variant, companyId, focusEmployeeId])
 
   useEffect(() => { loadGrid() }, [loadGrid])
 
-  function getAssignment(empId: string, dateStr: string): ShiftAssignment | null {
-    return assignments.find(a => a.employeeId === empId && a.date.slice(0, 10) === dateStr) ?? null
+  function getAssignments(empId: string, dateStr: string): ShiftAssignment[] {
+    return assignments.filter(a => a.employeeId === empId && a.date.slice(0, 10) === dateStr)
   }
 
   // Drag handlers
@@ -633,6 +636,7 @@ function FlexibleScheduleTab({
   }
 
   async function upsertAssignment(payload: {
+    id?: string | null          // if set → UPDATE that record; if absent → CREATE new
     employeeId: string
     date: string
     mode?: 'FIXED' | 'FLEXIBLE'
@@ -642,14 +646,11 @@ function FlexibleScheduleTab({
     isRestDay: boolean
     notes?: string | null
   }) {
-    const tempId = `temp-${payload.employeeId}-${payload.date}-${Date.now()}`
+    const isUpdate = Boolean(payload.id)
+    const tempId = payload.id ?? `temp-${payload.employeeId}-${payload.date}-${Date.now()}`
     const template = payload.scheduleId ? templateSchedules.find(s => s.id === payload.scheduleId) : null
-    const optimisticTimeIn = payload.isRestDay
-      ? null
-      : (payload.timeIn ?? template?.timeIn ?? null)
-    const optimisticTimeOut = payload.isRestDay
-      ? null
-      : (payload.timeOut ?? template?.timeOut ?? null)
+    const optimisticTimeIn = payload.isRestDay ? null : (payload.timeIn ?? template?.timeIn ?? null)
+    const optimisticTimeOut = payload.isRestDay ? null : (payload.timeOut ?? template?.timeOut ?? null)
     const optimisticAssignment: ShiftAssignment = {
       id: tempId,
       employeeId: payload.employeeId,
@@ -664,11 +665,21 @@ function FlexibleScheduleTab({
         : null,
     }
 
-    // Show assignment instantly while persisting in background.
+    // Optimistic update
     setAssignments(prev => {
-      const filtered = prev.filter(a => !(a.employeeId === payload.employeeId && a.date.slice(0, 10) === payload.date))
-      if (payload.isRestDay === false && !payload.scheduleId && !payload.timeIn && !payload.timeOut) return filtered
-      return [...filtered, optimisticAssignment]
+      if (isUpdate) {
+        // Replace the specific record by id
+        return prev.map(a => a.id === payload.id ? optimisticAssignment : a)
+      } else if (payload.mode !== 'FLEXIBLE') {
+        // FIXED: replace all for this (emp, date) — keeps 1 per day
+        const filtered = prev.filter(a => !(a.employeeId === payload.employeeId && a.date.slice(0, 10) === payload.date))
+        if (!payload.isRestDay && !payload.scheduleId && !payload.timeIn && !payload.timeOut) return filtered
+        return [...filtered, optimisticAssignment]
+      } else {
+        // FLEXIBLE create: just append (multi-shift)
+        if (!payload.isRestDay && !payload.scheduleId && !payload.timeIn && !payload.timeOut) return prev
+        return [...prev, optimisticAssignment]
+      }
     })
 
     try {
@@ -679,30 +690,34 @@ function FlexibleScheduleTab({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        // Rollback optimistic row for this cell on failure.
-        setAssignments(prev => prev.filter(a => !(a.employeeId === payload.employeeId && a.date.slice(0, 10) === payload.date)))
+        // Rollback
+        setAssignments(prev => {
+          if (isUpdate) return prev  // keep old data on update failure (no clean rollback)
+          return prev.filter(a => a.id !== tempId)
+        })
         toast.error(data?.error ?? 'Failed to save')
         return
       }
-      // Replace optimistic row with server-confirmed row.
-      setAssignments(prev => {
-        const filtered = prev.filter(a => !(a.employeeId === payload.employeeId && a.date.slice(0, 10) === payload.date))
-        if (payload.isRestDay === false && !payload.scheduleId && !payload.timeIn && !payload.timeOut) return filtered
-        return [...filtered, data.assignment]
-      })
+      // Replace temp/optimistic with server-confirmed record
+      setAssignments(prev => prev.map(a => a.id === tempId ? { ...data.assignment, date: String(data.assignment.date).slice(0, 10) } : a))
     } catch {
-      setAssignments(prev => prev.filter(a => !(a.employeeId === payload.employeeId && a.date.slice(0, 10) === payload.date)))
+      setAssignments(prev => prev.filter(a => a.id !== tempId))
       toast.error('Failed to save assignment')
     }
   }
 
-  async function deleteAssignment(id: string, empId: string, dateStr: string) {
+  async function deleteAssignment(id: string) {
+    // Optimistically remove from UI immediately
+    setAssignments(prev => prev.filter(a => a.id !== id))
     try {
       const res = await fetch(withCompanyId(`/api/schedules/assignments/${id}`, companyId), { method: 'DELETE' })
-      if (!res.ok) { toast.error('Failed to remove'); return }
-      setAssignments(prev => prev.filter(a => !(a.employeeId === empId && a.date.slice(0, 10) === dateStr)))
+      if (!res.ok) {
+        toast.error('Failed to remove — please refresh')
+        await loadGrid() // restore actual state
+      }
     } catch {
-      toast.error('Failed to remove')
+      toast.error('Failed to remove — please refresh')
+      await loadGrid()
     }
   }
 
@@ -888,7 +903,7 @@ function FlexibleScheduleTab({
                     {weekDays.map(d => {
                       const ds = toDateStr(d)
                       const cellKey = `${emp.id}|${ds}`
-                      const asgn = getAssignment(emp.id, ds)
+                      const asgns = getAssignments(emp.id, ds)
                       const fixedTemplate =
                         variant === 'FIXED' && emp.workScheduleId
                           ? scheduleById.get(emp.workScheduleId) ?? null
@@ -897,93 +912,111 @@ function FlexibleScheduleTab({
                       const templateIsWorkDay = fixedTemplate
                         ? fixedTemplate.workDays.includes(weekday)
                         : false
-                      const showTemplateFallback = !asgn && variant === 'FIXED' && Boolean(fixedTemplate)
-                      const effectiveIsRestDay = asgn
-                        ? asgn.isRestDay
-                        : showTemplateFallback
-                          ? !templateIsWorkDay
-                          : false
-                      const effectiveTimeIn = asgn
-                        ? asgn.timeIn
-                        : showTemplateFallback && templateIsWorkDay
-                          ? fixedTemplate?.timeIn ?? null
-                          : null
-                      const effectiveTimeOut = asgn
-                        ? asgn.timeOut
-                        : showTemplateFallback && templateIsWorkDay
-                          ? fixedTemplate?.timeOut ?? null
-                          : null
-                      const effectiveSchedule = asgn?.schedule
-                        ?? (showTemplateFallback && templateIsWorkDay && fixedTemplate
-                          ? {
-                              id: fixedTemplate.id,
-                              name: fixedTemplate.name,
-                              timeIn: fixedTemplate.timeIn ?? null,
-                              timeOut: fixedTemplate.timeOut ?? null,
-                            }
-                          : null)
+                      // For FIXED: show template fallback when no assignment saved yet
+                      const showTemplateFallback = asgns.length === 0 && variant === 'FIXED' && Boolean(fixedTemplate)
                       const isToday = ds === todayStr
                       const isDragOver = dragOverCell === cellKey
-                      const col = effectiveSchedule?.id ? (colorMap.get(effectiveSchedule.id) ?? CARD_COLORS[0]) : null
 
                       return (
                         <td
                           key={ds}
-                          className={`px-1.5 py-1.5 border-l border-gray-100 align-middle transition ${isToday ? 'bg-orange-50/40' : ''} ${isDragOver ? 'bg-orange-100/60 ring-2 ring-[#fa5e01] ring-inset rounded-lg' : ''}`}
+                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-orange-50/40' : ''} ${isDragOver ? 'bg-orange-100/60 ring-2 ring-[#fa5e01] ring-inset rounded-lg' : ''}`}
                           onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
                           onDragLeave={() => setDragOverCell(null)}
                           onDrop={() => onDrop(emp.id, ds)}
                         >
-                          {asgn || showTemplateFallback ? (
-                            <div
-                              className={`rounded-lg px-2 py-1.5 cursor-pointer group/cell relative text-center ${asgn?.id.startsWith('temp-') ? 'opacity-80 animate-pulse' : ''}`}
-                              style={
-                                effectiveIsRestDay
-                                  ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
-                                  : col
-                                  ? { background: col.bg, border: `1px solid ${col.border}` }
-                                  : { background: '#fff3ec', border: '1px solid #fa5e01' }
-                              }
-                              onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: asgn })}
-                            >
-                              {effectiveIsRestDay ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <Coffee className="w-3 h-3 text-slate-400" />
-                                  <span className="text-[10px] font-semibold text-slate-500">Rest Day</span>
-                                </div>
-                              ) : (
-                                <>
-                                  <p className="text-[10px] font-bold leading-tight" style={{ color: col?.text ?? '#c44d00' }}>
-                                    {fmt12(effectiveTimeIn)} - {fmt12(effectiveTimeOut)}
-                                  </p>
-                                  {asgn?.id.startsWith('temp-') && (
-                                    <p className="text-[9px] opacity-60 mt-0.5" style={{ color: col?.text ?? '#c44d00' }}>
-                                      Saving...
-                                    </p>
-                                  )}
-                                </>
-                              )}
-                              {/* Delete button */}
-                              {variant === 'FLEXIBLE' && asgn && (
-                                <button
-                                  type="button"
-                                  aria-label="Remove schedule"
-                                  title="Remove schedule"
-                                  className="absolute -top-1.5 -right-1.5 flex w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center shadow hover:bg-red-600"
-                                  onClick={e => { e.stopPropagation(); deleteAssignment(asgn.id, emp.id, ds) }}
+                          <div className="flex flex-col gap-1">
+                            {/* Saved assignment cards */}
+                            {asgns.map(asgn => {
+                              const col = asgn.scheduleId ? (colorMap.get(asgn.scheduleId) ?? CARD_COLORS[0]) : null
+                              return (
+                                <div
+                                  key={asgn.id}
+                                  className={`rounded-lg px-2 py-1.5 cursor-pointer relative text-center ${asgn.id.startsWith('temp-') ? 'opacity-80 animate-pulse' : ''}`}
+                                  style={
+                                    asgn.isRestDay
+                                      ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
+                                      : col
+                                      ? { background: col.bg, border: `1px solid ${col.border}` }
+                                      : { background: '#fff3ec', border: '1px solid #fa5e01' }
+                                  }
+                                  onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: asgn })}
                                 >
-                                  <X className="w-2.5 h-2.5" />
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <button
-                              className="w-full h-10 flex items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-300 hover:border-[#fa5e01] hover:text-[#fa5e01] transition"
-                              onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          )}
+                                  {asgn.isRestDay ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Coffee className="w-3 h-3 text-slate-400" />
+                                      <span className="text-[10px] font-semibold text-slate-500">Rest Day</span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <p className="text-[10px] font-bold leading-tight" style={{ color: col?.text ?? '#c44d00' }}>
+                                        {fmt12(asgn.timeIn)} - {fmt12(asgn.timeOut)}
+                                      </p>
+                                      {asgn.id.startsWith('temp-') && (
+                                        <p className="text-[9px] opacity-60 mt-0.5" style={{ color: col?.text ?? '#c44d00' }}>Saving...</p>
+                                      )}
+                                    </>
+                                  )}
+                                  {/* Per-shift delete button */}
+                                  {!asgn.id.startsWith('temp-') && (
+                                    <button
+                                      type="button"
+                                      aria-label="Remove shift"
+                                      title="Remove shift"
+                                      className="absolute -top-1.5 -right-1.5 flex w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center shadow hover:bg-red-600"
+                                      onClick={e => { e.stopPropagation(); deleteAssignment(asgn.id) }}
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
+
+                            {/* FIXED template fallback (no saved assignment yet) */}
+                            {showTemplateFallback && (
+                              <div
+                                className="rounded-lg px-2 py-1.5 cursor-pointer text-center"
+                                style={
+                                  !templateIsWorkDay
+                                    ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
+                                    : fixedTemplate?.id
+                                      ? { background: colorMap.get(fixedTemplate.id)?.bg ?? '#fff3ec', border: `1px solid ${colorMap.get(fixedTemplate.id)?.border ?? '#fa5e01'}` }
+                                      : { background: '#fff3ec', border: '1px solid #fa5e01' }
+                                }
+                                onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
+                              >
+                                {!templateIsWorkDay ? (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Coffee className="w-3 h-3 text-slate-400" />
+                                    <span className="text-[10px] font-semibold text-slate-500">Rest Day</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] font-bold leading-tight" style={{ color: colorMap.get(fixedTemplate?.id ?? '')?.text ?? '#c44d00' }}>
+                                    {fmt12(fixedTemplate?.timeIn)} - {fmt12(fixedTemplate?.timeOut)}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Add shift button (always shown for FLEXIBLE, or when cell is empty for FIXED) */}
+                            {variant === 'FLEXIBLE' ? (
+                              <button
+                                className="w-full h-7 flex items-center justify-center rounded-lg border border-dashed border-gray-200 text-gray-300 hover:border-[#fa5e01] hover:text-[#fa5e01] transition"
+                                title="Add shift"
+                                onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            ) : asgns.length === 0 && !showTemplateFallback ? (
+                              <button
+                                className="w-full h-10 flex items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-300 hover:border-[#fa5e01] hover:text-[#fa5e01] transition"
+                                onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       )
                     })}
@@ -1003,15 +1036,21 @@ function FlexibleScheduleTab({
           variant={variant}
           onClose={() => setModal(null)}
           onSave={async (payload) => {
-            if (variant === 'FIXED' && payload.scheduleId) {
+            if (variant === 'FIXED' && payload.scheduleId && !modal.existing) {
               await applyFixedScheduleToVisibleWeek(modal.employeeId, payload.scheduleId)
             } else {
-              await upsertAssignment({ ...payload, mode: variant, employeeId: modal.employeeId, date: modal.date })
+              await upsertAssignment({
+                id: modal.existing?.id ?? null,   // UPDATE if editing, CREATE if new
+                ...payload,
+                mode: variant,
+                employeeId: modal.employeeId,
+                date: modal.date,
+              })
             }
             setModal(null)
           }}
           onDelete={async () => {
-            if (modal.existing) await deleteAssignment(modal.existing.id, modal.employeeId, modal.date)
+            if (modal.existing) await deleteAssignment(modal.existing.id)
             setModal(null)
           }}
         />
@@ -1215,6 +1254,7 @@ function AssignmentModal({
 export default function SchedulesPage() {
   const searchParams = useSearchParams()
   const companyId = searchParams.get('companyId')?.trim() ?? ''
+  const focusEmployeeId = searchParams.get('employeeId')?.trim() || undefined
   const [mode, setMode] = useState<ScheduleMode>('FIXED')
   const [schedules, setSchedules] = useState<WorkSchedule[]>([])
   const [loadingSchedules, setLoadingSchedules] = useState(false)
@@ -1414,6 +1454,7 @@ export default function SchedulesPage() {
           variant="FIXED"
           companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
           companyId={companyId}
+          focusEmployeeId={focusEmployeeId}
         />
       ) : (
         <FlexibleScheduleTab
@@ -1423,6 +1464,7 @@ export default function SchedulesPage() {
           variant="FLEXIBLE"
           companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
           companyId={companyId}
+          focusEmployeeId={focusEmployeeId}
         />
       )}
     </div>
