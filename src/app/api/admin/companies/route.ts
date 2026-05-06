@@ -15,6 +15,8 @@ export async function GET() {
       name: true,
       email: true,
       isActive: true,
+      demoStatus: true,
+      demoEmailSentAt: true,
       createdAt: true,
       subscription: {
         select: {
@@ -73,6 +75,8 @@ export async function GET() {
       name: company.name,
       email: company.email,
       isActive: company.isActive,
+      demoStatus: company.demoStatus,
+      demoEmailSentAt: company.demoEmailSentAt,
       createdAt: company.createdAt,
       activeEmployees: company._count.employees,
       subscription: company.subscription

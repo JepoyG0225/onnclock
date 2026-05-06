@@ -263,6 +263,16 @@ model User {
 // MULTI-TENANCY: COMPANIES
 // ─────────────────────────────────────────────
 
+enum DemoStatus {
+  NOT_CONTACTED
+  EMAIL_SENT
+  DEMO_REQUESTED
+  DEMO_SCHEDULED
+  DEMO_COMPLETED
+  NO_SHOW
+  NOT_INTERESTED
+}
+
 model Company {
   id                            String   @id @default(cuid())
   name                          String
@@ -314,7 +324,11 @@ model Company {
   careerSocialLinkedin          String?
   careerSocialTwitter           String?
   careerSocialInstagram         String?
-  isActive                      Boolean  @default(true)
+  isActive                      Boolean     @default(true)
+  demoStatus                    DemoStatus  @default(NOT_CONTACTED)
+  demoEmailSentAt               DateTime?
+  demoScheduledAt               DateTime?
+  demoNotes                     String?
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 

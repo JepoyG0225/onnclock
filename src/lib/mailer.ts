@@ -238,6 +238,78 @@ export async function sendExpiredTrialNotice({
   })
 }
 
+export async function sendDemoOutreachEmail({
+  to,
+  companyName,
+  demoBookingUrl,
+}: {
+  to: string
+  companyName: string
+  demoBookingUrl?: string
+}) {
+  const from = buildFromIdentity({ senderName: 'Onclock Team' })
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://onclockph.com'
+  const bookingLink = demoBookingUrl ?? 'https://onclockph.com/demo'
+  const loginUrl = `${appUrl}/login`
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `👋 Need help getting started with Onclock, ${companyName}?`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:540px;margin:0 auto;padding:32px 24px;background:#ffffff">
+        <div style="text-align:center;margin-bottom:28px">
+          <img src="https://onclockph.com/onclock-logo.png" alt="Onclock" style="height:36px" />
+        </div>
+
+        <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 12px">
+          Hi ${companyName} 👋
+        </h2>
+        <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 16px">
+          We noticed your Onclock account is all set up but hasn't had employees added yet.
+          We'd love to help you get the most out of the platform!
+        </p>
+        <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 24px">
+          Whether you need a quick walkthrough of how to set up your team, configure payroll,
+          or track attendance — we're here to help you get started.
+        </p>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:24px">
+          <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0 0 8px">✅ What a free demo includes:</p>
+          <ul style="margin:0;padding-left:20px;font-size:13px;color:#475569;line-height:1.8">
+            <li>Guided setup of your employees, departments &amp; positions</li>
+            <li>Payroll &amp; DTR configuration walkthrough</li>
+            <li>Leave management &amp; schedule setup</li>
+            <li>Q&amp;A with our support team</li>
+          </ul>
+        </div>
+
+        <div style="text-align:center;margin-bottom:28px">
+          <a href="${bookingLink}"
+             style="display:inline-block;background:#2E4156;color:#ffffff;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none">
+            Book a Free Demo →
+          </a>
+        </div>
+
+        <p style="font-size:13px;color:#94a3b8;text-align:center;margin:0 0 8px">
+          Or log in anytime and explore at your own pace.
+        </p>
+        <div style="text-align:center;margin-bottom:24px">
+          <a href="${loginUrl}" style="font-size:13px;color:#2E4156;text-decoration:underline">
+            Go to my Onclock account
+          </a>
+        </div>
+
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0" />
+        <p style="font-size:11px;color:#cbd5e1;text-align:center;margin:0">
+          Onclock · HR &amp; Payroll for Philippine Businesses ·
+          <a href="${appUrl}" style="color:#cbd5e1">onclockph.com</a>
+        </p>
+      </div>
+    `,
+  })
+}
+
 export async function sendRecruitmentStageEmail({
   companyId,
   to,

@@ -4,7 +4,18 @@ import { requireAuth, requireSuperAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 const schema = z.object({
-  isActive: z.boolean(),
+  isActive: z.boolean().optional(),
+  demoStatus: z.enum([
+    'NOT_CONTACTED',
+    'EMAIL_SENT',
+    'DEMO_REQUESTED',
+    'DEMO_SCHEDULED',
+    'DEMO_COMPLETED',
+    'NO_SHOW',
+    'NOT_INTERESTED',
+  ]).optional(),
+  demoNotes: z.string().optional(),
+  demoScheduledAt: z.string().datetime().optional().nullable(),
 })
 
 export async function PATCH(
@@ -21,10 +32,14 @@ export async function PATCH(
 
   const company = await prisma.company.update({
     where: { id: companyId },
-    data: { isActive: body.isActive },
-    select: { id: true, isActive: true, updatedAt: true },
+    data: {
+      ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+      ...(body.demoStatus !== undefined ? { demoStatus: body.demoStatus } : {}),
+      ...(body.demoNotes !== undefined ? { demoNotes: body.demoNotes } : {}),
+      ...(body.demoScheduledAt !== undefined ? { demoScheduledAt: body.demoScheduledAt ? new Date(body.demoScheduledAt) : null } : {}),
+    },
+    select: { id: true, isActive: true, demoStatus: true, demoEmailSentAt: true, updatedAt: true },
   })
 
   return NextResponse.json({ company })
 }
-
