@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Loader2, Save, CalendarDays } from 'lucide-react'
+import { Loader2, Save, CalendarDays, Plus } from 'lucide-react'
 import { DatePicker } from '@/components/ui/date-picker'
 import { EmployeePortalAccess } from '@/components/employees/EmployeePortalAccess'
 
@@ -97,7 +97,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   )
 }
 
-export function EmployeeForm({ departments, positions, workSchedules, defaultValues, employeeId, hasPortalUser = false }: Props) {
+export function EmployeeForm({ departments: initialDepartments, positions: initialPositions, workSchedules, defaultValues, employeeId, hasPortalUser = false }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [managers, setManagers] = useState<{ id: string; firstName: string; lastName: string; employeeNo: string }[]>([])
@@ -106,6 +106,66 @@ export function EmployeeForm({ departments, positions, workSchedules, defaultVal
   const [createdEmployeeName, setCreatedEmployeeName] = useState('')
   const [scheduleSetupMode, setScheduleSetupMode] = useState<ScheduleMode>('FIXED')
   const [editScheduleMode, setEditScheduleMode] = useState<ScheduleMode>('FIXED')
+
+  // Local copies so newly created departments/positions appear immediately
+  const [departments, setDepartments] = useState(initialDepartments)
+  const [positions, setPositions] = useState(initialPositions)
+
+  // Quick-add department dialog
+  const [deptDialogOpen, setDeptDialogOpen] = useState(false)
+  const [newDeptName, setNewDeptName] = useState('')
+  const [savingDept, setSavingDept] = useState(false)
+
+  // Quick-add position dialog
+  const [posDialogOpen, setPosDialogOpen] = useState(false)
+  const [newPosTitle, setNewPosTitle] = useState('')
+  const [savingPos, setSavingPos] = useState(false)
+
+  async function handleAddDepartment() {
+    if (!newDeptName.trim()) return
+    setSavingDept(true)
+    try {
+      const res = await fetch('/api/departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newDeptName.trim() }),
+      })
+      if (!res.ok) throw new Error('Failed to create department')
+      const dept = await res.json()
+      setDepartments(prev => [...prev, { id: dept.id, name: dept.name }])
+      setValue('departmentId', dept.id)
+      setDeptDialogOpen(false)
+      setNewDeptName('')
+      toast.success(`Department "${dept.name}" created`)
+    } catch {
+      toast.error('Failed to create department')
+    } finally {
+      setSavingDept(false)
+    }
+  }
+
+  async function handleAddPosition() {
+    if (!newPosTitle.trim()) return
+    setSavingPos(true)
+    try {
+      const res = await fetch('/api/positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newPosTitle.trim() }),
+      })
+      if (!res.ok) throw new Error('Failed to create position')
+      const pos = await res.json()
+      setPositions(prev => [...prev, { id: pos.id, title: pos.title }])
+      setValue('positionId', pos.id)
+      setPosDialogOpen(false)
+      setNewPosTitle('')
+      toast.success(`Position "${pos.title}" created`)
+    } catch {
+      toast.error('Failed to create position')
+    } finally {
+      setSavingPos(false)
+    }
+  }
   const isCreate = !employeeId
 
   const tabs = useMemo(() => {
@@ -501,27 +561,49 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </Field>
               <Field label="Department">
                 <Select
-                  defaultValue={defaultValues?.departmentId}
-                  onValueChange={v => setValue('departmentId', v)}
+                  value={watch('departmentId') || ''}
+                  onValueChange={v => {
+                    if (v === '__add_dept__') { setDeptDialogOpen(true) }
+                    else { setValue('departmentId', v) }
+                  }}
                 >
                   <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                   <SelectContent>
+                    {departments.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-slate-400">No departments yet</div>
+                    )}
                     {departments.map(d => (
                       <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                     ))}
+                    <div className="border-t mt-1 pt-1">
+                      <SelectItem value="__add_dept__" className="text-blue-600 font-medium">
+                        <span className="flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" />Add new department</span>
+                      </SelectItem>
+                    </div>
                   </SelectContent>
                 </Select>
               </Field>
               <Field label="Position">
                 <Select
-                  defaultValue={defaultValues?.positionId}
-                  onValueChange={v => setValue('positionId', v)}
+                  value={watch('positionId') || ''}
+                  onValueChange={v => {
+                    if (v === '__add_pos__') { setPosDialogOpen(true) }
+                    else { setValue('positionId', v) }
+                  }}
                 >
                   <SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger>
                   <SelectContent>
+                    {positions.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-slate-400">No positions yet</div>
+                    )}
                     {positions.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
                     ))}
+                    <div className="border-t mt-1 pt-1">
+                      <SelectItem value="__add_pos__" className="text-blue-600 font-medium">
+                        <span className="flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" />Add new position</span>
+                      </SelectItem>
+                    </div>
                   </SelectContent>
                 </Select>
               </Field>
@@ -992,6 +1074,60 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
           </Button>
         )}
       </div>
+
+      {/* ── Quick-add Department Dialog ─────────────────────────────── */}
+      <Dialog open={deptDialogOpen} onOpenChange={open => { setDeptDialogOpen(open); if (!open) setNewDeptName('') }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Department</DialogTitle>
+            <DialogDescription>Create a new department for your company.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Department Name *</Label>
+            <Input
+              placeholder="e.g. Human Resources"
+              value={newDeptName}
+              onChange={e => setNewDeptName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddDepartment() }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeptDialogOpen(false)} disabled={savingDept}>Cancel</Button>
+            <Button onClick={handleAddDepartment} disabled={!newDeptName.trim() || savingDept}>
+              {savingDept && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create Department
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Quick-add Position Dialog ────────────────────────────────── */}
+      <Dialog open={posDialogOpen} onOpenChange={open => { setPosDialogOpen(open); if (!open) setNewPosTitle('') }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Position</DialogTitle>
+            <DialogDescription>Create a new job position for your company.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Position Title *</Label>
+            <Input
+              placeholder="e.g. Software Engineer"
+              value={newPosTitle}
+              onChange={e => setNewPosTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddPosition() }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPosDialogOpen(false)} disabled={savingPos}>Cancel</Button>
+            <Button onClick={handleAddPosition} disabled={!newPosTitle.trim() || savingPos}>
+              {savingPos && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create Position
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={showScheduleSetupModal}
