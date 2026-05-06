@@ -38,9 +38,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'intentId is required' }, { status: 400 })
   }
 
-  // Find the invoice with this payment intent ID
+  // Find the invoice with this payment intent ID.
+  // Include VOID because QR Ph invoices start as VOID (payment session) and
+  // are only promoted to PAID when PayMongo confirms payment.
   const invoices = await prisma.invoice.findMany({
-    where: { companyId: ctx.companyId, status: { in: ['UNPAID', 'PAID'] } },
+    where: { companyId: ctx.companyId, status: { in: ['VOID', 'UNPAID', 'PAID'] } },
     orderBy: { createdAt: 'desc' },
     take: 20,
   })
@@ -56,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   // If already paid, return success immediately (idempotent)
   if (matchedInvoice.status === 'PAID') {
-    return NextResponse.json({ status: 'succeeded', alreadyActivated: true })
+    return NextResponse.json({ status: 'succeeded', alreadyActivated: true, invoiceNo: matchedInvoice.invoiceNo })
   }
 
   // Poll PayMongo
@@ -112,6 +114,19 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json({ status: 'succeeded', activated: true, invoiceNo: matchedInvoice.invoiceNo })
+  }
+
+  // Payment failed or was cancelled — the invoice stays VOID (abandoned session)
+  const FAILED_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'expired'])
+  if (FAILED_STATUSES.has(pmStatus)) {
+    // Invoice is already VOID; ensure it hasn't been mistakenly set to UNPAID
+    if (matchedInvoice.status !== 'VOID') {
+      await prisma.invoice.update({
+        where: { id: matchedInvoice.id },
+        data: { status: 'VOID' },
+      })
+    }
+    return NextResponse.json({ status: 'failed', invoiceNo: matchedInvoice.invoiceNo })
   }
 
   // Map PayMongo statuses to simpler client-facing values

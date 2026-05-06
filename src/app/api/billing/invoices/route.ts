@@ -9,7 +9,13 @@ export async function GET() {
   if (denied) return denied
 
   const invoices = await prisma.invoice.findMany({
-    where: { companyId: ctx.companyId },
+    where: {
+      companyId: ctx.companyId,
+      // Exclude VOID invoices that were never paid — these are abandoned QR Ph
+      // payment sessions (created as VOID, paidAt=null). Real voided invoices
+      // (e.g. refunds) will have paidAt set.
+      NOT: { status: 'VOID', paidAt: null },
+    },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,

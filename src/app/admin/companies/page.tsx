@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Building2, Loader2, Users, FileText, CheckCircle, XCircle, Eye,
-  Mail, AlertCircle, ChevronDown,
+  Mail, AlertCircle, ChevronDown, RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -89,6 +89,13 @@ export default function AdminCompaniesPage() {
   const [updatingDemoId, setUpdatingDemoId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<FilterTab>('all')
+  const [refreshing, setRefreshing] = useState(false)
+
+  async function refresh() {
+    setRefreshing(true)
+    await load()
+    setRefreshing(false)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -204,16 +211,28 @@ export default function AdminCompaniesPage() {
 
   return (
     <div className="p-6 md:p-8 space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] font-semibold" style={{ color: THEME.mid }}>
-          System Admin
-        </p>
-        <h1 className="text-2xl font-black mt-1 flex items-center gap-2" style={{ color: THEME.light }}>
-          <Building2 className="w-6 h-6" style={{ color: THEME.soft }} /> Companies
-        </h1>
-        <p className="text-sm mt-1" style={{ color: THEME.mid }}>
-          Manage all registered companies, track demo outreach, and monitor status
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] font-semibold" style={{ color: THEME.mid }}>
+            System Admin
+          </p>
+          <h1 className="text-2xl font-black mt-1 flex items-center gap-2" style={{ color: THEME.light }}>
+            <Building2 className="w-6 h-6" style={{ color: THEME.soft }} /> Companies
+          </h1>
+          <p className="text-sm mt-1" style={{ color: THEME.mid }}>
+            Manage all registered companies, track demo outreach, and monitor status
+          </p>
+        </div>
+        <button
+          onClick={refresh}
+          disabled={refreshing || loading}
+          title="Refresh companies list"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-slate-50 disabled:opacity-50 mt-1"
+          style={{ borderColor: THEME.base, background: '#fff', color: THEME.soft }}
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* Summary cards */}

@@ -147,15 +147,17 @@ export async function POST(req: NextRequest) {
     skipPeriodReset: Boolean(hasActiveRemainingPeriod && isSameCycleChange),
   }
 
-  // ── Create invoice FIRST (DRAFT) so the number is reserved ───────────────
-  // We update it with the paymentIntentId after PayMongo responds.
+  // ── Create invoice as VOID (payment session) so the number is reserved ──────
+  // Status stays VOID until PayMongo confirms payment; then it's set to PAID.
+  // VOID invoices with paidAt=null are treated as "initiated but not yet paid"
+  // and are not shown to users as real invoices.
   const invoice = await prisma.invoice.create({
     data: {
       id: `inv_${ctx.companyId}_${Date.now()}`,
       companyId: ctx.companyId,
       subscriptionId: sub.id,
       invoiceNo,
-      status: 'UNPAID',
+      status: 'VOID',
       periodStart,
       periodEnd,
       seatCount: billedSeatCount,

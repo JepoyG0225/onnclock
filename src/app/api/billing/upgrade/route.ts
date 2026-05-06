@@ -252,7 +252,11 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  if (paymentProvider !== 'MAYA') {
+  // For MANUAL payments with proof-of-payment upload, the subscription is NOT
+  // activated automatically — the invoice stays UNPAID pending admin review.
+  // For admin-initiated MANUAL upgrades (no proof), activate immediately.
+  const isProofUpload = paymentProvider !== 'MAYA' && !!proofOfPaymentDataUrl
+  if (paymentProvider !== 'MAYA' && !isProofUpload) {
     const updateData: Prisma.SubscriptionUpdateInput = {
       plan: 'ANNUAL',
       status: 'ACTIVE' as const,
