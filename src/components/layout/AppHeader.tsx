@@ -30,7 +30,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
   const { collapsed } = useSidebar()
   const [allItems, setAllItems] = useState<Array<{
     id: string
-    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION'
+    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION' | 'OVERTIME'
     status: string
     title: string
     employee?: string

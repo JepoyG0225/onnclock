@@ -61,6 +61,18 @@ export async function GET(req: NextRequest) {
       take: limit,
     })
 
+    const overtimeRequests = await prisma.overtimeRequest.findMany({
+      where: {
+        companyId: ctx.companyId,
+        status: 'PENDING',
+      },
+      include: {
+        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
   const TYPE_LABELS: Record<string, string> = {
     NOTICE_TO_EXPLAIN: 'Notice to Explain',
     NOTICE_OF_DECISION: 'Notice of Decision',
@@ -110,6 +122,16 @@ export async function GET(req: NextRequest) {
         employee: `${c.employee.firstName} ${c.employee.lastName}`,
         employeeNo: c.employee.employeeNo,
         href: '/time-corrections',
+      })),
+      ...overtimeRequests.map(o => ({
+        id: o.id,
+        type: 'OVERTIME' as const,
+        status: o.status,
+        createdAt: o.createdAt,
+        title: `Overtime request — ${Number(o.hours).toFixed(1)}h`,
+        employee: `${o.employee.firstName} ${o.employee.lastName}`,
+        employeeNo: o.employee.employeeNo,
+        href: '/overtime-requests',
       })),
     ]
       .map(item => ({ ...item, id: `${item.type}:${item.id}` }))

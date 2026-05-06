@@ -53,11 +53,18 @@ export async function PATCH(
         })
     const dtr = targetDtr
     if (dtr) {
-      const corrDate = correction.date.toISOString().slice(0, 10)
+      // Use the Manila date string from the correction (stored as @db.Date, always midnight UTC).
+      // Appending +08:00 ensures the time is interpreted as Philippines time (UTC+8)
+      // so a value like "22:45" is stored as 14:45 UTC, not 22:45 UTC (which would
+      // display as 06:45 AM Manila time — the original 8-hour shift bug).
+      const corrDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(correction.date)
 
       function toDateTime(timeStr: string | null): Date | null {
         if (!timeStr) return null
-        return new Date(`${corrDate}T${timeStr}:00`)
+        return new Date(`${corrDate}T${timeStr}:00+08:00`)
       }
 
       const newTimeIn  = correction.timeIn  ? toDateTime(correction.timeIn)  : dtr.timeIn
