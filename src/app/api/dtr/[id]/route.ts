@@ -29,27 +29,73 @@ function parseTimeToMins(v: string | null | undefined): number | null {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null
 }
 
-function recompute(timeIn: Date, timeOut: Date, breakIn: Date | null, breakOut: Date | null, schedTimeIn?: string | null, schedTimeOut?: string | null) {
+function recompute(
+  timeIn: Date,
+  timeOut: Date,
+  breakIn: Date | null,
+  breakOut: Date | null,
+  schedTimeIn?: string | null,
+  schedTimeOut?: string | null,
+  allowedBreakMinutes = 60,
+) {
   const MAX = 24 * 60
   const totalMins = Math.min(differenceInMinutes(timeOut, timeIn), MAX)
   const effectiveOut = new Date(timeIn.getTime() + totalMins * 60_000)
-  const breakMins = breakIn && breakOut
-    ? Math.max(0, differenceInMinutes(breakOut > effectiveOut ? effectiveOut : breakOut, breakIn < timeIn ? timeIn : breakIn))
+
+  // Actual break duration (capped to shift length)
+  const actualBreakMins = breakIn && breakOut
+    ? Math.max(0, differenceInMinutes(
+        breakOut > effectiveOut ? effectiveOut : breakOut,
+        breakIn < timeIn ? timeIn : breakIn,
+      ))
     : 0
-  const worked = Math.max(0, totalMins - breakMins)
+
+  // Minutes employee was late returning from break
+  const breakLateMinutes = Math.max(0, actualBreakMins - allowedBreakMinutes)
+  // Only deduct the allowed break from worked time; late-break time is
+  // captured in lateMinutes (and deducted via lateDeduction in the engine)
+  const effectiveBreakMins = Math.min(actualBreakMins, allowedBreakMinutes)
+
+  const worked = Math.max(0, totalMins - effectiveBreakMins)
   const regularHours = Math.round(Math.min(worked, 480) / 60 * 100) / 100
   const overtimeHours = Math.round(Math.max(0, worked - 480) / 60 * 100) / 100
 
+  // Night differential: iterate minute-by-minute, skipping the entire break
+  // window (including late-break portion) so unauthorised break time never
+  // earns ND pay.
   let ndMins = 0
   let cursor = new Date(timeIn)
   while (cursor < effectiveOut) {
-    if (breakIn && breakOut && cursor >= breakIn && cursor < breakOut) { cursor = new Date(cursor.getTime() + 60_000); continue }
+    if (breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
+      cursor = new Date(cursor.getTime() + 60_000)
+      continue
+    }
     const h = getManilaHour(cursor)
     if (h >= 22 || h < 6) ndMins++
     cursor = new Date(cursor.getTime() + 60_000)
   }
+
+  // Also deduct ND for the late-break minutes that fell inside the ND window
+  // (those minutes are already excluded from ndMins above since they are in
+  //  [breakIn, breakOut); we subtract their ND equivalent from nightDiffHours
+  //  so the final ND reflects only authorised work time in the ND window)
+  if (breakLateMinutes > 0 && breakIn && breakOut) {
+    let lateBreakNdMins = 0
+    // Late-break period starts at breakIn + allowedBreakMinutes
+    const lateBreakStart = new Date(breakIn.getTime() + allowedBreakMinutes * 60_000)
+    const lateBreakEnd   = breakOut > effectiveOut ? effectiveOut : breakOut
+    let lbCursor = new Date(lateBreakStart)
+    while (lbCursor < lateBreakEnd) {
+      const h = getManilaHour(lbCursor)
+      if (h >= 22 || h < 6) lateBreakNdMins++
+      lbCursor = new Date(lbCursor.getTime() + 60_000)
+    }
+    ndMins = Math.max(0, ndMins - lateBreakNdMins)
+  }
+
   const nightDiffHours = Math.round(ndMins / 60 * 100) / 100
 
+  // Clock-in tardiness
   const schedIn = parseTimeToMins(schedTimeIn)
   const schedOut = parseTimeToMins(schedTimeOut)
   const isOvernight = schedIn != null && schedOut != null && schedOut <= schedIn
@@ -57,7 +103,11 @@ function recompute(timeIn: Date, timeOut: Date, breakIn: Date | null, breakOut: 
   const actualOutMins = getManilaMinutes(timeOut)
   let normalizedIn = actualInMins
   if (isOvernight && actualInMins < (schedIn ?? 0) && actualInMins < 12 * 60) normalizedIn = actualInMins + 24 * 60
-  const lateMinutes = schedIn != null ? Math.max(0, normalizedIn - schedIn) : 0
+  const clockInLate = schedIn != null ? Math.max(0, normalizedIn - schedIn) : 0
+
+  // Total late = clock-in tardiness + late return from break
+  const lateMinutes = clockInLate + breakLateMinutes
+
   let undertimeMinutes = 0
   if (schedOut != null) {
     if (isOvernight) { if (actualOutMins < 12 * 60) undertimeMinutes = Math.max(0, schedOut - actualOutMins) }
@@ -79,11 +129,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const companyId = resolveCompanyIdForRequest(ctx, req)
   if (!companyId) return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
 
-  const record = await prisma.dTRRecord.findFirst({
-    where: { id, employee: { companyId } },
-    include: { employee: { select: { workSchedule: { select: { timeIn: true, timeOut: true } } } } },
-  })
+  const [record, company] = await Promise.all([
+    prisma.dTRRecord.findFirst({
+      where: { id, employee: { companyId } },
+      include: { employee: { select: { workSchedule: { select: { timeIn: true, timeOut: true } } } } },
+    }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { defaultBreakMinutes: true },
+    }),
+  ])
   if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+  const allowedBreakMinutes = company?.defaultBreakMinutes ?? 60
 
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
@@ -101,6 +158,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     computed = recompute(
       newTimeIn, newTimeOut, newBreakIn ?? null, newBreakOut ?? null,
       record.employee.workSchedule?.timeIn, record.employee.workSchedule?.timeOut,
+      allowedBreakMinutes,
     )
   }
 
