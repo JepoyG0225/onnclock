@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Gift, ChevronLeft, ChevronRight, CheckCircle, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface ThirteenthMonthEntry {
   id: string
@@ -34,10 +35,6 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const MONTH_KEYS = ['janBasic', 'febBasic', 'marBasic', 'aprBasic', 'mayBasic', 'junBasic',
   'julBasic', 'augBasic', 'sepBasic', 'octBasic', 'novBasic', 'decBasic'] as const
 
-function peso(n: number) {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 2 }).format(n)
-}
-
 function toDateInput(month: number, day: number, year: number): string {
   const dt = new Date(Date.UTC(year, month - 1, day))
   const y = dt.getUTCFullYear()
@@ -47,6 +44,7 @@ function toDateInput(month: number, day: number, year: number): string {
 }
 
 export default function ThirteenthMonthPage() {
+  const { fmt: peso } = useCurrency()
   const [entries, setEntries] = useState<ThirteenthMonthEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [year, setYear] = useState(new Date().getFullYear())

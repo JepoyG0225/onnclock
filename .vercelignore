@@ -1,7 +1,12 @@
 desktop-app/node_modules
 desktop-app/dist
 desktop-app/out
+desktop-app/assets
+desktop-app/build
 desktop-app-employee/node_modules
 desktop-app-employee/dist
 desktop-app-employee/out
+desktop-system-admin/node_modules
+desktop-system-admin/dist
+desktop-system-admin/out
 .claude

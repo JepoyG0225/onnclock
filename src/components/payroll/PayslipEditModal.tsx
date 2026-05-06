@@ -37,6 +37,10 @@ interface Props {
   payslip: PayslipEditData
   onClose: () => void
   onSaved: (payslipId: string, updated: { grossPay: number; totalDeductions: number; netPay: number } & Partial<PayslipEditData>) => void
+  /** Currency symbol to show in input prefix and formatted amounts (e.g. "₱", "$") */
+  currencySymbol?: string
+  /** Full formatter function (returns e.g. "₱15,000.00") */
+  formatAmount?: (n: number) => string
 }
 
 function NumberField({
@@ -44,17 +48,19 @@ function NumberField({
   value,
   onChange,
   highlight,
+  currencySymbol = '₱',
 }: {
   label: string
   value: number
   onChange: (v: number) => void
   highlight?: 'green' | 'red'
+  currencySymbol?: string
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-0">
       <label className="text-sm text-gray-600 min-w-0 flex-1">{label}</label>
       <div className="relative">
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₱</span>
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">{currencySymbol}</span>
         <input
           type="number"
           step="0.01"
@@ -74,11 +80,10 @@ function NumberField({
   )
 }
 
-function peso(n: number) {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n)
-}
-
-export function PayslipEditModal({ payslip, onClose, onSaved }: Props) {
+export function PayslipEditModal({ payslip, onClose, onSaved, currencySymbol = '₱', formatAmount }: Props) {
+  function peso(n: number) {
+    return formatAmount ? formatAmount(n) : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PHP' }).format(n)
+  }
   const [form, setForm] = useState({ ...payslip })
   const [saving, setSaving] = useState(false)
   const portalTarget = useRef<HTMLElement | null>(null)
@@ -170,13 +175,13 @@ export function PayslipEditModal({ payslip, onClose, onSaved }: Props) {
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Earnings</p>
             <div className="bg-gray-50 rounded-xl px-4 py-1">
-              <NumberField label="Basic Pay" value={form.basicSalary} onChange={v => set('basicSalary', v)} />
-              <NumberField label="Regular OT" value={form.regularOtAmount} onChange={v => set('regularOtAmount', v)} />
-              <NumberField label="Rest Day OT" value={form.restDayOtAmount} onChange={v => set('restDayOtAmount', v)} />
-              <NumberField label="Holiday OT" value={form.holidayOtAmount} onChange={v => set('holidayOtAmount', v)} />
-              <NumberField label="Night Differential" value={form.nightDiffAmount} onChange={v => set('nightDiffAmount', v)} />
-              <NumberField label="Holiday Pay" value={form.holidayPayAmount} onChange={v => set('holidayPayAmount', v)} />
-              <NumberField label="Other Earnings" value={form.otherEarnings} onChange={v => set('otherEarnings', v)} />
+              <NumberField label="Basic Pay" value={form.basicSalary} onChange={v => set('basicSalary', v)} currencySymbol={currencySymbol} />
+              <NumberField label="Regular OT" value={form.regularOtAmount} onChange={v => set('regularOtAmount', v)} currencySymbol={currencySymbol} />
+              <NumberField label="Rest Day OT" value={form.restDayOtAmount} onChange={v => set('restDayOtAmount', v)} currencySymbol={currencySymbol} />
+              <NumberField label="Holiday OT" value={form.holidayOtAmount} onChange={v => set('holidayOtAmount', v)} currencySymbol={currencySymbol} />
+              <NumberField label="Night Differential" value={form.nightDiffAmount} onChange={v => set('nightDiffAmount', v)} currencySymbol={currencySymbol} />
+              <NumberField label="Holiday Pay" value={form.holidayPayAmount} onChange={v => set('holidayPayAmount', v)} currencySymbol={currencySymbol} />
+              <NumberField label="Other Earnings" value={form.otherEarnings} onChange={v => set('otherEarnings', v)} currencySymbol={currencySymbol} />
             </div>
           </div>
 
@@ -184,14 +189,14 @@ export function PayslipEditModal({ payslip, onClose, onSaved }: Props) {
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Deductions</p>
             <div className="bg-gray-50 rounded-xl px-4 py-1">
-              <NumberField label="SSS" value={form.sssEmployee} onChange={v => set('sssEmployee', v)} highlight="red" />
-              <NumberField label="PhilHealth" value={form.philhealthEmployee} onChange={v => set('philhealthEmployee', v)} highlight="red" />
-              <NumberField label="Pag-IBIG" value={form.pagibigEmployee} onChange={v => set('pagibigEmployee', v)} highlight="red" />
-              <NumberField label="Withholding Tax" value={form.withholdingTax} onChange={v => set('withholdingTax', v)} highlight="red" />
-              <NumberField label="Late Deduction" value={form.lateDeduction} onChange={v => set('lateDeduction', v)} highlight="red" />
-              <NumberField label="Undertime Deduction" value={form.undertimeDeduction} onChange={v => set('undertimeDeduction', v)} highlight="red" />
-              <NumberField label="Absence Deduction" value={form.absenceDeduction} onChange={v => set('absenceDeduction', v)} highlight="red" />
-              <NumberField label="Other Deductions" value={form.otherDeductions} onChange={v => set('otherDeductions', v)} highlight="red" />
+              <NumberField label="SSS" value={form.sssEmployee} onChange={v => set('sssEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
+              <NumberField label="PhilHealth" value={form.philhealthEmployee} onChange={v => set('philhealthEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
+              <NumberField label="Pag-IBIG" value={form.pagibigEmployee} onChange={v => set('pagibigEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
+              <NumberField label="Withholding Tax" value={form.withholdingTax} onChange={v => set('withholdingTax', v)} highlight="red" currencySymbol={currencySymbol} />
+              <NumberField label="Late Deduction" value={form.lateDeduction} onChange={v => set('lateDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
+              <NumberField label="Undertime Deduction" value={form.undertimeDeduction} onChange={v => set('undertimeDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
+              <NumberField label="Absence Deduction" value={form.absenceDeduction} onChange={v => set('absenceDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
+              <NumberField label="Other Deductions" value={form.otherDeductions} onChange={v => set('otherDeductions', v)} highlight="red" currencySymbol={currencySymbol} />
             </div>
             {(form.sssLoanDeduction > 0 || form.pagibigLoan > 0 || form.companyLoan > 0) && (
               <p className="text-xs text-gray-400 mt-2 px-1">

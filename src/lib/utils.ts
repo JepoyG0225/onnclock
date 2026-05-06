@@ -14,7 +14,23 @@ export function peso(amount: number | string | null | undefined): string {
     currency: 'PHP',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(num)
+  }).format(isNaN(num) ? 0 : num)
+}
+
+/** Format number as currency using an ISO 4217 currency code (e.g. "PHP", "USD", "SGD") */
+export function formatCurrency(
+  amount: number | string | null | undefined,
+  currency = 'PHP',
+): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) : (amount ?? 0)
+  const safeNum = isNaN(num) ? 0 : num
+  // Use a neutral locale so we always get a symbol prefix (e.g. $ / ₱ / S$)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency || 'PHP',
+    minimumFractionDigits: currency === 'JPY' ? 0 : 2,
+    maximumFractionDigits: currency === 'JPY' ? 0 : 2,
+  }).format(safeNum)
 }
 
 /** Format number with commas */

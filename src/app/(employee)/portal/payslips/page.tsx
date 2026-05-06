@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { CreditCard, Download, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface Payslip {
   id: string
@@ -44,11 +45,8 @@ interface Payslip {
   }
 }
 
-function peso(n: number) {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n)
-}
-
 export default function PayslipsPage() {
+  const { fmt: peso } = useCurrency()
   const [payslips, setPayslips] = useState<Payslip[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Payslip | null>(null)

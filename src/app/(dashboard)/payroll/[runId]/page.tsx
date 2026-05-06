@@ -7,14 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ComputePayrollButton } from '@/components/payroll/ComputePayrollButton'
 import PayrollActionButtons from '@/components/payroll/PayrollActionButtons'
 import { PayrollRunPayslips } from '@/components/payroll/PayrollRunPayslips'
-import { formatDate, getStatusColor } from '@/lib/utils'
+import { formatDate, getStatusColor, formatCurrency } from '@/lib/utils'
 import {Users, TrendingDown} from 'lucide-react'
 import { PesoIcon } from '@/components/ui/PesoIcon'
-
-function peso(n: number | { toNumber: () => number }) {
-  const v = typeof n === 'number' ? n : n.toNumber()
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(v)
-}
 
 export default async function PayrollRunPage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
@@ -24,10 +19,13 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
   const companyId = await resolveEffectiveCompanyId(session.user)
   if (!companyId) redirect('/login')
 
-  const run = await prisma.payrollRun.findFirst({
-    where: { id: runId, companyId },
-  })
+  const [run, company] = await Promise.all([
+    prisma.payrollRun.findFirst({ where: { id: runId, companyId } }),
+    prisma.company.findUnique({ where: { id: companyId }, select: { payrollCurrency: true } }),
+  ])
   if (!run) redirect('/payroll')
+  const currency = company?.payrollCurrency ?? 'PHP'
+  const peso = (n: number | { toNumber: () => number }) => formatCurrency(typeof n === 'number' ? n : n.toNumber(), currency)
 
   const approvers = await prisma.approverConfig.findMany({
     where: { companyId, type: 'PAYROLL' },

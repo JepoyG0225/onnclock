@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {User, Briefcase, FileText, CreditCard, Settings} from 'lucide-react'
-import { peso } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { format } from 'date-fns'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { EmployeePortalAccess } from '@/components/employees/EmployeePortalAccess'
@@ -25,7 +25,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   const companyId = await resolveEffectiveCompanyId(session.user)
   if (!companyId) redirect('/login')
 
-  const employee = await prisma.employee.findFirst({
+  const [employee, company] = await Promise.all([
+   prisma.employee.findFirst({
     where: { id, companyId },
     include: {
       department: { select: { name: true } },
@@ -47,9 +48,13 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         },
       },
     },
-  })
+   }),
+   prisma.company.findUnique({ where: { id: companyId }, select: { payrollCurrency: true } }),
+  ])
 
   if (!employee) return notFound()
+  const currency = company?.payrollCurrency ?? 'PHP'
+  const fmt = (n: number | string | null | undefined) => formatCurrency(n, currency)
 
   const initials = `${employee.firstName[0]}${employee.lastName[0]}`
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -240,9 +245,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             <CardContent className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
               {[
                 ['Rate Type', employee.rateType],
-                ['Basic Salary (Monthly)', peso(Number(employee.basicSalary))],
-                ['Daily Rate', peso(Number(employee.dailyRate ?? 0) || Number(employee.basicSalary) / 22)],
-                ['Hourly Rate', peso(Number(employee.hourlyRate ?? 0) || Number(employee.basicSalary) / 22 / 8)],
+                ['Basic Salary (Monthly)', fmt(Number(employee.basicSalary))],
+                ['Daily Rate', fmt(Number(employee.dailyRate ?? 0) || Number(employee.basicSalary) / 22)],
+                ['Hourly Rate', fmt(Number(employee.hourlyRate ?? 0) || Number(employee.basicSalary) / 22 / 8)],
                 ['Minimum Wage Earner', employee.isMinimumWageEarner ? 'Yes' : 'No'],
                 ['Exempt from Tax', employee.isExemptFromTax ? 'Yes' : 'No'],
                 ['Track Time (DTR-Based Pay)', employee.trackTime ? 'Yes' : 'No'],
@@ -337,9 +342,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                             : '—'
                           }
                         </td>
-                        <td className="p-3 text-right">{peso(Number(ps.grossPay))}</td>
-                        <td className="p-3 text-right text-red-600">{peso(Number(ps.totalDeductions))}</td>
-                        <td className="p-3 text-right font-bold text-green-700">{peso(Number(ps.netPay))}</td>
+                        <td className="p-3 text-right">{fmt(Number(ps.grossPay))}</td>
+                        <td className="p-3 text-right text-red-600">{fmt(Number(ps.totalDeductions))}</td>
+                        <td className="p-3 text-right font-bold text-green-700">{fmt(Number(ps.netPay))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -373,9 +378,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                         <td className="p-3">
                           <Badge className="text-xs">{l.loanType}</Badge>
                         </td>
-                        <td className="p-3 text-right">{peso(Number(l.principalAmount))}</td>
-                        <td className="p-3 text-right text-red-600 font-medium">{peso(Number(l.balance))}</td>
-                        <td className="p-3 text-right">{peso(Number(l.monthlyAmortization))}</td>
+                        <td className="p-3 text-right">{fmt(Number(l.principalAmount))}</td>
+                        <td className="p-3 text-right text-red-600 font-medium">{fmt(Number(l.balance))}</td>
+                        <td className="p-3 text-right">{fmt(Number(l.monthlyAmortization))}</td>
                         <td className="p-3 text-xs">{format(new Date(l.startDate), 'MMM yyyy')}</td>
                       </tr>
                     ))}

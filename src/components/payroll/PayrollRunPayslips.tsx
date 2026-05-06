@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
-import { peso } from '@/lib/utils'
+import { useCurrency } from '@/hooks/useCurrency'
 import { PayslipEditModal, PayslipEditData } from './PayslipEditModal'
 
 export interface PayslipRow {
@@ -52,6 +52,7 @@ interface Props {
 export function PayrollRunPayslips({ payslips: initial, runStatus }: Props) {
   const [payslips, setPayslips] = useState<PayslipRow[]>(initial)
   const [editing, setEditing] = useState<PayslipEditData | null>(null)
+  const { fmt: peso, symbol } = useCurrency()
 
   const canEdit = runStatus === 'COMPUTED' || runStatus === 'DRAFT' || runStatus === 'FOR_APPROVAL'
 
@@ -249,6 +250,8 @@ export function PayrollRunPayslips({ payslips: initial, runStatus }: Props) {
           payslip={editing}
           onClose={() => setEditing(null)}
           onSaved={handleSaved}
+          currencySymbol={symbol()}
+          formatAmount={peso}
         />
       )}
     </>

@@ -8,7 +8,7 @@ const getSession = cache(auth)
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Users, CalendarDays, TrendingUp, AlertCircle, UserCheck, Cake, PlaneTakeoff } from 'lucide-react'
-import { peso } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 
 type BirthdayEmployee = {
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
     const result = await prisma.$transaction([
       prisma.company.findUnique({
         where: { id: companyId },
-        select: { name: true },
+        select: { name: true, payrollCurrency: true },
       }),
       prisma.employee.count({ where: { companyId } }),
       prisma.employee.count({ where: { companyId, isActive: true } }),
@@ -110,6 +110,7 @@ export default async function DashboardPage() {
     ])
 
     company = result[0]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     totalEmployees = result[1]
     activeEmployees = result[2]
     pendingLeaves = result[3]
@@ -121,6 +122,10 @@ export default async function DashboardPage() {
   } catch (error) {
     console.error('Dashboard load failed', error)
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currency = (company as any)?.payrollCurrency ?? 'PHP'
+  const peso = (n: number | string | null | undefined) => formatCurrency(n, currency)
 
   if (!company) {
     return (
