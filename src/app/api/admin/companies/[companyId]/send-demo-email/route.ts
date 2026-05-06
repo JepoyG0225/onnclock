@@ -24,18 +24,23 @@ export async function POST(
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
   if (!company.email) return NextResponse.json({ error: 'Company has no email address' }, { status: 400 })
 
-  await sendDemoOutreachEmail({
-    to: company.email,
-    companyName: company.name,
-    demoBookingUrl,
-  })
+  try {
+    await sendDemoOutreachEmail({
+      to: company.email,
+      companyName: company.name,
+      demoBookingUrl,
+    })
+  } catch (err) {
+    console.error('[send-demo-email] SMTP error for company', companyId, company.email, err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed to send email — check SMTP configuration' },
+      { status: 502 }
+    )
+  }
 
   const updated = await prisma.company.update({
     where: { id: companyId },
-    data: {
-      demoStatus: 'EMAIL_SENT',
-      demoEmailSentAt: new Date(),
-    },
+    data: { demoStatus: 'EMAIL_SENT', demoEmailSentAt: new Date() },
     select: { id: true, demoStatus: true, demoEmailSentAt: true },
   })
 

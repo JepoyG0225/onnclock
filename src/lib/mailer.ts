@@ -1,14 +1,24 @@
 import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
 
+const smtpHost = process.env.SMTP_HOST || 'smtp.hostinger.com'
+const smtpPort = Number(process.env.SMTP_PORT) || 465
+const smtpUser = process.env.SMTP_USER
+const smtpPass = process.env.SMTP_PASS
+
+// Diagnostic log — visible in Vercel/server logs on cold start
+console.log('[mailer] SMTP config:', {
+  host: smtpHost,
+  port: smtpPort,
+  user: smtpUser ? `${smtpUser.slice(0, 4)}***` : '(NOT SET)',
+  pass: smtpPass ? '(set)' : '(NOT SET)',
+})
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: (Number(process.env.SMTP_PORT) || 465) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpPort === 465,
+  auth: { user: smtpUser, pass: smtpPass },
 })
 
 function buildFromIdentity(options?: { senderEmail?: string | null; senderName?: string | null }) {
@@ -150,8 +160,9 @@ export async function sendSubscriptionExpiryNotice({
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   const from = buildFromIdentity()
+  console.log('[mailer] sendPasswordResetEmail → to:', to)
 
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from,
     to,
     subject: 'Reset your Onclock password',
@@ -180,6 +191,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     `,
     text: `Reset your Onclock password\n\nClick the link below to reset your password (expires in 1 hour):\n\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
   })
+  console.log('[mailer] sendPasswordResetEmail ✓ messageId:', info.messageId)
 }
 
 export async function sendExpiredTrialNotice({
@@ -252,7 +264,8 @@ export async function sendDemoOutreachEmail({
   const bookingLink = demoBookingUrl ?? 'https://onclockph.com/demo'
   const loginUrl = `${appUrl}/login`
 
-  await transporter.sendMail({
+  console.log('[mailer] sendDemoOutreachEmail → to:', to, '| cc: sales@nexdevsystems.io')
+  const info = await transporter.sendMail({
     from,
     to,
     cc: 'sales@nexdevsystems.io',
@@ -309,6 +322,7 @@ export async function sendDemoOutreachEmail({
       </div>
     `,
   })
+  console.log('[mailer] sendDemoOutreachEmail ✓ messageId:', info.messageId)
 }
 
 export async function sendRecruitmentStageEmail({

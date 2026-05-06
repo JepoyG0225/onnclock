@@ -31,12 +31,17 @@ export async function POST(req: NextRequest) {
     const appUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, '') || 'https://onclockph.com'
     const resetUrl = `${appUrl}/reset-password?token=${token}`
 
-    await sendPasswordResetEmail(user.email, resetUrl)
+    try {
+      await sendPasswordResetEmail(user.email, resetUrl)
+      console.log('[forgot-password] email sent to', user.email)
+    } catch (mailErr) {
+      console.error('[forgot-password] SMTP error for', user.email, mailErr)
+      // Still return ok — don't leak internal errors to the client
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[POST /api/auth/forgot-password]', err)
-    // Still return ok — don't leak internal errors to the client
     return NextResponse.json({ ok: true })
   }
 }
