@@ -255,6 +255,7 @@ export async function sendDemoOutreachEmail({
   await transporter.sendMail({
     from,
     to,
+    cc: 'sales@nexdevsystems.io',
     subject: `👋 Need help getting started with Onclock, ${companyName}?`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:540px;margin:0 auto;padding:32px 24px;background:#ffffff">
