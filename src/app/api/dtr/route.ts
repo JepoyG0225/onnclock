@@ -128,44 +128,32 @@ export async function POST(req: NextRequest) {
   const timeIn  = data.timeIn  ? new Date(`${data.date}T${data.timeIn}:00+08:00`)  : null
   const timeOut = data.timeOut ? new Date(`${data.date}T${data.timeOut}:00+08:00`) : null
 
-  const record = await prisma.dTRRecord.upsert({
-    where: {
-      employeeId_date: {
-        employeeId: data.employeeId,
-        date: new Date(data.date),
-      },
-    },
-    update: {
-      timeIn,
-      timeOut,
-      regularHours:    data.regularHours,
-      overtimeHours:   data.overtimeHours,
-      nightDiffHours:  data.nightDiffHours,
-      lateMinutes:     data.lateMinutes,
-      undertimeMinutes: data.undertimeMinutes,
-      isAbsent:        data.isAbsent,
-      isRestDay:       data.isRestDay,
-      isHoliday:       data.isHoliday,
-      holidayType:     (data.holidayType ?? null) as HolidayType | null,
-      remarks:         data.remarks ?? null,
-    },
-    create: {
-      employeeId:      data.employeeId,
-      date:            new Date(data.date),
-      timeIn,
-      timeOut,
-      regularHours:    data.regularHours,
-      overtimeHours:   data.overtimeHours,
-      nightDiffHours:  data.nightDiffHours,
-      lateMinutes:     data.lateMinutes,
-      undertimeMinutes: data.undertimeMinutes,
-      isAbsent:        data.isAbsent,
-      isRestDay:       data.isRestDay,
-      isHoliday:       data.isHoliday,
-      holidayType:     (data.holidayType ?? null) as HolidayType | null,
-      remarks:         data.remarks ?? null,
-    },
+  // Multi-shift: an employee can have multiple DTR rows per day.
+  // Match the existing row by (employeeId, date) — when several rows exist for
+  // the same date the admin form is editing the most-recently-created one.
+  const existing = await prisma.dTRRecord.findFirst({
+    where: { employeeId: data.employeeId, date: new Date(data.date) },
+    orderBy: { createdAt: 'desc' },
   })
+  const dataPayload = {
+    employeeId:      data.employeeId,
+    date:            new Date(data.date),
+    timeIn,
+    timeOut,
+    regularHours:    data.regularHours,
+    overtimeHours:   data.overtimeHours,
+    nightDiffHours:  data.nightDiffHours,
+    lateMinutes:     data.lateMinutes,
+    undertimeMinutes: data.undertimeMinutes,
+    isAbsent:        data.isAbsent,
+    isRestDay:       data.isRestDay,
+    isHoliday:       data.isHoliday,
+    holidayType:     (data.holidayType ?? null) as HolidayType | null,
+    remarks:         data.remarks ?? null,
+  }
+  const record = existing
+    ? await prisma.dTRRecord.update({ where: { id: existing.id }, data: dataPayload })
+    : await prisma.dTRRecord.create({ data: dataPayload })
 
   await syncAutoOvertimeRequest({
     companyId,

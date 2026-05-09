@@ -226,8 +226,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: dayEligibility.message }, { status: 403 })
   }
 
-  // Block new clock-in if there is an active (not yet clocked out) attendance record,
-  // including overnight shifts that started on the previous date.
+  // Block new clock-in only if there is an active (not yet clocked out) shift.
+  // Multi-shift per day is supported: completed DTR rows for the same date no
+  // longer block the next clock-in (one row per shift).
   const activeOpenRecord = await prisma.dTRRecord.findFirst({
     where: { employeeId: employee.id, timeIn: { not: null }, timeOut: null },
     orderBy: { timeIn: 'desc' },
@@ -236,41 +237,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'You still have an active shift. Please clock out first.' }, { status: 409 })
   }
 
+  // One-time correction: if today's most recent record is a closed overnight
+  // shift wrongly saved under today's date (an artifact from a prior bug),
+  // move it back to the previous day so it doesn't get confused with the
+  // fresh shift the employee is starting now.
   const existingToday = await prisma.dTRRecord.findFirst({
-    where: { employeeId: employee.id, date: manilaDate },
+    where: { employeeId: employee.id, date: manilaDate, timeIn: { not: null }, timeOut: { not: null } },
+    orderBy: { timeIn: 'desc' },
   })
-
-  if (existingToday?.timeIn && existingToday.timeOut) {
-    // One-time correction for overnight records previously saved under the wrong date.
-    if (
-      hasOvernightFixedSchedule &&
-      !shouldUsePreviousDayForNightShift &&
-      scheduleTimeOutMins != null &&
-      scheduleTimeInMins != null &&
-      nowManilaMins >= scheduleTimeInMins
-    ) {
-      const existingTimeInMins = getManilaMinutes(existingToday.timeIn)
-      const looksLikeAfterMidnightShift = existingTimeInMins <= Math.min(24 * 60 - 1, scheduleTimeOutMins + 6 * 60)
-      if (looksLikeAfterMidnightShift) {
-        const previousDayDate = new Date(manilaDate)
-        previousDayDate.setDate(previousDayDate.getDate() - 1)
-        const previousDayRecord = await prisma.dTRRecord.findFirst({
-          where: { employeeId: employee.id, date: previousDayDate },
+  if (
+    existingToday?.timeIn &&
+    existingToday.timeOut &&
+    hasOvernightFixedSchedule &&
+    !shouldUsePreviousDayForNightShift &&
+    scheduleTimeOutMins != null &&
+    scheduleTimeInMins != null &&
+    nowManilaMins >= scheduleTimeInMins
+  ) {
+    const existingTimeInMins = getManilaMinutes(existingToday.timeIn)
+    const looksLikeAfterMidnightShift = existingTimeInMins <= Math.min(24 * 60 - 1, scheduleTimeOutMins + 6 * 60)
+    if (looksLikeAfterMidnightShift) {
+      const previousDayDate = new Date(manilaDate)
+      previousDayDate.setDate(previousDayDate.getDate() - 1)
+      const previousDayRecord = await prisma.dTRRecord.findFirst({
+        where: { employeeId: employee.id, date: previousDayDate },
+      })
+      if (!previousDayRecord) {
+        await prisma.dTRRecord.update({
+          where: { id: existingToday.id },
+          data: { date: previousDayDate },
         })
-        if (!previousDayRecord) {
-          await prisma.dTRRecord.update({
-            where: { id: existingToday.id },
-            data: { date: previousDayDate },
-          })
-        }
       }
-    }
-
-    const freshConflictCheck = await prisma.dTRRecord.findFirst({
-      where: { employeeId: employee.id, date: manilaDate, timeIn: { not: null } },
-    })
-    if (freshConflictCheck) {
-      return NextResponse.json({ error: 'Already clocked in today' }, { status: 409 })
     }
   }
 

@@ -127,23 +127,22 @@ export async function POST(
       })
       const existingMap = new Map(existing.map(r => [r.date.toISOString().split('T')[0], r]))
 
+      // Multi-shift: an employee can have multiple DTR rows per day. We update
+      // ALL existing rows for that date so the leave flag is reflected on every
+      // shift, and only create a fresh row when none exists for that date.
       for (const d of dates) {
         const key = d.toISOString().split('T')[0]
         const prev = existingMap.get(key)
         if (prev && (prev.timeIn || prev.timeOut)) continue
 
-        await tx.dTRRecord.upsert({
-          where: { employeeId_date: { employeeId: leaveRequest.employeeId, date: d } },
-          update: {
-            isLeave: true,
-            isLeavePaid: !!leaveRequest.leaveType?.isWithPay,
-            isAbsent: false,
-            remarks: leaveRequest.leaveType?.name ? `Leave - ${leaveRequest.leaveType.name}` : 'Leave',
-            leaveRequestId: leaveRequest.id,
-          },
-          create: {
+        const updateRes = await tx.dTRRecord.updateMany({
+          where: {
             employeeId: leaveRequest.employeeId,
             date: d,
+            timeIn: null,
+            timeOut: null,
+          },
+          data: {
             isLeave: true,
             isLeavePaid: !!leaveRequest.leaveType?.isWithPay,
             isAbsent: false,
@@ -151,6 +150,19 @@ export async function POST(
             leaveRequestId: leaveRequest.id,
           },
         })
+        if (updateRes.count === 0) {
+          await tx.dTRRecord.create({
+            data: {
+              employeeId: leaveRequest.employeeId,
+              date: d,
+              isLeave: true,
+              isLeavePaid: !!leaveRequest.leaveType?.isWithPay,
+              isAbsent: false,
+              remarks: leaveRequest.leaveType?.name ? `Leave - ${leaveRequest.leaveType.name}` : 'Leave',
+              leaveRequestId: leaveRequest.id,
+            },
+          })
+        }
       }
     } else if (action === 'reject') {
       // Restore pending balance on reject

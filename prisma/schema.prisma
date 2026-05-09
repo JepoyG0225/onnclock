@@ -738,7 +738,8 @@ model DTRRecord {
   locationPings  LocationPing[]
   screenCaptures AttendanceScreenshot[]
 
-  @@unique([employeeId, date])
+  // Multi-shift support: an employee can have multiple DTR rows per date
+  // (one per shift assignment). Removed the previous @@unique([employeeId, date]).
   @@index([employeeId, approvedBy])
   @@index([employeeId, date])
   @@index([employeeId, timeOut])
