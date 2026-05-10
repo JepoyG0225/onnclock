@@ -57,8 +57,18 @@ function recompute(
   const effectiveBreakMins = Math.min(actualBreakMins, allowedBreakMinutes)
 
   const worked = Math.max(0, totalMins - effectiveBreakMins)
-  const regularHours = Math.round(Math.min(worked, 480) / 60 * 100) / 100
-  const overtimeHours = Math.round(Math.max(0, worked - 480) / 60 * 100) / 100
+  // Cap regular hours at the planned shift duration (defaults to 8h if no schedule).
+  // E.g. a planned 16h shift counts the full 16h as regular; OT only beyond that.
+  const schedInMinsForCap = parseTimeToMins(schedTimeIn)
+  const schedOutMinsForCap = parseTimeToMins(schedTimeOut)
+  let plannedRegularMins = 480
+  if (schedInMinsForCap != null && schedOutMinsForCap != null) {
+    let span = schedOutMinsForCap - schedInMinsForCap
+    if (span <= 0) span += 24 * 60 // overnight
+    if (span > 0) plannedRegularMins = Math.min(span, MAX)
+  }
+  const regularHours = Math.round(Math.min(worked, plannedRegularMins) / 60 * 100) / 100
+  const overtimeHours = Math.round(Math.max(0, worked - plannedRegularMins) / 60 * 100) / 100
 
   // Night differential: iterate minute-by-minute, skipping the entire break
   // window (including late-break portion) so unauthorised break time never

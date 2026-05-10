@@ -45,7 +45,31 @@ function parseTimeToMinutes(value: string | null | undefined): number | null {
   return Number(m[1]) * 60 + Number(m[2])
 }
 
-function computeHours(timeIn: Date, timeOut: Date, breakIn: Date | null, breakOut: Date | null) {
+/**
+ * Convert a planned shift's "HH:MM" → "HH:MM" into total minutes.
+ * Handles overnight shifts (e.g. 20:00 → 12:00 next day = 16 hours).
+ */
+function plannedShiftMinutes(
+  timeInStr?: string | null,
+  timeOutStr?: string | null,
+): number | null {
+  if (!timeInStr || !timeOutStr) return null
+  const [inH, inM] = timeInStr.split(':').map(Number)
+  const [outH, outM] = timeOutStr.split(':').map(Number)
+  if ([inH, inM, outH, outM].some((n) => Number.isNaN(n))) return null
+  const inMins = inH * 60 + inM
+  let outMins = outH * 60 + outM
+  if (outMins <= inMins) outMins += 24 * 60
+  return outMins - inMins
+}
+
+function computeHours(
+  timeIn: Date,
+  timeOut: Date,
+  breakIn: Date | null,
+  breakOut: Date | null,
+  scheduledRegularMinutes: number = 8 * 60,
+) {
   const MAX_SHIFT_MINUTES = 24 * 60
   const totalMinutes = Math.min(differenceInMinutes(timeOut, timeIn), MAX_SHIFT_MINUTES)
   const effectiveTimeOut = new Date(timeIn.getTime() + totalMinutes * 60_000)
@@ -57,8 +81,11 @@ function computeHours(timeIn: Date, timeOut: Date, breakIn: Date | null, breakOu
         ))
       : 0
   const workedMinutes = Math.max(0, totalMinutes - breakMinutes)
-  const regularMinutes = Math.min(workedMinutes, 8 * 60)
-  const overtimeMinutes = Math.max(0, workedMinutes - 8 * 60)
+  // Cap regular hours at the planned shift duration (defaults to 8h if no schedule).
+  // E.g. a planned 16h shift counts the full 16h as regular; OT only beyond that.
+  const regularCap = Math.max(1, Math.min(scheduledRegularMinutes, MAX_SHIFT_MINUTES))
+  const regularMinutes = Math.min(workedMinutes, regularCap)
+  const overtimeMinutes = Math.max(0, workedMinutes - regularCap)
 
   let nightDiffMinutes = 0
   let cursor = new Date(timeIn)
@@ -162,13 +189,7 @@ export async function POST(req: NextRequest) {
     const effectiveBreakIn = existing.breakIn ?? null
     const effectiveBreakOut = existing.breakIn ? (existing.breakOut ?? now) : null
 
-    const { regularHours, overtimeHours, nightDiffHours } = computeHours(
-      existing.timeIn!,
-      now,
-      effectiveBreakIn,
-      effectiveBreakOut,
-    )
-
+    // Resolve schedule first so the planned shift duration can cap regular hours.
     let scheduleTimeIn = employee.workSchedule?.timeIn
     let scheduleTimeOut = employee.workSchedule?.timeOut
     if (!employee.workScheduleId && existing.date) {
@@ -188,6 +209,16 @@ export async function POST(req: NextRequest) {
         scheduleTimeOut = a.timeOut ?? a.schedTimeOut ?? scheduleTimeOut
       }
     }
+
+    const plannedRegularMins = plannedShiftMinutes(scheduleTimeIn, scheduleTimeOut) ?? 8 * 60
+
+    const { regularHours, overtimeHours, nightDiffHours } = computeHours(
+      existing.timeIn!,
+      now,
+      effectiveBreakIn,
+      effectiveBreakOut,
+      plannedRegularMins,
+    )
 
     const { lateMinutes, undertimeMinutes } = computeLateAndUndertime(
       existing.timeIn!,

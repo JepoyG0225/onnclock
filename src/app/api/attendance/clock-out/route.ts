@@ -127,11 +127,36 @@ function getManilaHour(date: Date): number {
   return Number(parts.find(p => p.type === 'hour')?.value ?? '0')
 }
 
+/**
+ * Convert a planned shift's "HH:MM" → "HH:MM" into total minutes.
+ * Handles overnight shifts (e.g. 20:00 → 12:00 next day = 16 hours).
+ * Returns null if either side is missing/malformed.
+ */
+function plannedShiftMinutes(
+  timeInStr?: string | null,
+  timeOutStr?: string | null,
+): number | null {
+  if (!timeInStr || !timeOutStr) return null
+  const [inH, inM] = timeInStr.split(':').map(Number)
+  const [outH, outM] = timeOutStr.split(':').map(Number)
+  if ([inH, inM, outH, outM].some((n) => Number.isNaN(n))) return null
+  const inMins = inH * 60 + inM
+  let outMins = outH * 60 + outM
+  if (outMins <= inMins) outMins += 24 * 60 // crosses midnight
+  return outMins - inMins
+}
+
 function computeHours(
   timeIn: Date,
   timeOut: Date,
   breakIn: Date | null = null,
   breakOut: Date | null = null,
+  /**
+   * Planned regular-hours cap in minutes (e.g. 16h shift → 960).
+   * Anything worked beyond this counts as overtime.
+   * Defaults to 8h (480) when no scheduled duration is available.
+   */
+  scheduledRegularMinutes: number = 8 * 60,
 ) {
   // Cap shift to 24 h max so unclosed/corrupted records don't produce absurd values.
   const MAX_SHIFT_MINUTES = 24 * 60
@@ -150,8 +175,11 @@ function computeHours(
       : 0
 
   const workedMinutes = Math.max(0, totalMinutes - breakMinutes)
-  const regularMinutes = Math.min(workedMinutes, 8 * 60)
-  const overtimeMinutes = Math.max(0, workedMinutes - 8 * 60)
+  // Cap regular hours at the planned shift duration (defaults to 8h if no schedule).
+  // E.g. a planned 16h shift counts the full 16h as regular; OT only beyond that.
+  const regularCap = Math.max(1, Math.min(scheduledRegularMinutes, MAX_SHIFT_MINUTES))
+  const regularMinutes = Math.min(workedMinutes, regularCap)
+  const overtimeMinutes = Math.max(0, workedMinutes - regularCap)
 
   // Night differential: 10PM–6AM Manila time only.
   // Break time is excluded — employees don't earn ND pay while on break.
@@ -286,14 +314,8 @@ export async function POST(req: NextRequest) {
     effectiveBreakOut = existing.breakOut ?? now
     breakOutTime = existing.breakOut ?? now
   }
-  const { regularHours, overtimeHours, nightDiffHours } = computeHours(
-    existing.timeIn,
-    now,
-    effectiveBreakIn,
-    effectiveBreakOut,
-  )
-
-  // Resolve the employee's scheduled start/end times.
+  // Resolve the employee's scheduled start/end times BEFORE computing hours,
+  // so the planned shift duration can be used as the regular-hours cap.
   // Fixed-schedule employees: use workSchedule directly.
   // Flex employees: look up their shift assignment for the DTR record date.
   let scheduleTimeIn: string | null | undefined = employee.workSchedule?.timeIn
@@ -323,6 +345,17 @@ export async function POST(req: NextRequest) {
       scheduleTimeOut = a.timeOut ?? a.schedTimeOut ?? scheduleTimeOut
     }
   }
+
+  // Planned shift duration (e.g. 16h for a 20:00→12:00 shift). Falls back to 8h.
+  const plannedRegularMins = plannedShiftMinutes(scheduleTimeIn, scheduleTimeOut) ?? 8 * 60
+
+  const { regularHours, overtimeHours, nightDiffHours } = computeHours(
+    existing.timeIn,
+    now,
+    effectiveBreakIn,
+    effectiveBreakOut,
+    plannedRegularMins,
+  )
 
   const { lateMinutes: baseLateMinutes, undertimeMinutes } = computeLateAndUndertime(
     existing.timeIn,
