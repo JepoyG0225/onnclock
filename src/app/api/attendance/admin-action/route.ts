@@ -193,6 +193,7 @@ export async function POST(req: NextRequest) {
     let scheduleTimeIn = employee.workSchedule?.timeIn
     let scheduleTimeOut = employee.workSchedule?.timeOut
     if (!employee.workScheduleId && existing.date) {
+      // Multi-shift safe: pick the assignment whose start is closest to actual clock-in.
       const rows = await prisma.$queryRaw<Array<{
         timeIn: string | null; timeOut: string | null
         schedTimeIn: string | null; schedTimeOut: string | null
@@ -201,12 +202,21 @@ export async function POST(req: NextRequest) {
         FROM "employee_shift_assignments" esa
         LEFT JOIN "work_schedules" ws ON ws.id = esa."scheduleId"
         WHERE esa."employeeId" = ${employee.id} AND esa."date" = ${existing.date}
-        LIMIT 1
       `
-      const a = rows[0]
-      if (a) {
-        scheduleTimeIn = a.timeIn ?? a.schedTimeIn ?? scheduleTimeIn
-        scheduleTimeOut = a.timeOut ?? a.schedTimeOut ?? scheduleTimeOut
+      if (rows.length > 0) {
+        const actualInPhtMins = getManilaMinutes(existing.timeIn!)
+        let best: typeof rows[number] | null = null
+        let bestDistance = Infinity
+        for (const r of rows) {
+          const planMins = parseTimeToMinutes(r.timeIn ?? r.schedTimeIn)
+          if (planMins == null) continue
+          const raw = Math.abs(planMins - actualInPhtMins)
+          const dist = Math.min(raw, 24 * 60 - raw)
+          if (dist < bestDistance) { bestDistance = dist; best = r }
+        }
+        const chosen = best ?? rows[0]
+        scheduleTimeIn = chosen.timeIn ?? chosen.schedTimeIn ?? scheduleTimeIn
+        scheduleTimeOut = chosen.timeOut ?? chosen.schedTimeOut ?? scheduleTimeOut
       }
     }
 

@@ -322,6 +322,10 @@ export async function POST(req: NextRequest) {
   let scheduleTimeOut: string | null | undefined = employee.workSchedule?.timeOut
 
   if (!employee.workScheduleId && existing.date) {
+    // Multi-shift safe: fetch ALL assignments for that date and pick the one
+    // whose planned start time is closest to the actual clock-in (in PHT).
+    // Without this, a day with two assignments (e.g. 04:00→12:00 and 20:00→12:00)
+    // would always match the first row, producing wrong hour caps + late minutes.
     const rows = await prisma.$queryRaw<Array<{
       timeIn: string | null
       timeOut: string | null
@@ -337,12 +341,22 @@ export async function POST(req: NextRequest) {
       LEFT JOIN "work_schedules" ws ON ws.id = esa."scheduleId"
       WHERE esa."employeeId" = ${employee.id}
         AND esa."date" = ${existing.date}
-      LIMIT 1
     `
-    const a = rows[0]
-    if (a) {
-      scheduleTimeIn  = a.timeIn  ?? a.schedTimeIn  ?? scheduleTimeIn
-      scheduleTimeOut = a.timeOut ?? a.schedTimeOut ?? scheduleTimeOut
+    if (rows.length > 0) {
+      const actualInPhtMins = getManilaMinutes(existing.timeIn)
+      let best: typeof rows[number] | null = null
+      let bestDistance = Infinity
+      for (const r of rows) {
+        const planMins = parseTimeToMinutes(r.timeIn ?? r.schedTimeIn)
+        if (planMins == null) continue
+        // Circular distance on a 24h clock so 23:00 vs 01:00 = 2h, not 22h.
+        const raw = Math.abs(planMins - actualInPhtMins)
+        const dist = Math.min(raw, 24 * 60 - raw)
+        if (dist < bestDistance) { bestDistance = dist; best = r }
+      }
+      const chosen = best ?? rows[0]
+      scheduleTimeIn  = chosen.timeIn  ?? chosen.schedTimeIn  ?? scheduleTimeIn
+      scheduleTimeOut = chosen.timeOut ?? chosen.schedTimeOut ?? scheduleTimeOut
     }
   }
 
