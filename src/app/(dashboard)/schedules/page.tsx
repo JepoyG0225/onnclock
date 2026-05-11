@@ -930,7 +930,7 @@ function FlexibleScheduleTab({
                             {/* FIXED template fallback (no saved assignment yet) */}
                             {showTemplateFallback && (
                               <div
-                                className="rounded-lg px-2 py-1.5 cursor-pointer text-center"
+                                className="rounded-lg pl-2 pr-5 py-1.5 cursor-pointer text-center relative"
                                 style={
                                   !templateIsWorkDay
                                     ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
@@ -950,6 +950,25 @@ function FlexibleScheduleTab({
                                     {fmt12(fixedTemplate?.timeIn)} - {fmt12(fixedTemplate?.timeOut)}
                                   </p>
                                 )}
+                                {/* X removes the template fallback by saving an explicit rest-day record */}
+                                <button
+                                  type="button"
+                                  aria-label="Mark as rest day"
+                                  title="Mark as rest day (overrides default schedule)"
+                                  className="absolute top-0.5 right-0.5 flex w-5 h-5 rounded-full bg-red-500 text-white items-center justify-center shadow-sm ring-1 ring-white opacity-70 hover:opacity-100 hover:bg-red-600 transition"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    upsertAssignment({
+                                      employeeId: emp.id,
+                                      date: ds,
+                                      mode: 'FIXED',
+                                      scheduleId: null,
+                                      isRestDay: true,
+                                    })
+                                  }}
+                                >
+                                  <X className="w-3 h-3" strokeWidth={3} />
+                                </button>
                               </div>
                             )}
 
