@@ -205,6 +205,17 @@ export default function DTRPage() {
   const [deleteInput, setDeleteInput] = useState('')
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [approvingAll, setApprovingAll] = useState(false)
+  // OT pay toggle from payroll settings — controls whether the merged-approval
+  // popup asks "approve OT too?". Defaults to true to match payroll compute.
+  const [overtimePayEnabled, setOvertimePayEnabled] = useState(true)
+  // Pending approval awaiting confirmation. When set, the OT-confirmation
+  // modal is rendered. The handler then re-dispatches with approveOvertime.
+  const [pendingApproval, setPendingApproval] = useState<
+    | { kind: 'single'; id: string; otHours: number; regularHours: number }
+    | { kind: 'employee-week'; group: WeeklyGroup }
+    | { kind: 'all'; otHours: number; regularHours: number; recordCount: number }
+    | null
+  >(null)
   const [editRecord, setEditRecord] = useState<DTRRecord | null>(null)
   const [editForm, setEditForm] = useState({ timeIn: '', timeOut: '', breakIn: '', breakOut: '', remarks: '' })
   const [editSaving, setEditSaving] = useState(false)
@@ -345,6 +356,23 @@ export default function DTRPage() {
     void loadEmployees()
   }, [isSystemAdmin, selectedCompanyId, withCompanyQuery])
 
+  // Load OT-pay setting once per company. Drives whether the merged-approval
+  // popup asks about OT.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(withCompanyQuery('/api/payroll/settings'))
+        if (!res.ok) { if (!cancelled) setOvertimePayEnabled(true); return }
+        const data = await res.json().catch(() => null)
+        if (!cancelled) setOvertimePayEnabled(data?.enableOvertime ?? true)
+      } catch {
+        if (!cancelled) setOvertimePayEnabled(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [withCompanyQuery])
+
   const groups = useMemo(() => {
     const map = new Map<string, WeeklyGroup>()
     for (const r of records) {
@@ -429,22 +457,43 @@ export default function DTRPage() {
     }
   }
 
-  async function approveRecord(id: string, action: 'APPROVED' | 'REJECTED') {
+  // ── Approve handlers ─────────────────────────────────────────────────────
+  // Each "approve…" function decides whether to open the OT-confirmation modal
+  // (when there's OT to approve AND OT pay is enabled in payroll settings) or
+  // just call the API directly. The matching "execute…" function does the work
+  // and accepts an `approveOvertime` flag piped through to the backend.
+
+  async function executeApproveSingle(id: string, action: 'APPROVED' | 'REJECTED', approveOvertime: boolean) {
     setApprovingId(id)
     try {
       const res = await fetch(withCompanyQuery(`/api/dtr/${id}/approve`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, approveOvertime }),
       })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error('Failed to update record'); return }
+      if (action === 'APPROVED' && (data.otApproved ?? 0) > 0) {
+        toast.success(`Approved (incl. ${data.otApproved} OT request${data.otApproved !== 1 ? 's' : ''})`)
+      }
       await load()
     } finally {
       setApprovingId(null)
     }
   }
 
-  async function approveEmployeeWeek(group: WeeklyGroup, action: 'APPROVED' | 'REJECTED') {
+  async function approveRecord(id: string, action: 'APPROVED' | 'REJECTED') {
+    if (action !== 'APPROVED') return executeApproveSingle(id, action, false)
+    const rec = records.find(r => r.id === id)
+    const otHours = Number(rec?.overtimeHours ?? 0)
+    if (overtimePayEnabled && otHours > 0) {
+      setPendingApproval({ kind: 'single', id, otHours, regularHours: Number(rec?.regularHours ?? 0) })
+    } else {
+      await executeApproveSingle(id, action, false)
+    }
+  }
+
+  async function executeApproveEmployeeWeek(group: WeeklyGroup, action: 'APPROVED' | 'REJECTED', approveOvertime: boolean) {
     const res = await fetch(withCompanyQuery('/api/dtr/weekly-approve'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -453,16 +502,27 @@ export default function DTRPage() {
         weekStart: format(group.weekStart, 'yyyy-MM-dd'),
         weekEnd: format(group.weekEnd, 'yyyy-MM-dd'),
         action,
+        approveOvertime,
       }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) { toast.error(data.error ?? 'Failed'); return }
-    toast.success(action === 'APPROVED' ? 'Week approved' : 'Week rejected')
+    const otBit = (data.otApproved ?? 0) > 0 ? ` (+${data.otApproved} OT)` : ''
+    toast.success(action === 'APPROVED' ? `Week approved${otBit}` : 'Week rejected')
     await loadWeeks()
     await load()
   }
 
-  async function approveAll() {
+  async function approveEmployeeWeek(group: WeeklyGroup, action: 'APPROVED' | 'REJECTED') {
+    if (action !== 'APPROVED') return executeApproveEmployeeWeek(group, action, false)
+    if (overtimePayEnabled && group.totalOvertime > 0) {
+      setPendingApproval({ kind: 'employee-week', group })
+    } else {
+      await executeApproveEmployeeWeek(group, action, false)
+    }
+  }
+
+  async function executeApproveAll(approveOvertime: boolean) {
     if (!selectedWeek) return
     setApprovingAll(true)
     try {
@@ -474,16 +534,50 @@ export default function DTRPage() {
         body: JSON.stringify({
           weekStart: format(ws, 'yyyy-MM-dd'),
           weekEnd: format(we, 'yyyy-MM-dd'),
+          approveOvertime,
         }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data.error ?? 'Failed to approve all'); return }
-      toast.success(`Approved ${data.updated} record${data.updated !== 1 ? 's' : ''}`)
+      const otBit = (data.otApproved ?? 0) > 0 ? ` and ${data.otApproved} OT request${data.otApproved !== 1 ? 's' : ''}` : ''
+      toast.success(`Approved ${data.updated} record${data.updated !== 1 ? 's' : ''}${otBit}`)
       await loadWeeks()
       await load()
     } finally {
       setApprovingAll(false)
     }
+  }
+
+  async function approveAll() {
+    if (!selectedWeek) return
+    // Sum OT only across PENDING records (the ones approve-all will touch).
+    let pendingOt = 0
+    let pendingRegular = 0
+    let pendingCount = 0
+    for (const r of records) {
+      if (dailyStatus(r) !== 'PENDING') continue
+      pendingCount++
+      pendingOt += Number(r.overtimeHours ?? 0)
+      pendingRegular += Number(r.regularHours ?? 0)
+    }
+    if (pendingCount === 0) {
+      toast.info('No pending records to approve')
+      return
+    }
+    if (overtimePayEnabled && pendingOt > 0) {
+      setPendingApproval({ kind: 'all', otHours: pendingOt, regularHours: pendingRegular, recordCount: pendingCount })
+    } else {
+      await executeApproveAll(false)
+    }
+  }
+
+  async function confirmPending(approveOvertime: boolean) {
+    const pa = pendingApproval
+    setPendingApproval(null)
+    if (!pa) return
+    if (pa.kind === 'single') await executeApproveSingle(pa.id, 'APPROVED', approveOvertime)
+    else if (pa.kind === 'employee-week') await executeApproveEmployeeWeek(pa.group, 'APPROVED', approveOvertime)
+    else if (pa.kind === 'all') await executeApproveAll(approveOvertime)
   }
 
   function requestDelete(id: string) {
@@ -747,6 +841,49 @@ export default function DTRPage() {
             </CardContent>
           </Card>
         </div>,
+        portalTarget,
+      )}
+
+      {/* ── OT-merged approval confirmation ─────────────────────────────── */}
+      {pendingApproval && portalTarget && createPortal(
+        (() => {
+          const pa = pendingApproval
+          const otHours = pa.kind === 'employee-week' ? pa.group.totalOvertime : pa.otHours
+          const regularHours = pa.kind === 'employee-week' ? pa.group.totalRegular : pa.regularHours
+          const title =
+            pa.kind === 'single' ? 'Approve timesheet'
+            : pa.kind === 'employee-week' ? `Approve ${pa.group.employeeName}'s week`
+            : `Approve ${pa.recordCount} pending record${pa.recordCount !== 1 ? 's' : ''}`
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPendingApproval(null)} />
+              <Card className="relative w-full max-w-md border-emerald-200 shadow-2xl">
+                <CardHeader>
+                  <CardTitle className="text-base text-emerald-700">{title}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border bg-slate-50 px-3 py-2.5 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-600">Regular hours</span><span className="font-semibold text-slate-800">{regularHours.toFixed(2)}h</span></div>
+                    <div className="flex justify-between mt-1"><span className="text-slate-600">Overtime hours</span><span className="font-semibold text-amber-700">{otHours.toFixed(2)}h</span></div>
+                  </div>
+                  <p className="text-sm text-slate-700">
+                    This {pa.kind === 'all' ? 'batch' : 'timesheet'} has <strong>{otHours.toFixed(2)} hours of overtime</strong>. Should the OT be approved for payroll as well?
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Approving OT marks the auto-generated overtime requests as APPROVED so they're paid in the next payroll run. Approving regular only leaves the OT requests pending — you can decide on them separately.
+                  </p>
+                  <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
+                    <Button variant="outline" onClick={() => setPendingApproval(null)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => confirmPending(false)}>Approve regular only</Button>
+                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => confirmPending(true)}>
+                      Approve with OT
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )
+        })(),
         portalTarget,
       )}
 

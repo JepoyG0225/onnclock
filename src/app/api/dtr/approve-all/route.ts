@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { isOvertimeEnabledForCompany, approveAutoOtForRange } from '@/lib/overtime-requests'
 
 const schema = z.object({
   weekStart: z.string().min(1),
   weekEnd: z.string().min(1),
+  approveOvertime: z.boolean().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -26,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { weekStart, weekEnd } = parsed.data
+  const { weekStart, weekEnd, approveOvertime } = parsed.data
   const start = new Date(weekStart)
   const end = new Date(weekEnd)
   const endPlus = new Date(end)
@@ -49,5 +51,15 @@ export async function POST(req: NextRequest) {
     data: { approvedBy: ctx.userId },
   })
 
-  return NextResponse.json({ updated: result.count })
+  let otApproved = 0
+  if (approveOvertime && await isOvertimeEnabledForCompany(companyId)) {
+    otApproved = await approveAutoOtForRange({
+      companyId,
+      dateFrom: start,
+      dateTo: end,
+      approvedById: ctx.userId,
+    })
+  }
+
+  return NextResponse.json({ updated: result.count, otApproved })
 }

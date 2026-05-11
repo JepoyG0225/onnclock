@@ -126,6 +126,89 @@ export function buildOtMapKey(employeeId: string, date: Date): string {
   return `${employeeId}:${formatManilaDateKey(date)}`
 }
 
+/**
+ * Check whether OT pay is enabled in the company's payroll settings.
+ * Defaults to TRUE if the config row doesn't exist yet (matches payroll compute).
+ * Safe to call from any route that handles DTR approval.
+ */
+export async function isOvertimeEnabledForCompany(companyId: string): Promise<boolean> {
+  try {
+    const config = await prisma.payrollCycleConfig.findUnique({
+      where: { companyId },
+      select: { enableOvertime: true },
+    })
+    return config?.enableOvertime ?? true
+  } catch {
+    // Table missing or other DB hiccup — fall back to the same default
+    // payroll compute uses, so behavior stays consistent.
+    return true
+  }
+}
+
+/**
+ * Approve all PENDING auto-OT requests for a single (employee, date).
+ * Returns number of OT request rows updated.
+ */
+export async function approveAutoOtForDtr(params: {
+  companyId: string
+  employeeId: string
+  date: Date
+  approvedById: string
+}): Promise<number> {
+  const dayStart = new Date(params.date)
+  dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart)
+  dayEnd.setDate(dayEnd.getDate() + 1)
+  const result = await prisma.overtimeRequest.updateMany({
+    where: {
+      companyId: params.companyId,
+      employeeId: params.employeeId,
+      date: { gte: dayStart, lt: dayEnd },
+      status: 'PENDING',
+      reason: { startsWith: AUTO_OT_REASON_PREFIX },
+    },
+    data: {
+      status: 'APPROVED',
+      approvedById: params.approvedById,
+      approvedAt: new Date(),
+    },
+  })
+  return result.count
+}
+
+/**
+ * Bulk-approve PENDING auto-OT requests for a company across a date range.
+ * Optionally restrict to a single employee (used by weekly-approve).
+ */
+export async function approveAutoOtForRange(params: {
+  companyId: string
+  dateFrom: Date
+  dateTo: Date // inclusive end date
+  approvedById: string
+  employeeId?: string
+}): Promise<number> {
+  const start = new Date(params.dateFrom)
+  start.setHours(0, 0, 0, 0)
+  const endPlus = new Date(params.dateTo)
+  endPlus.setHours(0, 0, 0, 0)
+  endPlus.setDate(endPlus.getDate() + 1)
+  const result = await prisma.overtimeRequest.updateMany({
+    where: {
+      companyId: params.companyId,
+      ...(params.employeeId ? { employeeId: params.employeeId } : {}),
+      date: { gte: start, lt: endPlus },
+      status: 'PENDING',
+      reason: { startsWith: AUTO_OT_REASON_PREFIX },
+    },
+    data: {
+      status: 'APPROVED',
+      approvedById: params.approvedById,
+      approvedAt: new Date(),
+    },
+  })
+  return result.count
+}
+
 export async function syncAutoOvertimeRequestsForCompany(params: {
   companyId: string
   dateFrom: Date

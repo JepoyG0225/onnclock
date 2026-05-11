@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { isOvertimeEnabledForCompany, approveAutoOtForRange } from '@/lib/overtime-requests'
 
 const schema = z.object({
   employeeId: z.string().min(1),
   weekStart: z.string().min(1), // YYYY-MM-DD
   weekEnd: z.string().min(1),   // YYYY-MM-DD
   action: z.enum(['APPROVED', 'REJECTED']),
+  approveOvertime: z.boolean().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { employeeId, weekStart, weekEnd, action } = parsed.data
+  const { employeeId, weekStart, weekEnd, action, approveOvertime } = parsed.data
 
   const start = new Date(weekStart)
   const end = new Date(weekEnd)
@@ -59,5 +61,16 @@ export async function POST(req: NextRequest) {
     data: update,
   })
 
-  return NextResponse.json({ updated: result.count })
+  let otApproved = 0
+  if (action === 'APPROVED' && approveOvertime && await isOvertimeEnabledForCompany(companyId)) {
+    otApproved = await approveAutoOtForRange({
+      companyId,
+      employeeId: employee.id,
+      dateFrom: start,
+      dateTo: end,
+      approvedById: ctx.userId,
+    })
+  }
+
+  return NextResponse.json({ updated: result.count, otApproved })
 }
