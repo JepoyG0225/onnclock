@@ -1021,26 +1021,19 @@ function FlexibleScheduleTab({
           weekDays={weekDays}
           onClose={() => setModal(null)}
           onSave={async (payload, dates) => {
-            // Editing: always exactly one record (existing.id is set).
-            // Creating: loop over the user-selected dates and upsert one each.
-            if (modal.existing) {
+            // The clicked day (modal.date) gets the existing record UPDATED if
+            // we're editing one, or a NEW record created if we're not. Any
+            // ADDITIONAL days the user ticked always get a new record created.
+            for (const d of dates) {
+              const isClickedDay = d === modal.date
+              const idForThisDay = isClickedDay ? (modal.existing?.id ?? null) : null
               await upsertAssignment({
-                id: modal.existing.id,
+                id: idForThisDay,
                 ...payload,
                 mode: variant,
                 employeeId: modal.employeeId,
-                date: modal.date,
+                date: d,
               })
-            } else {
-              for (const d of dates) {
-                await upsertAssignment({
-                  id: null,
-                  ...payload,
-                  mode: variant,
-                  employeeId: modal.employeeId,
-                  date: d,
-                })
-              }
             }
             setModal(null)
           }}
@@ -1106,7 +1099,6 @@ function AssignmentModal({
   // an existing assignment (one record at a time).
   const [applyToDates, setApplyToDates] = useState<Set<string>>(() => new Set([modal.date]))
   const fixedSchedule = variant === 'FIXED' ? schedules.find(s => s.id === modal.fixedScheduleId) : null
-  const isCreating = !existing
 
   const dayLabel = new Date(modal.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -1141,9 +1133,12 @@ function AssignmentModal({
     setSaving(true)
     try {
       const nextIsRestDay = variant === 'FIXED' ? false : isRestDay
-      const targetDates = isCreating
-        ? Array.from(applyToDates).sort()
-        : [modal.date]
+      // Always send the user's day-picker selection. The parent handles the
+      // edit-vs-create split: clicked day → update existing record (if any)
+      // or create new; additional days → always create new.
+      const targetDates = nextIsRestDay
+        ? [modal.date]
+        : Array.from(applyToDates).sort()
       await onSave(
         {
           scheduleId: resolvedScheduleId,
@@ -1240,8 +1235,10 @@ function AssignmentModal({
             </>
           )}
 
-          {/* Apply to other days — only shown when creating, not editing */}
-          {isCreating && (
+          {/* Apply to other days — always visible. When editing, the clicked
+              day's existing record is UPDATED in-place; any additional days
+              ticked here have a NEW record created. */}
+          {!isRestDay && (
             <div className="rounded-xl border border-gray-200 bg-slate-50 p-3">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-gray-700">Apply to days</label>
