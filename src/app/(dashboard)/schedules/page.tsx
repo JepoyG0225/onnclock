@@ -278,22 +278,15 @@ function ShiftTemplateModal({
     })
   }, [initial, fallbackBreakMinutes])
 
-  function toggleDay(day: number) {
-    setForm(p => ({
-      ...p,
-      workDays: p.workDays.includes(day)
-        ? p.workDays.filter(d => d !== day)
-        : [...p.workDays, day].sort((a, b) => a - b),
-    }))
-  }
-
   async function handleSave() {
     if (!form.name.trim()) { toast.error('Shift name is required'); return }
     if (!form.timeIn || !form.timeOut) { toast.error('Time in and time out are required'); return }
-    if (variant === 'FIXED' && form.workDays.length === 0) { toast.error('Select at least one work day'); return }
     setSaving(true)
     try {
-      const effectiveWorkDays = variant === 'FLEXIBLE' ? [0, 1, 2, 3, 4, 5, 6] : form.workDays
+      // Workdays are no longer chosen at template creation. They're chosen when
+      // the schedule is applied to a day in the grid. We default to all 7 days
+      // so the template can be applied to any day of the week.
+      const effectiveWorkDays = [0, 1, 2, 3, 4, 5, 6]
       const payload = {
         name: form.name.trim(),
         scheduleType: variant === 'FLEXIBLE' ? 'FLEXITIME' : 'FIXED',
@@ -303,7 +296,7 @@ function ShiftTemplateModal({
         breakMinutes: form.breakEnabled ? form.breakMinutes : 0,
         workDays: effectiveWorkDays,
         workHoursPerDay: Number(form.workHoursPerDay),
-        workDaysPerWeek: effectiveWorkDays.length,
+        workDaysPerWeek: 5,
       }
       const res = initial
         ? await fetch(withCompanyId(`/api/schedules/${initial.id}`, companyId), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -450,27 +443,6 @@ function ShiftTemplateModal({
             )}
           </div>
 
-          {variant === 'FIXED' && (
-            <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Work Days *</label>
-              <div className="flex flex-wrap gap-2">
-                {ALL_DAYS.map((label, idx) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => toggleDay(idx)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition ${form.workDays.includes(idx) ? 'bg-[#2E4156] text-white border-[#2E4156]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#fa5e01]'}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] text-gray-500 mt-1">
-                Selected: {form.workDays.map(d => ALL_DAYS[d]).join(', ') || '-'}
-              </p>
-            </div>
-          )}
-
           {/* Live preview */}
           {form.timeIn && form.timeOut && (
             <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#fff3ec', borderColor: '#fa5e01', color: '#c44d00' }}>
@@ -616,24 +588,6 @@ function FlexibleScheduleTab({
       return
     }
     await upsertAssignment({ employeeId: empId, date: dateStr, mode: variant, scheduleId: schedId, isRestDay: false })
-  }
-
-  async function applyFixedScheduleToVisibleWeek(employeeId: string, scheduleId: string) {
-    const template = templateSchedules.find(s => s.id === scheduleId)
-    if (!template) return
-    const workDaysSet = new Set(Array.isArray(template.workDays) ? template.workDays : [1, 2, 3, 4, 5])
-    for (const dayDate of weekDays) {
-      const dateStr = toDateStr(dayDate)
-      const weekday = dayDate.getDay()
-      const isWorkDay = workDaysSet.has(weekday)
-      await upsertAssignment({
-        employeeId,
-        date: dateStr,
-        mode: 'FIXED',
-        scheduleId: isWorkDay ? scheduleId : null,
-        isRestDay: !isWorkDay,
-      })
-    }
   }
 
   async function upsertAssignment(payload: {
@@ -792,7 +746,6 @@ function FlexibleScheduleTab({
                     <p className="font-bold text-sm leading-tight">
                       {s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)}` : s.name}
                     </p>
-                    <p className="text-[10px] opacity-70 mt-0.5">{formatWorkDaysCompact(s.workDays)}</p>
                     {s.breakEnabled && s.breakMinutes > 0 && (
                       <p className="text-[10px] opacity-50 mt-0.5">{s.breakMinutes}m break</p>
                     )}
@@ -1035,18 +988,29 @@ function FlexibleScheduleTab({
           modal={modal}
           schedules={templateSchedules}
           variant={variant}
+          weekDays={weekDays}
           onClose={() => setModal(null)}
-          onSave={async (payload) => {
-            if (variant === 'FIXED' && payload.scheduleId && !modal.existing) {
-              await applyFixedScheduleToVisibleWeek(modal.employeeId, payload.scheduleId)
-            } else {
+          onSave={async (payload, dates) => {
+            // Editing: always exactly one record (existing.id is set).
+            // Creating: loop over the user-selected dates and upsert one each.
+            if (modal.existing) {
               await upsertAssignment({
-                id: modal.existing?.id ?? null,   // UPDATE if editing, CREATE if new
+                id: modal.existing.id,
                 ...payload,
                 mode: variant,
                 employeeId: modal.employeeId,
                 date: modal.date,
               })
+            } else {
+              for (const d of dates) {
+                await upsertAssignment({
+                  id: null,
+                  ...payload,
+                  mode: variant,
+                  employeeId: modal.employeeId,
+                  date: d,
+                })
+              }
             }
             setModal(null)
           }}
@@ -1079,6 +1043,7 @@ function AssignmentModal({
   modal,
   schedules,
   variant = 'FLEXIBLE',
+  weekDays,
   onClose,
   onSave,
   onDelete,
@@ -1086,8 +1051,12 @@ function AssignmentModal({
   modal: ModalState
   schedules: WorkSchedule[]
   variant?: 'FIXED' | 'FLEXIBLE'
+  weekDays: Date[]
   onClose: () => void
-  onSave: (payload: { scheduleId?: string | null; timeIn?: string | null; timeOut?: string | null; isRestDay: boolean; notes?: string | null }) => Promise<void>
+  onSave: (
+    payload: { scheduleId?: string | null; timeIn?: string | null; timeOut?: string | null; isRestDay: boolean; notes?: string | null },
+    dates: string[],
+  ) => Promise<void>
   onDelete: () => Promise<void>
 }) {
   const existing = modal.existing
@@ -1096,7 +1065,11 @@ function AssignmentModal({
   const [timeOut, setTimeOut] = useState(existing?.timeOut ?? '17:00')
   const [scheduleId, setScheduleId] = useState(existing?.scheduleId ?? modal.fixedScheduleId ?? '')
   const [saving, setSaving] = useState(false)
+  // Multi-day apply: defaults to just the clicked date. Hidden when editing
+  // an existing assignment (one record at a time).
+  const [applyToDates, setApplyToDates] = useState<Set<string>>(() => new Set([modal.date]))
   const fixedSchedule = variant === 'FIXED' ? schedules.find(s => s.id === modal.fixedScheduleId) : null
+  const isCreating = !existing
 
   const dayLabel = new Date(modal.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -1111,6 +1084,17 @@ function AssignmentModal({
     }
   }
 
+  function toggleApplyDate(dateStr: string) {
+    setApplyToDates((prev) => {
+      const next = new Set(prev)
+      if (next.has(dateStr)) next.delete(dateStr); else next.add(dateStr)
+      // Always keep the clicked date selected so the user can't accidentally
+      // submit with zero target dates.
+      next.add(modal.date)
+      return next
+    })
+  }
+
   async function handleSave() {
     const resolvedScheduleId = scheduleId || null
     if (variant === 'FIXED' && !resolvedScheduleId) {
@@ -1120,12 +1104,18 @@ function AssignmentModal({
     setSaving(true)
     try {
       const nextIsRestDay = variant === 'FIXED' ? false : isRestDay
-      await onSave({
-        scheduleId: resolvedScheduleId,
-        timeIn: nextIsRestDay ? null : timeIn,
-        timeOut: nextIsRestDay ? null : timeOut,
-        isRestDay: nextIsRestDay,
-      })
+      const targetDates = isCreating
+        ? Array.from(applyToDates).sort()
+        : [modal.date]
+      await onSave(
+        {
+          scheduleId: resolvedScheduleId,
+          timeIn: nextIsRestDay ? null : timeIn,
+          timeOut: nextIsRestDay ? null : timeOut,
+          isRestDay: nextIsRestDay,
+        },
+        targetDates,
+      )
     } finally { setSaving(false) }
   }
 
@@ -1183,11 +1173,6 @@ function AssignmentModal({
                           <p className="text-center font-bold text-xs leading-tight">
                             {fmt12(s.timeIn ?? null)} - {fmt12(s.timeOut ?? null)}
                           </p>
-                          {variant === 'FIXED' && (
-                            <p className="text-center text-[10px] opacity-80 mt-0.5 leading-tight">
-                              {formatWorkDaysCompact(s.workDays)}
-                            </p>
-                          )}
                         </button>
                       )
                     })}
@@ -1216,6 +1201,72 @@ function AssignmentModal({
                 </div>
               </div>
             </>
+          )}
+
+          {/* Apply to other days — only shown when creating, not editing */}
+          {isCreating && (
+            <div className="rounded-xl border border-gray-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-gray-700">Apply to days</label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setApplyToDates(new Set(weekDays.map(toDateStr)))}
+                    className="text-[10px] font-semibold text-[#fa5e01] hover:underline"
+                  >
+                    All
+                  </button>
+                  <span className="text-[10px] text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const monFri = weekDays
+                        .filter((d) => { const wd = d.getDay(); return wd >= 1 && wd <= 5 })
+                        .map(toDateStr)
+                      const next = new Set(monFri)
+                      next.add(modal.date) // always include the day they clicked
+                      setApplyToDates(next)
+                    }}
+                    className="text-[10px] font-semibold text-[#fa5e01] hover:underline"
+                  >
+                    Mon–Fri
+                  </button>
+                  <span className="text-[10px] text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setApplyToDates(new Set([modal.date]))}
+                    className="text-[10px] font-semibold text-gray-500 hover:underline"
+                  >
+                    Just this day
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {weekDays.map((d) => {
+                  const ds = toDateStr(d)
+                  const checked = applyToDates.has(ds)
+                  const isClickedDay = ds === modal.date
+                  return (
+                    <button
+                      key={ds}
+                      type="button"
+                      onClick={() => toggleApplyDate(ds)}
+                      disabled={isClickedDay}
+                      className={`rounded-lg border px-1.5 py-2 text-center transition ${checked ? 'bg-[#fa5e01] text-white border-[#fa5e01]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#fa5e01]'} ${isClickedDay ? 'opacity-90 cursor-not-allowed' : ''}`}
+                      title={isClickedDay ? 'This is the day you clicked' : ''}
+                    >
+                      <p className="text-[10px] font-bold leading-none">{ALL_DAYS[d.getDay()]}</p>
+                      <p className="text-[10px] mt-0.5 leading-none opacity-90">{d.getDate()}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1.5">
+                {applyToDates.size === 1
+                  ? 'Applies to this day only'
+                  : `Will create ${applyToDates.size} assignments across the visible week`}
+              </p>
+            </div>
           )}
         </div>
 
