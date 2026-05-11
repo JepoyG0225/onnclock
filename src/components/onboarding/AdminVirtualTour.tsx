@@ -82,11 +82,6 @@ const DEFAULT_STEPS: TourStep[] = [
     href: '/attendance/tardiness',
   },
   {
-    title: 'Overtime Requests',
-    description: '(Pro) Employees submit OT requests from the portal. Approve or reject here with automatic payroll inclusion on approval.',
-    href: '/overtime',
-  },
-  {
     title: 'Attendance Settings',
     description: 'Configure geofencing radius, selfie verification on clock-in, screen capture monitoring frequency, and the desktop app download link.',
     href: '/attendance/settings',
