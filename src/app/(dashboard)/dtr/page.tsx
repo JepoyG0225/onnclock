@@ -7,6 +7,8 @@ import {
   parseISO,
   startOfWeek,
   endOfWeek,
+  startOfMonth,
+  endOfMonth,
   compareDesc,
   compareAsc,
 } from 'date-fns'
@@ -80,6 +82,14 @@ interface Employee {
   employeeNo: string
 }
 
+type ViewMode = 'daily' | 'weekly' | 'monthly'
+
+/**
+ * One approval-unit row in the timesheets table. Period = a single day
+ * (Daily mode), Mon–Sun week (Weekly), or full calendar month (Monthly).
+ * Field names use weekStart/weekEnd because the existing approval API
+ * accepts a generic date range under those param names.
+ */
 interface WeeklyGroup {
   key: string
   employeeId: string
@@ -189,6 +199,10 @@ export default function DTRPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([])
   const [selectedWeek, setSelectedWeek] = useState('')
+  // View mode + per-mode date selectors. Default to weekly so existing flow is unchanged.
+  const [viewMode, setViewMode] = useState<ViewMode>('weekly')
+  const [selectedDate, setSelectedDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [records, setRecords] = useState<DTRRecord[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
@@ -315,24 +329,44 @@ export default function DTRPage() {
     })
   }, [isSystemAdmin, selectedCompanyId, withCompanyQuery])
 
+  /**
+   * Active date range for the current view mode. Drives the fetch range, the
+   * grouping key, and the "Approve all" payload. Returns null when no
+   * meaningful range is selected (e.g. weekly mode with no week chosen).
+   */
+  const activeRange = useMemo<{ start: Date; end: Date; key: string } | null>(() => {
+    if (viewMode === 'daily') {
+      if (!selectedDate) return null
+      const d = parseISO(selectedDate)
+      return { start: d, end: d, key: selectedDate }
+    }
+    if (viewMode === 'monthly') {
+      if (!selectedMonth) return null
+      const first = parseISO(`${selectedMonth}-01`)
+      return { start: startOfMonth(first), end: endOfMonth(first), key: selectedMonth }
+    }
+    // weekly
+    if (!selectedWeek) return null
+    const ws = parseISO(selectedWeek)
+    return { start: ws, end: endOfWeek(ws, { weekStartsOn: 1 }), key: selectedWeek }
+  }, [viewMode, selectedDate, selectedMonth, selectedWeek])
+
   const load = useCallback(async () => {
-    if (!selectedWeek || (isSystemAdmin && !selectedCompanyId)) {
+    if (!activeRange || (isSystemAdmin && !selectedCompanyId)) {
       setRecords([])
       return
     }
     setLoading(true)
     try {
-      const ws = parseISO(selectedWeek)
-      const we = endOfWeek(ws, { weekStartsOn: 1 })
-      const from = format(ws, 'yyyy-MM-dd')
-      const to = format(we, 'yyyy-MM-dd')
-      const res = await fetch(withCompanyQuery(`/api/dtr?from=${from}&to=${to}&limit=1000&completed=1`))
+      const from = format(activeRange.start, 'yyyy-MM-dd')
+      const to = format(activeRange.end, 'yyyy-MM-dd')
+      const res = await fetch(withCompanyQuery(`/api/dtr?from=${from}&to=${to}&limit=2000&completed=1`))
       const data = await res.json().catch(() => ({}))
       setRecords((data.records ?? []) as DTRRecord[])
     } finally {
       setLoading(false)
     }
-  }, [isSystemAdmin, selectedCompanyId, selectedWeek, withCompanyQuery])
+  }, [activeRange, isSystemAdmin, selectedCompanyId, withCompanyQuery])
 
   async function loadEmployees() {
     if (isSystemAdmin && !selectedCompanyId) {
@@ -377,9 +411,20 @@ export default function DTRPage() {
     const map = new Map<string, WeeklyGroup>()
     for (const r of records) {
       const d = new Date(r.date)
-      const ws = startOfWeek(d, { weekStartsOn: 1 })
-      const we = endOfWeek(d, { weekStartsOn: 1 })
-      const key = `${r.employeeId}|${format(ws, 'yyyy-MM-dd')}`
+      // Period start/end depend on the active view mode.
+      let periodStart: Date
+      let periodEnd: Date
+      if (viewMode === 'daily') {
+        periodStart = d
+        periodEnd = d
+      } else if (viewMode === 'monthly') {
+        periodStart = startOfMonth(d)
+        periodEnd = endOfMonth(d)
+      } else {
+        periodStart = startOfWeek(d, { weekStartsOn: 1 })
+        periodEnd = endOfWeek(d, { weekStartsOn: 1 })
+      }
+      const key = `${r.employeeId}|${format(periodStart, 'yyyy-MM-dd')}`
       if (!map.has(key)) {
         map.set(key, {
           key,
@@ -387,8 +432,8 @@ export default function DTRPage() {
           employeeName: `${r.employee.lastName}, ${r.employee.firstName}`,
           employeeNo: r.employee.employeeNo,
           department: r.employee.department?.name ?? '-',
-          weekStart: ws,
-          weekEnd: we,
+          weekStart: periodStart,
+          weekEnd: periodEnd,
           records: [],
           totalRegular: 0,
           totalOvertime: 0,
@@ -434,7 +479,7 @@ export default function DTRPage() {
       if (d !== 0) return d
       return a.employeeName.localeCompare(b.employeeName)
     })
-  }, [records, search])
+  }, [records, search, viewMode])
 
   async function submitForm() {
     if (!form.employeeId) {
@@ -523,17 +568,15 @@ export default function DTRPage() {
   }
 
   async function executeApproveAll(approveOvertime: boolean) {
-    if (!selectedWeek) return
+    if (!activeRange) return
     setApprovingAll(true)
     try {
-      const ws = parseISO(selectedWeek)
-      const we = endOfWeek(ws, { weekStartsOn: 1 })
       const res = await fetch(withCompanyQuery('/api/dtr/approve-all'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          weekStart: format(ws, 'yyyy-MM-dd'),
-          weekEnd: format(we, 'yyyy-MM-dd'),
+          weekStart: format(activeRange.start, 'yyyy-MM-dd'),
+          weekEnd: format(activeRange.end, 'yyyy-MM-dd'),
           approveOvertime,
         }),
       })
@@ -549,7 +592,7 @@ export default function DTRPage() {
   }
 
   async function approveAll() {
-    if (!selectedWeek) return
+    if (!activeRange) return
     // Sum OT only across PENDING records (the ones approve-all will touch).
     let pendingOt = 0
     let pendingRegular = 0
@@ -904,21 +947,65 @@ export default function DTRPage() {
               </select>
             </div>
           )}
+          {/* View-mode tabs */}
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Week</label>
-            <select
-              value={selectedWeek}
-              onChange={e => setSelectedWeek(e.target.value)}
-              className="w-72 border rounded px-3 py-2 text-sm bg-white"
-            >
-              {weekOptions.length === 0 && <option value="">No weeks with DTR records</option>}
-              {weekOptions.map(w => (
-                <option key={w.start} value={w.start}>
-                  {format(parseISO(w.start), 'MMM d')} - {format(parseISO(w.end), 'MMM d, yyyy')}
-                </option>
+            <label className="text-xs font-medium text-gray-600 block mb-1">View</label>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+              {(['daily', 'weekly', 'monthly'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setViewMode(m)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition capitalize ${
+                    viewMode === m ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {m}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
+
+          {/* Per-mode date selector */}
+          {viewMode === 'daily' && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-44 border rounded px-3 py-2 text-sm bg-white"
+              />
+            </div>
+          )}
+          {viewMode === 'weekly' && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Week</label>
+              <select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="w-72 border rounded px-3 py-2 text-sm bg-white"
+              >
+                {weekOptions.length === 0 && <option value="">No weeks with DTR records</option>}
+                {weekOptions.map((w) => (
+                  <option key={w.start} value={w.start}>
+                    {format(parseISO(w.start), 'MMM d')} - {format(parseISO(w.end), 'MMM d, yyyy')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {viewMode === 'monthly' && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Month</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-44 border rounded px-3 py-2 text-sm bg-white"
+              />
+            </div>
+          )}
           <div className="flex-1 min-w-48">
             <label className="text-xs font-medium text-gray-600 block mb-1">Search Employee</label>
             <div className="relative">
@@ -932,14 +1019,20 @@ export default function DTRPage() {
             <Card>
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-sm flex items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
               <Users className="w-4 h-4" />
-              Weekly Time Sheets
-              <Badge variant="outline">{groups.length} employee-weeks</Badge>
-              <Badge className="bg-yellow-100 text-yellow-800">{totalPendingWeeks} pending weeks</Badge>
-              {selectedWeekLabel && <Badge variant="outline">{selectedWeekLabel}</Badge>}
+              <span className="capitalize">{viewMode}</span> Time Sheets
+              <Badge variant="outline">{groups.length} {viewMode === 'daily' ? 'employees' : viewMode === 'monthly' ? 'employee-months' : 'employee-weeks'}</Badge>
+              <Badge className="bg-yellow-100 text-yellow-800">{totalPendingWeeks} pending</Badge>
+              {activeRange && (
+                <Badge variant="outline">
+                  {viewMode === 'daily' && format(activeRange.start, 'MMM d, yyyy')}
+                  {viewMode === 'weekly' && `${format(activeRange.start, 'MMM d')} - ${format(activeRange.end, 'MMM d, yyyy')}`}
+                  {viewMode === 'monthly' && format(activeRange.start, 'MMMM yyyy')}
+                </Badge>
+              )}
             </CardTitle>
-            {selectedWeek && (
+            {activeRange && (
               <Button
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
@@ -956,14 +1049,16 @@ export default function DTRPage() {
           {loading ? (
             <div className="p-8 text-center text-gray-400">Loading...</div>
           ) : groups.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">No weekly time sheets found</div>
+            <div className="p-8 text-center text-gray-400">No time sheets found for this {viewMode === 'daily' ? 'day' : viewMode === 'monthly' ? 'month' : 'week'}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="text-left p-3 font-medium text-gray-600">Employee</th>
-                    <th className="text-left p-3 font-medium text-gray-600">Week</th>
+                    <th className="text-left p-3 font-medium text-gray-600">
+                      {viewMode === 'daily' ? 'Date' : viewMode === 'monthly' ? 'Month' : 'Week'}
+                    </th>
                     <th className="text-left p-3 font-medium text-gray-600">Department</th>
                     <th className="text-right p-3 font-medium text-gray-600">Reg Hrs</th>
                     <th className="text-right p-3 font-medium text-gray-600">OT Hrs</th>
@@ -971,21 +1066,29 @@ export default function DTRPage() {
                     <th className="text-right p-3 font-medium text-gray-600">Late</th>
                     <th className="text-right p-3 font-medium text-gray-600">Undertime</th>
                     <th className="text-center p-3 font-medium text-gray-600">Status</th>
-                    <th className="text-center p-3 font-medium text-gray-600">Approve Week</th>
+                    <th className="text-center p-3 font-medium text-gray-600">
+                      {viewMode === 'daily' ? 'Approve' : viewMode === 'monthly' ? 'Approve Month' : 'Approve Week'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {groups.map(group => {
                     const isOpen = !!expanded[group.key]
+                    // Daily mode with a single shift renders as a plain row
+                    // (no expand chevron, nothing to drill into). All other
+                    // cases — daily multi-shift, weekly, monthly — collapse.
+                    const collapsible = !(viewMode === 'daily' && group.records.length <= 1)
                     return (
                       <Fragment key={group.key}>
                         <tr
-                          className="border-b hover:bg-gray-50 cursor-pointer"
-                          onClick={() => toggleExpand(group.key)}
+                          className={`border-b hover:bg-gray-50 ${collapsible ? 'cursor-pointer' : ''}`}
+                          onClick={() => collapsible && toggleExpand(group.key)}
                         >
                           <td className="p-3">
                             <div className="flex items-center gap-2">
-                              {isOpen ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />}
+                              {collapsible
+                                ? (isOpen ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />)
+                                : <span className="w-4 h-4 inline-block" />}
                               <div>
                                 <div className="font-medium">{group.employeeName}</div>
                                 <div className="text-xs text-gray-400">{group.employeeNo}</div>
@@ -995,7 +1098,11 @@ export default function DTRPage() {
                           <td className="p-3">
                             <div className="flex items-center gap-1.5 text-xs text-gray-700">
                               <CalendarRange className="w-3.5 h-3.5" />
-                              {format(group.weekStart, 'MMM d')} - {format(group.weekEnd, 'MMM d, yyyy')}
+                              {viewMode === 'daily'
+                                ? format(group.weekStart, 'EEE, MMM d, yyyy')
+                                : viewMode === 'monthly'
+                                  ? format(group.weekStart, 'MMMM yyyy')
+                                  : `${format(group.weekStart, 'MMM d')} - ${format(group.weekEnd, 'MMM d, yyyy')}`}
                             </div>
                           </td>
                           <td className="p-3 text-gray-600">{group.department}</td>
@@ -1040,7 +1147,7 @@ export default function DTRPage() {
                             </div>
                           </td>
                         </tr>
-                        {isOpen && (
+                        {isOpen && collapsible && (
                           <tr className="border-b bg-gray-50/60">
                             <td colSpan={10} className="p-0">
                               <div className="px-4 py-3">

@@ -73,7 +73,7 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dtr',
     icon: Clock,
     children: [
-      { label: 'Weekly Time Sheets',       href: '/dtr',                    icon: Clock },
+      { label: 'Time Sheets',              href: '/dtr',                    icon: Clock },
       { label: 'Live GPS Map',             href: '/attendance/map',         icon: MapPin },
       { label: 'Tardiness Report',         href: '/attendance/tardiness',   icon: TrendingDown },
       { label: 'Time Entry Corrections',   href: '/time-corrections',       icon: ClipboardEdit, releasedAt: '2026-05-01T00:00:00+08:00' },
