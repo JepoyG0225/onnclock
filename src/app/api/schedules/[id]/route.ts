@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/api-auth'
 import { z } from 'zod'
+import { validateShiftTimes } from '@/lib/timesheet/validate-shift'
 
 const weekPatternSchema = z.object({
   label: z.string(),
@@ -46,6 +47,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const data = parsed.data
+    // Validate shift-time pair when either is being updated. Catches Loyola-style
+    // bad data (zero-length or > 16h shifts) before it reaches the DB.
+    if (data.timeIn !== undefined || data.timeOut !== undefined) {
+      const inToCheck = data.timeIn ?? (existing as { timeIn: string | null }).timeIn
+      const outToCheck = data.timeOut ?? (existing as { timeOut: string | null }).timeOut
+      const shiftError = validateShiftTimes(inToCheck, outToCheck)
+      if (shiftError) return NextResponse.json({ error: shiftError }, { status: 400 })
+    }
     const repeatCycle = data.repeatCycle ?? (existing as Record<string, unknown>).repeatCycle as string ?? 'WEEKLY'
 
     if (repeatCycle === 'BIWEEKLY' && data.cycleWeeks !== undefined && data.cycleWeeks !== null && data.cycleWeeks.length !== 2) {

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { buildOtMapKey, getApprovedOtHoursMap, syncAutoOvertimeRequest } from '@/lib/overtime-requests'
+import {
+  computeHours,
+  computeLateAndUndertime,
+  plannedShiftMinutes,
+  resolveShiftForDtr,
+} from '@/lib/timesheet/compute'
 import { HolidayType } from '@prisma/client'
 import { z } from 'zod'
 
@@ -115,10 +121,21 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data
 
-  // Verify employee belongs to same company
-  const employee = await prisma.employee.findFirst({
-    where: { id: data.employeeId, companyId },
-  })
+  // Verify employee belongs to same company AND load shift info for recompute
+  const [employee, companyRow] = await Promise.all([
+    prisma.employee.findFirst({
+      where: { id: data.employeeId, companyId },
+      select: {
+        id: true,
+        workScheduleId: true,
+        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+      },
+    }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { defaultBreakMinutes: true },
+    }),
+  ])
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
   // Combine date + HH:mm time strings into full DateTime for DB storage.
@@ -127,29 +144,56 @@ export async function POST(req: NextRequest) {
   // Without this, "11:46" is parsed as UTC and the timesheet displays 19:46 PH.
   const timeIn  = data.timeIn  ? new Date(`${data.date}T${data.timeIn}:00+08:00`)  : null
   const timeOut = data.timeOut ? new Date(`${data.date}T${data.timeOut}:00+08:00`) : null
+  const recordDate = new Date(data.date)
+
+  // When BOTH timeIn and timeOut are provided, ALWAYS recompute hours from the
+  // times against the employee's planned shift. This prevents admins from
+  // entering inconsistent values via the form (the root cause of the Loyola
+  // K-12 audit drift). Form-submitted regularHours/overtimeHours/etc. are
+  // only honored when there's no time pair to compute from (absent/rest-day).
+  let computedHours: ReturnType<typeof computeHours> | null = null
+  let computedLateUt: ReturnType<typeof computeLateAndUndertime> | null = null
+  if (timeIn && timeOut) {
+    const resolved = await resolveShiftForDtr({
+      employeeId: data.employeeId,
+      date: recordDate,
+      actualTimeIn: timeIn,
+      employee: {
+        workScheduleId: employee.workScheduleId,
+        workSchedule: employee.workSchedule,
+      },
+      defaultBreakMinutes: companyRow?.defaultBreakMinutes ?? 60,
+    })
+    const planned = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+    computedHours = computeHours(timeIn, timeOut, null, null, {
+      plannedRegularMinutes: planned,
+      allowedBreakMinutes: resolved.allowedBreakMinutes,
+    })
+    computedLateUt = computeLateAndUndertime(timeIn, timeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+  }
 
   // Multi-shift: an employee can have multiple DTR rows per day.
   // Match the existing row by (employeeId, date) — when several rows exist for
   // the same date the admin form is editing the most-recently-created one.
   const existing = await prisma.dTRRecord.findFirst({
-    where: { employeeId: data.employeeId, date: new Date(data.date) },
+    where: { employeeId: data.employeeId, date: recordDate },
     orderBy: { createdAt: 'desc' },
   })
   const dataPayload = {
-    employeeId:      data.employeeId,
-    date:            new Date(data.date),
+    employeeId:       data.employeeId,
+    date:             recordDate,
     timeIn,
     timeOut,
-    regularHours:    data.regularHours,
-    overtimeHours:   data.overtimeHours,
-    nightDiffHours:  data.nightDiffHours,
-    lateMinutes:     data.lateMinutes,
-    undertimeMinutes: data.undertimeMinutes,
-    isAbsent:        data.isAbsent,
-    isRestDay:       data.isRestDay,
-    isHoliday:       data.isHoliday,
-    holidayType:     (data.holidayType ?? null) as HolidayType | null,
-    remarks:         data.remarks ?? null,
+    regularHours:     computedHours?.regularHours ?? data.regularHours,
+    overtimeHours:    computedHours?.overtimeHours ?? data.overtimeHours,
+    nightDiffHours:   computedHours?.nightDiffHours ?? data.nightDiffHours,
+    lateMinutes:      computedLateUt?.lateMinutes ?? data.lateMinutes,
+    undertimeMinutes: computedLateUt?.undertimeMinutes ?? data.undertimeMinutes,
+    isAbsent:         data.isAbsent,
+    isRestDay:        data.isRestDay,
+    isHoliday:        data.isHoliday,
+    holidayType:      (data.holidayType ?? null) as HolidayType | null,
+    remarks:          data.remarks ?? null,
   }
   const record = existing
     ? await prisma.dTRRecord.update({ where: { id: existing.id }, data: dataPayload })

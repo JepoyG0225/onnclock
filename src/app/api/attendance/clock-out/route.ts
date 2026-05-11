@@ -4,6 +4,12 @@ import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasScreenCaptureFeature, isDesktopApp } from '@/lib/feature-gates'
 import { resolvePortalEmployeeId } from '@/lib/portal-employee'
 import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
+import {
+  computeHours,
+  computeLateAndUndertime,
+  plannedShiftMinutes,
+  resolveShiftForDtr,
+} from '@/lib/timesheet/compute'
 import { z } from 'zod'
 import { differenceInMinutes } from 'date-fns'
 
@@ -14,19 +20,6 @@ const clockOutSchema = z.object({
   address: z.string().optional(),
 })
 
-function parseTimeToMinutes(value: string | null | undefined): number | null {
-  if (!value) return null
-  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(value.trim())
-  if (!m) return null
-  return Number(m[1]) * 60 + Number(m[2])
-}
-
-function normalizeBreakMinutes(value: unknown): number {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return 60
-  return Math.max(0, Math.min(720, Math.round(n)))
-}
-
 async function getCompanyDefaultBreakMinutes(companyId: string): Promise<number> {
   try {
     const rows = await prisma.$queryRaw<Array<{ defaultBreakMinutes: number | null }>>`
@@ -35,74 +28,12 @@ async function getCompanyDefaultBreakMinutes(companyId: string): Promise<number>
       WHERE "id" = ${companyId}
       LIMIT 1
     `
-    return normalizeBreakMinutes(rows?.[0]?.defaultBreakMinutes)
+    const n = Number(rows?.[0]?.defaultBreakMinutes)
+    if (!Number.isFinite(n)) return 60
+    return Math.max(0, Math.min(720, Math.round(n)))
   } catch {
     return 60
   }
-}
-
-function getManilaMinutes(date: Date): number {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Manila',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date)
-  return (
-    Number(parts.find(p => p.type === 'hour')?.value ?? '0') * 60 +
-    Number(parts.find(p => p.type === 'minute')?.value ?? '0')
-  )
-}
-
-/**
- * Computes late and undertime minutes against the employee's shift schedule.
- * Handles overnight shifts (e.g. 23:00–07:00) correctly by normalising clock-in
- * times that cross midnight before comparing them to the scheduled start.
- */
-function computeLateAndUndertime(
-  timeIn: Date,
-  timeOut: Date,
-  scheduleTimeIn: string | null | undefined,
-  scheduleTimeOut: string | null | undefined,
-): { lateMinutes: number; undertimeMinutes: number } {
-  const scheduledInMins = parseTimeToMinutes(scheduleTimeIn)
-  if (scheduledInMins == null) return { lateMinutes: 0, undertimeMinutes: 0 }
-
-  const scheduledOutMins = parseTimeToMinutes(scheduleTimeOut)
-  const isOvernight = scheduledOutMins != null && scheduledOutMins <= scheduledInMins
-
-  const actualInMins = getManilaMinutes(timeIn)
-  const actualOutMins = getManilaMinutes(timeOut)
-
-  // ── Late ──────────────────────────────────────────────────────────────────
-  // For overnight shifts the employee may clock in after midnight, which gives
-  // a numerically small time (e.g. 00:30 = 30) even though they are 90 minutes
-  // late relative to a 23:00 start.  Normalise by adding 24 h ONLY when the
-  // actual in-time is in the AM hours (< noon) — indicating a genuine next-day
-  // clock-in.  An early same-evening arrival (e.g. 22:50 for a 23:00 shift)
-  // must NOT be normalised, otherwise it would incorrectly appear as ~24 h late.
-  let normalizedInMins = actualInMins
-  if (isOvernight && actualInMins < scheduledInMins && actualInMins < 12 * 60) {
-    normalizedInMins = actualInMins + 24 * 60
-  }
-  const lateMinutes = Math.max(0, normalizedInMins - scheduledInMins)
-
-  // ── Undertime ─────────────────────────────────────────────────────────────
-  let undertimeMinutes = 0
-  if (scheduledOutMins != null) {
-    if (isOvernight) {
-      // After-midnight clock-out: if they left before noon it is the "end" side
-      // of the overnight shift.  Compare directly to the scheduled end time.
-      if (actualOutMins < 12 * 60) {
-        undertimeMinutes = Math.max(0, scheduledOutMins - actualOutMins)
-      }
-      // Evening clock-out (same side as shift start) → no undertime
-    } else {
-      undertimeMinutes = Math.max(0, scheduledOutMins - actualOutMins)
-    }
-  }
-
-  return { lateMinutes, undertimeMinutes }
 }
 
 function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -116,94 +47,6 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) 
     Math.sin(dLng / 2) * Math.sin(dLng / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c
-}
-
-function getManilaHour(date: Date): number {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Manila',
-    hour: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date)
-  return Number(parts.find(p => p.type === 'hour')?.value ?? '0')
-}
-
-/**
- * Convert a planned shift's "HH:MM" → "HH:MM" into total minutes.
- * Handles overnight shifts (e.g. 20:00 → 12:00 next day = 16 hours).
- * Returns null if either side is missing/malformed.
- */
-function plannedShiftMinutes(
-  timeInStr?: string | null,
-  timeOutStr?: string | null,
-): number | null {
-  if (!timeInStr || !timeOutStr) return null
-  const [inH, inM] = timeInStr.split(':').map(Number)
-  const [outH, outM] = timeOutStr.split(':').map(Number)
-  if ([inH, inM, outH, outM].some((n) => Number.isNaN(n))) return null
-  const inMins = inH * 60 + inM
-  let outMins = outH * 60 + outM
-  if (outMins <= inMins) outMins += 24 * 60 // crosses midnight
-  return outMins - inMins
-}
-
-function computeHours(
-  timeIn: Date,
-  timeOut: Date,
-  breakIn: Date | null = null,
-  breakOut: Date | null = null,
-  /**
-   * Planned regular-hours cap in minutes (e.g. 16h shift → 960).
-   * Anything worked beyond this counts as overtime.
-   * Defaults to 8h (480) when no scheduled duration is available.
-   */
-  scheduledRegularMinutes: number = 8 * 60,
-) {
-  // Cap shift to 24 h max so unclosed/corrupted records don't produce absurd values.
-  const MAX_SHIFT_MINUTES = 24 * 60
-  const rawTotalMinutes = differenceInMinutes(timeOut, timeIn)
-  const totalMinutes = Math.min(rawTotalMinutes, MAX_SHIFT_MINUTES)
-  // Effective timeOut relative to capped duration
-  const effectiveTimeOut = new Date(timeIn.getTime() + totalMinutes * 60_000)
-
-  // Break must fall within the (capped) shift window to be subtracted.
-  const breakMinutes =
-    breakIn && breakOut
-      ? Math.max(0, differenceInMinutes(
-          breakOut > effectiveTimeOut ? effectiveTimeOut : breakOut,
-          breakIn < timeIn ? timeIn : breakIn,
-        ))
-      : 0
-
-  const workedMinutes = Math.max(0, totalMinutes - breakMinutes)
-  // Cap regular hours at the planned shift duration (defaults to 8h if no schedule).
-  // E.g. a planned 16h shift counts the full 16h as regular; OT only beyond that.
-  const regularCap = Math.max(1, Math.min(scheduledRegularMinutes, MAX_SHIFT_MINUTES))
-  const regularMinutes = Math.min(workedMinutes, regularCap)
-  const overtimeMinutes = Math.max(0, workedMinutes - regularCap)
-
-  // Night differential: 10PM–6AM Manila time only.
-  // Break time is excluded — employees don't earn ND pay while on break.
-  let nightDiffMinutes = 0
-  let cursor = new Date(timeIn)
-  while (cursor < effectiveTimeOut) {
-    // Skip minutes that fall within the break window.
-    if (
-      breakIn && breakOut &&
-      cursor >= breakIn && cursor < breakOut
-    ) {
-      cursor = new Date(cursor.getTime() + 60_000)
-      continue
-    }
-    const h = getManilaHour(cursor)
-    if (h >= 22 || h < 6) nightDiffMinutes++
-    cursor = new Date(cursor.getTime() + 60_000)
-  }
-
-  return {
-    regularHours: Math.round((regularMinutes / 60) * 100) / 100,
-    overtimeHours: Math.round((overtimeMinutes / 60) * 100) / 100,
-    nightDiffHours: Math.round((nightDiffMinutes / 60) * 100) / 100,
-  }
 }
 
 function computeOverBreakMinutes(
@@ -314,86 +157,44 @@ export async function POST(req: NextRequest) {
     effectiveBreakOut = existing.breakOut ?? now
     breakOutTime = existing.breakOut ?? now
   }
-  // Resolve the employee's scheduled start/end times BEFORE computing hours,
-  // so the planned shift duration can be used as the regular-hours cap.
-  // Fixed-schedule employees: use workSchedule directly.
-  // Flex employees: look up their shift assignment for the DTR record date.
-  let scheduleTimeIn: string | null | undefined = employee.workSchedule?.timeIn
-  let scheduleTimeOut: string | null | undefined = employee.workSchedule?.timeOut
-
-  if (!employee.workScheduleId && existing.date) {
-    // Multi-shift safe: fetch ALL assignments for that date and pick the one
-    // whose planned start time is closest to the actual clock-in (in PHT).
-    // Without this, a day with two assignments (e.g. 04:00→12:00 and 20:00→12:00)
-    // would always match the first row, producing wrong hour caps + late minutes.
-    const rows = await prisma.$queryRaw<Array<{
-      timeIn: string | null
-      timeOut: string | null
-      schedTimeIn: string | null
-      schedTimeOut: string | null
-    }>>`
-      SELECT
-        esa."timeIn",
-        esa."timeOut",
-        ws."timeIn" AS "schedTimeIn",
-        ws."timeOut" AS "schedTimeOut"
-      FROM "employee_shift_assignments" esa
-      LEFT JOIN "work_schedules" ws ON ws.id = esa."scheduleId"
-      WHERE esa."employeeId" = ${employee.id}
-        AND esa."date" = ${existing.date}
-    `
-    if (rows.length > 0) {
-      const actualInPhtMins = getManilaMinutes(existing.timeIn)
-      let best: typeof rows[number] | null = null
-      let bestDistance = Infinity
-      for (const r of rows) {
-        const planMins = parseTimeToMinutes(r.timeIn ?? r.schedTimeIn)
-        if (planMins == null) continue
-        // Circular distance on a 24h clock so 23:00 vs 01:00 = 2h, not 22h.
-        const raw = Math.abs(planMins - actualInPhtMins)
-        const dist = Math.min(raw, 24 * 60 - raw)
-        if (dist < bestDistance) { bestDistance = dist; best = r }
-      }
-      const chosen = best ?? rows[0]
-      scheduleTimeIn  = chosen.timeIn  ?? chosen.schedTimeIn  ?? scheduleTimeIn
-      scheduleTimeOut = chosen.timeOut ?? chosen.schedTimeOut ?? scheduleTimeOut
-    }
-  }
-
-  // Planned shift duration (e.g. 16h for a 20:00→12:00 shift). Falls back to 8h.
-  const plannedRegularMins = plannedShiftMinutes(scheduleTimeIn, scheduleTimeOut) ?? 8 * 60
+  // Resolve the employee's scheduled start/end + allowed break BEFORE computing
+  // hours so the planned shift duration can be used as the regular-hours cap.
+  // The shared resolver picks the per-date assignment closest to actual clock-in
+  // for multi-shift days, falling back to the fixed schedule otherwise.
+  const resolved = await resolveShiftForDtr({
+    employeeId: employee.id,
+    date: existing.date,
+    actualTimeIn: existing.timeIn,
+    employee: {
+      workScheduleId: employee.workScheduleId,
+      workSchedule: employee.workSchedule
+        ? {
+            timeIn: employee.workSchedule.timeIn ?? null,
+            timeOut: employee.workSchedule.timeOut ?? null,
+            breakMinutes: employee.workSchedule.breakMinutes ?? null,
+          }
+        : null,
+    },
+    defaultBreakMinutes: companyDefaultBreakMinutes,
+  })
+  const plannedRegularMins = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
 
   const { regularHours, overtimeHours, nightDiffHours } = computeHours(
     existing.timeIn,
     now,
     effectiveBreakIn,
     effectiveBreakOut,
-    plannedRegularMins,
+    { plannedRegularMinutes: plannedRegularMins, allowedBreakMinutes: resolved.allowedBreakMinutes },
   )
 
   const { lateMinutes: baseLateMinutes, undertimeMinutes } = computeLateAndUndertime(
     existing.timeIn,
     now,
-    scheduleTimeIn,
-    scheduleTimeOut,
+    resolved.scheduleTimeIn,
+    resolved.scheduleTimeOut,
   )
 
-  // Overbreak: if the employee took longer than their scheduled break, the excess counts as tardy.
-  // Priority: assignment schedule override > fixed employee schedule > company default.
-  let allowedBreakMinutes = normalizeBreakMinutes(
-    employee.workSchedule?.breakMinutes ?? companyDefaultBreakMinutes
-  )
-  if (existing.date) {
-    const assignment = await prisma.employeeShiftAssignment.findFirst({
-      where: { employeeId: employee.id, date: existing.date },
-      select: { schedule: { select: { breakMinutes: true } } },
-    })
-    if (assignment?.schedule?.breakMinutes != null) {
-      allowedBreakMinutes = normalizeBreakMinutes(assignment.schedule.breakMinutes)
-    }
-  }
-  let overBreakMinutes = 0
-  overBreakMinutes = computeOverBreakMinutes(effectiveBreakIn, effectiveBreakOut, allowedBreakMinutes)
+  const overBreakMinutes = computeOverBreakMinutes(effectiveBreakIn, effectiveBreakOut, resolved.allowedBreakMinutes)
   const lateMinutes = baseLateMinutes + overBreakMinutes
 
   const staleOpenRecords = activeOpenRecords.slice(1)

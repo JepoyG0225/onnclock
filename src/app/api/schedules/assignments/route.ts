@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
+import { validateShiftTimes } from '@/lib/timesheet/validate-shift'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
@@ -210,6 +211,14 @@ export async function POST(req: NextRequest) {
     }
 
     const { id: assignmentId, employeeId, date, mode, scheduleId, timeIn, timeOut, isRestDay, notes } = parsed.data
+
+    // Reject malformed shift times before they reach the DB. Skip validation
+    // for rest-day records (no times to validate) and for assignments that
+    // only reference a template by scheduleId without their own time override.
+    if (!isRestDay && (timeIn || timeOut)) {
+      const shiftError = validateShiftTimes(timeIn, timeOut)
+      if (shiftError) return NextResponse.json({ error: shiftError }, { status: 400 })
+    }
 
     // Verify employee belongs to this company
     const emp = await prisma.employee.findFirst({

@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
-import { differenceInMinutes } from 'date-fns'
+import {
+  computeHours,
+  computeLateAndUndertime,
+  plannedShiftMinutes,
+  resolveShiftForDtr,
+} from '@/lib/timesheet/compute'
 import { z } from 'zod'
 
 const patchSchema = z.object({
@@ -12,120 +17,6 @@ const patchSchema = z.object({
   breakOut: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).optional().nullable(),
   remarks: z.string().optional().nullable(),
 })
-
-function getManilaHour(date: Date): number {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', hourCycle: 'h23' }).formatToParts(date)
-  return Number(parts.find(p => p.type === 'hour')?.value ?? '0')
-}
-
-function getManilaMinutes(date: Date): number {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date)
-  return Number(parts.find(p => p.type === 'hour')?.value ?? '0') * 60 + Number(parts.find(p => p.type === 'minute')?.value ?? '0')
-}
-
-function parseTimeToMins(v: string | null | undefined): number | null {
-  if (!v) return null
-  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(v.trim())
-  return m ? Number(m[1]) * 60 + Number(m[2]) : null
-}
-
-function recompute(
-  timeIn: Date,
-  timeOut: Date,
-  breakIn: Date | null,
-  breakOut: Date | null,
-  schedTimeIn?: string | null,
-  schedTimeOut?: string | null,
-  allowedBreakMinutes = 60,
-) {
-  const MAX = 24 * 60
-  const totalMins = Math.min(differenceInMinutes(timeOut, timeIn), MAX)
-  const effectiveOut = new Date(timeIn.getTime() + totalMins * 60_000)
-
-  // Actual break duration (capped to shift length)
-  const actualBreakMins = breakIn && breakOut
-    ? Math.max(0, differenceInMinutes(
-        breakOut > effectiveOut ? effectiveOut : breakOut,
-        breakIn < timeIn ? timeIn : breakIn,
-      ))
-    : 0
-
-  // Minutes employee was late returning from break
-  const breakLateMinutes = Math.max(0, actualBreakMins - allowedBreakMinutes)
-  // Only deduct the allowed break from worked time; late-break time is
-  // captured in lateMinutes (and deducted via lateDeduction in the engine)
-  const effectiveBreakMins = Math.min(actualBreakMins, allowedBreakMinutes)
-
-  const worked = Math.max(0, totalMins - effectiveBreakMins)
-  // Cap regular hours at the planned shift duration (defaults to 8h if no schedule).
-  // E.g. a planned 16h shift counts the full 16h as regular; OT only beyond that.
-  const schedInMinsForCap = parseTimeToMins(schedTimeIn)
-  const schedOutMinsForCap = parseTimeToMins(schedTimeOut)
-  let plannedRegularMins = 480
-  if (schedInMinsForCap != null && schedOutMinsForCap != null) {
-    let span = schedOutMinsForCap - schedInMinsForCap
-    if (span <= 0) span += 24 * 60 // overnight
-    if (span > 0) plannedRegularMins = Math.min(span, MAX)
-  }
-  const regularHours = Math.round(Math.min(worked, plannedRegularMins) / 60 * 100) / 100
-  const overtimeHours = Math.round(Math.max(0, worked - plannedRegularMins) / 60 * 100) / 100
-
-  // Night differential: iterate minute-by-minute, skipping the entire break
-  // window (including late-break portion) so unauthorised break time never
-  // earns ND pay.
-  let ndMins = 0
-  let cursor = new Date(timeIn)
-  while (cursor < effectiveOut) {
-    if (breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
-      cursor = new Date(cursor.getTime() + 60_000)
-      continue
-    }
-    const h = getManilaHour(cursor)
-    if (h >= 22 || h < 6) ndMins++
-    cursor = new Date(cursor.getTime() + 60_000)
-  }
-
-  // Also deduct ND for the late-break minutes that fell inside the ND window
-  // (those minutes are already excluded from ndMins above since they are in
-  //  [breakIn, breakOut); we subtract their ND equivalent from nightDiffHours
-  //  so the final ND reflects only authorised work time in the ND window)
-  if (breakLateMinutes > 0 && breakIn && breakOut) {
-    let lateBreakNdMins = 0
-    // Late-break period starts at breakIn + allowedBreakMinutes
-    const lateBreakStart = new Date(breakIn.getTime() + allowedBreakMinutes * 60_000)
-    const lateBreakEnd   = breakOut > effectiveOut ? effectiveOut : breakOut
-    let lbCursor = new Date(lateBreakStart)
-    while (lbCursor < lateBreakEnd) {
-      const h = getManilaHour(lbCursor)
-      if (h >= 22 || h < 6) lateBreakNdMins++
-      lbCursor = new Date(lbCursor.getTime() + 60_000)
-    }
-    ndMins = Math.max(0, ndMins - lateBreakNdMins)
-  }
-
-  const nightDiffHours = Math.round(ndMins / 60 * 100) / 100
-
-  // Clock-in tardiness
-  const schedIn = parseTimeToMins(schedTimeIn)
-  const schedOut = parseTimeToMins(schedTimeOut)
-  const isOvernight = schedIn != null && schedOut != null && schedOut <= schedIn
-  const actualInMins = getManilaMinutes(timeIn)
-  const actualOutMins = getManilaMinutes(timeOut)
-  let normalizedIn = actualInMins
-  if (isOvernight && actualInMins < (schedIn ?? 0) && actualInMins < 12 * 60) normalizedIn = actualInMins + 24 * 60
-  const clockInLate = schedIn != null ? Math.max(0, normalizedIn - schedIn) : 0
-
-  // Total late = clock-in tardiness + late return from break
-  const lateMinutes = clockInLate + breakLateMinutes
-
-  let undertimeMinutes = 0
-  if (schedOut != null) {
-    if (isOvernight) { if (actualOutMins < 12 * 60) undertimeMinutes = Math.max(0, schedOut - actualOutMins) }
-    else { undertimeMinutes = Math.max(0, schedOut - actualOutMins) }
-  }
-
-  return { regularHours, overtimeHours, nightDiffHours, lateMinutes, undertimeMinutes }
-}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -142,7 +33,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const [record, company] = await Promise.all([
     prisma.dTRRecord.findFirst({
       where: { id, employee: { companyId } },
-      include: { employee: { select: { workSchedule: { select: { timeIn: true, timeOut: true } } } } },
+      include: {
+        employee: {
+          select: {
+            workScheduleId: true,
+            workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+          },
+        },
+      },
     }),
     prisma.company.findUnique({
       where: { id: companyId },
@@ -150,7 +48,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }),
   ])
   if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 })
-  const allowedBreakMinutes = company?.defaultBreakMinutes ?? 60
 
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
@@ -158,18 +55,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { timeIn, timeOut, breakIn, breakOut, remarks } = parsed.data
 
+  // Apply patch on top of existing values so a single-field PATCH still
+  // recomputes against the correct full picture.
   const newTimeIn = timeIn ? new Date(timeIn) : record.timeIn
   const newTimeOut = timeOut !== undefined ? (timeOut ? new Date(timeOut) : null) : record.timeOut
   const newBreakIn = breakIn !== undefined ? (breakIn ? new Date(breakIn) : null) : record.breakIn
   const newBreakOut = breakOut !== undefined ? (breakOut ? new Date(breakOut) : null) : record.breakOut
 
-  let computed: ReturnType<typeof recompute> | null = null
+  // Resolve the right shift (multi-shift safe — picks closest to actual timeIn).
+  // This is the critical fix vs. the old behavior that only consulted
+  // record.employee.workSchedule and ignored EmployeeShiftAssignment.
+  const resolved = await resolveShiftForDtr({
+    employeeId: record.employeeId,
+    date: record.date,
+    actualTimeIn: newTimeIn ?? null,
+    employee: {
+      workScheduleId: record.employee.workScheduleId,
+      workSchedule: record.employee.workSchedule,
+    },
+    defaultBreakMinutes: company?.defaultBreakMinutes ?? 60,
+  })
+
+  const plannedRegularMinutes = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+
+  let computed: ReturnType<typeof computeHours> | null = null
+  let lateUt: ReturnType<typeof computeLateAndUndertime> | null = null
   if (newTimeIn && newTimeOut) {
-    computed = recompute(
-      newTimeIn, newTimeOut, newBreakIn ?? null, newBreakOut ?? null,
-      record.employee.workSchedule?.timeIn, record.employee.workSchedule?.timeOut,
-      allowedBreakMinutes,
-    )
+    computed = computeHours(newTimeIn, newTimeOut, newBreakIn, newBreakOut, {
+      plannedRegularMinutes,
+      allowedBreakMinutes: resolved.allowedBreakMinutes,
+    })
+    lateUt = computeLateAndUndertime(newTimeIn, newTimeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
   }
 
   const updated = await prisma.dTRRecord.update({
@@ -179,7 +95,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       timeOut: newTimeOut,
       breakIn: newBreakIn,
       breakOut: newBreakOut,
-      ...(computed ?? {}),
+      ...(computed
+        ? {
+            regularHours: computed.regularHours,
+            overtimeHours: computed.overtimeHours,
+            nightDiffHours: computed.nightDiffHours,
+          }
+        : {}),
+      ...(lateUt
+        ? {
+            lateMinutes: lateUt.lateMinutes,
+            undertimeMinutes: lateUt.undertimeMinutes,
+          }
+        : {}),
       ...(remarks !== undefined ? { remarks } : {}),
     },
   })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
+import { validateShiftTimes } from '@/lib/timesheet/validate-shift'
 import { z } from 'zod'
 
 const weekPatternSchema = z.object({
@@ -23,6 +24,7 @@ const scheduleSchema = z.object({
   cycleWeeks: z.array(weekPatternSchema).optional().nullable(),
   cycleStartDate: z.string().optional().nullable(), // ISO date string
 })
+
 
 export async function GET(req: NextRequest) {
   try {
@@ -122,6 +124,8 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
+    const shiftError = validateShiftTimes(data.timeIn, data.timeOut)
+    if (shiftError) return NextResponse.json({ error: shiftError }, { status: 400 })
     const repeatCycle = data.repeatCycle ?? 'WEEKLY'
 
     // For BIWEEKLY/MONTHLY, validate cycleWeeks has the right count
