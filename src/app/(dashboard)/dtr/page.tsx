@@ -723,8 +723,12 @@ export default function DTRPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Weekly Time Sheets</h1>
-          <p className="text-gray-500 text-sm mt-1">Grouped by employee and week with weekly approval</p>
+          <h1 className="text-2xl font-bold text-gray-900">Time Sheets</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {viewMode === 'daily' && 'Per-employee timesheet for the selected day'}
+            {viewMode === 'weekly' && 'Grouped by employee and week with weekly approval'}
+            {viewMode === 'monthly' && 'Grouped by employee for the selected month'}
+          </p>
         </div>
         <Button onClick={() => setShowForm(true)} disabled={isSystemAdmin && !selectedCompanyId}>
           <Plus className="w-4 h-4 mr-2" />
