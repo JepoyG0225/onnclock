@@ -215,6 +215,10 @@ interface ModalState {
   fixedScheduleId?: string | null
   date: string // YYYY-MM-DD
   existing: ShiftAssignment | null
+  /** When opened by dragging a template card, pre-select that schedule. */
+  prefilledScheduleId?: string | null
+  /** When opened by dragging the "Rest Day" tile, default to rest-day. */
+  prefilledIsRestDay?: boolean
 }
 
 // â”€â”€â”€ Shift template mini-modal (used in Flexible mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -578,16 +582,23 @@ function FlexibleScheduleTab({
   }
 
   async function onDrop(empId: string, dateStr: string) {
-    if (variant !== 'FLEXIBLE') return
     const schedId = dragScheduleId.current
     setDragOverCell(null)
     dragScheduleId.current = null
     if (!schedId) return
-    if (schedId === restDayDragId) {
-      await upsertAssignment({ employeeId: empId, date: dateStr, mode: variant, scheduleId: null, isRestDay: true })
-      return
-    }
-    await upsertAssignment({ employeeId: empId, date: dateStr, mode: variant, scheduleId: schedId, isRestDay: false })
+    // Open the assignment modal pre-populated with what was dragged. The modal
+    // shows the "Apply to days" picker so admins can fan the same shift out
+    // across multiple days in the visible week.
+    const employee = employees.find((e) => e.id === empId)
+    setModal({
+      employeeId: empId,
+      employeeName: employee ? fullName(employee) : '',
+      fixedScheduleId: employee?.workScheduleId ?? null,
+      date: dateStr,
+      existing: null,
+      prefilledScheduleId: schedId === restDayDragId ? null : schedId,
+      prefilledIsRestDay: schedId === restDayDragId,
+    })
   }
 
   async function upsertAssignment(payload: {
@@ -1079,10 +1090,17 @@ function AssignmentModal({
   onDelete: () => Promise<void>
 }) {
   const existing = modal.existing
-  const [isRestDay, setIsRestDay] = useState(variant === 'FIXED' ? false : (existing?.isRestDay ?? false))
-  const [timeIn, setTimeIn] = useState(existing?.timeIn ?? '08:00')
-  const [timeOut, setTimeOut] = useState(existing?.timeOut ?? '17:00')
-  const [scheduleId, setScheduleId] = useState(existing?.scheduleId ?? modal.fixedScheduleId ?? '')
+  // Prefilled values come from dragging a schedule card onto a cell.
+  const prefilledTemplate = modal.prefilledScheduleId
+    ? schedules.find((s) => s.id === modal.prefilledScheduleId)
+    : null
+  const initialRestDay = existing?.isRestDay ?? modal.prefilledIsRestDay ?? false
+  const [isRestDay, setIsRestDay] = useState(variant === 'FIXED' ? false : initialRestDay)
+  const [timeIn, setTimeIn] = useState(existing?.timeIn ?? prefilledTemplate?.timeIn ?? '08:00')
+  const [timeOut, setTimeOut] = useState(existing?.timeOut ?? prefilledTemplate?.timeOut ?? '17:00')
+  const [scheduleId, setScheduleId] = useState(
+    existing?.scheduleId ?? modal.prefilledScheduleId ?? modal.fixedScheduleId ?? '',
+  )
   const [saving, setSaving] = useState(false)
   // Multi-day apply: defaults to just the clicked date. Hidden when editing
   // an existing assignment (one record at a time).
