@@ -30,12 +30,11 @@ const SIZE_MAP: Record<
     iconSize: number  // icon wrapper edge
   }
 > = {
-  // iconSize is chosen to leave a comfortable gap between the rounded icon
-  // edge and the inner edge of the dot ring (inner-ring diameter ≈ box −
-  // 2·(dotInset + dot)). lg leaves ≈ 10 px each side, md ≈ 6 px, sm ≈ 4 px.
-  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 30 },
-  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 64 },
-  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 104 },
+  // iconSize is half the inner-ring clear diameter so the app icon sits as a
+  // small mark in the centre with plenty of breathing room before the dot ring.
+  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 15 },
+  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 32 },
+  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 52 },
 }
 
 // Crop factor — image is rendered this much larger than its wrapper so the
