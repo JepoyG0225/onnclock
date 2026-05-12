@@ -5,6 +5,7 @@ import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
+  getCompanyNightDiffWindow,
   plannedShiftMinutes,
   resolveShiftForDtr,
 } from '@/lib/timesheet/compute'
@@ -77,6 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   })
 
   const plannedRegularMinutes = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+  const ndWindow = await getCompanyNightDiffWindow(companyId)
 
   let computed: ReturnType<typeof computeHours> | null = null
   let lateUt: ReturnType<typeof computeLateAndUndertime> | null = null
@@ -84,6 +86,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     computed = computeHours(newTimeIn, newTimeOut, newBreakIn, newBreakOut, {
       plannedRegularMinutes,
       allowedBreakMinutes: resolved.allowedBreakMinutes,
+      nightDiffStartMins: ndWindow.startMins,
+      nightDiffEndMins: ndWindow.endMins,
     })
     lateUt = computeLateAndUndertime(newTimeIn, newTimeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
   }

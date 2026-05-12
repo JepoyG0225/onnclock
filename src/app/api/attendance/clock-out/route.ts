@@ -7,6 +7,7 @@ import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
+  getCompanyNightDiffWindow,
   plannedShiftMinutes,
   resolveShiftForDtr,
 } from '@/lib/timesheet/compute'
@@ -178,13 +179,19 @@ export async function POST(req: NextRequest) {
     defaultBreakMinutes: companyDefaultBreakMinutes,
   })
   const plannedRegularMins = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+  const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
   const { regularHours, overtimeHours, nightDiffHours } = computeHours(
     existing.timeIn,
     now,
     effectiveBreakIn,
     effectiveBreakOut,
-    { plannedRegularMinutes: plannedRegularMins, allowedBreakMinutes: resolved.allowedBreakMinutes },
+    {
+      plannedRegularMinutes: plannedRegularMins,
+      allowedBreakMinutes: resolved.allowedBreakMinutes,
+      nightDiffStartMins: ndWindow.startMins,
+      nightDiffEndMins: ndWindow.endMins,
+    },
   )
 
   const { lateMinutes: baseLateMinutes, undertimeMinutes } = computeLateAndUndertime(

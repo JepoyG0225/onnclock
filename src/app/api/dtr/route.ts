@@ -5,6 +5,7 @@ import { buildOtMapKey, getApprovedOtHoursMap, syncAutoOvertimeRequest } from '@
 import {
   computeHours,
   computeLateAndUndertime,
+  getCompanyNightDiffWindow,
   plannedShiftMinutes,
   resolveShiftForDtr,
 } from '@/lib/timesheet/compute'
@@ -165,9 +166,12 @@ export async function POST(req: NextRequest) {
       defaultBreakMinutes: companyRow?.defaultBreakMinutes ?? 60,
     })
     const planned = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+    const ndWindow = await getCompanyNightDiffWindow(companyId)
     computedHours = computeHours(timeIn, timeOut, null, null, {
       plannedRegularMinutes: planned,
       allowedBreakMinutes: resolved.allowedBreakMinutes,
+      nightDiffStartMins: ndWindow.startMins,
+      nightDiffEndMins: ndWindow.endMins,
     })
     computedLateUt = computeLateAndUndertime(timeIn, timeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
   }

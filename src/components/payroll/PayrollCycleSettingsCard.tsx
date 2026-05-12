@@ -19,6 +19,8 @@ type PayrollSettings = {
   defaultPayDelayDays: number
   enableOvertime: boolean
   enableNightDifferential: boolean
+  nightDifferentialStart: string  // "HH:MM" 24-hour, default 22:00
+  nightDifferentialEnd: string    // "HH:MM" 24-hour, default 06:00
   timezone: string
   payrollCurrency: string
 }
@@ -32,6 +34,8 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   defaultPayDelayDays: 5,
   enableOvertime: true,
   enableNightDifferential: true,
+  nightDifferentialStart: '22:00',
+  nightDifferentialEnd: '06:00',
   timezone: 'Asia/Manila',
   payrollCurrency: 'PHP',
 }
@@ -187,6 +191,30 @@ export default function PayrollCycleSettingsCard() {
                     onCheckedChange={v => setSettings(prev => ({ ...prev, enableNightDifferential: v }))}
                   />
                 </div>
+                {settings.enableNightDifferential && (
+                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-100">
+                    <div>
+                      <Label className="text-xs">ND Start</Label>
+                      <Input
+                        type="time"
+                        value={settings.nightDifferentialStart}
+                        onChange={e => setSettings(prev => ({ ...prev, nightDifferentialStart: e.target.value || '22:00' }))}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">ND End</Label>
+                      <Input
+                        type="time"
+                        value={settings.nightDifferentialEnd}
+                        onChange={e => setSettings(prev => ({ ...prev, nightDifferentialEnd: e.target.value || '06:00' }))}
+                      />
+                    </div>
+                    <p className="col-span-2 text-[11px] text-gray-500 mt-0.5">
+                      Default 22:00–06:00. Used to compute ND hours on every clock-out and payroll run.
+                      Wraps midnight when end &le; start (e.g. 22:00–06:00 = 8h window).
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

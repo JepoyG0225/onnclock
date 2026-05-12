@@ -4,6 +4,8 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPeriodLabel } from '@/lib/utils'
 
+const HHMM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/
+
 const payrollSettingsSchema = z.object({
   payFrequency: z.enum(['SEMI_MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY']),
   firstCutoffStartDay: z.coerce.number().int().min(1).max(31),
@@ -13,6 +15,8 @@ const payrollSettingsSchema = z.object({
   defaultPayDelayDays: z.coerce.number().int().min(0).max(60),
   enableOvertime: z.boolean().optional(),
   enableNightDifferential: z.boolean().optional(),
+  nightDifferentialStart: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
+  nightDifferentialEnd: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
   timezone: z.string().min(1).max(100).optional(),
   payrollCurrency: z.string().min(3).max(10).optional(),
 })
@@ -27,42 +31,28 @@ function addDays(date: Date, days: number) {
   return next
 }
 
+type PayrollCycleConfigRow = {
+  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
+  firstCutoffStartDay: number
+  firstCutoffEndDay: number
+  secondCutoffStartDay: number
+  secondCutoffEndDay: number
+  defaultPayDelayDays: number
+  enableOvertime: boolean
+  enableNightDifferential: boolean
+  nightDifferentialStart: string
+  nightDifferentialEnd: string
+}
+type PayrollCycleConfigWrite = PayrollCycleConfigRow & { companyId: string }
+
 function getPayrollCycleConfigDelegate() {
   const delegate = (prisma as unknown as {
     payrollCycleConfig?: {
-      findUnique: (args: { where: { companyId: string } }) => Promise<{
-        payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
-        firstCutoffStartDay: number
-        firstCutoffEndDay: number
-        secondCutoffStartDay: number
-        secondCutoffEndDay: number
-        defaultPayDelayDays: number
-        enableOvertime: boolean
-        enableNightDifferential: boolean
-      } | null>
+      findUnique: (args: { where: { companyId: string } }) => Promise<PayrollCycleConfigRow | null>
       upsert: (args: {
         where: { companyId: string }
-        create: {
-          companyId: string
-          payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
-          firstCutoffStartDay: number
-          firstCutoffEndDay: number
-          secondCutoffStartDay: number
-          secondCutoffEndDay: number
-          defaultPayDelayDays: number
-          enableOvertime: boolean
-          enableNightDifferential: boolean
-        }
-        update: {
-          payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
-          firstCutoffStartDay: number
-          firstCutoffEndDay: number
-          secondCutoffStartDay: number
-          secondCutoffEndDay: number
-          defaultPayDelayDays: number
-          enableOvertime: boolean
-          enableNightDifferential: boolean
-        }
+        create: PayrollCycleConfigWrite
+        update: PayrollCycleConfigRow
       }) => Promise<unknown>
     }
   }).payrollCycleConfig
@@ -266,6 +256,8 @@ export async function GET() {
       defaultPayDelayDays: config?.defaultPayDelayDays ?? 5,
       enableOvertime: config?.enableOvertime ?? true,
       enableNightDifferential: config?.enableNightDifferential ?? true,
+      nightDifferentialStart: config?.nightDifferentialStart ?? '22:00',
+      nightDifferentialEnd: config?.nightDifferentialEnd ?? '06:00',
     } as const
 
     const next = getNextPeriod({
@@ -314,6 +306,8 @@ export async function PATCH(req: NextRequest) {
     )
   }
 
+  const ndStart = data.nightDifferentialStart ?? '22:00'
+  const ndEnd = data.nightDifferentialEnd ?? '06:00'
   const settings = await delegate.upsert({
     where: { companyId: ctx.companyId },
     create: {
@@ -326,6 +320,8 @@ export async function PATCH(req: NextRequest) {
       defaultPayDelayDays: data.defaultPayDelayDays,
       enableOvertime: data.enableOvertime ?? true,
       enableNightDifferential: data.enableNightDifferential ?? true,
+      nightDifferentialStart: ndStart,
+      nightDifferentialEnd: ndEnd,
     },
     update: {
       payFrequency: data.payFrequency,
@@ -336,6 +332,8 @@ export async function PATCH(req: NextRequest) {
       defaultPayDelayDays: data.defaultPayDelayDays,
       enableOvertime: data.enableOvertime ?? true,
       enableNightDifferential: data.enableNightDifferential ?? true,
+      nightDifferentialStart: ndStart,
+      nightDifferentialEnd: ndEnd,
     },
   })
 

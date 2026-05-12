@@ -53,6 +53,26 @@ export function getManilaMinutes(date: Date): number {
 }
 
 /**
+ * Is the given Date inside the configured night-differential window (PHT)?
+ *
+ * The window is expressed as minutes-of-day, e.g. 22:00 = 1320 and 06:00 = 360.
+ * When start > end (the typical graveyard pattern), the window wraps midnight:
+ * a minute is "in" if it's at-or-after start OR before end. When start < end
+ * (a daytime ND window — rare but possible), it must be both at-or-after start
+ * AND before end. When start === end, the window is treated as inactive.
+ */
+function isInNightDiffWindow(date: Date, startMins: number, endMins: number): boolean {
+  if (startMins === endMins) return false
+  const phtMinutes = getManilaMinutes(date)
+  if (startMins > endMins) {
+    // wraps midnight (e.g. 22:00 → 06:00)
+    return phtMinutes >= startMins || phtMinutes < endMins
+  }
+  // doesn't wrap (e.g. 00:00 → 06:00, or some hypothetical daytime ND)
+  return phtMinutes >= startMins && phtMinutes < endMins
+}
+
+/**
  * Convert a planned shift's "HH:MM" → "HH:MM" into total minutes, handling
  * overnight shifts (e.g. 20:00 → 12:00 next day = 16 hours).
  */
@@ -86,7 +106,17 @@ export function computeHours(
   timeOut: Date,
   breakIn: Date | null | undefined,
   breakOut: Date | null | undefined,
-  opts: { plannedRegularMinutes?: number | null; allowedBreakMinutes?: number } = {},
+  opts: {
+    plannedRegularMinutes?: number | null
+    allowedBreakMinutes?: number
+    /**
+     * Per-company night-differential window in PHT minutes-of-day. Defaults
+     * to 22:00 (1320) start, 06:00 (360) end. When start > end (the typical
+     * graveyard pattern) the window wraps midnight.
+     */
+    nightDiffStartMins?: number
+    nightDiffEndMins?: number
+  } = {},
 ): ComputeHoursResult {
   const rawTotalMinutes = differenceInMinutes(timeOut, timeIn)
   const totalMinutes = Math.min(Math.max(0, rawTotalMinutes), MAX_SHIFT_MINUTES)
@@ -116,7 +146,10 @@ export function computeHours(
   const overtimeMinutes = Math.max(0, workedMinutes - cap)
 
   // Night differential: minute-by-minute walk through the actual shift window,
-  // skipping break minutes so unauthorised work doesn't earn ND pay.
+  // skipping break minutes so unauthorised work doesn't earn ND pay. The ND
+  // window comes from the company's payroll settings (defaults to 22:00-06:00).
+  const ndStart = opts.nightDiffStartMins ?? 22 * 60
+  const ndEnd = opts.nightDiffEndMins ?? 6 * 60
   let nightDiffMinutes = 0
   let cursor = new Date(timeIn)
   while (cursor < effectiveTimeOut) {
@@ -124,8 +157,7 @@ export function computeHours(
       cursor = new Date(cursor.getTime() + 60_000)
       continue
     }
-    const h = getManilaHour(cursor)
-    if (h >= 22 || h < 6) nightDiffMinutes++
+    if (isInNightDiffWindow(cursor, ndStart, ndEnd)) nightDiffMinutes++
     cursor = new Date(cursor.getTime() + 60_000)
   }
 
@@ -262,6 +294,32 @@ export async function resolveShiftForDtr(params: {
   }
 
   return { scheduleTimeIn, scheduleTimeOut, allowedBreakMinutes, matchedAssignment }
+}
+
+// ─── Night-differential window ──────────────────────────────────────────────
+
+/**
+ * Load the company's configured night-differential window from
+ * `PayrollCycleConfig`. Returns minutes-of-day for start + end (e.g. 22:00 →
+ * 1320). Falls back to the legal default 22:00–06:00 when the row is missing
+ * or the table doesn't exist yet (older deploys).
+ */
+export async function getCompanyNightDiffWindow(
+  companyId: string,
+): Promise<{ startMins: number; endMins: number }> {
+  const fallback = { startMins: 22 * 60, endMins: 6 * 60 }
+  try {
+    const cfg = await prisma.payrollCycleConfig.findUnique({
+      where: { companyId },
+      select: { nightDifferentialStart: true, nightDifferentialEnd: true },
+    })
+    if (!cfg) return fallback
+    const start = parseTimeToMinutes(cfg.nightDifferentialStart) ?? fallback.startMins
+    const end = parseTimeToMinutes(cfg.nightDifferentialEnd) ?? fallback.endMins
+    return { startMins: start, endMins: end }
+  } catch {
+    return fallback
+  }
 }
 
 // ─── Misc ───────────────────────────────────────────────────────────────────
