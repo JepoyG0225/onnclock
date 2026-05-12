@@ -75,13 +75,15 @@ export function AppSpinner({
           />
         ))}
 
-        {/* App icon — square mark, sits perfectly still in the center */}
+        {/* App icon — rounded-square mark in the iOS app-tile style. Sits
+            perfectly still in the center; only the ticks animate around it. */}
         <div
-          className="absolute left-1/2 top-1/2 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-white"
           style={{
             width: s.iconSize,
             height: s.iconSize,
-            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
+            borderRadius: Math.round(s.iconSize * 0.22), // iOS-style superellipse-ish radius
+            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.10)',
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -90,8 +92,7 @@ export function AppSpinner({
             alt=""
             aria-hidden
             draggable={false}
-            className="select-none object-contain"
-            style={{ width: '78%', height: '78%' }}
+            className="w-full h-full select-none object-cover"
           />
         </div>
       </div>
