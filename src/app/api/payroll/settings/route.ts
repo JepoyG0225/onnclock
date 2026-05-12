@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPeriodLabel } from '@/lib/utils'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 
 const HHMM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/
 
@@ -43,9 +44,13 @@ type PayrollCycleConfigRow = {
   enableNightDifferential: boolean
   nightDifferentialStart: string
   nightDifferentialEnd: string
-  nightDifferentialIncludesBreak: boolean
+  // Optional because older DBs may not have the column yet — see migration
+  // 20260513120000_add_nd_includes_break + the fallback raw query in
+  // safeReadPayrollCycleConfig().
+  nightDifferentialIncludesBreak?: boolean
 }
-type PayrollCycleConfigWrite = PayrollCycleConfigRow & { companyId: string }
+type PayrollCycleConfigWrite = Omit<PayrollCycleConfigRow, 'nightDifferentialIncludesBreak'>
+  & { companyId: string; nightDifferentialIncludesBreak?: boolean }
 
 function getPayrollCycleConfigDelegate() {
   const delegate = (prisma as unknown as {
@@ -54,7 +59,7 @@ function getPayrollCycleConfigDelegate() {
       upsert: (args: {
         where: { companyId: string }
         create: PayrollCycleConfigWrite
-        update: PayrollCycleConfigRow
+        update: Omit<PayrollCycleConfigRow, 'nightDifferentialIncludesBreak'> & { nightDifferentialIncludesBreak?: boolean }
       }) => Promise<unknown>
     }
   }).payrollCycleConfig
@@ -80,6 +85,29 @@ async function safeReadPayrollCycleConfig(companyId: string) {
     return await delegate.findUnique({ where: { companyId } })
   } catch (e: unknown) {
     if (isMissingPayrollCycleConfigTableError(e)) return null
+    // Missing column (P2022) — likely the new nightDifferentialIncludesBreak
+    // column isn't in the DB yet. Fall back to a raw query of the known-stable
+    // columns so the page keeps working until the migration is applied.
+    const msg = e instanceof Error ? e.message : String(e)
+    const code = e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : ''
+    if (code === 'P2022' || msg.toLowerCase().includes('does not exist')) {
+      try {
+        const rows = await prisma.$queryRaw<PayrollCycleConfigRow[]>`
+          SELECT
+            "payFrequency", "firstCutoffStartDay", "firstCutoffEndDay",
+            "secondCutoffStartDay", "secondCutoffEndDay", "defaultPayDelayDays",
+            "enableOvertime", "enableNightDifferential",
+            "nightDifferentialStart", "nightDifferentialEnd",
+            false AS "nightDifferentialIncludesBreak"
+          FROM "payroll_cycle_configs"
+          WHERE "companyId" = ${companyId}
+          LIMIT 1
+        `
+        return rows[0] ?? null
+      } catch {
+        return null
+      }
+    }
     throw e
   }
 }
@@ -269,8 +297,14 @@ export async function GET() {
       lastRunEnd: lastRun?.periodEnd ?? null,
     })
 
+    // Surface Pro entitlement so the UI can lock Pro-only toggles like
+    // "Include break in ND" without making a separate request.
+    const sub = await getCompanySubscription(ctx.companyId)
+    const proEntitled = sub.isTrial || hasHrisProFeature(sub.pricePerSeat)
+
     return NextResponse.json({
       settings: resolved,
+      proEntitled,
       locale,
       nextPeriod: {
         periodStart: next.start.toISOString().slice(0, 10),
@@ -311,37 +345,72 @@ export async function PATCH(req: NextRequest) {
 
   const ndStart = data.nightDifferentialStart ?? '22:00'
   const ndEnd = data.nightDifferentialEnd ?? '06:00'
-  const ndIncludesBreak = data.nightDifferentialIncludesBreak ?? false
-  const settings = await delegate.upsert({
-    where: { companyId: ctx.companyId },
-    create: {
-      companyId: ctx.companyId,
-      payFrequency: data.payFrequency,
-      firstCutoffStartDay: data.firstCutoffStartDay,
-      firstCutoffEndDay: data.firstCutoffEndDay,
-      secondCutoffStartDay: data.secondCutoffStartDay,
-      secondCutoffEndDay: data.secondCutoffEndDay,
-      defaultPayDelayDays: data.defaultPayDelayDays,
-      enableOvertime: data.enableOvertime ?? true,
-      enableNightDifferential: data.enableNightDifferential ?? true,
-      nightDifferentialStart: ndStart,
-      nightDifferentialEnd: ndEnd,
-      nightDifferentialIncludesBreak: ndIncludesBreak,
-    },
-    update: {
-      payFrequency: data.payFrequency,
-      firstCutoffStartDay: data.firstCutoffStartDay,
-      firstCutoffEndDay: data.firstCutoffEndDay,
-      secondCutoffStartDay: data.secondCutoffStartDay,
-      secondCutoffEndDay: data.secondCutoffEndDay,
-      defaultPayDelayDays: data.defaultPayDelayDays,
-      enableOvertime: data.enableOvertime ?? true,
-      enableNightDifferential: data.enableNightDifferential ?? true,
-      nightDifferentialStart: ndStart,
-      nightDifferentialEnd: ndEnd,
-      nightDifferentialIncludesBreak: ndIncludesBreak,
-    },
-  })
+  let ndIncludesBreak = data.nightDifferentialIncludesBreak ?? false
+
+  // "Include break in ND" is a Pro/Trial-only feature. Basic-plan tenants
+  // can keep the toggle visible but the API enforces the gate — saving with
+  // it turned on returns the standard notEntitled 403.
+  if (ndIncludesBreak) {
+    const sub = await getCompanySubscription(ctx.companyId)
+    if (!sub.isTrial && !hasHrisProFeature(sub.pricePerSeat)) {
+      return NextResponse.json(
+        {
+          error: '"Include break in ND" is a Pro feature. Upgrade to ₱100/seat to enable it.',
+          notEntitled: true,
+          feature: 'nightDifferentialIncludesBreak',
+        },
+        { status: 403 },
+      )
+    }
+  }
+  // Build the upsert payload. nightDifferentialIncludesBreak is omitted when
+  // the column doesn't exist yet in production (migration not applied). We
+  // detect that on the first attempt and retry without the field so older
+  // databases keep working.
+  const baseFields = {
+    payFrequency: data.payFrequency,
+    firstCutoffStartDay: data.firstCutoffStartDay,
+    firstCutoffEndDay: data.firstCutoffEndDay,
+    secondCutoffStartDay: data.secondCutoffStartDay,
+    secondCutoffEndDay: data.secondCutoffEndDay,
+    defaultPayDelayDays: data.defaultPayDelayDays,
+    enableOvertime: data.enableOvertime ?? true,
+    enableNightDifferential: data.enableNightDifferential ?? true,
+    nightDifferentialStart: ndStart,
+    nightDifferentialEnd: ndEnd,
+  }
+
+  const upsertDelegate = delegate
+  const upsertCompanyId = ctx.companyId
+  async function doUpsert(includeBreakField: boolean) {
+    return upsertDelegate.upsert({
+      where: { companyId: upsertCompanyId },
+      create: {
+        companyId: upsertCompanyId,
+        ...baseFields,
+        ...(includeBreakField ? { nightDifferentialIncludesBreak: ndIncludesBreak } : {}),
+      },
+      update: {
+        ...baseFields,
+        ...(includeBreakField ? { nightDifferentialIncludesBreak: ndIncludesBreak } : {}),
+      },
+    })
+  }
+
+  let settings
+  let breakColumnMissing = false
+  try {
+    settings = await doUpsert(true)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes('nightDifferentialIncludesBreak') && (msg.toLowerCase().includes('does not exist') || msg.includes('P2022'))) {
+      // Migration not applied to this DB yet — retry without the new field.
+      breakColumnMissing = true
+      settings = await doUpsert(false)
+    } else {
+      throw e
+    }
+  }
 
   const currentLocale = await safeReadCompanyPayrollLocale(ctx.companyId)
   const timezone = (data.timezone ?? currentLocale.timezone).trim()
@@ -355,5 +424,8 @@ export async function PATCH(req: NextRequest) {
       payrollCurrency,
       persisted: localeSaved,
     },
+    ...(breakColumnMissing
+      ? { warning: 'nightDifferentialIncludesBreak column not yet applied to DB — toggle was saved but ignored. Run the db-apply migration endpoint.' }
+      : {}),
   })
 }
