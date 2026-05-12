@@ -73,6 +73,40 @@ function isInNightDiffWindow(date: Date, startMins: number, endMins: number): bo
 }
 
 /**
+ * Compute how many minutes of a planned shift fall inside the configured ND
+ * window. Treats overnight shifts (out <= in) as next-day wrap. Returns null
+ * when either end of the shift is missing — caller can then skip the cap.
+ *
+ *   plannedNdOverlapMinutes('23:00', '08:00', 22*60, 6*60) → 420 (7h, 23:00→06:00)
+ *   plannedNdOverlapMinutes('09:00', '18:00', 22*60, 6*60) → 0   (no overlap)
+ *   plannedNdOverlapMinutes('20:00', '04:00', 22*60, 6*60) → 360 (6h, 22:00→04:00)
+ */
+function plannedNdOverlapMinutes(
+  schedIn: string | null | undefined,
+  schedOut: string | null | undefined,
+  ndStart: number,
+  ndEnd: number,
+): number | null {
+  const inMins = parseTimeToMinutes(schedIn ?? null)
+  const outMins = parseTimeToMinutes(schedOut ?? null)
+  if (inMins == null || outMins == null) return null
+  if (ndStart === ndEnd) return 0 // ND window disabled
+  // Walk the planned shift minute-by-minute (treating overnight as wrap)
+  // and count minutes that land in the ND window.
+  const end = outMins > inMins ? outMins : outMins + 24 * 60
+  let overlap = 0
+  for (let cur = inMins; cur < end; cur++) {
+    const m = cur % (24 * 60)
+    if (ndStart > ndEnd) {
+      if (m >= ndStart || m < ndEnd) overlap++
+    } else {
+      if (m >= ndStart && m < ndEnd) overlap++
+    }
+  }
+  return overlap
+}
+
+/**
  * Convert a planned shift's "HH:MM" → "HH:MM" into total minutes, handling
  * overnight shifts (e.g. 20:00 → 12:00 next day = 16 hours).
  */
@@ -122,6 +156,14 @@ export function computeHours(
      * stretch on premises). Default FALSE — break is excluded.
      */
     nightDiffIncludesBreak?: boolean
+    /**
+     * The planned shift's start/end as "HH:MM" strings. When provided, ND
+     * hours are capped at the planned shift's overlap with the ND window —
+     * so an employee clocking in early (e.g. 22:50 for a 23:00 shift) can't
+     * pad ND. Pass nothing to skip the cap.
+     */
+    scheduledTimeIn?: string | null
+    scheduledTimeOut?: string | null
   } = {},
 ): ComputeHoursResult {
   const rawTotalMinutes = differenceInMinutes(timeOut, timeIn)
@@ -179,6 +221,19 @@ export function computeHours(
   // totalMinutes; when excluded, it's workedMinutes (totalMinutes - break).
   const ndCap = ndIncludesBreak ? totalMinutes : workedMinutes
   nightDiffMinutes = Math.min(nightDiffMinutes, ndCap)
+
+  // Policy cap — when a planned shift is configured, ND is capped at the
+  // shift's overlap with the ND window. Prevents early clock-ins from
+  // padding ND. If no schedule is provided, no policy cap applies.
+  const plannedNdOverlap = plannedNdOverlapMinutes(
+    opts.scheduledTimeIn,
+    opts.scheduledTimeOut,
+    ndStart,
+    ndEnd,
+  )
+  if (plannedNdOverlap != null) {
+    nightDiffMinutes = Math.min(nightDiffMinutes, plannedNdOverlap)
+  }
 
   return {
     regularHours: round2(regularMinutes / 60),

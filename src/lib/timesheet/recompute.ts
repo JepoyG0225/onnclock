@@ -104,6 +104,8 @@ export async function recomputeCompanyDtrHours(
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
       nightDiffIncludesBreak: ndWindow.includesBreak,
+      scheduledTimeIn: resolved.scheduleTimeIn,
+      scheduledTimeOut: resolved.scheduleTimeOut,
     })
     const lateUt = computeLateAndUndertime(
       d.timeIn,

@@ -105,6 +105,8 @@ export async function POST(req: NextRequest) {
         nightDiffStartMins: ndWindow.startMins,
         nightDiffEndMins: ndWindow.endMins,
         nightDiffIncludesBreak: ndWindow.includesBreak,
+        scheduledTimeIn: resolved.scheduleTimeIn,
+        scheduledTimeOut: resolved.scheduleTimeOut,
       },
     )
 
