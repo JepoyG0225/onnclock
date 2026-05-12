@@ -88,6 +88,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       allowedBreakMinutes: resolved.allowedBreakMinutes,
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
+      nightDiffIncludesBreak: ndWindow.includesBreak,
     })
     lateUt = computeLateAndUndertime(newTimeIn, newTimeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
   }

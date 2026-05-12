@@ -116,6 +116,12 @@ export function computeHours(
      */
     nightDiffStartMins?: number
     nightDiffEndMins?: number
+    /**
+     * When TRUE, break minutes that fall inside the ND window still count
+     * toward nightDiffHours (company policy: ND coverage applies to entire
+     * stretch on premises). Default FALSE — break is excluded.
+     */
+    nightDiffIncludesBreak?: boolean
   } = {},
 ): ComputeHoursResult {
   const rawTotalMinutes = differenceInMinutes(timeOut, timeIn)
@@ -156,19 +162,23 @@ export function computeHours(
   // properly excluded even if those minutes fall inside the ND window.
   const ndStart = opts.nightDiffStartMins ?? 22 * 60
   const ndEnd = opts.nightDiffEndMins ?? 6 * 60
+  const ndIncludesBreak = opts.nightDiffIncludesBreak ?? false
   let nightDiffMinutes = 0
   let cursor = new Date(timeIn)
   while (cursor < effectiveTimeOut) {
-    if (breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
+    // Skip break minutes unless the company policy counts them toward ND.
+    if (!ndIncludesBreak && breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
       cursor = new Date(cursor.getTime() + 60_000)
       continue
     }
     if (isInNightDiffWindow(cursor, ndStart, ndEnd)) nightDiffMinutes++
     cursor = new Date(cursor.getTime() + 60_000)
   }
-  // Defensive cap — ND should never exceed actual worked minutes (it can't,
-  // by construction, but this guards against future regressions).
-  nightDiffMinutes = Math.min(nightDiffMinutes, workedMinutes)
+  // Defensive cap — ND should never exceed the total stretch the employee
+  // was on premises within the ND window. When break is included, that's
+  // totalMinutes; when excluded, it's workedMinutes (totalMinutes - break).
+  const ndCap = ndIncludesBreak ? totalMinutes : workedMinutes
+  nightDiffMinutes = Math.min(nightDiffMinutes, ndCap)
 
   return {
     regularHours: round2(regularMinutes / 60),
@@ -308,24 +318,28 @@ export async function resolveShiftForDtr(params: {
 // ─── Night-differential window ──────────────────────────────────────────────
 
 /**
- * Load the company's configured night-differential window from
- * `PayrollCycleConfig`. Returns minutes-of-day for start + end (e.g. 22:00 →
- * 1320). Falls back to the legal default 22:00–06:00 when the row is missing
- * or the table doesn't exist yet (older deploys).
+ * Load the company's configured night-differential window + break policy from
+ * `PayrollCycleConfig`. Returns minutes-of-day for start + end plus an
+ * `includesBreak` flag. Falls back to the legal default 22:00–06:00 (break
+ * excluded) when the row is missing or the table doesn't exist yet.
  */
 export async function getCompanyNightDiffWindow(
   companyId: string,
-): Promise<{ startMins: number; endMins: number }> {
-  const fallback = { startMins: 22 * 60, endMins: 6 * 60 }
+): Promise<{ startMins: number; endMins: number; includesBreak: boolean }> {
+  const fallback = { startMins: 22 * 60, endMins: 6 * 60, includesBreak: false }
   try {
     const cfg = await prisma.payrollCycleConfig.findUnique({
       where: { companyId },
-      select: { nightDifferentialStart: true, nightDifferentialEnd: true },
+      select: {
+        nightDifferentialStart: true,
+        nightDifferentialEnd: true,
+        nightDifferentialIncludesBreak: true,
+      },
     })
     if (!cfg) return fallback
     const start = parseTimeToMinutes(cfg.nightDifferentialStart) ?? fallback.startMins
     const end = parseTimeToMinutes(cfg.nightDifferentialEnd) ?? fallback.endMins
-    return { startMins: start, endMins: end }
+    return { startMins: start, endMins: end, includesBreak: cfg.nightDifferentialIncludesBreak ?? false }
   } catch {
     return fallback
   }

@@ -385,6 +385,10 @@ model PayrollCycleConfig {
   nightDifferentialRate  Decimal      @default(0.10) @db.Decimal(5, 4)
   nightDifferentialStart String       @default("22:00")
   nightDifferentialEnd   String       @default("06:00")
+  // When TRUE, break minutes inside the ND window count toward nightDiffHours
+  // (company policy: ND coverage applies to entire stretch on premises).
+  // Default FALSE — break is deducted from ND.
+  nightDifferentialIncludesBreak Boolean @default(false)
   updatedAt              DateTime     @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

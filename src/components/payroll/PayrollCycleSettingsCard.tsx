@@ -21,6 +21,7 @@ type PayrollSettings = {
   enableNightDifferential: boolean
   nightDifferentialStart: string  // "HH:MM" 24-hour, default 22:00
   nightDifferentialEnd: string    // "HH:MM" 24-hour, default 06:00
+  nightDifferentialIncludesBreak: boolean  // when true, break time inside ND window counts toward ND
   timezone: string
   payrollCurrency: string
 }
@@ -36,6 +37,7 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   enableNightDifferential: true,
   nightDifferentialStart: '22:00',
   nightDifferentialEnd: '06:00',
+  nightDifferentialIncludesBreak: false,
   timezone: 'Asia/Manila',
   payrollCurrency: 'PHP',
 }
@@ -213,6 +215,18 @@ export default function PayrollCycleSettingsCard() {
                       Default 22:00–06:00. Used to compute ND hours on every clock-out and payroll run.
                       Wraps midnight when end &le; start (e.g. 22:00–06:00 = 8h window).
                     </p>
+                    <div className="col-span-2 mt-1 flex items-center justify-between rounded-md border bg-white p-2">
+                      <div>
+                        <p className="text-xs font-medium">Include break in ND</p>
+                        <p className="text-[11px] text-gray-500">
+                          When ON, break minutes inside the ND window also count toward ND pay (employee was on premises). Default OFF — break is deducted.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settings.nightDifferentialIncludesBreak}
+                        onCheckedChange={(v) => setSettings((prev) => ({ ...prev, nightDifferentialIncludesBreak: v }))}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

@@ -17,6 +17,7 @@ const payrollSettingsSchema = z.object({
   enableNightDifferential: z.boolean().optional(),
   nightDifferentialStart: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
   nightDifferentialEnd: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
+  nightDifferentialIncludesBreak: z.boolean().optional(),
   timezone: z.string().min(1).max(100).optional(),
   payrollCurrency: z.string().min(3).max(10).optional(),
 })
@@ -42,6 +43,7 @@ type PayrollCycleConfigRow = {
   enableNightDifferential: boolean
   nightDifferentialStart: string
   nightDifferentialEnd: string
+  nightDifferentialIncludesBreak: boolean
 }
 type PayrollCycleConfigWrite = PayrollCycleConfigRow & { companyId: string }
 
@@ -258,6 +260,7 @@ export async function GET() {
       enableNightDifferential: config?.enableNightDifferential ?? true,
       nightDifferentialStart: config?.nightDifferentialStart ?? '22:00',
       nightDifferentialEnd: config?.nightDifferentialEnd ?? '06:00',
+      nightDifferentialIncludesBreak: config?.nightDifferentialIncludesBreak ?? false,
     } as const
 
     const next = getNextPeriod({
@@ -308,6 +311,7 @@ export async function PATCH(req: NextRequest) {
 
   const ndStart = data.nightDifferentialStart ?? '22:00'
   const ndEnd = data.nightDifferentialEnd ?? '06:00'
+  const ndIncludesBreak = data.nightDifferentialIncludesBreak ?? false
   const settings = await delegate.upsert({
     where: { companyId: ctx.companyId },
     create: {
@@ -322,6 +326,7 @@ export async function PATCH(req: NextRequest) {
       enableNightDifferential: data.enableNightDifferential ?? true,
       nightDifferentialStart: ndStart,
       nightDifferentialEnd: ndEnd,
+      nightDifferentialIncludesBreak: ndIncludesBreak,
     },
     update: {
       payFrequency: data.payFrequency,
@@ -334,6 +339,7 @@ export async function PATCH(req: NextRequest) {
       enableNightDifferential: data.enableNightDifferential ?? true,
       nightDifferentialStart: ndStart,
       nightDifferentialEnd: ndEnd,
+      nightDifferentialIncludesBreak: ndIncludesBreak,
     },
   })
 

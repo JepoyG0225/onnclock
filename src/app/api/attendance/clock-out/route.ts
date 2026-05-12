@@ -191,6 +191,7 @@ export async function POST(req: NextRequest) {
       allowedBreakMinutes: resolved.allowedBreakMinutes,
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
+      nightDiffIncludesBreak: ndWindow.includesBreak,
     },
   )
 

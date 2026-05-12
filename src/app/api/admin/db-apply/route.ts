@@ -106,6 +106,10 @@ export async function POST(req: NextRequest) {
      );`,
     `CREATE INDEX IF NOT EXISTS "asset_assignments_assetId_status_idx" ON "asset_assignments"("assetId","status");`,
     `CREATE INDEX IF NOT EXISTS "asset_assignments_employeeId_status_idx" ON "asset_assignments"("employeeId","status");`,
+
+    // 2026-05-13: add "nightDifferentialIncludesBreak" toggle to payroll config
+    `ALTER TABLE "payroll_cycle_configs"
+       ADD COLUMN IF NOT EXISTS "nightDifferentialIncludesBreak" BOOLEAN NOT NULL DEFAULT false;`,
   ]
 
   const results: { stmt: number; ok: boolean; error?: string }[] = []
