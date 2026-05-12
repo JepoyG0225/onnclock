@@ -185,3 +185,10 @@ html {
 .sidebar-scroll-minimal::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
+
+/* AppSpinner tick fade — used by 12 radially-positioned bars, each with a
+   staggered animation-delay to create the iOS-style rotating-pulse effect. */
+@keyframes app-spinner-tick {
+  0%   { opacity: 1; }
+  100% { opacity: 0.15; }
+}

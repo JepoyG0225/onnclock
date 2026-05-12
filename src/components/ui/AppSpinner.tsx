@@ -1,13 +1,13 @@
 /**
- * Modern brand-aware loading spinner: the OnClock logo sitting still in the
- * middle of a rotating gradient ring. Use anywhere a `<Loader2 />` would feel
- * too generic — page transitions, in-page data refetches, modal loading,
- * empty-state loaders.
+ * Modern iOS-style activity spinner: 12 radial tick bars fading clockwise
+ * around the OnClock app icon. The fade is achieved with staggered
+ * animation-delays on each tick (no whole-element rotation), so the icon in
+ * the middle stays perfectly still — only the ring of bars pulses.
  *
  * Sizes:
- *   sm — inline use inside small areas (forms, table cells)   48px
- *   md — default; in-card or section loaders                 80px
- *   lg — full-page or modal centerpieces                    128px
+ *   sm —  inline loaders (table cells, small buttons)         48 px
+ *   md —  default; card / section loaders                     96 px
+ *   lg —  full-page or modal centerpieces                    160 px
  */
 'use client'
 
@@ -15,10 +15,23 @@ import { cn } from '@/lib/utils'
 
 type Size = 'sm' | 'md' | 'lg'
 
-const SIZE_MAP: Record<Size, { box: string; logo: string; ring: string; pulse: string }> = {
-  sm: { box: 'w-12 h-12', logo: 'w-5 h-5', ring: 'border-2', pulse: 'inset-1' },
-  md: { box: 'w-20 h-20', logo: 'w-9 h-9', ring: 'border-[3px]', pulse: 'inset-2' },
-  lg: { box: 'w-32 h-32', logo: 'w-14 h-14', ring: 'border-4', pulse: 'inset-3' },
+const TICK_COUNT = 12
+const TICK_DURATION_S = 1.1 // full cycle for any single tick
+
+// Pixel-precise per-size geometry so the ticks line up around the icon.
+const SIZE_MAP: Record<
+  Size,
+  {
+    box: number       // overall square size
+    tickW: number
+    tickH: number
+    tickTop: number   // distance from outer edge to tick top
+    iconSize: number  // app-icon edge
+  }
+> = {
+  sm: { box: 48,  tickW: 2, tickH: 7,  tickTop: 2, iconSize: 22 },
+  md: { box: 96,  tickW: 3, tickH: 14, tickTop: 4, iconSize: 48 },
+  lg: { box: 160, tickW: 4, tickH: 22, tickTop: 6, iconSize: 78 },
 }
 
 export function AppSpinner({
@@ -31,40 +44,59 @@ export function AppSpinner({
   className?: string
 }) {
   const s = SIZE_MAP[size]
+  // transform-origin Y = (half the box) − (tickTop) so the tick rotates about
+  // the box centre while its top sits `tickTop` px from the outer edge.
+  const originY = s.box / 2 - s.tickTop
+
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3', className)}>
-      <div className={cn('relative flex items-center justify-center', s.box)}>
-        {/* Soft pulsing halo behind the ring */}
-        <div className={cn('absolute rounded-full bg-[#fa5e01]/10 animate-ping', s.pulse)} />
+      <div className="relative" style={{ width: s.box, height: s.box }}>
+        {/* 12 radial tick bars — each rotated to its slot and fading on a
+            staggered cycle to create the rotating-pulse illusion. */}
+        {Array.from({ length: TICK_COUNT }).map((_, i) => (
+          <span
+            key={i}
+            aria-hidden
+            style={{
+              position: 'absolute',
+              width: s.tickW,
+              height: s.tickH,
+              top: s.tickTop,
+              left: '50%',
+              marginLeft: -s.tickW / 2,
+              borderRadius: s.tickW,
+              backgroundColor: '#fa5e01',
+              transformOrigin: `50% ${originY}px`,
+              transform: `rotate(${(i * 360) / TICK_COUNT}deg)`,
+              animation: `app-spinner-tick ${TICK_DURATION_S}s linear infinite`,
+              animationDelay: `${(-i * TICK_DURATION_S) / TICK_COUNT}s`,
+              willChange: 'opacity',
+            }}
+          />
+        ))}
 
-        {/* Static background ring */}
-        <div className={cn('absolute inset-0 rounded-full border-slate-200', s.ring)} />
-
-        {/* Rotating arc with brand orange */}
+        {/* App icon — square mark, sits perfectly still in the center */}
         <div
-          className={cn(
-            'absolute inset-0 rounded-full border-transparent animate-spin',
-            s.ring,
-          )}
+          className="absolute left-1/2 top-1/2 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white"
           style={{
-            borderTopColor: '#fa5e01',
-            borderRightColor: '#fa5e01',
-            animationDuration: '0.9s',
+            width: s.iconSize,
+            height: s.iconSize,
+            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
           }}
-        />
-
-        {/* Centered app mark */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/onclock-logo.png"
-          alt=""
-          aria-hidden="true"
-          className={cn('relative z-10 object-contain select-none', s.logo)}
-          draggable={false}
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icons/icon-192.png"
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="select-none object-contain"
+            style={{ width: '78%', height: '78%' }}
+          />
+        </div>
       </div>
       {message && (
-        <p className="text-sm font-medium text-slate-600 animate-pulse">{message}</p>
+        <p className="text-sm font-medium text-slate-600">{message}</p>
       )}
     </div>
   )
