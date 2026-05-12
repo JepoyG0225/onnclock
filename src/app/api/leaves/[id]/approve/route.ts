@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { createNotification, userIdForEmployee } from '@/lib/notifications'
 
 export async function POST(
   req: NextRequest,
@@ -187,6 +188,22 @@ export async function POST(
       )
     }
     throw e
+  }
+
+  // Fire-and-forget notification to the employee.
+  const recipientUserId = await userIdForEmployee(leaveRequest.employeeId)
+  if (recipientUserId && (newStatus === 'APPROVED' || newStatus === 'REJECTED')) {
+    const isApproved = newStatus === 'APPROVED'
+    const start = leaveRequest.startDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+    const end = leaveRequest.endDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+    await createNotification({
+      companyId: ctx.companyId,
+      userId: recipientUserId,
+      type: isApproved ? 'LEAVE_REQUEST_APPROVED' : 'LEAVE_REQUEST_REJECTED',
+      title: isApproved ? 'Leave approved' : 'Leave rejected',
+      body: `${leaveRequest.leaveType?.name ?? 'Leave'} · ${start} – ${end}${notes ? ` · ${notes}` : ''}`,
+      link: '/portal/leaves',
+    })
   }
 
   return NextResponse.json({ success: true, status: newStatus })

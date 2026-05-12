@@ -351,6 +351,7 @@ model Company {
   approverConfigs       ApproverConfig[]
   subscription          Subscription?
   invoices              Invoice[]
+  assets                CompanyAsset[]
   shiftAssignments      EmployeeShiftAssignment[]
   incomeTypes           IncomeType[]
   jobPosts              JobPost[]
@@ -583,6 +584,7 @@ model Employee {
   shiftAssignments             EmployeeShiftAssignment[]
   budgetRequisitions           BudgetRequisition[]
   timeEntryCorrections         TimeEntryCorrection[]
+  assetAssignments             AssetAssignment[]
 
   @@unique([companyId, employeeNo])
   @@index([companyId])
@@ -1492,6 +1494,104 @@ model Announcement {
 
   @@index([companyId, isActive])
   @@map("announcements")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS (in-app bell)
+// ─────────────────────────────────────────────
+
+enum NotificationType {
+  LEAVE_REQUEST_SUBMITTED
+  LEAVE_REQUEST_APPROVED
+  LEAVE_REQUEST_REJECTED
+  DTR_APPROVED
+  DTR_REJECTED
+  OT_REQUEST_APPROVED
+  OT_REQUEST_REJECTED
+  ANNOUNCEMENT_POSTED
+  DOCUMENT_EXPIRING
+  ASSET_ASSIGNED
+  ASSET_RETURNED
+  PAYSLIP_RELEASED
+  GENERIC
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  companyId String
+  userId    String           // recipient
+  type      NotificationType @default(GENERIC)
+  title     String
+  body      String?
+  link      String?          // optional URL the bell click navigates to
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead, createdAt])
+  @@index([companyId, createdAt])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────
+// ASSET / EQUIPMENT MANAGEMENT
+// ─────────────────────────────────────────────
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_REPAIR
+  RETIRED
+  LOST
+}
+
+enum AssetAssignmentStatus {
+  ACTIVE      // currently held by the employee
+  RETURNED    // returned, history record
+}
+
+model CompanyAsset {
+  id            String      @id @default(cuid())
+  companyId     String
+  assetTag      String?     // company-issued tag (e.g. LK12-LP-001)
+  category      String      // free-form: Laptop, Phone, ID Card, Uniform, Vehicle, etc.
+  name          String      // model / description
+  serialNumber  String?
+  purchaseDate  DateTime?
+  purchaseCost  Decimal?    @db.Decimal(12, 2)
+  warrantyUntil DateTime?
+  status        AssetStatus @default(AVAILABLE)
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignments AssetAssignment[]
+
+  @@index([companyId, status])
+  @@index([companyId, category])
+  @@map("company_assets")
+}
+
+model AssetAssignment {
+  id              String                @id @default(cuid())
+  assetId         String
+  employeeId      String
+  assignedAt      DateTime              @default(now())
+  returnedAt      DateTime?
+  conditionAtIssue String?              // notes about state when given out
+  conditionAtReturn String?
+  status          AssetAssignmentStatus @default(ACTIVE)
+  assignedById    String?               // user id who issued the assignment
+  returnedById    String?               // user id who marked return
+  notes           String?
+
+  asset    CompanyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, status])
+  @@index([employeeId, status])
+  @@map("asset_assignments")
 }
 
 // ─────────────────────────────────────────────

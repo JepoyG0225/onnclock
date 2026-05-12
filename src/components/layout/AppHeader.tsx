@@ -43,10 +43,24 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
     try { return JSON.parse(localStorage.getItem('admin_dismissed_notifs') ?? '[]') } catch { return [] }
   })
 
+  // Persistent personal notifications (in-app bell — backed by the
+  // Notification table). Survives across devices unlike the admin
+  // pending-approval feed which uses localStorage dismissals.
+  const [personal, setPersonal] = useState<Array<{
+    id: string
+    type: string
+    title: string
+    body: string | null
+    link: string | null
+    isRead: boolean
+    createdAt: string
+  }>>([])
+
   const DISMISSED_KEY = 'admin_dismissed_notifs'
 
   const items = allItems.filter(i => !dismissed.includes(i.id))
-  const pendingCount = items.length
+  const unreadPersonal = personal.filter(p => !p.isRead).length
+  const pendingCount = items.length + unreadPersonal
 
   function handleClearAll() {
     const ids = [...dismissed, ...allItems.map(i => i.id)]
@@ -76,10 +90,18 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
     let active = true
     async function loadCounts() {
       try {
-        const res = await fetch('/api/notifications/admin?limit=20')
-        if (!res.ok) return
-        const data = await res.json()
-        if (active) setAllItems(data.items ?? [])
+        const [adminRes, personalRes] = await Promise.all([
+          fetch('/api/notifications/admin?limit=20').catch(() => null),
+          fetch('/api/notifications?limit=15').catch(() => null),
+        ])
+        if (adminRes?.ok) {
+          const data = await adminRes.json()
+          if (active) setAllItems(data.items ?? [])
+        }
+        if (personalRes?.ok) {
+          const data = await personalRes.json()
+          if (active) setPersonal(data.items ?? [])
+        }
       } catch { /* ignore */ }
     }
     loadCounts()
@@ -89,6 +111,18 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
       window.clearInterval(id)
     }
   }, [])
+
+  async function markPersonalRead(id?: string) {
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(id ? { ids: [id] } : {}),
+      })
+      // Optimistic: mark locally
+      setPersonal(prev => prev.map(p => (!id || p.id === id) ? { ...p, isRead: true } : p))
+    } catch { /* ignore */ }
+  }
 
   return (
     <header
@@ -128,13 +162,14 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
               )}
             </div>
             <DropdownMenuSeparator />
-            {items.length === 0 ? (
+            {items.length === 0 && personal.length === 0 ? (
               <div className="px-3 py-4 text-xs text-gray-400 text-center">
                 <Bell className="w-5 h-5 text-gray-200 mx-auto mb-1.5" />
                 All caught up
               </div>
             ) : (
               <div className="max-h-80 overflow-auto">
+                {/* Admin pending-approval feed (ephemeral, localStorage-dismissed) */}
                 {items.map(item => (
                   <DropdownMenuItem
                     key={item.id}
@@ -159,6 +194,41 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
                     </div>
                   </DropdownMenuItem>
                 ))}
+
+                {/* Personal in-app notifications (persistent, cross-device) */}
+                {personal.length > 0 && (
+                  <>
+                    {items.length > 0 && <DropdownMenuSeparator />}
+                    <div className="px-2 py-1 flex items-center justify-between">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Your updates</p>
+                      {unreadPersonal > 0 && (
+                        <button
+                          onClick={() => markPersonalRead()}
+                          className="text-[10px] text-blue-500 hover:text-blue-700"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    {personal.map(p => (
+                      <DropdownMenuItem
+                        key={p.id}
+                        className={`flex items-start gap-2 py-2.5 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer ${p.isRead ? 'opacity-70' : ''}`}
+                        onClick={() => {
+                          if (!p.isRead) void markPersonalRead(p.id)
+                          if (p.link) router.push(p.link)
+                        }}
+                      >
+                        <span className={`mt-0.5 inline-flex h-2 w-2 rounded-full flex-shrink-0 ${p.isRead ? 'bg-gray-200' : 'bg-blue-500'}`} />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-gray-900">{p.title}</p>
+                          {p.body && <p className="text-[11px] text-gray-600 truncate">{p.body}</p>}
+                          <p className="text-[10px] text-gray-400">{new Date(p.createdAt).toLocaleString()}</p>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </DropdownMenuContent>

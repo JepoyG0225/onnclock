@@ -67,6 +67,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Performance Reviews',  href: '/performance-reviews', icon: BarChart3 },
       { label: 'Offboarding',          href: '/offboarding',        icon: UserMinus },
       { label: 'Disciplinary Records', href: '/disciplinary',       icon: AlertTriangle },
+      { label: 'Assets & Equipment',   href: '/assets',             icon: Briefcase, releasedAt: '2026-05-13T00:00:00+08:00' },
     ],
   },
   {
