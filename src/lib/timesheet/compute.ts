@@ -145,9 +145,15 @@ export function computeHours(
   const regularMinutes = Math.min(workedMinutes, cap)
   const overtimeMinutes = Math.max(0, workedMinutes - cap)
 
-  // Night differential: minute-by-minute walk through the actual shift window,
-  // skipping break minutes so unauthorised work doesn't earn ND pay. The ND
-  // window comes from the company's payroll settings (defaults to 22:00-06:00).
+  // Night differential: minute-by-minute walk through the actual shift window
+  // counting only minutes that are (a) inside the configured ND window AND
+  // (b) not inside the employee's break window. This automatically deducts:
+  //   - Late clock-in        — walk starts at actual timeIn, not scheduled
+  //   - Undertime / early-out — walk ends at actual timeOut (capped at MAX)
+  //   - Allowed break         — skipped via the [breakIn, breakOut) check
+  //   - Overbreak             — same break-skip catches overbreak minutes
+  // So ND hours are always <= worked hours, with break + boundary minutes
+  // properly excluded even if those minutes fall inside the ND window.
   const ndStart = opts.nightDiffStartMins ?? 22 * 60
   const ndEnd = opts.nightDiffEndMins ?? 6 * 60
   let nightDiffMinutes = 0
@@ -160,6 +166,9 @@ export function computeHours(
     if (isInNightDiffWindow(cursor, ndStart, ndEnd)) nightDiffMinutes++
     cursor = new Date(cursor.getTime() + 60_000)
   }
+  // Defensive cap — ND should never exceed actual worked minutes (it can't,
+  // by construction, but this guards against future regressions).
+  nightDiffMinutes = Math.min(nightDiffMinutes, workedMinutes)
 
   return {
     regularHours: round2(regularMinutes / 60),

@@ -59,7 +59,14 @@ function plannedShiftMinutes(timeInStr, timeOutStr) {
   return span
 }
 
-function recompute(timeIn, timeOut, breakIn, breakOut, schedTimeIn, schedTimeOut, allowedBreakMinutes = 60) {
+function isInNd(date, startMins, endMins) {
+  if (startMins === endMins) return false
+  const phtMins = getManilaMinutes(date)
+  if (startMins > endMins) return phtMins >= startMins || phtMins < endMins
+  return phtMins >= startMins && phtMins < endMins
+}
+
+function recompute(timeIn, timeOut, breakIn, breakOut, schedTimeIn, schedTimeOut, allowedBreakMinutes = 60, ndStartMins = 22 * 60, ndEndMins = 6 * 60) {
   const MAX = 24 * 60
   const totalMins = Math.min(diffMinutes(timeOut, timeIn), MAX)
   const effectiveOut = new Date(timeIn.getTime() + totalMins * 60_000)
@@ -78,28 +85,20 @@ function recompute(timeIn, timeOut, breakIn, breakOut, schedTimeIn, schedTimeOut
   const regularHours = Math.round(Math.min(worked, regularCap) / 60 * 100) / 100
   const overtimeHours = Math.round(Math.max(0, worked - regularCap) / 60 * 100) / 100
 
+  // ND walk — counts only minutes in [timeIn, timeOut), in the configured ND
+  // window, and NOT in the break window. This automatically deducts late /
+  // undertime / break (allowed + overbreak) from ND when they fall inside
+  // the ND window — matches the live computeHours() exactly.
   let ndMins = 0
   let cursor = new Date(timeIn)
   while (cursor < effectiveOut) {
     if (breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
       cursor = new Date(cursor.getTime() + 60_000); continue
     }
-    const h = getManilaHour(cursor)
-    if (h >= 22 || h < 6) ndMins++
+    if (isInNd(cursor, ndStartMins, ndEndMins)) ndMins++
     cursor = new Date(cursor.getTime() + 60_000)
   }
-  if (breakLateMinutes > 0 && breakIn && breakOut) {
-    let lateBreakNd = 0
-    const lateBreakStart = new Date(breakIn.getTime() + allowedBreakMinutes * 60_000)
-    const lateBreakEnd = breakOut > effectiveOut ? effectiveOut : breakOut
-    let lb = new Date(lateBreakStart)
-    while (lb < lateBreakEnd) {
-      const h = getManilaHour(lb)
-      if (h >= 22 || h < 6) lateBreakNd++
-      lb = new Date(lb.getTime() + 60_000)
-    }
-    ndMins = Math.max(0, ndMins - lateBreakNd)
-  }
+  ndMins = Math.min(ndMins, worked)  // safety cap — never exceed worked
   const nightDiffHours = Math.round(ndMins / 60 * 100) / 100
 
   const schedIn = parseTimeToMins(schedTimeIn)
@@ -121,8 +120,32 @@ function recompute(timeIn, timeOut, breakIn, breakOut, schedTimeIn, schedTimeOut
 
 // ───────────────────────── data fetch ─────────────────────────
 let where = { timeIn: { not: null }, timeOut: { not: null } }
+// ND window per company — falls back to 22:00-06:00 when not configured.
+// (Mirrors src/lib/timesheet/compute.ts → getCompanyNightDiffWindow.)
+let ndStartMins = 22 * 60
+let ndEndMins = 6 * 60
+async function loadNdWindow(companyId) {
+  try {
+    const cfg = await prisma.payrollCycleConfig.findUnique({
+      where: { companyId },
+      select: { nightDifferentialStart: true, nightDifferentialEnd: true },
+    })
+    if (!cfg) return
+    const s = parseTimeToMins(cfg.nightDifferentialStart)
+    const e = parseTimeToMins(cfg.nightDifferentialEnd)
+    if (s != null) ndStartMins = s
+    if (e != null) ndEndMins = e
+  } catch { /* table missing — keep defaults */ }
+}
+
 if (DTR_ID) {
   where = { id: DTR_ID }
+  // Look up the DTR's company so we honor its ND window.
+  const dtr = await prisma.dTRRecord.findUnique({
+    where: { id: DTR_ID },
+    select: { employee: { select: { companyId: true } } },
+  })
+  if (dtr?.employee?.companyId) await loadNdWindow(dtr.employee.companyId)
 } else if (COMPANY) {
   const company = await prisma.company.findFirst({
     where: { name: { contains: COMPANY, mode: 'insensitive' } },
@@ -130,6 +153,8 @@ if (DTR_ID) {
   })
   if (!company) { console.error(`Company "${COMPANY}" not found`); process.exit(1) }
   console.log(`Company: ${company.name} (${company.id})`)
+  await loadNdWindow(company.id)
+  console.log(`ND window: ${String(Math.floor(ndStartMins / 60)).padStart(2,'0')}:${String(ndStartMins % 60).padStart(2,'0')} → ${String(Math.floor(ndEndMins / 60)).padStart(2,'0')}:${String(ndEndMins % 60).padStart(2,'0')}`)
   const since = new Date(); since.setDate(since.getDate() - DAYS)
   where = {
     employee: { companyId: company.id },
@@ -193,7 +218,7 @@ for (const d of dtrs) {
     }
   }
 
-  const next = recompute(d.timeIn, d.timeOut, d.breakIn, d.breakOut, schedIn, schedOut, allowedBreak)
+  const next = recompute(d.timeIn, d.timeOut, d.breakIn, d.breakOut, schedIn, schedOut, allowedBreak, ndStartMins, ndEndMins)
 
   const oldReg = Number(d.regularHours ?? 0)
   const oldOT  = Number(d.overtimeHours ?? 0)
