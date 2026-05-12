@@ -1,6 +1,7 @@
 /** POST /api/assets/[id]/return — mark current active assignment as RETURNED */
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
+import { requireHrisProOrTrialApi } from '@/lib/hris-pro'
 import { prisma } from '@/lib/prisma'
 import { createNotification, userIdForEmployee } from '@/lib/notifications'
 import { z } from 'zod'
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   const companyId = resolveCompanyIdForRequest(ctx, req)
   if (!companyId) return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  const gate = await requireHrisProOrTrialApi(companyId)
+  if (gate) return gate
   const { id: assetId } = await params
 
   const asset = await prisma.companyAsset.findFirst({

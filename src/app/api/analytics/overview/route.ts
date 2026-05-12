@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { requireHrisProOrTrialApi } from '@/lib/hris-pro'
 
 const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'SUPER_ADMIN', 'PAYROLL_OFFICER']
 
@@ -28,6 +29,9 @@ export async function GET(req: NextRequest) {
   }
   const companyId = resolveCompanyIdForRequest(ctx, req)
   if (!companyId) return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+
+  const gate = await requireHrisProOrTrialApi(companyId)
+  if (gate) return gate
 
   const now = new Date()
   const yearStart = new Date(now.getFullYear(), 0, 1)

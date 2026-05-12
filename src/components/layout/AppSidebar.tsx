@@ -417,7 +417,19 @@ function Tooltip({
 }
 
 // â"€â"€â"€ Collapsed flyout (portal-based to escape overflow clip) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-const PRO_LABELS = new Set(['Performance Reviews', 'Overtime Requests', 'Offboarding', 'Disciplinary Records', 'Recruitment', 'Onboarding Tracker', 'Budget Requisitions'])
+const PRO_LABELS = new Set([
+  'Performance Reviews',
+  'Overtime Requests',
+  'Offboarding',
+  'Disciplinary Records',
+  'Recruitment',
+  'Onboarding Tracker',
+  'Budget Requisitions',
+  // Phase 1 HRIS expansion (May 2026)
+  'HR Analytics',
+  'Team Calendar',
+  'Assets & Equipment',
+])
 
 function CollapsedFlyout({
   item, pathname, currentTab, isActive, activeStyle, baseItemClass, counts, hrisProEnabled,

@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
+import { requireHrisProOrTrialApi } from '@/lib/hris-pro'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest) {
   if (error) return error
   const companyId = resolveCompanyIdForRequest(ctx, req)
   if (!companyId) return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  const gate = await requireHrisProOrTrialApi(companyId)
+  if (gate) return gate
 
   const sp = req.nextUrl.searchParams
   const status = sp.get('status') || undefined
@@ -62,6 +65,8 @@ export async function POST(req: NextRequest) {
   }
   const companyId = resolveCompanyIdForRequest(ctx, req)
   if (!companyId) return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  const gate = await requireHrisProOrTrialApi(companyId)
+  if (gate) return gate
 
   const body = await req.json().catch(() => null)
   const parsed = createSchema.safeParse(body)
