@@ -52,6 +52,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'HR Analytics', href: '/analytics', icon: BarChart3, releasedAt: '2026-05-13T00:00:00+08:00' },
   {
     label: 'Employment',
     href: '/employees',
@@ -87,8 +88,9 @@ const NAV_ITEMS: NavItem[] = [
     href: '/leaves',
     icon: CalendarDays,
     children: [
-      { label: 'Leave Requests', href: '/leaves',            icon: CalendarDays },
-      { label: 'Leave Types',    href: '/leaves/types',      icon: FileText },
+      { label: 'Leave Requests',   href: '/leaves',            icon: CalendarDays },
+      { label: 'Team Calendar',    href: '/leaves/calendar',   icon: CalendarDays, releasedAt: '2026-05-13T00:00:00+08:00' },
+      { label: 'Leave Types',      href: '/leaves/types',      icon: FileText },
     ],
   },
   {
