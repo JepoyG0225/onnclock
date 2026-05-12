@@ -86,6 +86,7 @@ export default function AdminCompaniesPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null)
+  const [sendingTrialEmailId, setSendingTrialEmailId] = useState<string | null>(null)
   const [updatingDemoId, setUpdatingDemoId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<FilterTab>('all')
@@ -162,6 +163,33 @@ export default function AdminCompaniesPage() {
       toast.error(e instanceof Error ? e.message : 'Failed to update demo status')
     } finally {
       setUpdatingDemoId(null)
+    }
+  }
+
+  /**
+   * Trigger one of three trial-related emails to the company's billing/admin
+   * contact. Backed by POST /api/admin/companies/[id]/send-trial-email.
+   */
+  type TrialTemplate = 'no-employee-setup' | 'trial-expiration' | 'trial-expired'
+  async function sendTrialEmail(company: CompanyRow, template: TrialTemplate) {
+    if (!company.email) {
+      toast.error('This company has no email address on file.')
+      return
+    }
+    setSendingTrialEmailId(company.id)
+    try {
+      const res = await fetch(`/api/admin/companies/${company.id}/send-trial-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send email')
+      toast.success(`${data.label ?? 'Trial email'} sent to ${company.email}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send email')
+    } finally {
+      setSendingTrialEmailId(null)
     }
   }
 
@@ -358,24 +386,54 @@ export default function AdminCompaniesPage() {
                       </div>
                     </td>
 
-                    {/* Send demo email button */}
+                    {/* Send demo email + trial-email picker */}
                     <td className="px-5 py-4 text-center hidden xl:table-cell">
-                      <button
-                        onClick={() => sendDemoEmail(company)}
-                        disabled={sendingEmailId === company.id || !company.email}
-                        title={!company.email ? 'No email address on file' : company.demoEmailSentAt ? `Last sent ${format(new Date(company.demoEmailSentAt), 'MMM dd')}` : 'Send demo outreach email'}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-40 hover:bg-blue-50 border-blue-200 text-blue-700 bg-white"
-                      >
-                        {sendingEmailId === company.id
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <Mail className="w-3.5 h-3.5" />}
-                        {company.demoEmailSentAt ? 'Resend' : 'Send Email'}
-                      </button>
-                      {company.demoEmailSentAt && (
-                        <p className="text-[10px] mt-1" style={{ color: THEME.mid }}>
-                          {format(new Date(company.demoEmailSentAt), 'MMM dd, yyyy')}
-                        </p>
-                      )}
+                      <div className="flex flex-col items-stretch gap-1.5 min-w-[160px]">
+                        <button
+                          onClick={() => sendDemoEmail(company)}
+                          disabled={sendingEmailId === company.id || !company.email}
+                          title={!company.email ? 'No email address on file' : company.demoEmailSentAt ? `Last sent ${format(new Date(company.demoEmailSentAt), 'MMM dd')}` : 'Send demo outreach email'}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-40 hover:bg-blue-50 border-blue-200 text-blue-700 bg-white"
+                        >
+                          {sendingEmailId === company.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Mail className="w-3.5 h-3.5" />}
+                          {company.demoEmailSentAt ? 'Resend Demo' : 'Demo Email'}
+                        </button>
+
+                        {/* Trial email picker — sends one of three trial templates */}
+                        <div className="relative">
+                          <select
+                            value=""
+                            disabled={sendingTrialEmailId === company.id || !company.email}
+                            onChange={(e) => {
+                              const v = e.target.value as TrialTemplate | ''
+                              if (v) {
+                                void sendTrialEmail(company, v)
+                                e.currentTarget.value = ''
+                              }
+                            }}
+                            title={!company.email ? 'No email address on file' : 'Send a trial-related email'}
+                            className="appearance-none w-full pl-2.5 pr-7 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-opacity disabled:opacity-40 hover:bg-amber-50 border-amber-200 text-amber-800 bg-white"
+                          >
+                            <option value="">
+                              {sendingTrialEmailId === company.id ? 'Sending…' : 'Send trial email…'}
+                            </option>
+                            <option value="no-employee-setup">No Employee Setup</option>
+                            <option value="trial-expiration">Trial Expiration Reminder</option>
+                            <option value="trial-expired">Trial Expired</option>
+                          </select>
+                          {sendingTrialEmailId === company.id
+                            ? <Loader2 className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 animate-spin pointer-events-none opacity-70" />
+                            : <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />}
+                        </div>
+
+                        {company.demoEmailSentAt && (
+                          <p className="text-[10px]" style={{ color: THEME.mid }}>
+                            Demo: {format(new Date(company.demoEmailSentAt), 'MMM dd, yyyy')}
+                          </p>
+                        )}
+                      </div>
                     </td>
 
                     {/* Active toggle */}

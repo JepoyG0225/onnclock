@@ -345,3 +345,78 @@ export async function sendRecruitmentStageEmail({
     html: body.replace(/\n/g, '<br/>'),
   })
 }
+
+/**
+ * Reminder for trial companies that haven't started setting up employees yet.
+ * Triggered manually from the system admin → Companies page when a SUPER_ADMIN
+ * notices a company has been on trial but has 0 active employees.
+ */
+export async function sendNoEmployeeSetupEmail({
+  to,
+  companyName,
+  trialEndsAt,
+  senderEmail,
+  senderName,
+}: {
+  to: string
+  companyName: string
+  trialEndsAt?: Date | null
+  senderEmail?: string | null
+  senderName?: string | null
+}) {
+  const from = buildFromIdentity({ senderEmail, senderName })
+  const setupUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://onclockph.com'}/employees`
+  const trialBit = trialEndsAt
+    ? `Your trial ends on <strong>${trialEndsAt.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>. `
+    : ''
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `Get the most out of your Onclock trial — add your first employee`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#ffffff">
+        <div style="text-align:center;margin-bottom:32px">
+          <img src="https://onclockph.com/onclock-logo.png" alt="Onclock" style="height:36px" />
+        </div>
+
+        <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:12px;padding:16px 20px;margin-bottom:24px;text-align:center">
+          <p style="margin:0;font-size:22px;font-weight:900;color:#92400e">Let's get you started</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#78350f">
+            Your account is set up — but no employees added yet
+          </p>
+        </div>
+
+        <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 8px">
+          Hi ${companyName},
+        </h2>
+        <p style="font-size:14px;color:#64748b;margin:0 0 16px;line-height:1.6">
+          Welcome to Onclock! ${trialBit}You haven't added any employees yet, so the timesheet, payroll, and attendance features aren't doing much for you. Let's fix that.
+        </p>
+        <p style="font-size:14px;color:#64748b;margin:0 0 8px;line-height:1.6">
+          Adding your first employee takes about a minute:
+        </p>
+        <ol style="font-size:14px;color:#64748b;margin:0 0 24px;padding-left:20px;line-height:1.8">
+          <li>Open the Employees page</li>
+          <li>Click <strong>Add Employee</strong></li>
+          <li>Fill in name, work schedule, and rate</li>
+          <li>Done — they can clock in immediately</li>
+        </ol>
+
+        <a href="${setupUrl}"
+           style="display:inline-block;padding:14px 32px;background:#fa5e01;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+          Add Your First Employee →
+        </a>
+
+        <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
+          Need help? Just reply to this email — we'll walk you through it.
+        </p>
+        <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0" />
+        <p style="font-size:11px;color:#cbd5e1;text-align:center;margin:0">
+          Onclock &mdash; Payroll &amp; Time Keeping Made Easy
+        </p>
+      </div>
+    `,
+    text: `Hi ${companyName},\n\nWelcome to Onclock! ${trialBit ? trialBit.replace(/<\/?strong>/g, '') : ''}You haven't added any employees yet — let's get you set up so you can start using payroll and attendance features.\n\nAdd your first employee here: ${setupUrl}\n\nReply to this email if you need help.`,
+  })
+}
