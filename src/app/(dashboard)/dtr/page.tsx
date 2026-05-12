@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { DatePicker } from '@/components/ui/date-picker'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 interface DTRRecord {
   id: string
@@ -607,11 +608,9 @@ export default function DTRPage() {
       toast.info('No pending records to approve')
       return
     }
-    if (overtimePayEnabled && pendingOt > 0) {
-      setPendingApproval({ kind: 'all', otHours: pendingOt, regularHours: pendingRegular, recordCount: pendingCount })
-    } else {
-      await executeApproveAll(false)
-    }
+    // Always confirm a bulk approve — the popup adapts to whether there's OT
+    // to optionally include (when OT pay is enabled).
+    setPendingApproval({ kind: 'all', otHours: pendingOt, regularHours: pendingRegular, recordCount: pendingCount })
   }
 
   async function confirmPending(approveOvertime: boolean) {
@@ -891,16 +890,19 @@ export default function DTRPage() {
         portalTarget,
       )}
 
-      {/* ── OT-merged approval confirmation ─────────────────────────────── */}
+      {/* ── Approval confirmation (OT-aware) ────────────────────────────── */}
       {pendingApproval && portalTarget && createPortal(
         (() => {
           const pa = pendingApproval
           const otHours = pa.kind === 'employee-week' ? pa.group.totalOvertime : pa.otHours
           const regularHours = pa.kind === 'employee-week' ? pa.group.totalRegular : pa.regularHours
+          const recordCount = pa.kind === 'all' ? pa.recordCount : undefined
           const title =
             pa.kind === 'single' ? 'Approve timesheet'
             : pa.kind === 'employee-week' ? `Approve ${pa.group.employeeName}'s week`
             : `Approve ${pa.recordCount} pending record${pa.recordCount !== 1 ? 's' : ''}`
+          // OT split only matters when there's actual OT AND OT pay is on.
+          const showOtSplit = overtimePayEnabled && otHours > 0
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPendingApproval(null)} />
@@ -910,21 +912,50 @@ export default function DTRPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-lg border bg-slate-50 px-3 py-2.5 text-sm">
+                    {recordCount !== undefined && (
+                      <div className="flex justify-between pb-1.5 mb-1.5 border-b border-slate-200">
+                        <span className="text-slate-600">Records to approve</span>
+                        <span className="font-semibold text-slate-800">{recordCount}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between"><span className="text-slate-600">Regular hours</span><span className="font-semibold text-slate-800">{regularHours.toFixed(2)}h</span></div>
-                    <div className="flex justify-between mt-1"><span className="text-slate-600">Overtime hours</span><span className="font-semibold text-amber-700">{otHours.toFixed(2)}h</span></div>
+                    <div className="flex justify-between mt-1"><span className="text-slate-600">Overtime hours</span><span className={`font-semibold ${otHours > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{otHours.toFixed(2)}h</span></div>
                   </div>
-                  <p className="text-sm text-slate-700">
-                    This {pa.kind === 'all' ? 'batch' : 'timesheet'} has <strong>{otHours.toFixed(2)} hours of overtime</strong>. Should the OT be approved for payroll as well?
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Approving OT marks the auto-generated overtime requests as APPROVED so they're paid in the next payroll run. Approving regular only leaves the OT requests pending — you can decide on them separately.
-                  </p>
+                  {showOtSplit ? (
+                    <>
+                      <p className="text-sm text-slate-700">
+                        This {pa.kind === 'all' ? 'batch' : 'timesheet'} has <strong>{otHours.toFixed(2)} hours of overtime</strong>. Should the OT be approved for payroll as well?
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Approving OT marks the auto-generated overtime requests as APPROVED so they're paid in the next payroll run. Approving regular only leaves the OT requests pending — you can decide on them separately.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-700">
+                      {pa.kind === 'all'
+                        ? `Approve ${recordCount} pending timesheet record${recordCount !== 1 ? 's' : ''}?`
+                        : 'Approve this timesheet?'}
+                      {otHours > 0 && !overtimePayEnabled && (
+                        <span className="block text-xs text-slate-500 mt-1">
+                          OT pay is disabled in payroll settings — overtime hours won&apos;t be counted regardless.
+                        </span>
+                      )}
+                    </p>
+                  )}
                   <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
                     <Button variant="outline" onClick={() => setPendingApproval(null)}>Cancel</Button>
-                    <Button variant="outline" onClick={() => confirmPending(false)}>Approve regular only</Button>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => confirmPending(true)}>
-                      Approve with OT
-                    </Button>
+                    {showOtSplit ? (
+                      <>
+                        <Button variant="outline" onClick={() => confirmPending(false)}>Approve regular only</Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => confirmPending(true)}>
+                          Approve with OT
+                        </Button>
+                      </>
+                    ) : (
+                      <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => confirmPending(false)}>
+                        Approve
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1051,7 +1082,9 @@ export default function DTRPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-gray-400">Loading...</div>
+            <div className="flex items-center justify-center py-16">
+              <AppSpinner size="md" message="Loading timesheets…" />
+            </div>
           ) : groups.length === 0 ? (
             <div className="p-8 text-center text-gray-400">No time sheets found for this {viewMode === 'daily' ? 'day' : viewMode === 'monthly' ? 'month' : 'week'}</div>
           ) : (
