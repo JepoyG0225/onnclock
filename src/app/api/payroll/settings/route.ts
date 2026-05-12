@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPeriodLabel } from '@/lib/utils'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
+import { recomputeCompanyDtrHours } from '@/lib/timesheet/recompute'
 
 const HHMM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/
 
@@ -346,6 +347,16 @@ export async function PATCH(req: NextRequest) {
   const ndStart = data.nightDifferentialStart ?? '22:00'
   const ndEnd = data.nightDifferentialEnd ?? '06:00'
   const ndIncludesBreak = data.nightDifferentialIncludesBreak ?? false
+
+  // Snapshot the old ND config so we can decide post-save whether to
+  // auto-recompute existing DTRs (when start/end/includesBreak/enable change).
+  const priorConfig = await safeReadPayrollCycleConfig(ctx.companyId)
+  const ndChanged =
+    !priorConfig ||
+    priorConfig.nightDifferentialStart !== ndStart ||
+    priorConfig.nightDifferentialEnd !== ndEnd ||
+    (priorConfig.nightDifferentialIncludesBreak ?? false) !== ndIncludesBreak ||
+    priorConfig.enableNightDifferential !== (data.enableNightDifferential ?? true)
   // Build the upsert payload. nightDifferentialIncludesBreak is omitted when
   // the column doesn't exist yet in production (migration not applied). We
   // detect that on the first attempt and retry without the field so older
@@ -400,6 +411,18 @@ export async function PATCH(req: NextRequest) {
   const payrollCurrency = (data.payrollCurrency ?? currentLocale.payrollCurrency).trim().toUpperCase()
   const localeSaved = await safeWriteCompanyPayrollLocale(ctx.companyId, timezone, payrollCurrency)
 
+  // Auto-recompute DTRs when ND settings actually changed. Scoped to the
+  // last 90 days so the function returns within Vercel's timeout for most
+  // companies; older records are usually in closed pay periods anyway.
+  let recompute: Awaited<ReturnType<typeof recomputeCompanyDtrHours>> | null = null
+  if (ndChanged) {
+    try {
+      recompute = await recomputeCompanyDtrHours(ctx.companyId, { daysBack: 90 })
+    } catch (e) {
+      console.error('[payroll-settings] auto-recompute failed', e)
+    }
+  }
+
   return NextResponse.json({
     settings,
     locale: {
@@ -407,6 +430,7 @@ export async function PATCH(req: NextRequest) {
       payrollCurrency,
       persisted: localeSaved,
     },
+    ...(recompute ? { recompute } : {}),
     ...(breakColumnMissing
       ? { warning: 'nightDifferentialIncludesBreak column not yet applied to DB — toggle was saved but ignored. Run the db-apply migration endpoint.' }
       : {}),

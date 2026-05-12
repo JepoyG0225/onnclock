@@ -93,7 +93,13 @@ export default function PayrollCycleSettingsCard() {
         toast.error(data.error || 'Failed to save payroll settings')
         return
       }
-      toast.success('Payroll settings saved')
+      const recompute = data.recompute as { processed: number; updated: number; windowStart: string; windowEnd: string } | undefined
+      if (recompute && recompute.updated > 0) {
+        toast.success(`Payroll settings saved · ${recompute.updated} timesheet${recompute.updated !== 1 ? 's' : ''} recomputed under the new Night Differential settings`)
+      } else {
+        toast.success('Payroll settings saved')
+      }
+      if (data.warning) toast.warning(String(data.warning))
     } finally {
       setSaving(false)
     }
