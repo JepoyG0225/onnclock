@@ -30,15 +30,17 @@ const SIZE_MAP: Record<
     iconSize: number  // icon wrapper edge
   }
 > = {
-  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 34 },
-  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 74 },
-  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 124 },
+  // iconSize is chosen to leave a comfortable gap between the rounded icon
+  // edge and the inner edge of the dot ring (inner-ring diameter ≈ box −
+  // 2·(dotInset + dot)). lg leaves ≈ 10 px each side, md ≈ 6 px, sm ≈ 4 px.
+  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 30 },
+  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 64 },
+  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 104 },
 }
 
 // Crop factor — image is rendered this much larger than its wrapper so the
-// transparent margins inside icon-192.png get clipped. 1.45 puts the visible
-// droplet right up against the inner edge of the dot ring.
-const ICON_CROP_SCALE = 1.45
+// transparent margins inside icon-192.png get clipped.
+const ICON_CROP_SCALE = 1.3
 
 export function AppSpinner({
   size = 'md',
