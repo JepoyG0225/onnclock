@@ -4,7 +4,7 @@ import { AppSpinner } from '@/components/ui/AppSpinner'
 export default function PortalLoading() {
   return (
     <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 120px)' }}>
-      <AppSpinner size="lg" message="Loading…" />
+      <AppSpinner size="lg" />
     </div>
   )
 }

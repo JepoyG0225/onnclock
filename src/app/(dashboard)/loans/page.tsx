@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -315,7 +316,7 @@ export default function LoansPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-gray-400">Loading...</div>
+            <div className="flex items-center justify-center py-16"><AppSpinner size="md" /></div>
           ) : loans.length === 0 ? (
             <div className="p-8 text-center text-gray-400">No loans found</div>
           ) : (

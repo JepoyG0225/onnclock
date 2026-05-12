@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -518,7 +519,7 @@ export default function DisciplinaryPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-16 text-gray-400">Loading...</div>
+            <div className="flex items-center justify-center py-16"><AppSpinner size="md" /></div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16">
               <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3" />

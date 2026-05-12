@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Building2 } from 'lucide-react'
 import { OrgChart } from 'd3-org-chart'
@@ -182,7 +183,7 @@ export default function DepartmentsPage() {
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-gray-400">Loading...</div>
+        <div className="flex items-center justify-center py-16"><AppSpinner size="md" /></div>
       ) : employees.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-gray-400">

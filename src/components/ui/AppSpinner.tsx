@@ -18,20 +18,27 @@ type Size = 'sm' | 'md' | 'lg'
 const DOT_COUNT = 12
 const DOT_DURATION_S = 1.0 // full fade cycle per dot
 
-// Pixel-precise per-size geometry.
+// Pixel-precise per-size geometry. iconSize is the OUTER wrapper edge; the
+// inner image is scaled past it so transparent padding inside the PNG gets
+// cropped away, putting the visible logo right up against the dot ring.
 const SIZE_MAP: Record<
   Size,
   {
     box: number       // overall square size
     dot: number       // dot diameter
     dotInset: number  // dot distance from outer edge
-    iconSize: number  // app icon edge — sits in the middle
+    iconSize: number  // icon wrapper edge
   }
 > = {
-  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 22 },
-  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 48 },
-  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 80 },
+  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 34 },
+  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 74 },
+  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 124 },
 }
+
+// Crop factor — image is rendered this much larger than its wrapper so the
+// transparent margins inside icon-192.png get clipped. 1.45 puts the visible
+// droplet right up against the inner edge of the dot ring.
+const ICON_CROP_SCALE = 1.45
 
 export function AppSpinner({
   size = 'md',
@@ -73,16 +80,23 @@ export function AppSpinner({
           />
         ))}
 
-        {/* App icon — transparent background, sits perfectly still in the center */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/icons/icon-192.png"
-          alt=""
-          aria-hidden
-          draggable={false}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none object-contain"
+        {/* App icon — transparent background, sits perfectly still in the
+            center. Wrapper is iconSize; inner img is scaled up so the
+            transparent padding inside the icon file gets clipped away. */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden"
           style={{ width: s.iconSize, height: s.iconSize }}
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icons/icon-192.png"
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="w-full h-full select-none object-contain"
+            style={{ transform: `scale(${ICON_CROP_SCALE})` }}
+          />
+        </div>
       </div>
       {message && (
         <p className="text-sm font-medium text-slate-600">{message}</p>
