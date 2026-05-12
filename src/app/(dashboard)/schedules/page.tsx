@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -819,7 +820,7 @@ function FlexibleScheduleTab({
       {/* â”€â”€ Weekly Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
         {loadingGrid && (
-          <div className="p-6 text-center text-gray-400 text-sm">Loading schedule...</div>
+          <div className="flex items-center justify-center py-12"><AppSpinner size="md" /></div>
         )}
         {!loadingGrid && (
           <div className="overflow-x-auto">
@@ -1842,7 +1843,7 @@ function FixedScheduleTabInner({
         </CardHeader>
         <CardContent className="space-y-3">
           {loading ? (
-            <div className="text-sm text-gray-400">Loading work hours...</div>
+            <div className="flex items-center justify-center py-6"><AppSpinner size="sm" /></div>
           ) : schedules.length === 0 ? (
             <div className="text-sm text-gray-400">No work hours defined yet.</div>
           ) : (
@@ -1929,7 +1930,7 @@ function FixedScheduleTabInner({
         </CardHeader>
         <CardContent className="space-y-3">
           {loadingFixedEmployees ? (
-            <div className="text-sm text-gray-400">Loading employees...</div>
+            <div className="flex items-center justify-center py-6"><AppSpinner size="sm" /></div>
           ) : fixedEmployees.length === 0 ? (
             <div className="text-sm text-gray-400">No employees found.</div>
           ) : (

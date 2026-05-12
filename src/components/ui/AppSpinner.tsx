@@ -30,11 +30,12 @@ const SIZE_MAP: Record<
     iconSize: number  // icon wrapper edge
   }
 > = {
-  // iconSize is half the inner-ring clear diameter so the app icon sits as a
-  // small mark in the centre with plenty of breathing room before the dot ring.
-  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 15 },
-  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 32 },
-  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 52 },
+  // Tight geometry: ring sits close to the icon (≈ 8-9 px breathing room each
+  // side at lg) so the spinner reads as a single mark, not "icon floating
+  // inside a much bigger halo".
+  sm: { box: 32, dot: 3, dotInset: 2, iconSize: 15 },
+  md: { box: 64, dot: 6, dotInset: 3, iconSize: 32 },
+  lg: { box: 96, dot: 8, dotInset: 4, iconSize: 52 },
 }
 
 // Crop factor — image is rendered this much larger than its wrapper so the

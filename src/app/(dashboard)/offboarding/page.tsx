@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -919,7 +920,7 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
 
           <div className="flex-1 overflow-y-auto space-y-3 py-2">
             {loading ? (
-              <div className="py-8 text-center text-gray-400 text-sm">Loading template…</div>
+              <div className="flex items-center justify-center py-8"><AppSpinner size="sm" /></div>
             ) : allCategories.length === 0 ? (
               <div className="space-y-3">
                 {/* Banner */}

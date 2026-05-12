@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Mail, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type TemplateItem = {
   id: string
@@ -134,7 +135,7 @@ export default function RecruitmentTemplatesPage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        {loading ? <div className="p-8 text-center text-sm text-slate-500">Loading templates...</div> : null}
+        {loading ? <div className="flex items-center justify-center py-8"><AppSpinner size="md" /></div> : null}
         {!loading && sortedTemplates.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">No templates yet. Add your first one.</div>
         ) : null}

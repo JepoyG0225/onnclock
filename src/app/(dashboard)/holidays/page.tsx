@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 interface Holiday {
   id: string
@@ -384,7 +385,7 @@ export default function HolidaysPage() {
       </div>
 
       {loading && (
-        <p className="text-xs text-center text-slate-400 pb-2">Loading holidays…</p>
+        <div className="flex items-center justify-center pb-2"><AppSpinner size="sm" /></div>
       )}
     </div>
   )
