@@ -1,8 +1,8 @@
 /**
- * Modern iOS-style activity spinner: 12 radial tick bars fading clockwise
- * around the OnClock app icon. The fade is achieved with staggered
- * animation-delays on each tick (no whole-element rotation), so the icon in
- * the middle stays perfectly still — only the ring of bars pulses.
+ * Modern dot-ring activity spinner: 12 brand-orange dots arranged in a circle
+ * with a staggered fade so 2–3 leading dots stay bright and the rest fade
+ * clockwise. The app icon sits transparently in the centre and stays
+ * perfectly still — only the dots animate.
  *
  * Sizes:
  *   sm —  inline loaders (table cells, small buttons)         48 px
@@ -15,23 +15,22 @@ import { cn } from '@/lib/utils'
 
 type Size = 'sm' | 'md' | 'lg'
 
-const TICK_COUNT = 12
-const TICK_DURATION_S = 1.1 // full cycle for any single tick
+const DOT_COUNT = 12
+const DOT_DURATION_S = 1.0 // full fade cycle per dot
 
-// Pixel-precise per-size geometry so the ticks line up around the icon.
+// Pixel-precise per-size geometry.
 const SIZE_MAP: Record<
   Size,
   {
     box: number       // overall square size
-    tickW: number
-    tickH: number
-    tickTop: number   // distance from outer edge to tick top
-    iconSize: number  // app-icon edge
+    dot: number       // dot diameter
+    dotInset: number  // dot distance from outer edge
+    iconSize: number  // app icon edge — sits in the middle
   }
 > = {
-  sm: { box: 48,  tickW: 2, tickH: 7,  tickTop: 2, iconSize: 22 },
-  md: { box: 96,  tickW: 3, tickH: 14, tickTop: 4, iconSize: 48 },
-  lg: { box: 160, tickW: 4, tickH: 22, tickTop: 6, iconSize: 78 },
+  sm: { box: 48,  dot: 4,  dotInset: 2,  iconSize: 22 },
+  md: { box: 96,  dot: 8,  dotInset: 4,  iconSize: 48 },
+  lg: { box: 160, dot: 12, dotInset: 6,  iconSize: 80 },
 }
 
 export function AppSpinner({
@@ -44,57 +43,46 @@ export function AppSpinner({
   className?: string
 }) {
   const s = SIZE_MAP[size]
-  // transform-origin Y = (half the box) − (tickTop) so the tick rotates about
-  // the box centre while its top sits `tickTop` px from the outer edge.
-  const originY = s.box / 2 - s.tickTop
+  // Each dot is positioned at top-center of the box and rotated around the
+  // box centre. transform-origin Y = (half the box) − (dotInset + half-dot).
+  const originY = s.box / 2 - (s.dotInset + s.dot / 2)
 
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3', className)}>
       <div className="relative" style={{ width: s.box, height: s.box }}>
-        {/* 12 radial tick bars — each rotated to its slot and fading on a
-            staggered cycle to create the rotating-pulse illusion. */}
-        {Array.from({ length: TICK_COUNT }).map((_, i) => (
+        {/* Dot ring — each dot rotated to its slot, fading on a staggered cycle. */}
+        {Array.from({ length: DOT_COUNT }).map((_, i) => (
           <span
             key={i}
             aria-hidden
             style={{
               position: 'absolute',
-              width: s.tickW,
-              height: s.tickH,
-              top: s.tickTop,
+              width: s.dot,
+              height: s.dot,
+              top: s.dotInset,
               left: '50%',
-              marginLeft: -s.tickW / 2,
-              borderRadius: s.tickW,
+              marginLeft: -s.dot / 2,
+              borderRadius: '50%',
               backgroundColor: '#fa5e01',
-              transformOrigin: `50% ${originY}px`,
-              transform: `rotate(${(i * 360) / TICK_COUNT}deg)`,
-              animation: `app-spinner-tick ${TICK_DURATION_S}s linear infinite`,
-              animationDelay: `${(-i * TICK_DURATION_S) / TICK_COUNT}s`,
+              transformOrigin: `50% ${originY + s.dot / 2}px`,
+              transform: `rotate(${(i * 360) / DOT_COUNT}deg)`,
+              animation: `app-spinner-tick ${DOT_DURATION_S}s linear infinite`,
+              animationDelay: `${(-i * DOT_DURATION_S) / DOT_COUNT}s`,
               willChange: 'opacity',
             }}
           />
         ))}
 
-        {/* App icon — rounded-square mark in the iOS app-tile style. Sits
-            perfectly still in the center; only the ticks animate around it. */}
-        <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-white"
-          style={{
-            width: s.iconSize,
-            height: s.iconSize,
-            borderRadius: Math.round(s.iconSize * 0.22), // iOS-style superellipse-ish radius
-            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.10)',
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icons/icon-192.png"
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="w-full h-full select-none object-cover"
-          />
-        </div>
+        {/* App icon — transparent background, sits perfectly still in the center */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/icons/icon-192.png"
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none object-contain"
+          style={{ width: s.iconSize, height: s.iconSize }}
+        />
       </div>
       {message && (
         <p className="text-sm font-medium text-slate-600">{message}</p>
