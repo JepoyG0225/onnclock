@@ -345,24 +345,7 @@ export async function PATCH(req: NextRequest) {
 
   const ndStart = data.nightDifferentialStart ?? '22:00'
   const ndEnd = data.nightDifferentialEnd ?? '06:00'
-  let ndIncludesBreak = data.nightDifferentialIncludesBreak ?? false
-
-  // "Include break in ND" is a Pro/Trial-only feature. Basic-plan tenants
-  // can keep the toggle visible but the API enforces the gate — saving with
-  // it turned on returns the standard notEntitled 403.
-  if (ndIncludesBreak) {
-    const sub = await getCompanySubscription(ctx.companyId)
-    if (!sub.isTrial && !hasHrisProFeature(sub.pricePerSeat)) {
-      return NextResponse.json(
-        {
-          error: '"Include break in ND" is a Pro feature. Upgrade to ₱100/seat to enable it.',
-          notEntitled: true,
-          feature: 'nightDifferentialIncludesBreak',
-        },
-        { status: 403 },
-      )
-    }
-  }
+  const ndIncludesBreak = data.nightDifferentialIncludesBreak ?? false
   // Build the upsert payload. nightDifferentialIncludesBreak is omitted when
   // the column doesn't exist yet in production (migration not applied). We
   // detect that on the first attempt and retry without the field so older
