@@ -66,7 +66,27 @@ function isInNd(date, startMins, endMins) {
   return phtMins >= startMins && phtMins < endMins
 }
 
-function recompute(timeIn, timeOut, breakIn, breakOut, schedTimeIn, schedTimeOut, allowedBreakMinutes = 60, ndStartMins = 22 * 60, ndEndMins = 6 * 60) {
+// Compute how many minutes of the planned shift fall inside the ND window.
+// Used to cap ND so early clock-ins can't pad it past what the schedule allows.
+function plannedNdOverlap(schedTimeIn, schedTimeOut, ndStartMins, ndEndMins) {
+  const inMins = parseTimeToMins(schedTimeIn)
+  const outMins = parseTimeToMins(schedTimeOut)
+  if (inMins == null || outMins == null) return null
+  if (ndStartMins === ndEndMins) return 0
+  const end = outMins > inMins ? outMins : outMins + 24 * 60
+  let overlap = 0
+  for (let cur = inMins; cur < end; cur++) {
+    const m = cur % (24 * 60)
+    if (ndStartMins > ndEndMins) {
+      if (m >= ndStartMins || m < ndEndMins) overlap++
+    } else {
+      if (m >= ndStartMins && m < ndEndMins) overlap++
+    }
+  }
+  return overlap
+}
+
+function recompute(timeIn, timeOut, breakIn, breakOut, schedTimeIn, schedTimeOut, allowedBreakMinutes = 60, ndStartMins = 22 * 60, ndEndMins = 6 * 60, ndIncludesBreak = false) {
   const MAX = 24 * 60
   const totalMins = Math.min(diffMinutes(timeOut, timeIn), MAX)
   const effectiveOut = new Date(timeIn.getTime() + totalMins * 60_000)
@@ -85,20 +105,25 @@ function recompute(timeIn, timeOut, breakIn, breakOut, schedTimeIn, schedTimeOut
   const regularHours = Math.round(Math.min(worked, regularCap) / 60 * 100) / 100
   const overtimeHours = Math.round(Math.max(0, worked - regularCap) / 60 * 100) / 100
 
-  // ND walk — counts only minutes in [timeIn, timeOut), in the configured ND
-  // window, and NOT in the break window. This automatically deducts late /
-  // undertime / break (allowed + overbreak) from ND when they fall inside
-  // the ND window — matches the live computeHours() exactly.
+  // ND walk — counts minutes in [timeIn, timeOut) that are in the ND window.
+  // When ndIncludesBreak=false, break minutes inside the ND window are
+  // skipped. When TRUE, they count (company policy: ND coverage applies to
+  // entire stretch on premises). Mirrors the live computeHours() exactly.
   let ndMins = 0
   let cursor = new Date(timeIn)
   while (cursor < effectiveOut) {
-    if (breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
+    if (!ndIncludesBreak && breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
       cursor = new Date(cursor.getTime() + 60_000); continue
     }
     if (isInNd(cursor, ndStartMins, ndEndMins)) ndMins++
     cursor = new Date(cursor.getTime() + 60_000)
   }
-  ndMins = Math.min(ndMins, worked)  // safety cap — never exceed worked
+  // Safety cap — never exceed time on premises (or worked when excluding break).
+  ndMins = Math.min(ndMins, ndIncludesBreak ? totalMins : worked)
+  // Policy cap — never exceed planned shift × ND window overlap. Stops early
+  // clock-ins from padding ND beyond what the schedule authorizes.
+  const planNdMax = plannedNdOverlap(schedTimeIn, schedTimeOut, ndStartMins, ndEndMins)
+  if (planNdMax != null) ndMins = Math.min(ndMins, planNdMax)
   const nightDiffHours = Math.round(ndMins / 60 * 100) / 100
 
   const schedIn = parseTimeToMins(schedTimeIn)
@@ -124,18 +149,20 @@ let where = { timeIn: { not: null }, timeOut: { not: null } }
 // (Mirrors src/lib/timesheet/compute.ts → getCompanyNightDiffWindow.)
 let ndStartMins = 22 * 60
 let ndEndMins = 6 * 60
+let ndIncludesBreak = false
 async function loadNdWindow(companyId) {
   try {
     const cfg = await prisma.payrollCycleConfig.findUnique({
       where: { companyId },
-      select: { nightDifferentialStart: true, nightDifferentialEnd: true },
+      select: { nightDifferentialStart: true, nightDifferentialEnd: true, nightDifferentialIncludesBreak: true },
     })
     if (!cfg) return
     const s = parseTimeToMins(cfg.nightDifferentialStart)
     const e = parseTimeToMins(cfg.nightDifferentialEnd)
     if (s != null) ndStartMins = s
     if (e != null) ndEndMins = e
-  } catch { /* table missing — keep defaults */ }
+    ndIncludesBreak = cfg.nightDifferentialIncludesBreak ?? false
+  } catch { /* table/column missing — keep defaults */ }
 }
 
 if (DTR_ID) {
@@ -218,7 +245,7 @@ for (const d of dtrs) {
     }
   }
 
-  const next = recompute(d.timeIn, d.timeOut, d.breakIn, d.breakOut, schedIn, schedOut, allowedBreak, ndStartMins, ndEndMins)
+  const next = recompute(d.timeIn, d.timeOut, d.breakIn, d.breakOut, schedIn, schedOut, allowedBreak, ndStartMins, ndEndMins, ndIncludesBreak)
 
   const oldReg = Number(d.regularHours ?? 0)
   const oldOT  = Number(d.overtimeHours ?? 0)
