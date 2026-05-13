@@ -390,7 +390,13 @@ export async function POST(
 
     // ── Loan deductions: cap each at remaining balance ─────────────────────
     // For semi-monthly, deduct half the monthly amortization each period
-    const periodDivisor = run.payFrequency === 'SEMI_MONTHLY' ? 2 : 1
+    // Loan amortization is split the same way as mandatory deductions —
+    // MONTHLY=1, SEMI=2, WEEKLY=4, DAILY=22.
+    const periodDivisor =
+      run.payFrequency === 'SEMI_MONTHLY' ? 2
+      : run.payFrequency === 'WEEKLY' ? 4
+      : run.payFrequency === 'DAILY' ? 22
+      : 1
     const loanDeductions = emp.loans.map(loan => {
       const periodAmount = loan.monthlyAmortization.toNumber() / periodDivisor
       // Never deduct more than the remaining balance
@@ -430,7 +436,7 @@ export async function POST(
         dailyRate,
         hourlyRate,
         rateType:            emp.rateType,
-        payFrequency:        run.payFrequency === 'SEMI_MONTHLY' ? 'SEMI_MONTHLY' : 'MONTHLY',
+        payFrequency:        run.payFrequency,
         isMinimumWageEarner:   emp.isMinimumWageEarner,
         isExemptFromTax:       emp.isExemptFromTax,
         sssEnabled:            emp.sssEnabled,
@@ -442,7 +448,7 @@ export async function POST(
         start:        run.periodStart,
         end:          run.periodEnd,
         workingDays,
-        payFrequency: run.payFrequency === 'SEMI_MONTHLY' ? 'SEMI_MONTHLY' : 'MONTHLY',
+        payFrequency: run.payFrequency,
         isFirstCutoff: firstCutoff,
         nightDifferentialRate: nightDiffRate,
         regularOtRate: differentialRules.regularOtRate,

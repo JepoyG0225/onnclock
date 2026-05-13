@@ -82,25 +82,52 @@ export function computeSSS(monthlySalary: number): {
 }
 
 /**
+ * Periods-per-month for splitting monthly contributions into per-pay-period
+ * amounts. Weekly uses 4 (not 4.33) by convention — small over-deduction in
+ * 4-week months evens out across the year.
+ */
+export function periodsPerMonth(payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'): number {
+  switch (payFrequency) {
+    case 'MONTHLY': return 1
+    case 'SEMI_MONTHLY': return 2
+    case 'WEEKLY': return 4
+    case 'DAILY': return 22  // typical working-days/month
+  }
+}
+
+/**
  * SSS deduction per payroll period.
- * - Monthly: full deduction
- * - Semi-monthly: full amount on 1st cutoff (1-15), nothing on 2nd cutoff (16-end)
+ *
+ *   - The bracket is looked up against the MONTHLY EQUIVALENT of what the
+ *     employee actually earned this period — so an employee with a light
+ *     period (absences, partial month) lands in a lower bracket instead of
+ *     paying the full monthly contribution off their basic-salary record.
+ *   - The result is then SPLIT EVENLY across the periods in a month:
+ *     Monthly = 1×, Semi-monthly = ½×, Weekly = ¼×, Daily = 1/22×.
+ *
+ * `actualEarnedThisPeriod` is the basic pay actually earned for this period
+ * (after late/UT/absence deductions). Falls back to `monthlyBasicFallback`
+ * when 0 (e.g., zero-pay period — keep the bracket fair).
  */
 export function getSSSForPeriod(
-  monthlySalary: number,
-  isFirstCutoff: boolean,
-  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
+  actualEarnedThisPeriod: number,
+  monthlyBasicFallback: number,
+  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY',
+  // kept for backwards-call-site compat but no longer used (was: first-cutoff-takes-all)
+  _isFirstCutoff?: boolean,
 ): { employee: number; employer: number; ec: number } {
-  const result = computeSSS(monthlySalary)
-
-  if (payFrequency === 'MONTHLY') {
-    return { employee: result.employeeShare, employer: result.employerShare, ec: result.ec }
+  const divisor = periodsPerMonth(payFrequency)
+  const monthlyEquivalent = actualEarnedThisPeriod > 0
+    ? actualEarnedThisPeriod * divisor
+    : monthlyBasicFallback
+  const m = computeSSS(monthlyEquivalent)
+  return {
+    employee: round2(m.employeeShare / divisor),
+    employer: round2(m.employerShare / divisor),
+    ec: round2(m.ec / divisor),
   }
+}
 
-  // Semi-monthly: deduct on first cutoff only
-  if (isFirstCutoff) {
-    return { employee: result.employeeShare, employer: result.employerShare, ec: result.ec }
-  }
-
-  return { employee: 0, employer: 0, ec: 0 }
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
 }

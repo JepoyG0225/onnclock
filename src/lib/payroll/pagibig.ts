@@ -27,23 +27,26 @@ export function computePagIBIG(monthlySalary: number): {
 
 /**
  * Pag-IBIG deduction per payroll period.
- * - Monthly: full deduction
- * - Semi-monthly: full amount on 1st cutoff only
+ *
+ * Bracket is looked up against actual monthly equivalent earned this period,
+ * then the monthly contribution is split evenly across pay periods.
  */
 export function getPagIBIGForPeriod(
-  monthlySalary: number,
-  isFirstCutoff: boolean,
-  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
+  actualEarnedThisPeriod: number,
+  monthlyBasicFallback: number,
+  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY',
+  _isFirstCutoff?: boolean,
 ): { employee: number; employer: number } {
-  const { employeeShare, employerShare } = computePagIBIG(monthlySalary)
-
-  if (payFrequency === 'MONTHLY') {
-    return { employee: employeeShare, employer: employerShare }
+  const divisor = payFrequency === 'MONTHLY' ? 1
+    : payFrequency === 'SEMI_MONTHLY' ? 2
+    : payFrequency === 'WEEKLY' ? 4
+    : 22
+  const monthlyEquivalent = actualEarnedThisPeriod > 0
+    ? actualEarnedThisPeriod * divisor
+    : monthlyBasicFallback
+  const { employeeShare, employerShare } = computePagIBIG(monthlyEquivalent)
+  return {
+    employee: parseFloat((employeeShare / divisor).toFixed(2)),
+    employer: parseFloat((employerShare / divisor).toFixed(2)),
   }
-
-  if (isFirstCutoff) {
-    return { employee: employeeShare, employer: employerShare }
-  }
-
-  return { employee: 0, employer: 0 }
 }

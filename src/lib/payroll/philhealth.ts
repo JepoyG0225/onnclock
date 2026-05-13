@@ -23,23 +23,27 @@ export function computePhilHealth(monthlySalary: number): {
 
 /**
  * PhilHealth deduction per payroll period.
- * - Monthly: full employee share
- * - Semi-monthly: half on each cutoff
+ *
+ * Bracket is looked up against the actual monthly equivalent of what was
+ * earned this period (so light periods land in lower brackets), then the
+ * monthly contribution is split evenly across pay periods.
  */
 export function getPhilHealthForPeriod(
-  monthlySalary: number,
-  isFirstCutoff: boolean,
-  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
+  actualEarnedThisPeriod: number,
+  monthlyBasicFallback: number,
+  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY',
+  _isFirstCutoff?: boolean,
 ): { employee: number; employer: number } {
-  const { employeeShare, employerShare } = computePhilHealth(monthlySalary)
-
-  if (payFrequency === 'MONTHLY') {
-    return { employee: employeeShare, employer: employerShare }
-  }
-
-  // Semi-monthly: split half each cutoff
+  const divisor = payFrequency === 'MONTHLY' ? 1
+    : payFrequency === 'SEMI_MONTHLY' ? 2
+    : payFrequency === 'WEEKLY' ? 4
+    : 22
+  const monthlyEquivalent = actualEarnedThisPeriod > 0
+    ? actualEarnedThisPeriod * divisor
+    : monthlyBasicFallback
+  const { employeeShare, employerShare } = computePhilHealth(monthlyEquivalent)
   return {
-    employee: parseFloat((employeeShare / 2).toFixed(2)),
-    employer: parseFloat((employerShare / 2).toFixed(2)),
+    employee: parseFloat((employeeShare / divisor).toFixed(2)),
+    employer: parseFloat((employerShare / divisor).toFixed(2)),
   }
 }

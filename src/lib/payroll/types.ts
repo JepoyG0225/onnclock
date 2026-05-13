@@ -5,7 +5,7 @@ export interface PayrollInput {
     dailyRate: number
     hourlyRate: number
     rateType: 'MONTHLY' | 'DAILY' | 'HOURLY'
-    payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
+    payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
     isMinimumWageEarner: boolean
     isExemptFromTax: boolean
     sssEnabled: boolean
@@ -17,7 +17,7 @@ export interface PayrollInput {
     start: Date
     end: Date
     workingDays: number
-    payFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
+    payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
     isFirstCutoff: boolean  // true = 1st–15th, false = 16th–end
     nightDifferentialRate: number
     regularOtRate?: number

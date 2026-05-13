@@ -20,7 +20,13 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const regularHolidayOtRate = period.regularHolidayOtRate ?? 2.6
   const specialHolidayOtRate = period.specialHolidayOtRate ?? 1.69
 
-  const payPeriodsInYear = period.payFrequency === 'MONTHLY' ? 12 : 24
+  // Periods in a year drives both withholding-tax annualization and the
+  // even-split divisor for mandatory deductions below.
+  const payPeriodsInYear =
+    period.payFrequency === 'MONTHLY' ? 12
+    : period.payFrequency === 'SEMI_MONTHLY' ? 24
+    : period.payFrequency === 'WEEKLY' ? 52
+    : 261 // DAILY — typical working days per year
 
   // ── 1. BASIC PAY ─────────────────────────────
   const basicPay = computeBasicPay(
@@ -130,11 +136,16 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   ).toFixed(2))
 
   // ── 6. GOVERNMENT CONTRIBUTIONS ───────────────
-  const monthlySalary = employee.basicSalary
-
-  const sssRaw = getSSSForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
-  const phRaw = getPhilHealthForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
-  const pagibigRaw = getPagIBIGForPeriod(monthlySalary, period.isFirstCutoff, period.payFrequency)
+  // Bracket lookup is driven by what the employee ACTUALLY earned this
+  // period (basicPay), annualized to monthly. Falls back to the recorded
+  // basicSalary when basicPay is zero so the bracket stays consistent.
+  // Each contribution is then split evenly across the periods in a month
+  // (SEMI_MONTHLY = ½, WEEKLY = ¼, DAILY = 1/22) instead of the previous
+  // "first-cutoff-takes-all" behavior.
+  const actualEarned = basicPay - lateDeduction - undertimeDeduction - absenceDeduction
+  const sssRaw = getSSSForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
+  const phRaw = getPhilHealthForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
+  const pagibigRaw = getPagIBIGForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
 
   // Apply per-employee deduction toggles
   const sss = employee.sssEnabled
@@ -240,8 +251,13 @@ function computeBasicPay(
     return parseFloat((basicSalary * 8 * daysWorked).toFixed(2))
   }
 
-  // Monthly rate: period salary = monthly / 2 for semi-monthly, full for monthly
-  const periodSalary = payFrequency === 'SEMI_MONTHLY' ? basicSalary / 2 : basicSalary
+  // Monthly rate: pro-rate the monthly salary down to this pay period's share.
+  //   MONTHLY → full month, SEMI → half, WEEKLY → quarter, DAILY → 1/22.
+  const divisor = payFrequency === 'SEMI_MONTHLY' ? 2
+    : payFrequency === 'WEEKLY' ? 4
+    : payFrequency === 'DAILY' ? 22
+    : 1
+  const periodSalary = basicSalary / divisor
 
   if (daysWorked >= workingDaysInPeriod) return parseFloat(periodSalary.toFixed(2))
 
