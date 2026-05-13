@@ -16,7 +16,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
-const MIGRATION_NAME = '20260513000000_add_notifications_and_assets'
+const MIGRATION_NAMES = [
+  '20260513000000_add_notifications_and_assets',
+  '20260513150000_add_cash_advance',
+]
 
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
@@ -110,6 +113,48 @@ export async function POST(req: NextRequest) {
     // 2026-05-13: add "nightDifferentialIncludesBreak" toggle to payroll config
     `ALTER TABLE "payroll_cycle_configs"
        ADD COLUMN IF NOT EXISTS "nightDifferentialIncludesBreak" BOOLEAN NOT NULL DEFAULT false;`,
+
+    // ── 2026-05-13: Cash Advance feature ────────────────────────────────────
+    // New CASH_ADVANCE value on the existing LoanType enum
+    `ALTER TYPE "LoanType" ADD VALUE IF NOT EXISTS 'CASH_ADVANCE';`,
+
+    // Status enum for the cash-advance request flow
+    `DO $$ BEGIN
+       CREATE TYPE "CashAdvanceStatus" AS ENUM ('PENDING','APPROVED','REJECTED','CANCELLED');
+     EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+    // Cash advance request table
+    `CREATE TABLE IF NOT EXISTS "cash_advance_requests" (
+       "id"              TEXT NOT NULL,
+       "companyId"       TEXT NOT NULL,
+       "employeeId"      TEXT NOT NULL,
+       "amountRequested" DECIMAL(12, 2) NOT NULL,
+       "reason"          TEXT NOT NULL,
+       "repaymentMonths" INTEGER NOT NULL DEFAULT 1,
+       "status"          "CashAdvanceStatus" NOT NULL DEFAULT 'PENDING',
+       "approvedById"    TEXT,
+       "approvedAt"      TIMESTAMP(3),
+       "rejectionReason" TEXT,
+       "linkedLoanId"    TEXT,
+       "createdAt"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt"       TIMESTAMP(3) NOT NULL,
+       CONSTRAINT "cash_advance_requests_pkey" PRIMARY KEY ("id"),
+       CONSTRAINT "cash_advance_requests_companyId_fkey"
+         FOREIGN KEY ("companyId") REFERENCES "companies"("id")
+         ON DELETE CASCADE ON UPDATE CASCADE,
+       CONSTRAINT "cash_advance_requests_employeeId_fkey"
+         FOREIGN KEY ("employeeId") REFERENCES "employees"("id")
+         ON DELETE CASCADE ON UPDATE CASCADE,
+       CONSTRAINT "cash_advance_requests_linkedLoanId_fkey"
+         FOREIGN KEY ("linkedLoanId") REFERENCES "employee_loans"("id")
+         ON DELETE SET NULL ON UPDATE CASCADE
+     );`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "cash_advance_requests_linkedLoanId_key"
+       ON "cash_advance_requests"("linkedLoanId");`,
+    `CREATE INDEX IF NOT EXISTS "cash_advance_requests_companyId_status_createdAt_idx"
+       ON "cash_advance_requests"("companyId","status","createdAt");`,
+    `CREATE INDEX IF NOT EXISTS "cash_advance_requests_employeeId_status_idx"
+       ON "cash_advance_requests"("employeeId","status");`,
   ]
 
   const results: { stmt: number; ok: boolean; error?: string }[] = []
@@ -122,20 +167,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Mark migration as applied in Prisma's tracker (best-effort)
-  try {
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count)
-      SELECT gen_random_uuid()::text, 'manual', NOW(), '${MIGRATION_NAME}', NOW(), 1
-      WHERE NOT EXISTS (
-        SELECT 1 FROM _prisma_migrations WHERE migration_name = '${MIGRATION_NAME}'
-      );
-    `)
-  } catch { /* ignore — table may not exist on a fresh DB */ }
+  // Mark migrations as applied in Prisma's tracker (best-effort)
+  for (const migrationName of MIGRATION_NAMES) {
+    try {
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count)
+        SELECT gen_random_uuid()::text, 'manual', NOW(), '${migrationName}', NOW(), 1
+        WHERE NOT EXISTS (
+          SELECT 1 FROM _prisma_migrations WHERE migration_name = '${migrationName}'
+        );
+      `)
+    } catch { /* ignore — table may not exist on a fresh DB */ }
+  }
 
   const failed = results.filter((r) => !r.ok)
   return NextResponse.json({
-    migration: MIGRATION_NAME,
+    migrations: MIGRATION_NAMES,
     statementsRun: statements.length,
     failed: failed.length,
     results,

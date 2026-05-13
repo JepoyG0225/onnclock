@@ -85,7 +85,15 @@ enum LoanType {
   PAGIBIG_MULTI_PURPOSE
   PAGIBIG_CALAMITY
   COMPANY_LOAN
+  CASH_ADVANCE
   OTHER
+}
+
+enum CashAdvanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum LoanStatus {
@@ -352,6 +360,7 @@ model Company {
   subscription          Subscription?
   invoices              Invoice[]
   assets                CompanyAsset[]
+  cashAdvanceRequests   CashAdvanceRequest[]
   shiftAssignments      EmployeeShiftAssignment[]
   incomeTypes           IncomeType[]
   jobPosts              JobPost[]
@@ -589,6 +598,7 @@ model Employee {
   budgetRequisitions           BudgetRequisition[]
   timeEntryCorrections         TimeEntryCorrection[]
   assetAssignments             AssetAssignment[]
+  cashAdvanceRequests          CashAdvanceRequest[]
 
   @@unique([companyId, employeeNo])
   @@index([companyId])
@@ -1087,11 +1097,41 @@ model EmployeeLoan {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  company    Company                @relation(fields: [companyId], references: [id])
-  employee   Employee               @relation(fields: [employeeId], references: [id])
-  deductions PayslipLoanDeduction[]
+  company         Company                @relation(fields: [companyId], references: [id])
+  employee        Employee               @relation(fields: [employeeId], references: [id])
+  deductions      PayslipLoanDeduction[]
+  cashAdvance     CashAdvanceRequest?
 
   @@map("employee_loans")
+}
+
+// Cash advance request — employee files via portal, HR approves, on approval
+// an EmployeeLoan (type CASH_ADVANCE) is created so the existing payroll loan
+// deduction logic handles repayment automatically. Available on all plans
+// (Basic + Pro) — the schema lives here for visibility.
+model CashAdvanceRequest {
+  id              String            @id @default(cuid())
+  companyId       String
+  employeeId      String
+  amountRequested Decimal           @db.Decimal(12, 2)
+  reason          String
+  repaymentMonths Int               @default(1) // 1 to 3 typically
+  status          CashAdvanceStatus @default(PENDING)
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  // Once approved, points to the EmployeeLoan that handles deduction
+  linkedLoanId    String?           @unique
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  loan     EmployeeLoan? @relation(fields: [linkedLoanId], references: [id])
+
+  @@index([companyId, status, createdAt])
+  @@index([employeeId, status])
+  @@map("cash_advance_requests")
 }
 
 model PayslipLoanDeduction {

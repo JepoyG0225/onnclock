@@ -103,6 +103,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Payroll Settings', href: '/payroll/settings', icon: Settings },
       { label: '13th Month Pay', href: '/thirteenth-month', icon: Gift },
       { label: 'Loans',          href: '/loans',            icon: CreditCard },
+      { label: 'Cash Advance',   href: '/cash-advance',     icon: CreditCard, releasedAt: '2026-05-13T00:00:00+08:00' },
     ],
   },
   { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },
