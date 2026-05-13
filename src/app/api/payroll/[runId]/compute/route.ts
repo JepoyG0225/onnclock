@@ -106,8 +106,28 @@ export async function POST(
   { params }: { params: Promise<{ runId: string }> }
 ) {
   const { runId } = await params
-  const { ctx, error } = await requireAuth()
-  if (error) return error
+
+  // Allow key-auth bypass for the admin recompute trigger. When a valid
+  // ?adminKey is passed, we skip session auth entirely and trust the
+  // ?companyId query param. Otherwise standard session auth applies.
+  const adminKey = (req.nextUrl.searchParams.get('adminKey') ?? '').trim()
+  const expectedKey = (process.env.MIGRATION_APPLY_KEY ?? '').trim().replace(/^"|"$/g, '')
+  const isAdminKeyAuth = expectedKey.length > 0 && adminKey === expectedKey
+
+  let ctx: { userId: string; companyId: string; role: string; email: string }
+  if (isAdminKeyAuth) {
+    const queryCompanyId = req.nextUrl.searchParams.get('companyId')
+    if (!queryCompanyId) {
+      return NextResponse.json({ error: 'companyId is required when using adminKey' }, { status: 400 })
+    }
+    // Synthesize a SUPER_ADMIN context for the recompute. userId is used
+    // only for audit fields (approvedBy, etc.) — use 'admin-recompute' sentinel.
+    ctx = { userId: 'admin-recompute', companyId: queryCompanyId, role: 'SUPER_ADMIN', email: 'admin@onclockph.com' }
+  } else {
+    const auth = await requireAuth()
+    if (auth.error) return auth.error
+    ctx = auth.ctx
+  }
 
   // SUPER_ADMIN can target any company's run via ?companyId=… so the
   // admin recompute proxy works without needing an impersonation cookie.
