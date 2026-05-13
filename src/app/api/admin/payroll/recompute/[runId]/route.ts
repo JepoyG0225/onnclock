@@ -40,9 +40,21 @@ export async function POST(
     return NextResponse.json({ error: 'Locked runs cannot be recomputed' }, { status: 400 })
   }
 
+  // Reload the variable-income entries previously saved for this run so
+  // the compute route's "all required employees must have an entry"
+  // validation passes without an admin re-typing every value.
+  const priorEntries = await prisma.payrollRunIncomeEntry.findMany({
+    where: { payrollRunId: runId },
+    select: { employeeId: true, incomeTypeId: true, amount: true },
+  })
+  const variableIncomeEntries = priorEntries.map((e) => ({
+    employeeId: e.employeeId,
+    incomeTypeId: e.incomeTypeId,
+    amount: Number(e.amount),
+  }))
+
   // Forward to the existing compute endpoint, scoped to the run's owning
-  // company. We pass companyId via header so the auth helper picks it up
-  // the way our existing routes already do (resolveCompanyIdForRequest).
+  // company via ?companyId (SUPER_ADMIN-only override added on that route).
   const origin = new URL(req.url).origin
   const cookieHeader = req.headers.get('cookie') ?? ''
   const computeRes = await fetch(`${origin}/api/payroll/${runId}/compute?companyId=${encodeURIComponent(run.companyId)}`, {
@@ -51,7 +63,7 @@ export async function POST(
       'Content-Type': 'application/json',
       'cookie': cookieHeader,
     },
-    body: '{}',
+    body: JSON.stringify({ variableIncomeEntries }),
   })
   const computeJson = await computeRes.json().catch(() => ({}))
   if (!computeRes.ok) {
