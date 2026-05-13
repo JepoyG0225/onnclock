@@ -1,23 +1,23 @@
 import { PAGIBIG_2024 } from '../constants'
 
+// Pag-IBIG monthly contribution. Effective May 2026: flat 2% on both
+// sides, capped at ₱200 each (based on the ₱10,000 monthly compensation
+// ceiling). An employee earning ₱5,000 pays ₱100 (no cap hit); one earning
+// ₱20,000 pays ₱200 (capped).
 export function computePagIBIG(monthlySalary: number): {
   employeeShare: number
   employerShare: number
   total: number
 } {
-  const employeeRate = monthlySalary <= PAGIBIG_2024.THRESHOLD
-    ? PAGIBIG_2024.EMPLOYEE_LOW_RATE
-    : PAGIBIG_2024.EMPLOYEE_HIGH_RATE
-
+  const cappedComp = Math.min(monthlySalary, 10_000) // policy salary ceiling
   const employeeShare = Math.min(
-    parseFloat((monthlySalary * employeeRate).toFixed(2)),
-    PAGIBIG_2024.MAX_EMPLOYEE
+    parseFloat((cappedComp * PAGIBIG_2024.EMPLOYEE_HIGH_RATE).toFixed(2)),
+    PAGIBIG_2024.MAX_EMPLOYEE,
   )
   const employerShare = Math.min(
-    parseFloat((monthlySalary * PAGIBIG_2024.EMPLOYER_RATE).toFixed(2)),
-    PAGIBIG_2024.MAX_EMPLOYER
+    parseFloat((cappedComp * PAGIBIG_2024.EMPLOYER_RATE).toFixed(2)),
+    PAGIBIG_2024.MAX_EMPLOYER,
   )
-
   return {
     employeeShare,
     employerShare,

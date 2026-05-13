@@ -54,13 +54,19 @@ export const PHILHEALTH_2024 = {
 // PAG-IBIG (HDMF) 2024
 // ─────────────────────────────────────────────
 
+// Pag-IBIG mandatory monthly contribution — effective May 2026 update:
+// flat 2% for BOTH employee and employer, capped at ₱200 each (based on the
+// ₱10,000 monthly compensation ceiling). Total ₱400/month at salaries ≥ ₱10k.
+// Previous rule (1% under ₱1,500 / 2% above, ₱100 cap) no longer applies —
+// LOW_RATE and HIGH_RATE both = 0.02 now, THRESHOLD set to 0 so the branch
+// becomes a no-op, but the keys stay so older imports compile.
 export const PAGIBIG_2024 = {
-  EMPLOYEE_LOW_RATE: 0.01,  // 1% if monthly salary <= threshold
-  EMPLOYEE_HIGH_RATE: 0.02, // 2% if monthly salary > threshold
+  EMPLOYEE_LOW_RATE: 0.02,  // was 0.01 — flat 2% now
+  EMPLOYEE_HIGH_RATE: 0.02, // 2% always
   EMPLOYER_RATE: 0.02,      // 2% always
-  THRESHOLD: 1_500,         // salary threshold for employee rate
-  MAX_EMPLOYEE: 100,        // max employee contribution
-  MAX_EMPLOYER: 100,        // max employer contribution
+  THRESHOLD: 0,             // no threshold tier anymore
+  MAX_EMPLOYEE: 200,        // was 100 — cap doubled with new ₱10k ceiling
+  MAX_EMPLOYER: 200,        // was 100 — same
 } as const
 
 // ─────────────────────────────────────────────
