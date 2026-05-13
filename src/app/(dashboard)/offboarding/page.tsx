@@ -37,6 +37,7 @@ import {
   AlertTriangle,
   Lock,
   Star,
+  Receipt,
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -1318,6 +1319,13 @@ function DetailPanel({
             </div>
 
             <div className="flex gap-2 flex-shrink-0">
+              <Link
+                href={`/final-pay?employeeId=${process.employeeId}&lastDay=${process.lastWorkingDate.slice(0, 10)}&reason=${process.reason}`}
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 text-orange-600 border-orange-200 hover:bg-orange-50"
+              >
+                <Receipt className="w-3.5 h-3.5 mr-1" />
+                Final Pay
+              </Link>
               <Button
                 size="sm"
                 variant="outline"
