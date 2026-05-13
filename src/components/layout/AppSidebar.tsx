@@ -32,6 +32,7 @@ import {
   TrendingDown,
   Receipt,
   ClipboardEdit,
+  Sparkles,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -52,6 +53,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'AI HR Assistant', href: '/ai-assistant', icon: Sparkles, releasedAt: '2026-05-13T00:00:00+08:00' },
   { label: 'HR Analytics', href: '/analytics', icon: BarChart3, releasedAt: '2026-05-13T00:00:00+08:00' },
   {
     label: 'Employment',
@@ -433,6 +435,7 @@ const PRO_LABELS = new Set([
   'Assets & Equipment',
   // Phase 2 (May 2026): year-end tax workflow
   'Tax Annualization',
+  'AI HR Assistant',
 ])
 
 function CollapsedFlyout({
