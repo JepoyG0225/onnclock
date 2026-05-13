@@ -54,7 +54,18 @@ export function computeHolidayPayAdditional(
 }
 
 /**
- * Night differential: +10% for each hour worked between 10pm–6am
+ * Night differential PREMIUM — the +10% added on top of the regular hourly
+ * wage for each hour worked inside the configured ND window. Returned value
+ * is the premium only, NOT the full night-shift wage:
+ *
+ *   premium = hourlyRate × rate × nightHours        (e.g. 10% of hourly × hours)
+ *   effective night-shift hourly = hourlyRate × (1 + rate)   (= 110% by default)
+ *
+ * The 100% base portion is already accounted for in basicPay/regularHours
+ * (employees are paid their full wage for those hours regardless of timing),
+ * so this function deliberately returns just the premium delta to avoid
+ * double-counting. The `rate` arg defaults to OT_RATES.NIGHT_DIFFERENTIAL
+ * (0.10) but the engine forwards whatever the company configured.
  */
 export function computeNightDifferential(hourlyRate: number, nightHours: number, rate: number = OT_RATES.NIGHT_DIFFERENTIAL): number {
   if (nightHours <= 0) return 0
