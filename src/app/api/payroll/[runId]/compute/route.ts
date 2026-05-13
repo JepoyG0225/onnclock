@@ -109,8 +109,16 @@ export async function POST(
   const { ctx, error } = await requireAuth()
   if (error) return error
 
+  // SUPER_ADMIN can target any company's run via ?companyId=… so the
+  // admin recompute proxy works without needing an impersonation cookie.
+  // Everyone else stays strictly scoped to their session's companyId.
+  const overrideCompanyId = ctx.role === 'SUPER_ADMIN'
+    ? (req.nextUrl.searchParams.get('companyId') ?? null)
+    : null
+  const scopedCompanyId = overrideCompanyId ?? ctx.companyId
+
   const run = await prisma.payrollRun.findFirst({
-    where: { id: runId, companyId: ctx.companyId },
+    where: { id: runId, companyId: scopedCompanyId },
     include: { company: { include: { contributionConfig: true } } },
   })
 
@@ -135,7 +143,7 @@ export async function POST(
   } | null = null
   try {
     payrollConfig = await prisma.payrollCycleConfig.findUnique({
-      where: { companyId: ctx.companyId },
+      where: { companyId: scopedCompanyId },
       select: {
         enableOvertime: true,
         enableNightDifferential: true,
@@ -173,7 +181,7 @@ export async function POST(
         "regularHolidayOtRate",
         "specialHolidayOtRate"
       FROM "payroll_differential_configs"
-      WHERE "companyId" = ${ctx.companyId}
+      WHERE "companyId" = ${scopedCompanyId}
       LIMIT 1
     `
     const row = rows[0]
@@ -193,7 +201,7 @@ export async function POST(
 
   // Fetch all active employees with their active loans
   const employees = await prisma.employee.findMany({
-    where: { companyId: ctx.companyId, isActive: true },
+    where: { companyId: scopedCompanyId, isActive: true },
     include: {
       workSchedule: {
         select: { workHoursPerDay: true },
@@ -246,14 +254,14 @@ export async function POST(
 
   // Fetch all company holidays for the pay period
   const companyHolidays = await prisma.holiday.findMany({
-    where: { companyId: ctx.companyId, date: { gte: run.periodStart, lte: run.periodEnd } }
+    where: { companyId: scopedCompanyId, date: { gte: run.periodStart, lte: run.periodEnd } }
   })
   // Build a quick lookup: "YYYY-MM-DD" -> holiday
   const holidayMap = new Map(
     companyHolidays.map(h => [h.date.toISOString().split('T')[0], h])
   )
   const approvedOtMap = await getApprovedOtHoursMap({
-    companyId: ctx.companyId,
+    companyId: scopedCompanyId,
     dateFrom: run.periodStart,
     dateTo: run.periodEnd,
   })
@@ -368,7 +376,7 @@ export async function POST(
         payrollRunId: { not: runId },
         payrollRun: {
           periodStart: { gte: yearStart, lt: run.periodStart },
-          companyId: ctx.companyId,
+          companyId: scopedCompanyId,
         },
       },
       _sum: {
