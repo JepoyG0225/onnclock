@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
   if (ctx.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'SUPER_ADMIN only' }, { status: 403 })
   }
-  const key = req.nextUrl.searchParams.get('key') ?? ''
-  const expected = process.env.MIGRATION_APPLY_KEY ?? ''
+  const key = (req.nextUrl.searchParams.get('key') ?? '').trim()
+  const expected = (process.env.MIGRATION_APPLY_KEY ?? '').trim().replace(/^"|"$/g, '')
   if (!expected || key !== expected) {
     return NextResponse.json({ error: 'Invalid key' }, { status: 403 })
   }

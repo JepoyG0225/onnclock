@@ -13,7 +13,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
-const APPLY_KEY = process.env.MIGRATION_APPLY_KEY ?? ''
+// Trim — pulled-from-Vercel values can carry surrounding whitespace / quotes
+const APPLY_KEY = (process.env.MIGRATION_APPLY_KEY ?? '').trim().replace(/^"|"$/g, '')
 
 export async function POST(
   req: NextRequest,
