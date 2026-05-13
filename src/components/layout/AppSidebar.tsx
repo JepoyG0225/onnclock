@@ -117,6 +117,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'PhilHealth RF-1', href: '/reports/philhealth', icon: FileText },
       { label: 'Pag-IBIG MCRF',   href: '/reports/pagibig',   icon: FileText },
       { label: 'BIR',            href: '/reports/bir',       icon: FileText },
+      { label: 'Tax Annualization', href: '/tax-annualization', icon: FileText, releasedAt: '2026-05-13T00:00:00+08:00' },
     ],
   },
   {
@@ -430,6 +431,8 @@ const PRO_LABELS = new Set([
   'HR Analytics',
   'Team Calendar',
   'Assets & Equipment',
+  // Phase 2 (May 2026): year-end tax workflow
+  'Tax Annualization',
 ])
 
 function CollapsedFlyout({
