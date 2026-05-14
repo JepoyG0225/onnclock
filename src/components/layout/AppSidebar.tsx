@@ -33,6 +33,7 @@ import {
   Receipt,
   ClipboardEdit,
   Sparkles,
+  Fingerprint,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -81,6 +82,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Live GPS Map',             href: '/attendance/map',         icon: MapPin },
       { label: 'Tardiness Report',         href: '/attendance/tardiness',   icon: TrendingDown },
       { label: 'Time Entry Corrections',   href: '/time-corrections',       icon: ClipboardEdit, releasedAt: '2026-05-01T00:00:00+08:00' },
+      { label: 'Biometric Terminals',      href: '/biometric-devices',      icon: Fingerprint, releasedAt: '2026-05-14T00:00:00+08:00' },
       { label: 'Attendance Settings',      href: '/attendance/settings',    icon: Settings },
       { label: 'Work Schedules',           href: '/schedules',              icon: Calendar },
       { label: 'Holidays',                 href: '/holidays',               icon: CalendarDays },

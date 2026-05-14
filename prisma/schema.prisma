@@ -378,6 +378,7 @@ model Company {
   budgetRequisitions       BudgetRequisition[]
   timeEntryCorrections     TimeEntryCorrection[]
   signatures               Signature[]
+  biometricDevices         BiometricDevice[]
 
   @@map("companies")
 }
@@ -608,6 +609,8 @@ model Employee {
   assetAssignments             AssetAssignment[]
   cashAdvanceRequests          CashAdvanceRequest[]
   signatures                   Signature[]
+  fingerprintEnrollments       FingerprintEnrollment[]
+  biometricClockEvents         BiometricClockEvent[]
 
   @@unique([companyId, employeeNo])
   @@index([companyId])
@@ -1997,4 +2000,113 @@ model Signature {
   @@index([companyId, documentType, documentRefId])
   @@index([employeeId, signedAt])
   @@map("signatures")
+}
+
+// ─────────────────────────────────────────────
+// BIOMETRIC FINGERPRINT TERMINAL (Raspberry Pi)
+// ─────────────────────────────────────────────
+// Standalone fingerprint clock-in/out terminal that runs on a Raspberry Pi 4
+// with a ZK9500 reader. A device pairs with a company once via short-code
+// (admin generates code → enters on the device → device receives a long-lived
+// bearer token). All subsequent clock-ins / enrollments are authenticated by
+// the stored token, so the kiosk never asks for a login again.
+
+enum BiometricDeviceStatus {
+  PENDING_PAIRING
+  ACTIVE
+  DISABLED
+  REVOKED
+}
+
+model BiometricDevice {
+  id            String                @id @default(cuid())
+  companyId     String
+  name          String                // human-friendly: "Front gate kiosk"
+  serialNumber  String?               @unique // Pi serial (cat /proc/cpuinfo)
+  // Pairing flow: an admin generates a 6-digit pairCode that the device
+  // exchanges for a long-lived token. Once paired, pairCode is cleared and
+  // tokenHash is set.
+  pairCode      String?               @unique
+  pairCodeExpiresAt DateTime?
+  tokenHash     String?               // SHA-256 of the bearer token
+  pairedAt      DateTime?
+  lastSeenAt    DateTime?
+  status        BiometricDeviceStatus @default(PENDING_PAIRING)
+  // Optional location / metadata
+  location      String?
+  ipAddress     String?
+  firmwareVersion String?
+  // Audit
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  createdByUserId String?
+
+  company    Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  events     BiometricClockEvent[]
+  enrollments FingerprintEnrollment[]
+
+  @@index([companyId, status])
+  @@index([companyId, lastSeenAt])
+  @@map("biometric_devices")
+}
+
+// One enrolled finger per row. An employee can enroll multiple fingers (e.g.
+// left and right index for redundancy) but each unique (employeeId, finger)
+// combination is enforced. The template blob is the ZK9500-specific
+// proprietary biometric template — we don't store raw fingerprint images.
+model FingerprintEnrollment {
+  id          String   @id @default(cuid())
+  companyId   String
+  employeeId  String
+  finger      String   // "RIGHT_THUMB" | "RIGHT_INDEX" | "LEFT_INDEX" | etc.
+  templateB64 String   @db.Text  // Base64-encoded ZK9500 template
+  qualityScore Int?              // 0-100 reported by the reader
+  enrolledAt  DateTime @default(now())
+  enrolledByDeviceId String?
+  // Optional: cache the finger name for the kiosk welcome screen
+  enrolledByUserId   String?
+
+  employee  Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  device    BiometricDevice?  @relation(fields: [enrolledByDeviceId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, finger])
+  @@index([companyId])
+  @@map("fingerprint_enrollments")
+}
+
+// Every clock-in/out that comes through the kiosk gets logged here. The
+// matched DTRRecord is referenced once it's reconciled to the central
+// attendance model.
+enum BiometricEventType {
+  CLOCK_IN
+  CLOCK_OUT
+  BREAK_IN
+  BREAK_OUT
+  ENROLL
+  FAIL_NO_MATCH
+}
+
+model BiometricClockEvent {
+  id          String             @id @default(cuid())
+  deviceId    String
+  companyId   String
+  employeeId  String?
+  eventType   BiometricEventType
+  matchScore  Int?
+  capturedAt  DateTime           @default(now())
+  // If the device was offline at capture-time, the row gets created with
+  // syncedAt = null and the device retries the upload later. Once accepted
+  // by the server, syncedAt is set.
+  syncedAt    DateTime?
+  // Once we've reconciled this to a DTRRecord we link it
+  dtrRecordId String?
+  notes       String?
+
+  device      BiometricDevice    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  employee    Employee?          @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, capturedAt])
+  @@index([deviceId, capturedAt])
+  @@index([employeeId, capturedAt])
+  @@map("biometric_clock_events")
 }
