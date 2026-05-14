@@ -307,8 +307,9 @@ module body() {
     pi_io_bottom_cutouts();
     pi_left_wall_cutouts();
 
-    // Vents
-    side_intake_vents();
+    // Vents — only the top fan exhaust grille; the right side wall stays
+    // clean (the fingerprint reader is mounted to it and any cutouts there
+    // would clash with the reader's flange + cabling).
     top_fan_grille();
   }
 
