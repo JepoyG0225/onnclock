@@ -453,8 +453,8 @@ if (part == "assembly") {
   //   Z = case depth  (front face at Z=0, lid at Z=case_depth)
   // The camera (--camera arg) handles the viewing angle.
 
-  // Main body in matte black
-  color("#1a1a1a") body();
+  // Main body in dirty white — slightly aged off-white PETG/ABS
+  color("#dcd6c8") body();
 
   // Pi placeholder — green PCB on the LEFT-back of the case
   color("#0c5e2e")
