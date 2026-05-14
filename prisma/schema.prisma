@@ -177,6 +177,7 @@ enum RecruitmentEmailTemplateType {
   INTERVIEW
   REJECTION
   OFFER
+  HIRED
 }
 
 enum OnboardingStepType {
@@ -376,6 +377,7 @@ model Company {
   announcements            Announcement[]
   budgetRequisitions       BudgetRequisition[]
   timeEntryCorrections     TimeEntryCorrection[]
+  signatures               Signature[]
 
   @@map("companies")
 }
@@ -562,6 +564,12 @@ model Employee {
   biometricCredential  Json?
   biometricChallenge   String?
   biometricChallengeAt DateTime?
+  // Reusable digital signature (PNG data URL). Captured on the employee
+  // portal and re-applied to documents the employee signs (COE, contracts,
+  // disciplinary acknowledgements, etc.). Audited records live in the
+  // Signature table.
+  signatureDataUrl     String?   @db.Text
+  signatureCapturedAt  DateTime?
   notes                String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -599,6 +607,7 @@ model Employee {
   timeEntryCorrections         TimeEntryCorrection[]
   assetAssignments             AssetAssignment[]
   cashAdvanceRequests          CashAdvanceRequest[]
+  signatures                   Signature[]
 
   @@unique([companyId, employeeNo])
   @@index([companyId])
@@ -1949,4 +1958,43 @@ model TimeEntryCorrection {
   @@index([companyId, status])
   @@index([employeeId, createdAt])
   @@map("time_entry_corrections")
+}
+
+// ─────────────────────────────────────────────
+// DIGITAL SIGNATURE
+// ─────────────────────────────────────────────
+// Audited record of a single signing event. Polymorphic via documentType +
+// documentRefId so the same table services contracts, offer letters,
+// disciplinary acknowledgements, performance reviews, etc.
+//
+// signatureDataUrl stores the PNG (base64) the user drew on the signature
+// pad. ipAddress / userAgent / signedAt give an audit trail. typedName is
+// also captured so non-graphical signing (legal opt-in) is supported.
+model Signature {
+  id               String   @id @default(cuid())
+  companyId        String
+  // Who signed — either an Employee record or a free-text label for
+  // applicants/external parties (e.g. "Maria Santos (applicant)")
+  employeeId       String?
+  signerName       String
+  signerEmail      String?
+  // What was signed
+  documentType     String   // e.g. "OFFER_LETTER" | "EMPLOYMENT_CONTRACT" | "DISCIPLINARY" | "PERFORMANCE_REVIEW" | "COE" | "OTHER"
+  documentRefId    String?  // ID of the underlying record where applicable
+  documentTitle    String?  // Human-friendly title shown in audit logs
+  // The signature itself
+  signatureDataUrl String   @db.Text  // PNG data URL captured from the canvas pad
+  typedName        String?  // Optional typed full legal name accompanying the drawn signature
+  // Audit trail
+  ipAddress        String?
+  userAgent        String?  @db.Text
+  signedAt         DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, documentType, documentRefId])
+  @@index([employeeId, signedAt])
+  @@map("signatures")
 }

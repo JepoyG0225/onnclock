@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, FormEvent, ChangeEvent } from 'react'
+import { useEffect, useState, FormEvent, ChangeEvent, useRef } from 'react'
 import { startRegistration } from '@simplewebauthn/browser'
 import { format } from 'date-fns'
-import { User, Mail, Building, Briefcase, CreditCard, KeyRound, Camera, Fingerprint, ShieldCheck, ShieldOff, Loader2 } from 'lucide-react'
+import { User, Mail, Building, Briefcase, CreditCard, KeyRound, Camera, Fingerprint, ShieldCheck, ShieldOff, Loader2, PenLine, RotateCcw, CheckCircle2 } from 'lucide-react'
+import { SignaturePad, type SignaturePadHandle } from '@/components/ui/SignaturePad'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,8 @@ interface EmployeeProfile {
   bankName: string | null
   bankAccountNo: string | null
   photoUrl: string | null
+  signatureDataUrl: string | null
+  signatureCapturedAt: string | null
   department: { name: string } | null
   position: { title: string } | null
 }
@@ -294,8 +297,9 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
 
       <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className="grid grid-cols-2 w-full">
+        <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="signature">Signature</TabsTrigger>
           <TabsTrigger value="portal">Portal Access</TabsTrigger>
         </TabsList>
 
@@ -570,6 +574,14 @@ export default function ProfilePage() {
           )}
         </TabsContent>
 
+        <TabsContent value="signature">
+          <SignatureTab
+            initialDataUrl={profile.signatureDataUrl}
+            capturedAt={profile.signatureCapturedAt}
+            onSaved={(dataUrl, when) => setProfile(p => p ? { ...p, signatureDataUrl: dataUrl, signatureCapturedAt: when } : p)}
+          />
+        </TabsContent>
+
         <TabsContent value="portal">
           <div className="space-y-5">
             <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -675,6 +687,106 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
     <div>
       <p className="text-xs text-gray-400 mb-0.5">{label}</p>
       <p className="text-gray-900 font-medium">{value ?? '-'}</p>
+    </div>
+  )
+}
+
+interface SignatureTabProps {
+  initialDataUrl: string | null
+  capturedAt: string | null
+  onSaved: (dataUrl: string, when: string) => void
+}
+
+function SignatureTab({ initialDataUrl, capturedAt, onSaved }: SignatureTabProps) {
+  const padRef = useRef<SignaturePadHandle>(null)
+  const [editing, setEditing] = useState(!initialDataUrl)
+  const [typedName, setTypedName] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function saveSignature() {
+    const dataUrl = padRef.current?.toDataURL()
+    if (!dataUrl) {
+      toast.error('Please draw your signature first')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/signatures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentType: 'DEFAULT_SIGNATURE',
+          documentTitle: 'Reusable signature on file',
+          signatureDataUrl: dataUrl,
+          typedName: typedName.trim() || undefined,
+          saveAsDefault: true,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err?.error ?? 'Failed to save signature')
+        return
+      }
+      onSaved(dataUrl, new Date().toISOString())
+      setEditing(false)
+      toast.success('Signature saved')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1 flex items-center gap-2">
+          <PenLine className="w-4 h-4" /> Digital Signature
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Capture your signature once and it gets re-used whenever you sign HR documents — disciplinary acknowledgements, performance review confirmations, COE requests, and the like.
+        </p>
+
+        {initialDataUrl && !editing ? (
+          <div className="space-y-3">
+            <div className="border rounded-lg bg-white p-4 inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={initialDataUrl} alt="Your signature" className="h-24 object-contain" />
+            </div>
+            <p className="text-[11px] text-gray-400 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-green-600" />
+              Saved {capturedAt ? format(new Date(capturedAt), 'MMM d, yyyy h:mm a') : 'on file'}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1" />
+              Re-sign
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <SignaturePad ref={padRef} initialDataUrl={initialDataUrl} />
+            <div>
+              <Label className="text-xs">Typed full name (optional, for legal records)</Label>
+              <Input
+                value={typedName}
+                onChange={(e) => setTypedName(e.target.value)}
+                placeholder="e.g. Juan Dela Cruz"
+                className="max-w-sm"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={saveSignature} disabled={saving} style={{ background: '#fa5e01' }}>
+                {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                Save Signature
+              </Button>
+              {initialDataUrl && (
+                <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+              )}
+            </div>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              By saving, you authorize {`{companyName}`} to apply this signature to documents you electronically sign through this portal. Each use is audit-logged with timestamp, IP address, and device info per RA 8792 (Electronic Commerce Act).
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

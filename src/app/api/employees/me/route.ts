@@ -15,6 +15,8 @@ function stripLargePrivateFields<T extends object>(employee: T) {
   delete safeEmployee.faceSetupPhoto
   delete safeEmployee.biometricCredential
   delete safeEmployee.biometricChallenge
+  // signatureDataUrl IS exposed here on purpose — the employee owns it and
+  // needs to see / re-capture it from their profile page.
   return safeEmployee
 }
 

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { requireHrisProApi } from '@/lib/hris-pro'
 
 const templateSchema = z.object({
-  type: z.enum(['INTERVIEW', 'REJECTION', 'OFFER']),
+  type: z.enum(['INTERVIEW', 'REJECTION', 'OFFER', 'HIRED']),
   subject: z.string().min(1).max(300),
   body: z.string().min(1).max(10000),
   isActive: z.boolean().optional(),
@@ -22,7 +22,7 @@ const payloadSchema = z.object({
   templates: z.array(templateSchema).optional(),
 })
 
-const DEFAULT_TEMPLATES: Record<'INTERVIEW' | 'REJECTION' | 'OFFER', { subject: string; body: string }> = {
+const DEFAULT_TEMPLATES: Record<'INTERVIEW' | 'REJECTION' | 'OFFER' | 'HIRED', { subject: string; body: string }> = {
   INTERVIEW: {
     subject: 'Interview Invitation - {{jobTitle}}',
     body: 'Hi {{firstName}},\\n\\nThank you for applying for {{jobTitle}} at {{companyName}}. We would like to invite you for an interview.\\n\\nPlease reply to this email with your availability.\\n\\nBest regards,\\n{{companyName}} HR Team',
@@ -34,6 +34,10 @@ const DEFAULT_TEMPLATES: Record<'INTERVIEW' | 'REJECTION' | 'OFFER', { subject: 
   OFFER: {
     subject: 'Job Offer - {{jobTitle}}',
     body: 'Hi {{firstName}},\\n\\nCongratulations! We are pleased to offer you the position of {{jobTitle}} at {{companyName}}.\\n\\nPlease reply to this email so we can share the next steps.\\n\\nBest regards,\\n{{companyName}} HR Team',
+  },
+  HIRED: {
+    subject: 'Welcome to {{companyName}} - You are hired!',
+    body: 'Hi {{firstName}},\\n\\nWelcome aboard! We are excited to confirm that you are officially hired as our new {{jobTitle}}.\\n\\nYour first day is scheduled for {{hireDate}}. You will be onboarded as a probationary employee. Please bring the documents listed in your onboarding checklist, and watch for an invitation to your employee portal where you can clock in, view payslips, and complete your remaining HR steps.\\n\\nIf you have any questions, just reply to this email.\\n\\nWelcome to the team!\\n{{companyName}} HR Team',
   },
 }
 
@@ -69,7 +73,7 @@ export async function GET() {
         LIMIT 1
       `,
       prisma.$queryRaw<Array<{
-        type: 'INTERVIEW' | 'REJECTION' | 'OFFER'
+        type: 'INTERVIEW' | 'REJECTION' | 'OFFER' | 'HIRED'
         subject: string
         body: string
         isActive: boolean
@@ -93,7 +97,7 @@ export async function GET() {
         smtpFromName: company?.smtpFromName ?? null,
         hasSmtpPass: Boolean(company?.smtpPass),
       },
-      templates: (['INTERVIEW', 'REJECTION', 'OFFER'] as const).map((type) => ({
+      templates: (['INTERVIEW', 'REJECTION', 'OFFER', 'HIRED'] as const).map((type) => ({
         type,
         subject: map.get(type)?.subject ?? DEFAULT_TEMPLATES[type].subject,
         body: map.get(type)?.body ?? DEFAULT_TEMPLATES[type].body,

@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { requireHrisProApi } from '@/lib/hris-pro'
 import { recruitmentModelsReady, recruitmentModelsUnavailableResponse } from '@/lib/recruitment-runtime'
+import { sendRecruitmentStageEmail } from '@/lib/mailer'
 
 // Minimum required fields to create an employee from an application.
 // Name / email / phone / address are pre-filled from the application.
@@ -51,6 +52,7 @@ export async function POST(
       phone: true,
       currentAddress: true,
       hiredEmployeeId: true,
+      jobPostId: true,
     },
   })
 
@@ -170,6 +172,54 @@ export async function POST(
 
     return { employee, application: updatedApp }
   })
+
+  // ── Welcome email (HIRED stage) ────────────────────────────────────────────
+  // Best-effort — failure here must not block the hire (the employee record
+  // is already created). Pulls the company-customized template if available,
+  // otherwise falls back to a sane default.
+  if (application.email) {
+    try {
+      const [company, jobPost, customTemplate] = await Promise.all([
+        prisma.company.findUnique({ where: { id: ctx.companyId }, select: { name: true } }),
+        application.jobPostId
+          ? prisma.jobPost.findUnique({ where: { id: application.jobPostId }, select: { title: true } })
+          : Promise.resolve(null),
+        prisma.$queryRaw<Array<{ subject: string; body: string; isActive: boolean }>>`
+          SELECT "subject", "body", "isActive"
+          FROM "recruitment_email_templates"
+          WHERE "companyId" = ${ctx.companyId}
+            AND "type" = 'HIRED'::"RecruitmentEmailTemplateType"
+            AND "isActive" = true
+          LIMIT 1
+        `.catch(() => []),
+      ])
+
+      const tpl = customTemplate?.[0] ?? {
+        subject: 'Welcome to {{companyName}} - You are hired!',
+        body: 'Hi {{firstName}},\n\nWelcome aboard! We are excited to confirm that you are officially hired as our new {{jobTitle}}.\n\nYour first day is scheduled for {{hireDate}}. You will be onboarded as a probationary employee.\n\nWelcome to the team!\n{{companyName}} HR Team',
+      }
+
+      const replacements: Record<string, string> = {
+        firstName:   application.firstName,
+        lastName:    application.lastName,
+        jobTitle:    jobPost?.title ?? 'the role',
+        companyName: company?.name ?? 'the company',
+        hireDate:    new Date(hireDate).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }),
+      }
+      const apply = (s: string) => s.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k) => replacements[k] ?? '')
+
+      sendRecruitmentStageEmail({
+        companyId: ctx.companyId,
+        to: application.email,
+        subject: apply(tpl.subject),
+        body: apply(tpl.body),
+      }).catch((err) => {
+        console.error('[hire] HIRED email send failed (non-fatal):', err instanceof Error ? err.message : err)
+      })
+    } catch (err) {
+      console.error('[hire] HIRED email setup failed (non-fatal):', err instanceof Error ? err.message : err)
+    }
+  }
 
   return NextResponse.json({ employee: result.employee, application: result.application }, { status: 201 })
 }
