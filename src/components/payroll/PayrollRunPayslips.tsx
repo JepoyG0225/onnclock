@@ -122,7 +122,10 @@ export function PayrollRunPayslips({ payslips: initial, runStatus }: Props) {
     ot:         payslips.reduce((s, p) => s + p.regularOtAmount + p.restDayOtAmount + p.holidayOtAmount, 0),
     holiday:    payslips.reduce((s, p) => s + p.holidayPayAmount, 0),
     nightDiff:  payslips.reduce((s, p) => s + p.nightDiffAmount, 0),
-    other:      payslips.reduce((s, p) => s + p.incomes.reduce((is, i) => is + i.amount, 0) + p.otherEarnings, 0),
+    // ps.otherEarnings already equals the sum of ps.incomes line items —
+    // both are written by the same compute pass. Adding them together
+    // double-counted every employee's additional income.
+    other:      payslips.reduce((s, p) => s + p.otherEarnings, 0),
     gross:      payslips.reduce((s, p) => s + p.grossPay, 0),
     sss:        payslips.reduce((s, p) => s + p.sssEmployee, 0),
     ph:         payslips.reduce((s, p) => s + p.philhealthEmployee, 0),
@@ -165,7 +168,9 @@ export function PayrollRunPayslips({ payslips: initial, runStatus }: Props) {
           <tbody>
             {payslips.map(ps => {
               const otTotal          = ps.regularOtAmount + ps.restDayOtAmount + ps.holidayOtAmount
-              const otherIncomeTotal = ps.incomes.reduce((s, i) => s + i.amount, 0) + ps.otherEarnings
+              // Same data, two sources — see comment on the `other` totals
+              // line above. Picking otherEarnings as the canonical value.
+              const otherIncomeTotal = ps.otherEarnings
               const loanTotal        = ps.sssLoanDeduction + ps.pagibigLoan + ps.companyLoan
               return (
                 <tr key={ps.id} className="border-b hover:bg-gray-50 group">

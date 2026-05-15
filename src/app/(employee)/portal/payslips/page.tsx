@@ -162,10 +162,14 @@ export default function PayslipsPage() {
                         <span>{peso(selected.nightDiffAmount)}</span>
                       </div>
                     )}
-                    {(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance + selected.otherAllowances + selected.otherEarnings) > 0 && (
+                    {/* otherAllowances is the non-taxable subset of
+                       otherEarnings (same money, two storage columns —
+                       see compute route). Use otherEarnings only to
+                       avoid double-counting. */}
+                    {(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance + selected.otherEarnings) > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">Allowances &amp; Others</span>
-                        <span>{peso(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance + selected.otherAllowances + selected.otherEarnings)}</span>
+                        <span>{peso(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance + selected.otherEarnings)}</span>
                       </div>
                     )}
                     <div className="flex justify-between border-t border-gray-100 pt-1.5 font-semibold">
