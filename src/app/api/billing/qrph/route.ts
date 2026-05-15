@@ -26,6 +26,15 @@ const DURATION_MONTHS = { '3_MONTH': 3, '6_MONTH': 6, ANNUAL: 12 } as const
 const DURATION_DISCOUNT_PCT = { '3_MONTH': 0, '6_MONTH': 0, ANNUAL: 20 } as const
 const DURATION_LABEL = { '3_MONTH': '3-Month', '6_MONTH': '6-Month', ANNUAL: 'Annual' } as const
 
+// Window during which an upgrade still credits the remaining value of the
+// current subscription. After this many days from the cycle's start, the
+// upgrade is billed at full price for the new plan — no proration credit.
+// Rationale: a 10-day return policy is the closest analogue to PH consumer
+// regulations and lets companies correct a wrong-tier purchase quickly
+// without giving away open-ended credit for usage already consumed.
+const PRORATION_WINDOW_DAYS = 10
+const PRORATION_WINDOW_MS = PRORATION_WINDOW_DAYS * 24 * 60 * 60 * 1000
+
 /** Find the highest sequence number used this month (globally) and return the next one. */
 async function nextInvoiceNo(): Promise<string> {
   const now = new Date()
@@ -78,10 +87,22 @@ export async function POST(req: NextRequest) {
   const discountPct = DURATION_DISCOUNT_PCT[billingCycle]
   const cycleLabel = DURATION_LABEL[billingCycle]
   const isSameCycleChange = existingSub?.billingCycle === billingCycle
+  // Proration only applies when ALL three are true:
+  //   1. Subscription is currently ACTIVE
+  //   2. The current cycle hasn't ended yet
+  //   3. The current cycle started within the last PRORATION_WINDOW_DAYS
+  // Past the window, the customer pays the full price for the new plan
+  // and the unused value of the existing cycle is forfeit (same logic as
+  // most SaaS no-refund policies after the trial/return window).
+  const withinProrationWindow = Boolean(
+    existingSub?.currentPeriodStart &&
+    now.getTime() - existingSub.currentPeriodStart.getTime() <= PRORATION_WINDOW_MS,
+  )
   const hasActiveRemainingPeriod =
     existingSub?.status === 'ACTIVE' &&
     !!existingSub.currentPeriodEnd &&
-    existingSub.currentPeriodEnd.getTime() > now.getTime()
+    existingSub.currentPeriodEnd.getTime() > now.getTime() &&
+    withinProrationWindow
 
   let periodStart = now
   let periodEnd = new Date(now)

@@ -87,6 +87,13 @@ const DURATION_SHORT: Record<Duration, string> = {
   ANNUAL: 'Annual',
 }
 
+// Mirrors the server-side window (api/billing/qrph). After this many days
+// from the current cycle's start, an upgrade no longer credits unused value
+// from the existing plan — the new plan is charged at full price. Keep both
+// constants in sync if you ever change one.
+const PRORATION_WINDOW_DAYS = 10
+const PRORATION_WINDOW_MS = PRORATION_WINDOW_DAYS * 24 * 60 * 60 * 1000
+
 function fmt(n: number) {
   return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -194,8 +201,18 @@ export default function BillingPage() {
   const planFullPrice = selectedPricePerSeat * selectedMonths * effectiveSeatCount
   const planSavings = planFullPrice - planTotal
 
+  // Proration is offered only inside a 10-day window from the current
+  // cycle's start. Outside that window the API charges full price even if
+  // the cycle hasn't ended yet, so the UI must not promise a credit.
+  const withinProrationWindow = Boolean(
+    sub?.currentPeriodStart &&
+    Date.now() - new Date(sub.currentPeriodStart).getTime() <= PRORATION_WINDOW_MS,
+  )
   const hasRemainingPeriod = Boolean(
-    isActive && sub?.currentPeriodEnd && new Date(sub.currentPeriodEnd).getTime() > Date.now()
+    isActive
+    && sub?.currentPeriodEnd
+    && new Date(sub.currentPeriodEnd).getTime() > Date.now()
+    && withinProrationWindow,
   )
   const remainingRatio = hasRemainingPeriod && sub?.currentPeriodStart && sub?.currentPeriodEnd
     ? Math.min(1, Math.max(0,
