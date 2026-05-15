@@ -451,6 +451,38 @@ export async function POST(
     const regularHolidaysWorked  = enhancedDtr.filter(d => d.isHoliday && d.holidayType === 'REGULAR'             && !d.isAbsent).length
     const specialHolidaysWorked  = enhancedDtr.filter(d => d.isHoliday && d.holidayType === 'SPECIAL_NON_WORKING' && !d.isAbsent).length
 
+    // ── Hours-on-holiday tracking (HOURLY employees) ───────────────────
+    // For each DTR that landed on a company holiday and where the
+    // employee actually clocked in, sum the regular hours worked. The
+    // engine uses this to pro-rate the +100% / +30% premium for HOURLY
+    // employees so a half-day clock-in on a holiday yields a half-day
+    // premium rather than a full day's worth. MONTHLY/DAILY ignore
+    // these fields and stick to the day-count formula.
+    let regularHolidayHoursWorked = 0
+    let specialHolidayHoursWorked = 0
+    if (emp.rateType === 'HOURLY' && hasDtr) {
+      for (const d of enhancedDtr) {
+        if (!d.isHoliday || d.isAbsent) continue
+        if (d.isLeave && !d.isLeavePaid) continue
+        const stored = d.regularHours?.toNumber?.() ?? Number(d.regularHours ?? 0)
+        let hrs = 0
+        if (stored > 0) {
+          hrs = stored
+        } else if (d.timeIn && d.timeOut) {
+          const totalMinutes = Math.max(
+            0,
+            (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60,
+          )
+          hrs = Math.min(totalMinutes, workHoursPerDayForCap * 60) / 60
+        }
+        if (hrs <= 0) continue
+        if (d.holidayType === 'REGULAR') regularHolidayHoursWorked += hrs
+        else if (d.holidayType === 'SPECIAL_NON_WORKING') specialHolidayHoursWorked += hrs
+      }
+      regularHolidayHoursWorked = Math.round(regularHolidayHoursWorked * 100) / 100
+      specialHolidayHoursWorked = Math.round(specialHolidayHoursWorked * 100) / 100
+    }
+
     // Regular holidays in the period where the employee had NO attendance or was absent
     // For DAILY/HOURLY: this is ADDITIONAL pay (Art. 94 — paid full daily rate
     //   even when not working a regular holiday).
@@ -585,6 +617,8 @@ export async function POST(
         regularHolidaysWorked,
         specialHolidaysWorked,
         regularHolidayNonWorkDays,
+        regularHolidayHoursWorked,
+        specialHolidayHoursWorked,
       },
       loans: loanDeductions,
       deMinimis:  { riceSubsidy: 0, clothing: 0, medical: 0, laundry: 0, meal: 0, other: 0 },

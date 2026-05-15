@@ -112,28 +112,54 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // contractor roles where holidays aren't paid.
   const disableHoliday = employee.disableHolidayPay === true
 
-  const regularHolidayPremium = disableHoliday ? 0 : computeHolidayPayAdditional(
-    employee.dailyRate, attendance.regularHolidaysWorked, 'REGULAR'
-  )
-  const specialHolidayPremium = disableHoliday ? 0 : computeHolidayPayAdditional(
-    employee.dailyRate, attendance.specialHolidaysWorked, 'SPECIAL_NON_WORKING'
-  )
+  // HOURLY employees: pro-rate the holiday premium by the actual regular
+  // hours they clocked into on the holiday(s) — not the full daily rate.
+  // A 4-hour shift on a regular holiday gets +100% on those 4 hours
+  // (hourlyRate × 1.0 × 4), not a full day's premium.
+  //
+  // DAILY / MONTHLY employees keep the daily-rate-based premium: their
+  // wage isn't pegged to hours, so the day-count formula matches PH
+  // practice (DOLE Handbook Ch. 6 §3: regular holiday worked = 200%
+  // of daily rate; special non-working worked = 130% of daily rate).
+  let regularHolidayPremium = 0
+  let specialHolidayPremium = 0
+  if (!disableHoliday) {
+    if (employee.rateType === 'HOURLY') {
+      const regHrs = attendance.regularHolidayHoursWorked ?? 0
+      const spcHrs = attendance.specialHolidayHoursWorked ?? 0
+      // +100% premium for REGULAR holiday hours
+      regularHolidayPremium = regHrs > 0
+        ? parseFloat((hourlyRate * regHrs).toFixed(2))
+        : 0
+      // +30% premium for SPECIAL non-working holiday hours
+      specialHolidayPremium = spcHrs > 0
+        ? parseFloat((hourlyRate * spcHrs * 0.3).toFixed(2))
+        : 0
+    } else {
+      regularHolidayPremium = computeHolidayPayAdditional(
+        employee.dailyRate, attendance.regularHolidaysWorked, 'REGULAR'
+      )
+      specialHolidayPremium = computeHolidayPayAdditional(
+        employee.dailyRate, attendance.specialHolidaysWorked, 'SPECIAL_NON_WORKING'
+      )
+    }
+  }
   const holidayPayAmount = regularHolidayPremium + specialHolidayPremium
 
   // Unworked-holiday handling — fold into basic pay (no separate line):
   //
-  //   MONTHLY:        monthly salary already covers all calendar days
-  //                   including holidays, so basic pay needs no adjustment.
-  //   DAILY / HOURLY: Art. 94 says regular holidays are paid even if not
-  //                   worked. We previously surfaced this as a separate
-  //                   "regularHolidayNonWorkPay" line on the payslip;
-  //                   instead, add the amount to basic pay so the day shows
-  //                   up "as if the employee was present" — same gross,
-  //                   simpler payslip presentation.
+  //   MONTHLY: monthly salary already covers all calendar days including
+  //            holidays, so basic pay needs no adjustment.
+  //   DAILY:   Art. 94 says regular holidays are paid even if not worked.
+  //            Add dailyRate × nonWorkDays to basic so the day shows up
+  //            as if the employee was present.
+  //   HOURLY:  paid strictly by actual time entry — no clock-in, no pay
+  //            (matches PH practice for hourly/casual hires whose wage
+  //            is pegged to hours rather than a fixed daily rate).
   const regularHolidayNonWorkPay = 0  // Always 0 — never shown as its own line
   let basicPayWithHolidayCredit = basicPay
   if (!disableHoliday
-      && (employee.rateType === 'DAILY' || employee.rateType === 'HOURLY')
+      && employee.rateType === 'DAILY'
       && attendance.regularHolidayNonWorkDays && attendance.regularHolidayNonWorkDays > 0) {
     const credit = parseFloat((employee.dailyRate * attendance.regularHolidayNonWorkDays).toFixed(2))
     basicPayWithHolidayCredit = parseFloat((basicPay + credit).toFixed(2))

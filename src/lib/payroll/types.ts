@@ -51,6 +51,17 @@ export interface PayrollInput {
     regularHolidaysWorked: number
     specialHolidaysWorked: number
     regularHolidayNonWorkDays?: number
+    /**
+     * Actual regular hours an HOURLY employee clocked into on REGULAR
+     * holidays during the period (sum across all regular-holiday DTRs,
+     * capped at workHoursPerDay per day so OT doesn't double-count).
+     * Engine uses this — instead of `regularHolidaysWorked × dailyRate`
+     * — to pro-rate the +100% holiday premium so a half-day clock-in
+     * yields a half-day premium. MONTHLY/DAILY ignore this field.
+     */
+    regularHolidayHoursWorked?: number
+    /** Same as above, for SPECIAL_NON_WORKING holidays (+30% premium). */
+    specialHolidayHoursWorked?: number
   }
   loans: Array<{
     id: string
