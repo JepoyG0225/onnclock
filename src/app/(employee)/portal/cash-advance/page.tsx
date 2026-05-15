@@ -39,7 +39,12 @@ export default function PortalCashAdvancePage() {
   const [loading,      setLoading]      = useState(true)
   const [showForm,     setShowForm]     = useState(false)
   const [submitting,   setSubmitting]   = useState(false)
-  const [monthlyBasic, setMonthlyBasic] = useState<number | null>(null)
+  const [myLimit,      setMyLimit]      = useState<{
+    monthlyIncome: number
+    rawCap: number
+    outstanding: number
+    available: number
+  } | null>(null)
   const [form, setForm] = useState({
     amount: '',
     reason: '',
@@ -51,15 +56,13 @@ export default function PortalCashAdvancePage() {
   async function load() {
     setLoading(true)
     try {
-      const [reqRes, meRes] = await Promise.all([
-        fetch('/api/cash-advance?own=true&limit=50'),
-        fetch('/api/employees/me'),
-      ])
+      // /api/cash-advance?own=true now also returns the rate-type-aware
+      // monthly limit (with outstanding-balance subtracted) so we don't
+      // need a separate /me lookup.
+      const reqRes = await fetch('/api/cash-advance?own=true&limit=50')
       const reqData = await reqRes.json().catch(() => ({}))
-      const meData  = await meRes.json().catch(() => ({}))
       setRequests(reqData.requests ?? [])
-      const basic = meData?.basicSalary ?? meData?.employee?.basicSalary ?? null
-      if (basic != null) setMonthlyBasic(Number(basic))
+      setMyLimit(reqData.myLimit ?? null)
     } finally {
       setLoading(false)
     }
@@ -98,7 +101,7 @@ export default function PortalCashAdvancePage() {
     }
   }
 
-  const maxAllowed = monthlyBasic != null ? Math.floor(monthlyBasic * 0.3) : null
+  const maxAllowed = myLimit?.available ?? null
   const hasPending = requests.some(r => r.status === 'PENDING')
 
   return (
@@ -138,9 +141,21 @@ export default function PortalCashAdvancePage() {
             <h2 className="font-semibold text-gray-900">New Cash Advance Request</h2>
           </div>
 
-          {maxAllowed != null && (
-            <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2">
-              You may request up to <span className="font-semibold text-gray-800">{peso(maxAllowed)}</span> (30% of your monthly basic salary).
+          {myLimit && (
+            <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 space-y-0.5">
+              <div>
+                You may request up to{' '}
+                <span className="font-semibold text-gray-800">{peso(myLimit.available)}</span>
+                {' '}— 30% of your monthly income ({peso(myLimit.rawCap)})
+                {myLimit.outstanding > 0 && (
+                  <> minus your outstanding balance ({peso(myLimit.outstanding)})</>
+                )}.
+              </div>
+              {myLimit.outstanding > 0 && (
+                <div className="text-amber-700">
+                  You currently have {peso(myLimit.outstanding)} unpaid from a previous cash advance.
+                </div>
+              )}
             </div>
           )}
 
