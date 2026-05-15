@@ -143,22 +143,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     drawRight(`Period: ${periodStart} - ${periodEnd}`, 572, 790, 8, false, C.white)
     drawRight(`Pay Date: ${payDate}`, 572, 778, 8, false, C.white)
 
-    // Employee info card
-    page.drawRectangle({ x: 24, y: 690, width: 547, height: 58, color: rgb(0.97, 0.98, 0.99), borderColor: C.light, borderWidth: 1 })
+    // Employee info card — give Department and Position their OWN lines
+    // (each spanning the full card width) so long values don't overlap the
+    // next field. Card height bumped up slightly to fit the extra row.
+    page.drawRectangle({ x: 24, y: 678, width: 547, height: 70, color: rgb(0.97, 0.98, 0.99), borderColor: C.light, borderWidth: 1 })
     draw(`${emp.lastName}, ${emp.firstName}`, 32, 730, 11, true, C.deep)
-    draw(`Employee No.: ${emp.employeeNo ?? '-'}`, 32, 714, 8, true, C.base)
-    draw(`Department: ${emp.department?.name ?? '-'}`, 180, 714, 8, true, C.base)
-    draw(`Position: ${emp.position?.title ?? '-'}`, 340, 714, 8, true, C.base)
-    draw(`TIN: ${emp.tinNo ?? '-'}   SSS: ${emp.sssNo ?? '-'}   PhilHealth: ${emp.philhealthNo ?? '-'}   Pag-IBIG: ${emp.pagibigNo ?? '-'}`, 32, 700, 8, true, C.muted)
+    draw(`Employee No.: ${emp.employeeNo ?? '-'}`, 32, 716, 8, true, C.base)
+    draw(`Department: ${emp.department?.name ?? '-'}`, 32, 704, 8, true, C.base)
+    draw(`Position: ${emp.position?.title ?? '-'}`, 32, 692, 8, true, C.base)
+    draw(`TIN: ${emp.tinNo ?? '-'}   SSS: ${emp.sssNo ?? '-'}   PhilHealth: ${emp.philhealthNo ?? '-'}   Pag-IBIG: ${emp.pagibigNo ?? '-'}`, 32, 681, 7.5, true, C.muted)
 
-    // Column headers
-    draw('EARNINGS', 24, 674, 9, true, C.base)
-    draw('DEDUCTIONS', 310, 674, 9, true, C.base)
-    page.drawLine({ start: { x: 24, y: 670 }, end: { x: 285, y: 670 }, thickness: 1, color: C.light })
-    page.drawLine({ start: { x: 310, y: 670 }, end: { x: 571, y: 670 }, thickness: 1, color: C.light })
+    // Column headers — pushed down to clear the taller employee card above
+    draw('EARNINGS', 24, 662, 9, true, C.base)
+    draw('DEDUCTIONS', 310, 662, 9, true, C.base)
+    page.drawLine({ start: { x: 24, y: 658 }, end: { x: 285, y: 658 }, thickness: 1, color: C.light })
+    page.drawLine({ start: { x: 310, y: 658 }, end: { x: 571, y: 658 }, thickness: 1, color: C.light })
 
     // Rows
-    let yl = 654
+    let yl = 642
     earningsRows.forEach(([label, value], i) => {
       if (i % 2 === 1) page.drawRectangle({ x: 24, y: yl - 4, width: 261, height: 18, color: C.alt })
       draw(label, 28, yl, 8.5, false, C.text)
