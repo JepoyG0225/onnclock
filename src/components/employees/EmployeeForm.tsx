@@ -841,8 +841,8 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               <Field label="Bank Account Number">
                 <Input {...register('bankAccountNo')} placeholder="1234-5678-9012" />
               </Field>
-              {/* Toggles — wraps to 2 rows of 3 on md+ */}
-              <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Toggles — single row of 4 on md+ (2-col on small screens) */}
+              <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="text-sm font-medium">Minimum Wage Earner</p>
