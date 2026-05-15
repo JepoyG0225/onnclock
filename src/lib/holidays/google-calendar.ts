@@ -120,13 +120,19 @@ async function upsertAutoSyncedHolidays(params: {
   const rangeStart = new Date(Date.UTC(params.year, 0, 1))
   const rangeEnd = new Date(Date.UTC(params.year + 1, 0, 1))
 
+  // "Manual" = anything that wasn't planted by an auto-sync, regardless of
+  // WHICH auto-sync. Earlier versions only filtered by the current tag,
+  // which let Google-tagged rows hide from a Public-tagged sync (and vice
+  // versa) — both syncs then layered on top of each other and we ended up
+  // with two rows per holiday in the DB.
   const manual = await prisma.holiday.findMany({
     where: {
       companyId: params.companyId,
       date: { gte: rangeStart, lt: rangeEnd },
-      NOT: {
-        description: { startsWith: params.tag },
-      },
+      AND: [
+        { NOT: { description: { startsWith: GOOGLE_SYNC_TAG } } },
+        { NOT: { description: { startsWith: PUBLIC_SYNC_TAG } } },
+      ],
     },
     select: { date: true },
   })
@@ -135,11 +141,17 @@ async function upsertAutoSyncedHolidays(params: {
     manual.map(h => h.date.toISOString().slice(0, 10)),
   )
 
+  // Delete EVERY auto-synced row in the year, not just same-tagged ones.
+  // Otherwise running both syncs in sequence leaves the other source's
+  // rows behind → duplicates.
   await prisma.holiday.deleteMany({
     where: {
       companyId: params.companyId,
       date: { gte: rangeStart, lt: rangeEnd },
-      description: { startsWith: params.tag },
+      OR: [
+        { description: { startsWith: GOOGLE_SYNC_TAG } },
+        { description: { startsWith: PUBLIC_SYNC_TAG } },
+      ],
     },
   })
 
@@ -155,7 +167,9 @@ async function upsertAutoSyncedHolidays(params: {
     }))
 
   if (toCreate.length > 0) {
-    await prisma.holiday.createMany({ data: toCreate })
+    // Defense in depth: skipDuplicates protects us if the unique index on
+    // (companyId, date) catches a race between two simultaneous syncs.
+    await prisma.holiday.createMany({ data: toCreate, skipDuplicates: true })
   }
 
   return {

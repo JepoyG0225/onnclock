@@ -716,6 +716,11 @@ model Holiday {
 
   company Company @relation(fields: [companyId], references: [id])
 
+  // Only one holiday row per (company, date). Prevents the recurring
+  // double-up that used to happen when the Google-Calendar sync and the
+  // public-PH-API sync each preserved the other's rows as "manual" and
+  // then both inserted on top.
+  @@unique([companyId, date])
   @@index([companyId, date])
   @@map("holidays")
 }
