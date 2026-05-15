@@ -4,9 +4,10 @@ import { prisma } from '@/lib/prisma'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { format } from 'date-fns'
 import { formatCurrency } from '@/lib/utils'
+import { pdfTextSafe as toWinAnsiSafe } from '@/lib/pdf-text-safe'
 
 function makePeso(currency: string) {
-  return (n: number) => formatCurrency(n, currency)
+  return (n: number) => toWinAnsiSafe(formatCurrency(n, currency))
 }
 
 function wrap(text: string, maxChars = 52) {
@@ -117,13 +118,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
       alt: rgb(0.98, 0.98, 0.98),
     }
 
+    // Wrap drawText so every string goes through the WinAnsi sanitizer.
+    // Catches employee names with accents (José, María), smart quotes from
+    // pasted notes, em dashes, etc. — anything pdf-lib's StandardFonts
+    // can't encode.
     const draw = (t: string, x: number, y: number, size = 9, isBold = false, color = C.text) => {
-      page.drawText(t, { x, y, size, font: isBold ? bold : font, color })
+      page.drawText(toWinAnsiSafe(t), { x, y, size, font: isBold ? bold : font, color })
     }
     const drawRight = (t: string, rightX: number, y: number, size = 9, isBold = false, color = C.text) => {
       const f = isBold ? bold : font
-      const w = f.widthOfTextAtSize(t, size)
-      page.drawText(t, { x: rightX - w, y, size, font: f, color })
+      const safe = toWinAnsiSafe(t)
+      const w = f.widthOfTextAtSize(safe, size)
+      page.drawText(safe, { x: rightX - w, y, size, font: f, color })
     }
 
     // Header
