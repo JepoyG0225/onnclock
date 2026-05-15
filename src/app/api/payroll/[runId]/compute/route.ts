@@ -16,6 +16,16 @@ const computePayloadSchema = z.object({
   variableIncomeEntries: z.array(variableIncomeEntrySchema).optional().default([]),
 })
 
+/**
+ * Count minutes of overlap with the night-differential window (PHT).
+ *
+ * The window is configured in Manila local time (e.g. 22:00-06:00 PHT). We
+ * MUST compare cursor times in the same TZ — Vercel's Node runtime defaults
+ * to UTC, so `cursor.getHours()` returns UTC hours, which would silently
+ * mis-count ND for any overnight PHT shift. This function uses the UTC
+ * accessors and shifts by +8 hours to get the PHT minute-of-day, so the
+ * result is identical regardless of the server's TZ.
+ */
 function countNightMinutes(params: {
   timeIn: Date
   timeOut: Date
@@ -26,7 +36,9 @@ function countNightMinutes(params: {
   const crossesMidnight = params.startMinutes > params.endMinutes
   let cursor = new Date(params.timeIn)
   while (cursor < params.timeOut) {
-    const currentMinutes = cursor.getHours() * 60 + cursor.getMinutes()
+    // PHT minute-of-day, regardless of server TZ
+    const utcMin = cursor.getUTCHours() * 60 + cursor.getUTCMinutes()
+    const currentMinutes = (utcMin + 8 * 60) % (24 * 60)
     const inWindow = crossesMidnight
       ? currentMinutes >= params.startMinutes || currentMinutes < params.endMinutes
       : currentMinutes >= params.startMinutes && currentMinutes < params.endMinutes
@@ -339,14 +351,22 @@ export async function POST(
           overtimeHours = Math.round((otMinutes / 60) * 100) / 100
         }
 
-        // Always auto-calculate night differential from 10:00 PM–6:00 AM window.
-        const nightMins = countNightMinutes({
-          timeIn: d.timeIn,
-          timeOut: d.timeOut,
-          startMinutes: nightDiffStartMinutes,
-          endMinutes: nightDiffEndMinutes,
-        })
-        nightDiffHours = Math.round((nightMins / 60) * 100) / 100
+        // Night-differential hours: trust the value stored on the DTR record
+        // when present. The clock-out endpoint computes it via
+        // src/lib/timesheet/compute.ts which applies the planned-shift cap
+        // and the "include break" toggle — both of which the payroll engine
+        // would silently lose if it re-derived from raw timestamps. Only
+        // fall back to a fresh PHT-aware countNightMinutes when the DTR
+        // has no stored ND (e.g. manually entered records).
+        if (d.nightDiffHours == null) {
+          const nightMins = countNightMinutes({
+            timeIn: d.timeIn,
+            timeOut: d.timeOut,
+            startMinutes: nightDiffStartMinutes,
+            endMinutes: nightDiffEndMinutes,
+          })
+          nightDiffHours = Math.round((nightMins / 60) * 100) / 100
+        }
       }
 
       return {
