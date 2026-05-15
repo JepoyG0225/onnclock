@@ -10,7 +10,6 @@
  * Returns: { run, payslips: count, recomputed: true }
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 // Trim — pulled-from-Vercel values can carry surrounding whitespace / quotes
@@ -20,11 +19,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ runId: string }> },
 ) {
-  const { ctx, error } = await requireAuth()
-  if (error) return error
-  if (ctx.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'SUPER_ADMIN only' }, { status: 403 })
-  }
+  // Key-only auth — used by maintenance scripts that don't have a session
+  // cookie. The MIGRATION_APPLY_KEY is a server-side secret and gates this
+  // endpoint just like /api/admin/db-apply does.
   const key = req.nextUrl.searchParams.get('key') ?? ''
   if (!APPLY_KEY || key !== APPLY_KEY) {
     return NextResponse.json({ error: 'Invalid key' }, { status: 403 })
@@ -53,16 +50,16 @@ export async function POST(
     amount: Number(e.amount),
   }))
 
-  // Forward to the existing compute endpoint, scoped to the run's owning
-  // company via ?companyId (SUPER_ADMIN-only override added on that route).
+  // Forward to the existing compute endpoint with the same admin key so
+  // it bypasses session auth and runs against the targeted company.
   const origin = new URL(req.url).origin
-  const cookieHeader = req.headers.get('cookie') ?? ''
-  const computeRes = await fetch(`${origin}/api/payroll/${runId}/compute?companyId=${encodeURIComponent(run.companyId)}`, {
+  const computeUrl =
+    `${origin}/api/payroll/${runId}/compute` +
+    `?companyId=${encodeURIComponent(run.companyId)}` +
+    `&adminKey=${encodeURIComponent(APPLY_KEY)}`
+  const computeRes = await fetch(computeUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'cookie': cookieHeader,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ variableIncomeEntries }),
   })
   const computeJson = await computeRes.json().catch(() => ({}))
