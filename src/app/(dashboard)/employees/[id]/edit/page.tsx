@@ -87,6 +87,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     bankAccountNo: employee.bankAccountNo ?? '',
     isExemptFromTax: employee.isExemptFromTax,
     isMinimumWageEarner: employee.isMinimumWageEarner,
+    disableHolidayPay: (employee as { disableHolidayPay?: boolean }).disableHolidayPay ?? false,
     trackTime: employee.trackTime,
     fingerprintExempt: employee.fingerprintExempt ?? false,
     geofenceExempt: employee.geofenceExempt ?? false,

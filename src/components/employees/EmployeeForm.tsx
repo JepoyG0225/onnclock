@@ -60,6 +60,7 @@ const employeeSchema = z.object({
   bankAccountNo: z.string().optional(),
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
+  disableHolidayPay: z.boolean().default(false),
   trackTime: z.boolean().default(false),
   fingerprintExempt: z.boolean().default(false),
   geofenceExempt: z.boolean().default(false),
@@ -336,6 +337,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       payFrequency: 'SEMI_MONTHLY',
       isExemptFromTax: false,
       isMinimumWageEarner: false,
+      disableHolidayPay: false,
       trackTime: false,
       fingerprintExempt: false,
       geofenceExempt: false,
@@ -825,7 +827,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               <Field label="Bank Account Number">
                 <Input {...register('bankAccountNo')} placeholder="1234-5678-9012" />
               </Field>
-              {/* Toggles — single row spanning full width */}
+              {/* Toggles — wraps to 2 rows of 3 on md+ */}
               <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
@@ -861,6 +863,25 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                   <Switch
                     checked={watch('trackTime')}
                     onCheckedChange={v => setValue('trackTime', v)}
+                  />
+                </div>
+                <div
+                  className="flex items-center justify-between p-3 rounded-lg border-2"
+                  style={{
+                    background: watch('disableHolidayPay') ? 'rgba(239,68,68,0.06)' : '#f9fafb',
+                    borderColor: watch('disableHolidayPay') ? 'rgba(239,68,68,0.3)' : 'transparent',
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium">Disable Holiday Pay</p>
+                    <p className="text-xs text-gray-500">
+                      Override company calendar — no holiday premiums or
+                      Art. 94 non-work pay for this employee
+                    </p>
+                  </div>
+                  <Switch
+                    checked={watch('disableHolidayPay')}
+                    onCheckedChange={v => setValue('disableHolidayPay', v)}
                   />
                 </div>
               </div>

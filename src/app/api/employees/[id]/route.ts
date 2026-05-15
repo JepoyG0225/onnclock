@@ -124,6 +124,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         bankAccountNo:            n(body.bankAccountNo),
         isExemptFromTax:          body.isExemptFromTax          != null ? Boolean(body.isExemptFromTax)          : undefined,
         isMinimumWageEarner:      body.isMinimumWageEarner      != null ? Boolean(body.isMinimumWageEarner)      : undefined,
+        disableHolidayPay:        body.disableHolidayPay        != null ? Boolean(body.disableHolidayPay)        : undefined,
         trackTime:                body.trackTime                != null ? Boolean(body.trackTime)                : undefined,
         fingerprintExempt:        body.fingerprintExempt        != null ? Boolean(body.fingerprintExempt)        : undefined,
         geofenceExempt:           body.geofenceExempt           != null ? Boolean(body.geofenceExempt)           : undefined,

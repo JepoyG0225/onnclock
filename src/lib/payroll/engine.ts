@@ -100,10 +100,17 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   //
   // Unworked holidays don't appear here — they're rolled into basic pay
   // below (treating the employee as "present" for the holiday).
-  const regularHolidayPremium = computeHolidayPayAdditional(
+  //
+  // Per-employee override: if disableHolidayPay is set on the Employee
+  // record, zero out BOTH premiums AND the Art. 94 non-work credit
+  // regardless of company calendar / rate type. Used for project-based /
+  // contractor roles where holidays aren't paid.
+  const disableHoliday = employee.disableHolidayPay === true
+
+  const regularHolidayPremium = disableHoliday ? 0 : computeHolidayPayAdditional(
     employee.dailyRate, attendance.regularHolidaysWorked, 'REGULAR'
   )
-  const specialHolidayPremium = computeHolidayPayAdditional(
+  const specialHolidayPremium = disableHoliday ? 0 : computeHolidayPayAdditional(
     employee.dailyRate, attendance.specialHolidaysWorked, 'SPECIAL_NON_WORKING'
   )
   const holidayPayAmount = regularHolidayPremium + specialHolidayPremium
@@ -120,7 +127,8 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   //                   simpler payslip presentation.
   const regularHolidayNonWorkPay = 0  // Always 0 — never shown as its own line
   let basicPayWithHolidayCredit = basicPay
-  if ((employee.rateType === 'DAILY' || employee.rateType === 'HOURLY')
+  if (!disableHoliday
+      && (employee.rateType === 'DAILY' || employee.rateType === 'HOURLY')
       && attendance.regularHolidayNonWorkDays && attendance.regularHolidayNonWorkDays > 0) {
     const credit = parseFloat((employee.dailyRate * attendance.regularHolidayNonWorkDays).toFixed(2))
     basicPayWithHolidayCredit = parseFloat((basicPay + credit).toFixed(2))

@@ -505,6 +505,7 @@ export async function POST(
         payFrequency:        run.payFrequency,
         isMinimumWageEarner:   emp.isMinimumWageEarner,
         isExemptFromTax:       emp.isExemptFromTax,
+        disableHolidayPay:     (emp as { disableHolidayPay?: boolean }).disableHolidayPay ?? false,
         sssEnabled:            emp.sssEnabled,
         philhealthEnabled:     emp.philhealthEnabled,
         pagibigEnabled:        emp.pagibigEnabled,

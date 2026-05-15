@@ -559,6 +559,11 @@ model Employee {
   philhealthEnabled     Boolean @default(true)
   pagibigEnabled        Boolean @default(true)
   withholdingTaxEnabled Boolean @default(true)
+  // When TRUE, this individual employee receives ZERO holiday pay even if
+  // the company calendar marks the date as a holiday. Overrides the
+  // engine's default Art. 94 behaviour on a per-employee basis — useful
+  // for project-based / consultancy roles where holidays aren't paid.
+  disableHolidayPay     Boolean @default(false)
 
   photoUrl             String?
   faceEmbedding        Json?

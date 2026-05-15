@@ -46,6 +46,7 @@ const createEmployeeSchema = z.object({
   bankAccountNo: z.string().optional(),
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
+  disableHolidayPay: z.boolean().default(false),
   fingerprintExempt: z.boolean().default(false),
   geofenceExempt: z.boolean().default(false),
   selfieExempt: z.boolean().default(false),

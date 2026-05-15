@@ -8,6 +8,12 @@ export interface PayrollInput {
     payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
     isMinimumWageEarner: boolean
     isExemptFromTax: boolean
+    /**
+     * Per-employee override: when TRUE the engine zeros out ALL holiday
+     * pay (worked premium + Art. 94 unworked credit) regardless of the
+     * company calendar. Useful for project-based / contractor roles.
+     */
+    disableHolidayPay?: boolean
     sssEnabled: boolean
     philhealthEnabled: boolean
     pagibigEnabled: boolean
