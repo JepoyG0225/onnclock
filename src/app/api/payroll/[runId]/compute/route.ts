@@ -402,9 +402,14 @@ export async function POST(
     const specialHolidaysWorked  = enhancedDtr.filter(d => d.isHoliday && d.holidayType === 'SPECIAL_NON_WORKING' && !d.isAbsent).length
 
     // Regular holidays in the period where the employee had NO attendance or was absent
-    // Only relevant for DAILY/HOURLY rate employees (monthly salary already covers holidays)
+    // For DAILY/HOURLY: this is ADDITIONAL pay (Art. 94 — paid full daily rate
+    //   even when not working a regular holiday).
+    // For MONTHLY: this is reclassified pay — the daily-rate value is already
+    //   inside the monthly salary, but we expose it as a separate
+    //   holidayPayAmount line on the payslip and DEDUCT the same amount from
+    //   basic pay so HR sees the holiday breakdown without changing net.
     let regularHolidayNonWorkDays = 0
-    if (emp.rateType === 'DAILY' || emp.rateType === 'HOURLY') {
+    {
       const regularHolidayDates = companyHolidays
         .filter(h => h.type === 'REGULAR')
         .map(h => h.date.toISOString().split('T')[0])
