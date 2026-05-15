@@ -91,7 +91,15 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
   const nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours, period.nightDifferentialRate)
 
-  // Holiday pay premium (additional on top of basic)
+  // Holiday pay premium — ONLY for holidays the employee actually clocked in
+  // on. This is the visible holidayPayAmount on the payslip.
+  //
+  //   Worked REGULAR holiday → +100% of daily rate (premium on top of the
+  //                            basic 100% they earn for working that day)
+  //   Worked SPECIAL holiday → +30% of daily rate
+  //
+  // Unworked holidays don't appear here — they're rolled into basic pay
+  // below (treating the employee as "present" for the holiday).
   const regularHolidayPremium = computeHolidayPayAdditional(
     employee.dailyRate, attendance.regularHolidaysWorked, 'REGULAR'
   )
@@ -100,27 +108,22 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   )
   const holidayPayAmount = regularHolidayPremium + specialHolidayPremium
 
-  // Regular holiday non-work pay (Art. 94 — paid full daily rate even on
-  // regular holidays the employee didn't work).
+  // Unworked-holiday handling — fold into basic pay (no separate line):
   //
-  // Behaviour by rate type:
-  //   DAILY / HOURLY: this is ADDITIONAL income on top of basic (their
-  //     basic is days-worked × daily, so unworked holidays need explicit pay).
-  //   MONTHLY: the daily-rate value is already inside the monthly salary
-  //     because basic pay is pro-rated against (workingDays minus holidays).
-  //     We still expose it as a holidayPayAmount line on the payslip so HR
-  //     can see "May 1 = ₱875 holiday pay", but DEDUCT the same amount from
-  //     basic pay so net stays unchanged. This is the explicit reclassification
-  //     PH HR teams expect on a payslip.
-  let regularHolidayNonWorkPay = attendance.regularHolidayNonWorkDays
-    ? parseFloat((employee.dailyRate * (attendance.regularHolidayNonWorkDays ?? 0)).toFixed(2))
-    : 0
-  let basicPayAfterHolidayReclass = basicPay
-  if (employee.rateType === 'MONTHLY' && regularHolidayNonWorkPay > 0) {
-    // Reclassify: don't pay twice, just move the amount from basic → holiday line.
-    const reclassified = Math.min(regularHolidayNonWorkPay, basicPay)
-    basicPayAfterHolidayReclass = parseFloat((basicPay - reclassified).toFixed(2))
-    regularHolidayNonWorkPay = reclassified
+  //   MONTHLY:        monthly salary already covers all calendar days
+  //                   including holidays, so basic pay needs no adjustment.
+  //   DAILY / HOURLY: Art. 94 says regular holidays are paid even if not
+  //                   worked. We previously surfaced this as a separate
+  //                   "regularHolidayNonWorkPay" line on the payslip;
+  //                   instead, add the amount to basic pay so the day shows
+  //                   up "as if the employee was present" — same gross,
+  //                   simpler payslip presentation.
+  const regularHolidayNonWorkPay = 0  // Always 0 — never shown as its own line
+  let basicPayWithHolidayCredit = basicPay
+  if ((employee.rateType === 'DAILY' || employee.rateType === 'HOURLY')
+      && attendance.regularHolidayNonWorkDays && attendance.regularHolidayNonWorkDays > 0) {
+    const credit = parseFloat((employee.dailyRate * attendance.regularHolidayNonWorkDays).toFixed(2))
+    basicPayWithHolidayCredit = parseFloat((basicPay + credit).toFixed(2))
   }
 
   // ── 3. DEDUCTIONS (attendance) ────────────────
@@ -138,18 +141,17 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const otherEarnings = input.additionalTaxableIncome + input.additionalNonTaxableIncome
 
   // ── 5. GROSS PAY ──────────────────────────────
-  // Gross includes all earnings + allowances before deductions.
-  // basicPayAfterHolidayReclass is the basic pay LESS the unworked-regular-holiday
-  // amount that was moved into regularHolidayNonWorkPay (for MONTHLY only).
-  // Net total stays the same as before the reclassification.
+  // basicPayWithHolidayCredit: basic + Art. 94 credit for unworked regular
+  // holidays (DAILY/HOURLY only; monthly basic already covers it).
+  // holidayPayAmount: ONLY the premium for holidays actually worked.
   const grossPay = parseFloat((
-    basicPayAfterHolidayReclass
+    basicPayWithHolidayCredit
     + regularOtAmount
     + restDayOtAmount
     + holidayOtAmount
     + nightDiffAmount
     + holidayPayAmount
-    + regularHolidayNonWorkPay
+    + regularHolidayNonWorkPay   // always 0 — kept for shape compatibility
     + allowancesTotal
     + deMinimisTotal
     + otherEarnings
@@ -221,12 +223,13 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const ytdWithholdingTax = ytd.withholdingTax + taxResult.withholdingTax
 
   return {
-    basicPay: basicPayAfterHolidayReclass,
+    basicPay: basicPayWithHolidayCredit,
     regularOtAmount,
     restDayOtAmount,
     holidayOtAmount,
     nightDiffAmount,
-    holidayPayAmount: holidayPayAmount + regularHolidayNonWorkPay,
+    // Only premium for WORKED holidays — unworked is absorbed into basic
+    holidayPayAmount,
     allowancesTotal,
     deMinimisTotal,
     otherEarnings,
