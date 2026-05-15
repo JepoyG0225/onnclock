@@ -29,12 +29,17 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     : 261 // DAILY — typical working days per year
 
   // ── 1. BASIC PAY ─────────────────────────────
+  // For HOURLY employees we feed in the actual regular hours sourced from
+  // DTR timestamps (compute route) so basic pay = hourlyRate × hoursWorked
+  // rather than the old hourlyRate × 8 × daysWorked which silently assumed
+  // a full 8-hour shift every day even on half-day shifts.
   const basicPay = computeBasicPay(
     employee.basicSalary,
     employee.rateType,
     attendance.daysWorked,
     period.workingDays,
-    period.payFrequency
+    period.payFrequency,
+    attendance.regularHours,
   )
 
   // If basic pay is zero, zero out all earnings/deductions for the period.
@@ -277,15 +282,22 @@ function computeBasicPay(
   rateType: string,
   daysWorked: number,
   workingDaysInPeriod: number,
-  payFrequency: string
+  payFrequency: string,
+  regularHours: number,
 ): number {
   if (rateType === 'DAILY') {
     return parseFloat((basicSalary * daysWorked).toFixed(2))
   }
 
   if (rateType === 'HOURLY') {
-    // hourly × 8 × days worked
-    return parseFloat((basicSalary * 8 * daysWorked).toFixed(2))
+    // basicSalary IS the hourly rate. Pay = rate × actual regular hours
+    // worked (already capped at the schedule's workHoursPerDay upstream
+    // so overtime hours don't double-count in regular pay).
+    // Fallback to daysWorked × 8 only when no DTR-derived hours exist
+    // (e.g. legacy data, no time tracking) so we never silently zero out
+    // pay for an HOURLY employee on a manual run.
+    const hours = regularHours > 0 ? regularHours : daysWorked * 8
+    return parseFloat((basicSalary * hours).toFixed(2))
   }
 
   // Monthly rate: pro-rate the monthly salary down to this pay period's share.

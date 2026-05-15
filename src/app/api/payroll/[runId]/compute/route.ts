@@ -383,6 +383,53 @@ export async function POST(
       ? dtrWorked
       : (hasDtr ? dtrWorked : workingDays)
 
+    // ── Resolve effective work hours per day (used for regular-hour cap
+    //   below and as a fallback when DTR timestamps are missing). For
+    //   HOURLY employees this is critical: basic pay = hourlyRate × these
+    //   hours, so we must come up with a defensible per-period total.
+    const configuredWorkHoursForHours = Number(emp.workSchedule?.workHoursPerDay ?? 8)
+    const workHoursPerDayForCap = Number.isFinite(configuredWorkHoursForHours) && configuredWorkHoursForHours > 0
+      ? configuredWorkHoursForHours
+      : 8
+
+    // ── Actual regular hours worked (DTR-derived) ─────────────────────
+    // Prefer the DTR's stored regularHours value (computed by the
+    // timesheet engine, which accounts for breaks, OT cap, undertime
+    // etc.). Fall back to deriving from raw timestamps only when the
+    // stored value is missing — and as a last resort credit a full
+    // workHoursPerDay day (paid leave / manual present-flag without
+    // timestamps). When the employee has no DTR rows at all (legacy /
+    // time-tracking-off) use daysWorked × workHoursPerDay.
+    let regularHoursTotal = 0
+    if (hasDtr) {
+      for (const d of enhancedDtr) {
+        if (d.isAbsent) continue
+        if (d.isLeave && !d.isLeavePaid) continue
+        const stored = d.regularHours?.toNumber?.() ?? Number(d.regularHours ?? 0)
+        if (stored > 0) {
+          regularHoursTotal += stored
+          continue
+        }
+        if (d.timeIn && d.timeOut) {
+          const totalMinutes = Math.max(
+            0,
+            (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60, // unpaid 60-min break
+          )
+          const regularMinutes = Math.min(totalMinutes, workHoursPerDayForCap * 60)
+          regularHoursTotal += regularMinutes / 60
+        } else if (d.isLeave && d.isLeavePaid) {
+          // Paid leave: credit a full standard day's hours
+          regularHoursTotal += workHoursPerDayForCap
+        } else if (!d.isAbsent) {
+          // Present but no timestamps (manual DTR check-mark): credit full day
+          regularHoursTotal += workHoursPerDayForCap
+        }
+      }
+      regularHoursTotal = Math.round(regularHoursTotal * 100) / 100
+    } else {
+      regularHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
+    }
+
     const regularOtHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
       : 0
@@ -526,7 +573,7 @@ export async function POST(
       },
       attendance: {
         daysWorked,
-        regularHours:          daysWorked * 8,
+        regularHours:          regularHoursTotal,
         regularOtHours,
         restDayOtHours:        0,
         regularHolidayOtHours: 0,
@@ -566,7 +613,7 @@ export async function POST(
         basicSalary:                result.basicPay,
         dailyRate,
         daysWorked,
-        hoursWorked:                daysWorked * 8,
+        hoursWorked:                regularHoursTotal,
         regularOtHours,
         regularOtAmount:            result.regularOtAmount,
         restDayOtHours:             0,

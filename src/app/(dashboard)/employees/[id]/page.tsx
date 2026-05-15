@@ -264,14 +264,27 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                 const monthlyEquiv = rt === 'HOURLY' ? base * WORK_HOURS * 22
                   : rt === 'DAILY'   ? base * 22
                   : base
+                // HOURLY employees: show ONLY the hourly rate. Daily/monthly
+                // "equivalents" are misleading for hourly hires because their
+                // pay is hourlyRate × actual hours worked — there's no implicit
+                // 8-hour day or 22-workday month they should anchor on.
+                if (rt === 'HOURLY') {
+                  return [
+                    ['Rate Type', 'Hourly'],
+                    ['Hourly Rate', fmt(hourlyRate)],
+                    ['Minimum Wage Earner', employee.isMinimumWageEarner ? 'Yes' : 'No'],
+                    ['Exempt from Tax', employee.isExemptFromTax ? 'Yes' : 'No'],
+                    ['Holiday Pay Disabled', (employee as { disableHolidayPay?: boolean }).disableHolidayPay ? 'Yes' : 'No'],
+                    ['Track Time (DTR-Based Pay)', employee.trackTime ? 'Yes' : 'No'],
+                  ] as [string, string][]
+                }
                 return [
                   ['Rate Type', rt.charAt(0) + rt.slice(1).toLowerCase()],
-                  rt === 'HOURLY' ? ['Hourly Rate',        fmt(hourlyRate)]  : null,
                   rt === 'DAILY'  ? ['Daily Rate',         fmt(dailyRate)]   : null,
                   rt === 'MONTHLY'? ['Basic Salary (Monthly)', fmt(monthlyEquiv)] : null,
-                  rt !== 'HOURLY' ? ['Hourly Rate',        fmt(hourlyRate)]  : null,
                   rt !== 'DAILY'  ? ['Daily Rate',         fmt(dailyRate)]   : null,
                   rt !== 'MONTHLY'? ['Monthly Equivalent', fmt(monthlyEquiv)]: null,
+                  ['Hourly Rate',        fmt(hourlyRate)],
                   ['Minimum Wage Earner', employee.isMinimumWageEarner ? 'Yes' : 'No'],
                   ['Exempt from Tax', employee.isExemptFromTax ? 'Yes' : 'No'],
                   ['Holiday Pay Disabled', (employee as { disableHolidayPay?: boolean }).disableHolidayPay ? 'Yes' : 'No'],
