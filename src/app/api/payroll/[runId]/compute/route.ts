@@ -172,6 +172,7 @@ export async function POST(
     enableOvertime: boolean
     enableNightDifferential: boolean
     nightDifferentialRate: { toNumber(): number } | number
+    disableLateDeductions?: boolean
   } | null = null
   try {
     payrollConfig = await prisma.payrollCycleConfig.findUnique({
@@ -180,12 +181,14 @@ export async function POST(
         enableOvertime: true,
         enableNightDifferential: true,
         nightDifferentialRate: true,
+        disableLateDeductions: true,
       },
     })
   } catch {
     payrollConfig = null
   }
   const overtimeEnabled = payrollConfig?.enableOvertime ?? true
+  const disableLateDeductions = payrollConfig?.disableLateDeductions ?? false
   const nightDifferentialEnabled = payrollConfig?.enableNightDifferential ?? true
   const nightDiffRate = nightDifferentialEnabled
     ? (payrollConfig?.nightDifferentialRate && typeof payrollConfig.nightDifferentialRate === 'object'
@@ -518,6 +521,7 @@ export async function POST(
         restDayOtRate: differentialRules.restDayOtRate,
         regularHolidayOtRate: differentialRules.regularHolidayOtRate,
         specialHolidayOtRate: differentialRules.specialHolidayOtRate,
+        disableLateDeductions,
       },
       attendance: {
         daysWorked,

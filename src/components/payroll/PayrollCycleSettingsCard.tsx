@@ -18,6 +18,7 @@ type PayrollSettings = {
   secondCutoffEndDay: number
   defaultPayDelayDays: number
   enableOvertime: boolean
+  disableLateDeductions: boolean
   enableNightDifferential: boolean
   nightDifferentialStart: string  // "HH:MM" 24-hour, default 22:00
   nightDifferentialEnd: string    // "HH:MM" 24-hour, default 06:00
@@ -34,6 +35,7 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   secondCutoffEndDay: 31,
   defaultPayDelayDays: 5,
   enableOvertime: true,
+  disableLateDeductions: false,
   enableNightDifferential: true,
   nightDifferentialStart: '22:00',
   nightDifferentialEnd: '06:00',
@@ -185,6 +187,19 @@ export default function PayrollCycleSettingsCard() {
                   <Switch
                     checked={settings.enableOvertime}
                     onCheckedChange={v => setSettings(prev => ({ ...prev, enableOvertime: v }))}
+                  />
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Disable Late Deductions</p>
+                    <p className="text-xs text-gray-500">
+                      When ON, late minutes recorded on DTRs are NOT docked from pay.
+                      Tardiness is handled separately via disciplinary records.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.disableLateDeductions}
+                    onCheckedChange={v => setSettings(prev => ({ ...prev, disableLateDeductions: v }))}
                   />
                 </div>
               </div>

@@ -24,6 +24,12 @@ export interface PayrollInput {
     restDayOtRate?: number
     regularHolidayOtRate?: number
     specialHolidayOtRate?: number
+    /**
+     * When TRUE, late minutes are tracked on the DTR but NOT converted into
+     * a pay deduction. Companies that handle tardiness via the
+     * disciplinary process can flip this to keep payroll separate.
+     */
+    disableLateDeductions?: boolean
   }
   attendance: {
     daysWorked: number

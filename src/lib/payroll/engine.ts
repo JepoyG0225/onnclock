@@ -128,7 +128,13 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
   // ── 3. DEDUCTIONS (attendance) ────────────────
   const minuteRate = hourlyRate / 60
-  const lateDeduction = parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
+  // Late deduction is suppressed when the company has opted to handle
+  // tardiness via disciplinary records instead of payroll docking. The
+  // DTR still records lateMinutes for audit — it just doesn't translate
+  // to a peso amount on the payslip.
+  const lateDeduction = period.disableLateDeductions
+    ? 0
+    : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
   const undertimeDeduction = parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
   const absenceDeduction = computeAbsenceDeduction(employee.dailyRate, attendance.absentDays)
 

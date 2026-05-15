@@ -393,6 +393,10 @@ model PayrollCycleConfig {
   secondCutoffEndDay     Int          @default(31)
   defaultPayDelayDays    Int          @default(5)
   enableOvertime         Boolean      @default(true)
+  // When TRUE, late-minutes recorded on DTRs are NOT converted into a pay
+  // deduction. Useful for companies that handle tardiness via a separate
+  // disciplinary process instead of docking pay.
+  disableLateDeductions  Boolean      @default(false)
   enableNightDifferential Boolean     @default(true)
   nightDifferentialRate  Decimal      @default(0.10) @db.Decimal(5, 4)
   nightDifferentialStart String       @default("22:00")

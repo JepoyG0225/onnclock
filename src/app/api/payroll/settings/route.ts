@@ -16,6 +16,7 @@ const payrollSettingsSchema = z.object({
   secondCutoffEndDay: z.coerce.number().int().min(1).max(31),
   defaultPayDelayDays: z.coerce.number().int().min(0).max(60),
   enableOvertime: z.boolean().optional(),
+  disableLateDeductions: z.boolean().optional(),
   enableNightDifferential: z.boolean().optional(),
   nightDifferentialStart: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
   nightDifferentialEnd: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
@@ -42,6 +43,7 @@ type PayrollCycleConfigRow = {
   secondCutoffEndDay: number
   defaultPayDelayDays: number
   enableOvertime: boolean
+  disableLateDeductions?: boolean
   enableNightDifferential: boolean
   nightDifferentialStart: string
   nightDifferentialEnd: string
@@ -99,7 +101,8 @@ async function safeReadPayrollCycleConfig(companyId: string) {
             "secondCutoffStartDay", "secondCutoffEndDay", "defaultPayDelayDays",
             "enableOvertime", "enableNightDifferential",
             "nightDifferentialStart", "nightDifferentialEnd",
-            false AS "nightDifferentialIncludesBreak"
+            false AS "nightDifferentialIncludesBreak",
+            false AS "disableLateDeductions"
           FROM "payroll_cycle_configs"
           WHERE "companyId" = ${companyId}
           LIMIT 1
@@ -286,6 +289,7 @@ export async function GET() {
       secondCutoffEndDay: config?.secondCutoffEndDay ?? 31,
       defaultPayDelayDays: config?.defaultPayDelayDays ?? 5,
       enableOvertime: config?.enableOvertime ?? true,
+      disableLateDeductions: (config as { disableLateDeductions?: boolean } | null)?.disableLateDeductions ?? false,
       enableNightDifferential: config?.enableNightDifferential ?? true,
       nightDifferentialStart: config?.nightDifferentialStart ?? '22:00',
       nightDifferentialEnd: config?.nightDifferentialEnd ?? '06:00',
@@ -369,6 +373,7 @@ export async function PATCH(req: NextRequest) {
     secondCutoffEndDay: data.secondCutoffEndDay,
     defaultPayDelayDays: data.defaultPayDelayDays,
     enableOvertime: data.enableOvertime ?? true,
+    disableLateDeductions: data.disableLateDeductions ?? false,
     enableNightDifferential: data.enableNightDifferential ?? true,
     nightDifferentialStart: ndStart,
     nightDifferentialEnd: ndEnd,
