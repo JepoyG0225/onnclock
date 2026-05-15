@@ -704,21 +704,37 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               {!isCreate && (
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
                   <Field label="Work Schedule">
+                    {/*
+                      Single select that lists the actual schedule templates
+                      plus a "Flexible (no fixed schedule)" option. The old
+                      design only let users toggle FIXED/FLEXIBLE without
+                      ever attaching a workScheduleId — so picking FIXED then
+                      saving would persist as workScheduleId=null, and the
+                      form would revert to FLEXIBLE on reload.
+                    */}
                     <Select
-                      value={editScheduleMode}
+                      value={watch('workScheduleId') || '__FLEXIBLE__'}
                       onValueChange={v => {
-                        setEditScheduleMode(v as ScheduleMode)
-                        // Clear the fixed schedule when switching to Flexible so
-                        // the form submission sets workScheduleId = null in the DB.
-                        if (v === 'FLEXIBLE') {
+                        if (v === '__FLEXIBLE__') {
                           setValue('workScheduleId', '', { shouldDirty: true })
+                          setEditScheduleMode('FLEXIBLE')
+                        } else {
+                          setValue('workScheduleId', v, { shouldDirty: true })
+                          const sched = workSchedules.find(s => s.id === v)
+                          setEditScheduleMode(
+                            sched?.scheduleType === 'FLEXITIME' ? 'FLEXIBLE' : 'FIXED',
+                          )
                         }
                       }}
                     >
-                      <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select schedule" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="FIXED">Fixed Schedule</SelectItem>
-                        <SelectItem value="FLEXIBLE">Flexible</SelectItem>
+                        <SelectItem value="__FLEXIBLE__">Flexible (no fixed schedule)</SelectItem>
+                        {workSchedules.map(s => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}{s.scheduleType ? ` (${s.scheduleType === 'FLEXITIME' ? 'Flexible' : 'Fixed'})` : ''}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </Field>
