@@ -82,8 +82,11 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
           <Badge className={`text-sm border-0 ${getStatusColor(run.status)}`}>
             {STATUS_LABELS[run.status]}
           </Badge>
-          {(run.status === 'DRAFT' || run.status === 'COMPUTED') && (
-            <ComputePayrollButton runId={run.id} />
+          {/* Compute / Recompute button — shown for any run that hasn't been
+             approved or locked yet so HR can refresh payslips after DTR
+             corrections, loan adjustments, holiday additions, etc. */}
+          {(run.status === 'DRAFT' || run.status === 'COMPUTED' || run.status === 'FOR_APPROVAL') && (
+            <ComputePayrollButton runId={run.id} status={run.status} />
           )}
           <PayrollActionButtons
             runId={run.id}

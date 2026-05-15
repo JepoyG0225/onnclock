@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Calculator, Loader2 } from 'lucide-react'
+import { Calculator, Loader2, RefreshCw } from 'lucide-react'
 
 type VariableIncomeRequirement = {
   employeeId: string
@@ -20,13 +20,30 @@ type VariableIncomeRequirement = {
   }[]
 }
 
-export function ComputePayrollButton({ runId }: { runId: string }) {
+export function ComputePayrollButton({
+  runId,
+  status = 'DRAFT',
+}: {
+  runId: string
+  /**
+   * Current run status — determines whether the button reads "Compute" or
+   * "Recompute" and whether a confirmation prompt fires before re-running
+   * an already-computed payslip set.
+   */
+  status?: 'DRAFT' | 'COMPUTED' | 'FOR_APPROVAL' | 'APPROVED' | 'LOCKED' | 'CANCELLED'
+}) {
   const [computing, setComputing] = useState(false)
   const [loadingRequirements, setLoadingRequirements] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
   const [requirements, setRequirements] = useState<VariableIncomeRequirement[]>([])
   const [entryValues, setEntryValues] = useState<Record<string, string>>({})
   const router = useRouter()
+
+  // "Recompute" framing whenever payslips already exist (i.e. the run has
+  // gone past DRAFT). The action itself is the same — POST to /compute —
+  // but the wording + confirmation prompt nudge HR to think before
+  // overwriting an already-reviewed run.
+  const isRecompute = status === 'COMPUTED' || status === 'FOR_APPROVAL'
 
   const hasVariableIncome = requirements.some(r => r.incomes.length > 0)
 
@@ -64,7 +81,11 @@ export function ComputePayrollButton({ runId }: { runId: string }) {
       }
 
       const result = await res.json()
-      toast.success(`Payroll computed for ${result.employeeCount} employees!`)
+      toast.success(
+        isRecompute
+          ? `Payroll recomputed for ${result.employeeCount} employees`
+          : `Payroll computed for ${result.employeeCount} employees!`
+      )
       setShowDialog(false)
       router.refresh()
     } catch {
@@ -75,6 +96,16 @@ export function ComputePayrollButton({ runId }: { runId: string }) {
   }
 
   async function handleCompute() {
+    if (isRecompute) {
+      const confirmed = window.confirm(
+        'Recompute this payroll run?\n\n' +
+        'All payslips will be regenerated from current DTR / loan / income data. ' +
+        'The run status will reset to COMPUTED, so it must be resubmitted for ' +
+        'approval afterward.'
+      )
+      if (!confirmed) return
+    }
+
     setLoadingRequirements(true)
     try {
       const res = await fetch(`/api/payroll/${runId}/compute`)
@@ -111,9 +142,16 @@ export function ComputePayrollButton({ runId }: { runId: string }) {
 
   return (
     <>
-      <Button onClick={handleCompute} disabled={computing || loadingRequirements}>
+      <Button
+        onClick={handleCompute}
+        disabled={computing || loadingRequirements}
+        variant={isRecompute ? 'outline' : 'default'}
+        title={isRecompute ? 'Regenerate payslips from current DTR/loan/income data' : undefined}
+      >
         {computing || loadingRequirements ? (
-          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {loadingRequirements ? 'Preparing...' : 'Computing...'}</>
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {loadingRequirements ? 'Preparing...' : (isRecompute ? 'Recomputing...' : 'Computing...')}</>
+        ) : isRecompute ? (
+          <><RefreshCw className="mr-2 h-4 w-4" /> Recompute Payroll</>
         ) : (
           <><Calculator className="mr-2 h-4 w-4" /> Compute Payroll</>
         )}
