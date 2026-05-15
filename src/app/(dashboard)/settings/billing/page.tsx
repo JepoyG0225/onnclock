@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 interface SubscriptionData {
   subscription: {
@@ -264,15 +265,20 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-[#2E4156]" />
+      <div className="space-y-6">
+        <SettingsTabs />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-6 h-6 animate-spin text-[#2E4156]" />
+        </div>
       </div>
     )
   }
   if (!data || !sub) return null
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
+    <div className="space-y-6">
+      <SettingsTabs />
+      <div className="max-w-4xl space-y-8">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
@@ -678,6 +684,7 @@ export default function BillingPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

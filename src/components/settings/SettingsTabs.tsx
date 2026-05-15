@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Building, Shield, Mail, Users, Lock, CheckCircle, HardDrive, LineChart, ShieldCheck } from 'lucide-react'
+import { Building, Shield, Mail, Users, Lock, CheckCircle, HardDrive, LineChart, ShieldCheck, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
 
@@ -16,6 +16,7 @@ const TABS = [
   { href: '/settings/payroll-rules', label: 'Shift Differential', icon: LineChart, releasedAt: '2026-05-01T00:00:00+08:00' },
   { href: '/settings/audit', label: 'Audit & Compliance', icon: ShieldCheck, releasedAt: '2026-05-01T00:00:00+08:00' },
   { href: '/settings?tab=storage', label: 'Storage', icon: HardDrive },
+  { href: '/settings/billing', label: 'Billing', icon: CreditCard },
 ] as const
 
 function isActive(pathname: string, currentTab: string | null, href: string) {
