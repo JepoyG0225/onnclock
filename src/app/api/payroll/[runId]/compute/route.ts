@@ -351,22 +351,18 @@ export async function POST(
           overtimeHours = Math.round((otMinutes / 60) * 100) / 100
         }
 
-        // Night-differential hours: trust the value stored on the DTR record
-        // when present. The clock-out endpoint computes it via
-        // src/lib/timesheet/compute.ts which applies the planned-shift cap
-        // and the "include break" toggle — both of which the payroll engine
-        // would silently lose if it re-derived from raw timestamps. Only
-        // fall back to a fresh PHT-aware countNightMinutes when the DTR
-        // has no stored ND (e.g. manually entered records).
-        if (d.nightDiffHours == null) {
-          const nightMins = countNightMinutes({
-            timeIn: d.timeIn,
-            timeOut: d.timeOut,
-            startMinutes: nightDiffStartMinutes,
-            endMinutes: nightDiffEndMinutes,
-          })
-          nightDiffHours = Math.round((nightMins / 60) * 100) / 100
-        }
+        // Night-differential: always recompute from raw timestamps using
+        // the PHT-aware countNightMinutes. Stored DTR values may be stale
+        // (e.g. set before the PHT bug fix or by a manual import that
+        // skipped ND), so the payroll-time recomputation is the source of
+        // truth.
+        const nightMins = countNightMinutes({
+          timeIn: d.timeIn,
+          timeOut: d.timeOut,
+          startMinutes: nightDiffStartMinutes,
+          endMinutes: nightDiffEndMinutes,
+        })
+        nightDiffHours = Math.round((nightMins / 60) * 100) / 100
       }
 
       return {
