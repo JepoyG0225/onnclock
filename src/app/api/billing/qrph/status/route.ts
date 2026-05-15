@@ -11,10 +11,15 @@ import { prisma } from '@/lib/prisma'
 import { getPaymentIntentStatus } from '@/lib/payments/paymongo'
 import { Prisma } from '@prisma/client'
 
+// Plan stays inside the Prisma SubscriptionPlan enum (MONTHLY | ANNUAL).
+// 3_MONTH and 6_MONTH cycles are persisted via the separate billingCycle
+// field — plan is mapped to MONTHLY for those so we don't need a Prisma
+// migration. Read billingCycle whenever the actual contract length matters.
+type Cycle = '3_MONTH' | '6_MONTH' | 'ANNUAL'
 type ActivationPayload = {
-  plan: 'ANNUAL'
+  plan: 'MONTHLY' | 'ANNUAL'
   status: 'ACTIVE'
-  billingCycle: 'ANNUAL'
+  billingCycle: Cycle
   pricePerSeat: number
   seatCount: number
   periodStart: string

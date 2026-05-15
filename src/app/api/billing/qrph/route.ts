@@ -14,10 +14,17 @@ import { prisma } from '@/lib/prisma'
 import { createQrPhPayment } from '@/lib/payments/paymongo'
 
 const schema = z.object({
-  billingCycle: z.enum(['ANNUAL']),
+  // Subscription duration. 3M and 6M are prepay plans at the standard
+  // per-seat-per-month rate; ANNUAL adds a 20% discount on the 12-month
+  // prepay (DOLE-Handbook-style: incentive for longer commitment).
+  billingCycle: z.enum(['3_MONTH', '6_MONTH', 'ANNUAL']),
   seatCount: z.number().int().min(1),
   pricePerSeat: z.union([z.literal(50), z.literal(100)]).default(50),
 })
+
+const DURATION_MONTHS = { '3_MONTH': 3, '6_MONTH': 6, ANNUAL: 12 } as const
+const DURATION_DISCOUNT_PCT = { '3_MONTH': 0, '6_MONTH': 0, ANNUAL: 20 } as const
+const DURATION_LABEL = { '3_MONTH': '3-Month', '6_MONTH': '6-Month', ANNUAL: 'Annual' } as const
 
 /** Find the highest sequence number used this month (globally) and return the next one. */
 async function nextInvoiceNo(): Promise<string> {
@@ -67,7 +74,9 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  const isAnnual = billingCycle === 'ANNUAL'
+  const months = DURATION_MONTHS[billingCycle]
+  const discountPct = DURATION_DISCOUNT_PCT[billingCycle]
+  const cycleLabel = DURATION_LABEL[billingCycle]
   const isSameCycleChange = existingSub?.billingCycle === billingCycle
   const hasActiveRemainingPeriod =
     existingSub?.status === 'ACTIVE' &&
@@ -76,15 +85,14 @@ export async function POST(req: NextRequest) {
 
   let periodStart = now
   let periodEnd = new Date(now)
-  if (isAnnual) periodEnd.setFullYear(periodEnd.getFullYear() + 1)
-  else periodEnd.setMonth(periodEnd.getMonth() + 1)
+  periodEnd.setMonth(periodEnd.getMonth() + months)
 
-  const newCycleTotal = isAnnual
-    ? pricePerSeat * 12 * billedSeatCount * 0.8
-    : pricePerSeat * billedSeatCount
-  const subtotalBase = isAnnual ? pricePerSeat * 12 * billedSeatCount : pricePerSeat * billedSeatCount
-  const discountPct = isAnnual ? 20 : 0
-  const discountAmount = isAnnual ? subtotalBase * 0.2 : 0
+  // ── Cycle total math (NEW) ────────────────────────────────────────────────
+  // newCycleTotal = post-discount total for the new plan
+  // subtotalBase  = pre-discount total (months × seats × pricePerSeat)
+  const subtotalBase = pricePerSeat * months * billedSeatCount
+  const newCycleTotal = subtotalBase * (1 - discountPct / 100)
+  const discountAmount = subtotalBase * (discountPct / 100)
 
   let subtotal = subtotalBase
   let remainingCredit = 0
@@ -93,18 +101,25 @@ export async function POST(req: NextRequest) {
     const periodMs = Math.max(1, existingSub.currentPeriodEnd.getTime() - existingSub.currentPeriodStart.getTime())
     const remainingMs = Math.max(0, existingSub.currentPeriodEnd.getTime() - now.getTime())
     const remainingRatio = Math.min(1, remainingMs / periodMs)
-    const oldCycleTotal = Number(existingSub.pricePerSeat) * 12 * Number(existingSub.seatCount) * 0.8
+    // Honor whatever cycle the existing subscription was bought under so we
+    // credit back the right pesos. Previously this assumed ANNUAL+0.8 even
+    // when the company had paid for a 3M/6M plan.
+    const existingCycle = (existingSub.billingCycle ?? 'ANNUAL') as keyof typeof DURATION_MONTHS
+    const existingMonths = DURATION_MONTHS[existingCycle] ?? 12
+    const existingDiscountFactor = 1 - (DURATION_DISCOUNT_PCT[existingCycle] ?? 0) / 100
+    const oldCycleTotal = Number(existingSub.pricePerSeat) * existingMonths * Number(existingSub.seatCount) * existingDiscountFactor
     remainingCredit = Math.round(oldCycleTotal * remainingRatio * 100) / 100
 
+    const discountFactor = 1 - discountPct / 100
     if (isSameCycleChange) {
       const delta = Math.max(0, newCycleTotal - oldCycleTotal)
       const prorated = Math.round(delta * remainingRatio * 100) / 100
-      subtotal = isAnnual ? Math.round((prorated / 0.8) * 100) / 100 : prorated
+      subtotal = discountFactor > 0 ? Math.round((prorated / discountFactor) * 100) / 100 : prorated
       periodStart = now
       periodEnd = existingSub.currentPeriodEnd
     } else {
       const net = Math.max(0, newCycleTotal - remainingCredit)
-      subtotal = isAnnual ? Math.round((net / 0.8) * 100) / 100 : net
+      subtotal = discountFactor > 0 ? Math.round((net / discountFactor) * 100) / 100 : net
     }
   }
 
@@ -135,9 +150,15 @@ export async function POST(req: NextRequest) {
   dueDate.setDate(dueDate.getDate() + 7)
 
   // Subscription activation payload (stored in invoice notes; used by status
-  // polling to activate the subscription once payment succeeds)
+  // polling to activate the subscription once payment succeeds).
+  //
+  // The Prisma SubscriptionPlan enum only allows TRIAL | MONTHLY | ANNUAL.
+  // The actual billing cycle (3M / 6M / ANNUAL) is preserved in the
+  // separate billingCycle field. We map 3M/6M → MONTHLY for the enum so
+  // we don't need a Prisma migration; downstream code that needs the
+  // real cycle should read `billingCycle`, not `plan`.
   const subscriptionActivationPayload = {
-    plan: 'ANNUAL' as const,
+    plan: (billingCycle === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') as 'ANNUAL' | 'MONTHLY',
     status: 'ACTIVE' as const,
     billingCycle,
     pricePerSeat,
@@ -186,7 +207,7 @@ export async function POST(req: NextRequest) {
   try {
     qrResult = await createQrPhPayment({
       amountPeso: total,
-      description: `OnClock Annual Subscription — ${billedSeatCount} seat${billedSeatCount !== 1 ? 's' : ''}`,
+      description: `OnClock ${cycleLabel} Subscription — ${billedSeatCount} seat${billedSeatCount !== 1 ? 's' : ''}`,
       billingName: company?.name || 'Company',
       billingEmail: company?.email || ctx.email || 'billing@onclockph.com',
       metadata: {

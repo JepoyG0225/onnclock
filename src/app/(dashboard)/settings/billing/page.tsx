@@ -60,6 +60,32 @@ const PRO_PRICE = 100
 const POLL_INTERVAL_MS = 5_000
 const QR_LIFETIME_MS = 29 * 60 * 1000 // 29 min
 
+// ── Subscription duration options ────────────────────────────────────────────
+// Only the 1-year (ANNUAL) plan carries the 20% prepay discount. 3M and 6M
+// are convenience plans for companies that want a shorter commitment — they
+// pay the standard per-seat-per-month rate × number of months, no discount.
+type Duration = '3_MONTH' | '6_MONTH' | 'ANNUAL'
+const DURATION_MONTHS: Record<Duration, number> = {
+  '3_MONTH': 3,
+  '6_MONTH': 6,
+  ANNUAL: 12,
+}
+const DURATION_DISCOUNT: Record<Duration, number> = {
+  '3_MONTH': 0,
+  '6_MONTH': 0,
+  ANNUAL: 0.2,
+}
+const DURATION_LABEL: Record<Duration, string> = {
+  '3_MONTH': '3 Months',
+  '6_MONTH': '6 Months',
+  ANNUAL: '1 Year (20% off)',
+}
+const DURATION_SHORT: Record<Duration, string> = {
+  '3_MONTH': '3-Month',
+  '6_MONTH': '6-Month',
+  ANNUAL: 'Annual',
+}
+
 function fmt(n: number) {
   return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -77,6 +103,7 @@ export default function BillingPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPricePerSeat, setSelectedPricePerSeat] = useState<50 | 100>(STANDARD_PRICE)
+  const [selectedDuration, setSelectedDuration] = useState<Duration>('ANNUAL')
   const [seatCount, setSeatCount] = useState(1)
   const [qr, setQr] = useState<QrState>({ phase: 'idle' })
   const [countdown, setCountdown] = useState(0)
@@ -157,9 +184,14 @@ export default function BillingPage() {
   const isActive = sub?.status === 'ACTIVE'
 
   const effectiveSeatCount = Math.max(employeeCount, seatCount)
-  const annualPricePerMonth = Math.round(selectedPricePerSeat * 0.8)
-  const annualTotal = annualPricePerMonth * 12 * effectiveSeatCount
-  const annualSavings = selectedPricePerSeat * 12 * effectiveSeatCount - annualTotal
+  // ── Plan total math, generalized over the selected duration ─────────────
+  // Annual gets the 20% discount; 3M and 6M are full price × months × seats.
+  const selectedMonths = DURATION_MONTHS[selectedDuration]
+  const selectedDiscount = DURATION_DISCOUNT[selectedDuration]
+  const pricePerMonthAfterDiscount = Math.round(selectedPricePerSeat * (1 - selectedDiscount))
+  const planTotal = pricePerMonthAfterDiscount * selectedMonths * effectiveSeatCount
+  const planFullPrice = selectedPricePerSeat * selectedMonths * effectiveSeatCount
+  const planSavings = planFullPrice - planTotal
 
   const hasRemainingPeriod = Boolean(
     isActive && sub?.currentPeriodEnd && new Date(sub.currentPeriodEnd).getTime() > Date.now()
@@ -170,18 +202,25 @@ export default function BillingPage() {
         Math.max(1, new Date(sub.currentPeriodEnd).getTime() - new Date(sub.currentPeriodStart).getTime())
       ))
     : 0
-  const currentCycleTotal = sub?.billingCycle === 'ANNUAL'
-    ? Number(sub.pricePerSeat) * 12 * Number(sub.seatCount) * 0.8
-    : Number(sub?.pricePerSeat ?? 0) * Number(sub?.seatCount ?? 0)
+  // Compute the existing cycle's total (matches whatever billingCycle the
+  // current subscription was created under). Discount only applied when
+  // current cycle is ANNUAL.
+  const currentCycleKey: Duration = (sub?.billingCycle as Duration | undefined) ?? 'ANNUAL'
+  const currentMonths = DURATION_MONTHS[currentCycleKey] ?? 12
+  const currentDiscount = DURATION_DISCOUNT[currentCycleKey] ?? 0
+  const currentCycleTotal = Number(sub?.pricePerSeat ?? 0)
+    * currentMonths
+    * Number(sub?.seatCount ?? 0)
+    * (1 - currentDiscount)
   const remainingCredit = Math.round(currentCycleTotal * remainingRatio * 100) / 100
-  const isSameCycle = sub?.billingCycle === 'ANNUAL'
+  const isSameCycle = sub?.billingCycle === selectedDuration
   const selectedTotal = (() => {
-    if (!hasRemainingPeriod) return annualTotal
+    if (!hasRemainingPeriod) return planTotal
     if (isSameCycle) {
-      const delta = Math.max(0, annualTotal - currentCycleTotal)
+      const delta = Math.max(0, planTotal - currentCycleTotal)
       return Math.round(delta * remainingRatio * 100) / 100
     }
-    return Math.max(0, Math.round((annualTotal - remainingCredit) * 100) / 100)
+    return Math.max(0, Math.round((planTotal - remainingCredit) * 100) / 100)
   })()
 
   // ── Proceed to payment ────────────────────────────────────────────────────
@@ -192,7 +231,7 @@ export default function BillingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          billingCycle: 'ANNUAL',
+          billingCycle: selectedDuration,
           seatCount: effectiveSeatCount,
           pricePerSeat: selectedPricePerSeat,
         }),
@@ -277,7 +316,7 @@ export default function BillingPage() {
               <p className="font-bold text-slate-800">Current Plan</p>
               <p className="text-xs text-slate-400 mt-0.5">
                 {isOnTrial && `Free Trial — expires ${sub.trialEndsAt ? format(new Date(sub.trialEndsAt), 'MMM dd, yyyy') : ''}`}
-                {isActive && sub.currentPeriodEnd && `Annual — renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
+                {isActive && sub.currentPeriodEnd && `${DURATION_SHORT[(sub.billingCycle as Duration) ?? 'ANNUAL'] ?? 'Annual'} — renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
                 {isExpired && 'Expired — please subscribe'}
               </p>
             </div>
@@ -335,14 +374,33 @@ export default function BillingPage() {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-bold text-slate-900">Checkout</h3>
-          <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white" style={{ background: 'linear-gradient(135deg,#2E4156,#1A2D42)' }}>
-            <Star className="w-2.5 h-2.5 fill-white" /> 20% ANNUAL DISCOUNT
-          </span>
+          {selectedDuration === 'ANNUAL' && (
+            <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white" style={{ background: 'linear-gradient(135deg,#2E4156,#1A2D42)' }}>
+              <Star className="w-2.5 h-2.5 fill-white" /> 20% ANNUAL DISCOUNT
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left — seats + summary */}
           <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Subscription Duration</label>
+              <select
+                value={selectedDuration}
+                onChange={(e) => setSelectedDuration(e.target.value as Duration)}
+                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
+              >
+                <option value="3_MONTH">3 Months</option>
+                <option value="6_MONTH">6 Months</option>
+                <option value="ANNUAL">1 Year — 20% off</option>
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                {selectedDuration === 'ANNUAL'
+                  ? 'Prepay 12 months, save 20% per seat.'
+                  : `Prepay ${selectedMonths} months at the regular monthly rate.`}
+              </p>
+            </div>
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Quantity (Seats)</label>
               <input
@@ -356,19 +414,21 @@ export default function BillingPage() {
             </div>
 
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 space-y-1.5">
-              <p className="font-bold text-slate-700 mb-2">Annual Plan Summary</p>
+              <p className="font-bold text-slate-700 mb-2">{DURATION_SHORT[selectedDuration]} Plan Summary</p>
               <div className="flex justify-between">
                 <span>Rate</span>
-                <span className="font-bold text-[#1A2D42]">{fmt(annualPricePerMonth)} / seat / month</span>
+                <span className="font-bold text-[#1A2D42]">{fmt(pricePerMonthAfterDiscount)} / seat / month</span>
               </div>
               <div className="flex justify-between">
-                <span>Plan total ({effectiveSeatCount} seats)</span>
-                <span className="font-bold text-[#1A2D42]">{fmt(annualTotal)} / year</span>
+                <span>Plan total ({effectiveSeatCount} seats × {selectedMonths} {selectedMonths === 1 ? 'month' : 'months'})</span>
+                <span className="font-bold text-[#1A2D42]">{fmt(planTotal)}</span>
               </div>
-              <div className="flex justify-between text-emerald-600 text-xs">
-                <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />Annual savings</span>
-                <span className="font-bold">{fmt(annualSavings)}</span>
-              </div>
+              {planSavings > 0 && (
+                <div className="flex justify-between text-emerald-600 text-xs">
+                  <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />Annual savings</span>
+                  <span className="font-bold">{fmt(planSavings)}</span>
+                </div>
+              )}
               {hasRemainingPeriod && remainingCredit > 0 && (
                 <div className="flex justify-between text-emerald-700">
                   <span>Current plan credit</span>

@@ -5,9 +5,9 @@ import { CreditCard, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
-type SubscriptionPlan = 'TRIAL' | 'MONTHLY' | 'ANNUAL'
+type SubscriptionPlan = 'TRIAL' | 'MONTHLY' | '3_MONTH' | '6_MONTH' | 'ANNUAL'
 type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'EXPIRED'
-type BillingCycle = 'MONTHLY' | 'ANNUAL' | null
+type BillingCycle = 'MONTHLY' | '3_MONTH' | '6_MONTH' | 'ANNUAL' | null
 type FilterTab = 'ALL' | 'TRIAL' | 'ACTIVE' | 'EXPIRED' | 'PAST_DUE' | 'CANCELLED'
 
 interface CompanyRow {
@@ -246,6 +246,8 @@ export default function AdminSubscriptionsPage() {
                     >
                       <option value="TRIAL">TRIAL</option>
                       <option value="MONTHLY">MONTHLY</option>
+                      <option value="3_MONTH">3 MONTHS</option>
+                      <option value="6_MONTH">6 MONTHS</option>
                       <option value="ANNUAL">ANNUAL</option>
                     </select>
                   </div>
@@ -272,6 +274,8 @@ export default function AdminSubscriptionsPage() {
                     >
                       <option value="">None</option>
                       <option value="MONTHLY">MONTHLY</option>
+                      <option value="3_MONTH">3 MONTHS</option>
+                      <option value="6_MONTH">6 MONTHS</option>
                       <option value="ANNUAL">ANNUAL</option>
                     </select>
                   </div>
