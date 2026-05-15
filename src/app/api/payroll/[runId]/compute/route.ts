@@ -154,7 +154,7 @@ export async function POST(
   }
   const variableIncomeEntriesInput = parsedPayload.data.variableIncomeEntries
 
-  const workingDays = getWorkingDays(run.periodStart, run.periodEnd)
+  const rawWorkingDays = getWorkingDays(run.periodStart, run.periodEnd)
   const firstCutoff = isFirstCutoff(run.periodStart)
   let payrollConfig: {
     enableOvertime: boolean
@@ -280,6 +280,20 @@ export async function POST(
   const holidayMap = new Map(
     companyHolidays.map(h => [h.date.toISOString().split('T')[0], h])
   )
+
+  // PH practice: monthly employees are paid in full on holidays (Art. 94
+  // Labor Code for regular holidays; established practice for special
+  // non-working days). So when pro-rating monthly salary by attendance,
+  // the denominator should EXCLUDE weekday holidays — otherwise the
+  // employee is incorrectly docked for days they were never required to
+  // work. The numerator (daysWorked) similarly excludes holidays they
+  // didn't clock in on, so the ratio remains 100% for someone who worked
+  // every regular workday in the period.
+  const weekdayHolidayCount = companyHolidays.filter(h => {
+    const d = h.date.getUTCDay()
+    return d !== 0 && d !== 6
+  }).length
+  const workingDays = Math.max(1, rawWorkingDays - weekdayHolidayCount)
   const approvedOtMap = await getApprovedOtHoursMap({
     companyId: scopedCompanyId,
     dateFrom: run.periodStart,
