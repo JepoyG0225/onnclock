@@ -635,12 +635,37 @@ export async function POST(
   })
 
   // ── Persist everything in a transaction ───────────────────────────────────
-  // Step 1: delete old payslip loan deductions + payslips (recompute-safe)
+  // Step 1: recompute-safe cleanup.
+  //   (a) Read every PRIOR PayslipLoanDeduction for this run so we can credit
+  //       those amounts back to the source loans — otherwise repeated
+  //       recomputes silently double-debit the loan balance.
+  //   (b) Delete the ledger rows + payslips.
+  //   (c) Restore each loan: balance += prior debit, flip FULLY_PAID → ACTIVE
+  //       and clear endDate; the new pass below will re-deduct + re-flag.
+  const priorDeductions = await prisma.payslipLoanDeduction.findMany({
+    where: { payslip: { payrollRunId: runId } },
+    select: { loanId: true, amount: true },
+  })
+  const priorByLoan = new Map<string, number>()
+  for (const d of priorDeductions) {
+    priorByLoan.set(d.loanId, (priorByLoan.get(d.loanId) ?? 0) + Number(d.amount))
+  }
+
   await prisma.$transaction([
     prisma.payslipLoanDeduction.deleteMany({
       where: { payslip: { payrollRunId: runId } },
     }),
     prisma.payslip.deleteMany({ where: { payrollRunId: runId } }),
+    ...[...priorByLoan.entries()].map(([loanId, amount]) =>
+      prisma.employeeLoan.update({
+        where: { id: loanId },
+        data: {
+          balance: { increment: amount },
+          status: 'ACTIVE',
+          endDate: null,
+        },
+      }),
+    ),
   ])
 
   // Step 2: create new payslips individually so we get their IDs back,
