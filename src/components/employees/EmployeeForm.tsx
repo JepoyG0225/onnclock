@@ -410,7 +410,21 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       }
 
       if (employeeId) {
-        toast.success('Employee updated!')
+        // The PATCH endpoint reports back any in-flight payroll runs it
+        // recomputed because a payroll-affecting field changed (rate,
+        // salary, disableHolidayPay, mandatory-deduction toggles, etc.).
+        const recompute = result.recompute as
+          | { scheduled: number; succeeded: number; failed: number; fields: string[] }
+          | null
+        if (recompute && recompute.scheduled > 0) {
+          const label = recompute.scheduled === 1 ? 'payroll run' : 'payroll runs'
+          toast.success(
+            `Employee updated · recomputed ${recompute.succeeded}/${recompute.scheduled} ${label}`
+              + (recompute.failed > 0 ? ` (${recompute.failed} failed — recompute manually)` : ''),
+          )
+        } else {
+          toast.success('Employee updated!')
+        }
         router.push(targetEmployeeId ? `/employees/${targetEmployeeId}` : '/employees')
         return
       }

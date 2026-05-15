@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import {
+  diffPayrollAffectingFields,
+  recomputeRunsForEmployee,
+} from '@/lib/payroll/recompute-runs'
 
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -40,10 +44,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json()
 
-    // Verify the employee belongs to this company first
+    // Verify the employee belongs to this company first.
+    // Pull every payroll-affecting field so we can diff post-update and
+    // know whether any in-flight payroll runs need a recompute.
     const existing = await prisma.employee.findFirst({
       where: { id, companyId: ctx.companyId },
-      select: { id: true, employeeNo: true, workScheduleId: true, rateType: true, basicSalary: true },
+      select: {
+        id: true, employeeNo: true, workScheduleId: true,
+        rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true,
+        payFrequency: true,
+        isExemptFromTax: true, isMinimumWageEarner: true, disableHolidayPay: true,
+        trackTime: true,
+        sssEnabled: true, philhealthEnabled: true, pagibigEnabled: true,
+        withholdingTaxEnabled: true,
+      },
     })
     if (!existing) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
@@ -137,7 +151,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     })
 
-    return NextResponse.json({ success: true })
+    // ── Auto-recompute any in-flight payroll runs ────────────────────────
+    // If any payroll-affecting field actually changed value, re-run the
+    // compute for every DRAFT / COMPUTED / FOR_APPROVAL run that already
+    // has a payslip for this employee. Best-effort — failures are logged
+    // but never block the primary PATCH.
+    const after = await prisma.employee.findUnique({
+      where: { id },
+      select: {
+        rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true,
+        payFrequency: true,
+        isExemptFromTax: true, isMinimumWageEarner: true, disableHolidayPay: true,
+        trackTime: true,
+        sssEnabled: true, philhealthEnabled: true, pagibigEnabled: true,
+        withholdingTaxEnabled: true,
+      },
+    })
+    const changedFields = after
+      ? diffPayrollAffectingFields(
+          existing as unknown as Record<string, unknown>,
+          after as unknown as Record<string, unknown>,
+        )
+      : []
+    let recompute = null as null | { scheduled: number; succeeded: number; failed: number; fields: string[] }
+    if (changedFields.length > 0) {
+      const origin = new URL(req.url).origin
+      const result = await recomputeRunsForEmployee(id, ctx.companyId, origin)
+      recompute = { ...result, fields: changedFields }
+    }
+
+    return NextResponse.json({ success: true, recompute })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[PATCH /api/employees/:id]', msg)
