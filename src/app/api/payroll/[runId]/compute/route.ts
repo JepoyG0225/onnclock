@@ -26,6 +26,20 @@ const computePayloadSchema = z.object({
  * accessors and shifts by +8 hours to get the PHT minute-of-day, so the
  * result is identical regardless of the server's TZ.
  */
+/**
+ * Roll timeOut forward by 24h when it lands at or before timeIn — covers
+ * overnight shifts where the operator (or a manual DTR edit) stored
+ * timeOut on the same calendar day as timeIn. Without this, an
+ * 23:00 → 08:00 shift saved as 23:00 → 08:00 SAME DAY produces a
+ * negative duration which gets clamped to 0, silently zeroing out the
+ * employee's regular hours, OT, and ND. This applies to any code path
+ * that computes (timeOut - timeIn).
+ */
+function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
+  if (timeOut.getTime() > timeIn.getTime()) return timeOut
+  return new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
+}
+
 function countNightMinutes(params: {
   timeIn: Date
   timeOut: Date
@@ -34,8 +48,9 @@ function countNightMinutes(params: {
 }) {
   let minutes = 0
   const crossesMidnight = params.startMinutes > params.endMinutes
+  const effectiveTimeOut = normalizeOvernightOut(params.timeIn, params.timeOut)
   let cursor = new Date(params.timeIn)
-  while (cursor < params.timeOut) {
+  while (cursor < effectiveTimeOut) {
     // PHT minute-of-day, regardless of server TZ
     const utcMin = cursor.getUTCHours() * 60 + cursor.getUTCMinutes()
     const currentMinutes = (utcMin + 8 * 60) % (24 * 60)
@@ -452,8 +467,9 @@ export async function POST(
       let nightDiffHours = d.nightDiffHours?.toNumber() ?? 0
 
       if (d.timeIn && d.timeOut) {
+        const effOut = normalizeOvernightOut(d.timeIn, d.timeOut)
         if (!d.overtimeHours) {
-          const totalMinutes = Math.max(0, (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60) // minus 60 min break
+          const totalMinutes = Math.max(0, (effOut.getTime() - d.timeIn.getTime()) / 60000 - 60) // minus 60 min break
           const otMinutes = Math.max(0, totalMinutes - 480) // beyond 8 hours
           overtimeHours = Math.round((otMinutes / 60) * 100) / 100
         }
@@ -515,9 +531,10 @@ export async function POST(
           continue
         }
         if (d.timeIn && d.timeOut) {
+          const effOut = normalizeOvernightOut(d.timeIn, d.timeOut)
           const totalMinutes = Math.max(
             0,
-            (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60, // unpaid 60-min break
+            (effOut.getTime() - d.timeIn.getTime()) / 60000 - 60, // unpaid 60-min break
           )
           const regularMinutes = Math.min(totalMinutes, workHoursPerDayForCap * 60)
           regularHoursTotal += regularMinutes / 60
@@ -611,9 +628,10 @@ export async function POST(
         if (stored > 0) {
           hrs = stored
         } else if (d.timeIn && d.timeOut) {
+          const effOut = normalizeOvernightOut(d.timeIn, d.timeOut)
           const totalMinutes = Math.max(
             0,
-            (d.timeOut.getTime() - d.timeIn.getTime()) / 60000 - 60,
+            (effOut.getTime() - d.timeIn.getTime()) / 60000 - 60,
           )
           hrs = Math.min(totalMinutes, workHoursPerDayForCap * 60) / 60
         }

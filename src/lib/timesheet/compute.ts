@@ -166,7 +166,15 @@ export function computeHours(
     scheduledTimeOut?: string | null
   } = {},
 ): ComputeHoursResult {
-  const rawTotalMinutes = differenceInMinutes(timeOut, timeIn)
+  // Overnight rescue: when timeOut lands at or before timeIn the entry is
+  // an overnight shift whose timeOut was stored on the same calendar day
+  // as timeIn (UI date-defaulting / manual edits). Roll timeOut +24h so
+  // the duration is positive — otherwise rawTotalMinutes goes negative,
+  // gets clamped to 0, and silently zeros out reg/OT/ND for the row.
+  const effectiveTimeOutRaw = timeOut.getTime() > timeIn.getTime()
+    ? timeOut
+    : new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
+  const rawTotalMinutes = differenceInMinutes(effectiveTimeOutRaw, timeIn)
   const totalMinutes = Math.min(Math.max(0, rawTotalMinutes), MAX_SHIFT_MINUTES)
   const effectiveTimeOut = new Date(timeIn.getTime() + totalMinutes * 60_000)
 
