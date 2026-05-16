@@ -48,6 +48,91 @@ function countNightMinutes(params: {
   return minutes
 }
 
+// ── Schedule-derived ND fallback ────────────────────────────────────────────
+// When an employee has a FIXED schedule (e.g. "Nightshift 23:00–08:00") but
+// no DTR rows in the period AND trackTime is off, we previously credited
+// zero night-differential. That's wrong for monthly night-shift hires whose
+// biometric isn't enrolled — they're contractually paid for the shift but
+// the engine was acting as if they worked daytime. These helpers reconstruct
+// scheduled ND from the assigned shift's overlap with the ND window times
+// the number of workdays in the period.
+
+function parseClockMinutes(value: string | null | undefined): number | null {
+  if (!value) return null
+  const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
+  if (!m) return null
+  const h = Number(m[1]), mm = Number(m[2])
+  if (!Number.isFinite(h) || !Number.isFinite(mm) || h > 23 || mm > 59) return null
+  return h * 60 + mm
+}
+
+function rangeSegments(start: number, end: number): Array<[number, number]> {
+  // [start, end) within a single 24h day. When start >= end the range wraps
+  // midnight and is split into two segments at midnight.
+  if (start === end) return []
+  if (start < end) return [[start, end]]
+  return [[start, 1440], [0, end]]
+}
+
+/** Minutes a shift overlaps with the ND window in a single day. */
+function shiftNdOverlapMinutes(
+  shiftStart: number, shiftEnd: number,
+  ndStart: number, ndEnd: number,
+): number {
+  let total = 0
+  for (const [aStart, aEnd] of rangeSegments(shiftStart, shiftEnd)) {
+    for (const [bStart, bEnd] of rangeSegments(ndStart, ndEnd)) {
+      const s = Math.max(aStart, bStart)
+      const e = Math.min(aEnd, bEnd)
+      if (e > s) total += e - s
+    }
+  }
+  return total
+}
+
+/**
+ * Scheduled ND hours for the entire period. Iterates each calendar day in
+ * [start, end] (inclusive) and credits the shift's ND overlap for every day
+ * whose weekday is in the schedule's workDays mask.
+ *
+ * Uses getUTCDay() because periodStart/End are stored as UTC midnight in
+ * Prisma — same convention used elsewhere in this route.
+ */
+function computeScheduledNdHoursForPeriod(opts: {
+  shiftStartMin: number
+  shiftEndMin: number
+  workDays: number[]
+  ndStartMin: number
+  ndEndMin: number
+  breakMinutes: number
+  ndIncludesBreak: boolean
+  periodStart: Date
+  periodEnd: Date
+}): number {
+  const perDayOverlap = shiftNdOverlapMinutes(
+    opts.shiftStartMin, opts.shiftEndMin,
+    opts.ndStartMin, opts.ndEndMin,
+  )
+  if (perDayOverlap === 0) return 0
+  // When break is excluded from ND, subtract up to `breakMinutes` per day
+  // (clamped — never let ND go negative when the shift overlap is smaller
+  // than the configured break, e.g. a 4-hour ND overlap on a 60-min break).
+  const perDayNet = opts.ndIncludesBreak
+    ? perDayOverlap
+    : Math.max(0, perDayOverlap - opts.breakMinutes)
+  let totalMin = 0
+  const cursor = new Date(opts.periodStart)
+  // Inclusive end — match the rest of the route which filters DTRs with `lte`
+  const endMs = opts.periodEnd.getTime()
+  while (cursor.getTime() <= endMs) {
+    if (opts.workDays.includes(cursor.getUTCDay())) {
+      totalMin += perDayNet
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return Math.round((totalMin / 60) * 100) / 100
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ runId: string }> }
@@ -172,6 +257,9 @@ export async function POST(
     enableOvertime: boolean
     enableNightDifferential: boolean
     nightDifferentialRate: { toNumber(): number } | number
+    nightDifferentialStart?: string | null
+    nightDifferentialEnd?: string | null
+    nightDifferentialIncludesBreak?: boolean | null
     disableLateDeductions?: boolean
   } | null = null
   try {
@@ -181,6 +269,9 @@ export async function POST(
         enableOvertime: true,
         enableNightDifferential: true,
         nightDifferentialRate: true,
+        nightDifferentialStart: true,
+        nightDifferentialEnd: true,
+        nightDifferentialIncludesBreak: true,
         disableLateDeductions: true,
       },
     })
@@ -195,8 +286,12 @@ export async function POST(
       ? payrollConfig.nightDifferentialRate.toNumber()
       : Number(payrollConfig?.nightDifferentialRate ?? 0.1))
     : 0
-  const nightDiffStartMinutes = 22 * 60
-  const nightDiffEndMinutes = 6 * 60
+  // Honor the configured ND window if present; else fall back to PH DOLE
+  // default of 22:00–06:00. Parsed once for both DTR scanning and the new
+  // schedule-derived fallback so they agree on the boundary.
+  const nightDiffStartMinutes = parseClockMinutes(payrollConfig?.nightDifferentialStart ?? null) ?? 22 * 60
+  const nightDiffEndMinutes = parseClockMinutes(payrollConfig?.nightDifferentialEnd ?? null) ?? 6 * 60
+  const ndIncludesBreak = payrollConfig?.nightDifferentialIncludesBreak ?? true
   let differentialRules = {
     regularOtRate: 1.25,
     restDayOtRate: 1.69,
@@ -234,12 +329,21 @@ export async function POST(
     // defaults remain when table doesn't exist yet
   }
 
-  // Fetch all active employees with their active loans
+  // Fetch all active employees with their active loans. Schedule fields
+  // (timeIn/timeOut/workDays/scheduleType) are needed for the schedule-
+  // derived ND fallback applied to monthly night-shift hires with no DTR.
   const employees = await prisma.employee.findMany({
     where: { companyId: scopedCompanyId, isActive: true },
     include: {
       workSchedule: {
-        select: { workHoursPerDay: true },
+        select: {
+          workHoursPerDay: true,
+          scheduleType: true,
+          timeIn: true,
+          timeOut: true,
+          workDays: true,
+          breakMinutes: true,
+        },
       },
       loans: { where: { status: 'ACTIVE' } },
       incomeAssignments: {
@@ -433,9 +537,47 @@ export async function POST(
     const regularOtHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
       : 0
-    const nightDiffHoursRaw = emp.trackTime || hasDtr
+    let nightDiffHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.nightDiffHours, 0)
       : 0
+
+    // Schedule-derived ND fallback. Only fires when:
+    //   - DTR-based ND is zero (either trackTime off + no DTRs, or DTRs
+    //     present but none touched the ND window), AND
+    //   - the employee has a FIXED schedule with valid timeIn/timeOut and
+    //     non-empty workDays, AND
+    //   - the shift actually overlaps the ND window (e.g. a 23:00–08:00
+    //     night shift; daytime schedules naturally produce 0 and exit).
+    // This catches monthly night-shift hires whose biometric isn't enrolled —
+    // they're contractually paid for the night premium even when no clock
+    // events are captured.
+    if (nightDiffHoursRaw === 0
+        && emp.workSchedule?.scheduleType === 'FIXED'
+        && emp.workSchedule.timeIn
+        && emp.workSchedule.timeOut) {
+      const shiftStart = parseClockMinutes(emp.workSchedule.timeIn)
+      const shiftEnd = parseClockMinutes(emp.workSchedule.timeOut)
+      const workDays = Array.isArray(emp.workSchedule.workDays)
+        ? (emp.workSchedule.workDays as unknown[])
+            .map(v => Number(v))
+            .filter(v => Number.isInteger(v) && v >= 0 && v <= 6)
+        : []
+      if (shiftStart !== null && shiftEnd !== null && workDays.length > 0) {
+        const scheduledNd = computeScheduledNdHoursForPeriod({
+          shiftStartMin: shiftStart,
+          shiftEndMin: shiftEnd,
+          workDays,
+          ndStartMin: nightDiffStartMinutes,
+          ndEndMin: nightDiffEndMinutes,
+          breakMinutes: Number(emp.workSchedule.breakMinutes ?? 60),
+          ndIncludesBreak,
+          periodStart: run.periodStart,
+          periodEnd: run.periodEnd,
+        })
+        if (scheduledNd > 0) nightDiffHoursRaw = scheduledNd
+      }
+    }
+
     const regularOtHours = overtimeEnabled ? regularOtHoursRaw : 0
     const nightDiffHours = nightDifferentialEnabled ? nightDiffHoursRaw : 0
     const lateMinutes = emp.trackTime || hasDtr
