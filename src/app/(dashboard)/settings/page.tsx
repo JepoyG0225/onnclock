@@ -304,22 +304,22 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <PesoIcon className="w-4 h-4" />
-                2024 Contribution Rates (Reference)
+                Mandatory Contribution Rates (Reference)
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="space-y-2">
-                  <p className="font-semibold text-[#1A2D42]">SSS 2024</p>
+                  <p className="font-semibold text-[#1A2D42]">SSS 2025</p>
                   <div className="space-y-1 text-gray-600">
-                    <p>Employee: 4.5% of MSC</p>
-                    <p>Employer: 9.5% of MSC</p>
-                    <p>EC: ₱10 (MSC &lt;₱14,750) / ₱30</p>
-                    <p>MSC Range: ₱4,000 – ₱30,000</p>
+                    <p>Employee: 5% of MSC</p>
+                    <p>Employer: 10% of MSC</p>
+                    <p>EC: ₱10 (MSC &lt;₱15,000) / ₱30</p>
+                    <p>MSC Range: ₱5,000 – ₱35,000</p>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <p className="font-semibold text-green-700">PhilHealth 2024</p>
+                  <p className="font-semibold text-green-700">PhilHealth 2025</p>
                   <div className="space-y-1 text-gray-600">
                     <p>Rate: 5% of basic salary</p>
                     <p>Employee: 2.5%</p>
@@ -328,11 +328,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <p className="font-semibold text-yellow-700">Pag-IBIG 2024</p>
+                  <p className="font-semibold text-yellow-700">Pag-IBIG 2025</p>
                   <div className="space-y-1 text-gray-600">
-                    <p>Employee: 1% (≤₱1,500) / 2%</p>
-                    <p>Employer: 2% always</p>
-                    <p>Max EE/ER: ₱100/month</p>
+                    <p>Employee: 2% of MC</p>
+                    <p>Employer: 2% of MC</p>
+                    <p>Max EE/ER: ₱200/month</p>
                   </div>
                 </div>
               </div>

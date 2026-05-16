@@ -24,17 +24,25 @@ export const BIR_ANNUAL_TAX_TABLE_2023: TaxBracket[] = [
 ]
 
 // ─────────────────────────────────────────────
-// SSS 2024
+// SSS 2025 (RA 11199 / SSS Circular 2024-026, effective January 2025)
 // ─────────────────────────────────────────────
+// Final step in the RA 11199 contribution-rate ramp:
+//   2023–2024: 14% total (4.5% EE / 9.5% ER, MSC ₱4,000–₱30,000)
+//   2025+:     15% total (5%   EE / 10%  ER, MSC ₱5,000–₱35,000)
+// EC threshold also moved from ₱14,750 MSC → ₱15,000 MSC; EC amounts
+// unchanged (₱10 below threshold / ₱30 at-and-above).
+//
+// Keep the old SSS_2024 alias below if any external import still
+// references it (none in this repo right now — search before deleting).
 
-export const SSS_2024 = {
-  EMPLOYEE_RATE: 0.045,     // 4.5%
-  EMPLOYER_RATE: 0.095,     // 9.5%
-  EC_LOW: 10,               // EC for MSC < ₱14,750
-  EC_HIGH: 30,              // EC for MSC >= ₱14,750
-  EC_THRESHOLD_MSC: 14_750,
-  MIN_MSC: 4_000,
-  MAX_MSC: 30_000,
+export const SSS_2025 = {
+  EMPLOYEE_RATE: 0.05,      // 5%
+  EMPLOYER_RATE: 0.10,      // 10%
+  EC_LOW: 10,               // EC for MSC < ₱15,000
+  EC_HIGH: 30,              // EC for MSC >= ₱15,000
+  EC_THRESHOLD_MSC: 15_000,
+  MIN_MSC: 5_000,
+  MAX_MSC: 35_000,
   MSC_STEP: 500,
 } as const
 
