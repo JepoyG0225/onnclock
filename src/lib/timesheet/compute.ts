@@ -243,6 +243,11 @@ export function computeHours(
     nightDiffMinutes = Math.min(nightDiffMinutes, plannedNdOverlap)
   }
 
+  // Final per-shift ceiling — 7 paid hours per standard 8h-1h-break shift.
+  // Mirrors the same cap in src/app/api/payroll/[runId]/compute/route.ts so
+  // both DTR writes (here) and payroll-time recomputation agree.
+  nightDiffMinutes = Math.min(nightDiffMinutes, 7 * 60)
+
   return {
     regularHours: round2(regularMinutes / 60),
     overtimeHours: round2(overtimeMinutes / 60),

@@ -23,6 +23,10 @@ const prisma = new PrismaClient()
 
 const ND_START_MIN = 22 * 60
 const ND_END_MIN = 6 * 60
+// Mirror src/app/api/payroll/[runId]/compute/route.ts — cap ND at 7 paid
+// hours per shift (PH 8h-1h-break standard) so early clock-ins don't
+// inflate ND beyond what the engine credits at payroll time.
+const MAX_ND_MINUTES_PER_SHIFT = 7 * 60
 
 /** Roll timeOut +24h when it landed on the same calendar day as timeIn
  *  (overnight-shift data-entry bug). */
@@ -45,7 +49,7 @@ function countNightMinutes(timeIn, timeOut, startMinutes, endMinutes) {
     if (inWindow) minutes++
     cursor = new Date(cursor.getTime() + 60_000)
   }
-  return minutes
+  return Math.min(minutes, MAX_ND_MINUTES_PER_SHIFT)
 }
 
 const company = await prisma.company.findFirst({

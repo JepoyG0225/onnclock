@@ -40,6 +40,16 @@ function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
   return new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
 }
 
+// Hard ceiling on per-shift night-differential. Matches PH practice of an
+// 8-hour shift minus a 1-hour unpaid break = 7 paid hours, all of which
+// can fall inside the ND window (22:00–06:00) at most. The cap stops
+// early clock-ins (e.g. 22:45 for a scheduled 23:00 start) from padding
+// ND beyond what the employee is actually being paid for the shift.
+// Companies running planned shifts longer than 8 hours that want to
+// credit more than 7 hours of ND should set this via PayrollCycleConfig
+// in a follow-up — for now we apply a flat ceiling.
+const MAX_ND_MINUTES_PER_SHIFT = 7 * 60
+
 function countNightMinutes(params: {
   timeIn: Date
   timeOut: Date
@@ -60,7 +70,8 @@ function countNightMinutes(params: {
     if (inWindow) minutes += 1
     cursor = new Date(cursor.getTime() + 60_000)
   }
-  return minutes
+  // Cap at 7 paid hours per shift (see MAX_ND_MINUTES_PER_SHIFT note).
+  return Math.min(minutes, MAX_ND_MINUTES_PER_SHIFT)
 }
 
 // ── Schedule-derived ND fallback ────────────────────────────────────────────
@@ -124,9 +135,15 @@ function computeScheduledNdHoursForPeriod(opts: {
   periodStart: Date
   periodEnd: Date
 }): number {
-  const perDayOverlap = shiftNdOverlapMinutes(
-    opts.shiftStartMin, opts.shiftEndMin,
-    opts.ndStartMin, opts.ndEndMin,
+  // Same per-shift ceiling we apply to DTR-derived ND so monthly night-
+  // shift hires don't end up with more credited ND than their actually-
+  // clocked-in peers under the cap.
+  const perDayOverlap = Math.min(
+    shiftNdOverlapMinutes(
+      opts.shiftStartMin, opts.shiftEndMin,
+      opts.ndStartMin, opts.ndEndMin,
+    ),
+    MAX_ND_MINUTES_PER_SHIFT,
   )
   if (perDayOverlap === 0) return 0
   // When break is excluded from ND, subtract up to `breakMinutes` per day
