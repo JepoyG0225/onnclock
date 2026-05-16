@@ -204,12 +204,20 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
   // ── 6. GOVERNMENT CONTRIBUTIONS ───────────────
   // Bracket lookup is driven by what the employee ACTUALLY earned this
-  // period (basicPay), annualized to monthly. Falls back to the recorded
-  // basicSalary when basicPay is zero so the bracket stays consistent.
-  // Each contribution is then split evenly across the periods in a month
-  // (SEMI_MONTHLY = ½, WEEKLY = ¼, DAILY = 1/22) instead of the previous
-  // "first-cutoff-takes-all" behavior.
-  const actualEarned = basicPay - lateDeduction - undertimeDeduction - absenceDeduction
+  // period (post-attendance-deductions), annualized to monthly. Falls
+  // back to the recorded basicSalary when basicPay is zero so the bracket
+  // stays consistent. Each contribution is then split evenly across the
+  // periods in a month (SEMI_MONTHLY = ½, WEEKLY = ¼, DAILY = 1/22)
+  // instead of the previous "first-cutoff-takes-all" behavior.
+  //
+  // IMPORTANT: includes the Art. 94 holiday credit (basicPayWithHolidayCredit)
+  // because per DOLE Handbook regular-holiday pay is considered wages —
+  // SSS / PhilHealth / Pag-IBIG contributions are computed on wages, not
+  // worked-day-only basic. Previously we used `basicPay` (worked only)
+  // which understated Pag-IBIG (and PhilHealth/SSS for higher brackets)
+  // for any DAILY/HOURLY employee with an unworked regular holiday in
+  // the period.
+  const actualEarned = basicPayWithHolidayCredit - lateDeduction - undertimeDeduction - absenceDeduction
   const sssRaw = getSSSForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
   const phRaw = getPhilHealthForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
   const pagibigRaw = getPagIBIGForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
@@ -226,8 +234,10 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     : { employee: 0, employer: 0 }
 
   // ── 7. WITHHOLDING TAX ────────────────────────
+  // Same reasoning as contributions: the WHT basis includes Art. 94 credit
+  // since DOLE/BIR treat unworked regular-holiday pay as basic wages.
   const taxResult = computeWithholdingTax({
-    basicAndAllowances: basicPay + allowancesTotal - lateDeduction - undertimeDeduction - absenceDeduction,
+    basicAndAllowances: basicPayWithHolidayCredit + allowancesTotal - lateDeduction - undertimeDeduction - absenceDeduction,
     overtimeAndPremium: regularOtAmount + restDayOtAmount + holidayOtAmount + nightDiffAmount + holidayPayAmount,
     deMinimisNonTaxable: deMinimisTotal,
     additionalNonTaxable: input.additionalNonTaxableIncome,
@@ -244,8 +254,11 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const loanDeductions = loans.reduce((sum, l) => sum + (grossPay > l.amount ? l.amount : 0), 0)
 
   // ── 9. 13TH MONTH CONTRIBUTION ────────────────
-  // Accrue 1/12 of basic pay earned this period
-  const thirteenthMonthContribution = parseFloat((basicPay / 12).toFixed(2))
+  // Accrue 1/12 of basic pay earned this period. Per DOLE Labor Advisory,
+  // Art. 94 holiday pay for unworked regular holidays counts as basic
+  // salary for 13th-month purposes — so use basicPayWithHolidayCredit,
+  // not the raw worked-day basicPay.
+  const thirteenthMonthContribution = parseFloat((basicPayWithHolidayCredit / 12).toFixed(2))
 
   // ── 10. TOTALS ────────────────────────────────
   const totalDeductions = parseFloat((
