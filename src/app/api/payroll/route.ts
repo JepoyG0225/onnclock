@@ -10,6 +10,12 @@ const createRunSchema = z.object({
   payFrequency: z.enum(['SEMI_MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY']).optional(),
   payDate: z.string(),
   notes: z.string().optional(),
+  // Per-run employee scoping. All three default to "include everyone" so
+  // existing clients that don't send these fields keep working unchanged.
+  payGroupLabel: z.string().trim().max(120).optional(),
+  employeeScopeMode: z.enum(['ALL', 'EMPLOYMENT_TYPE', 'CUSTOM']).optional().default('ALL'),
+  employmentTypeFilter: z.array(z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACTUAL'])).optional().default([]),
+  employeeIds: z.array(z.string().min(1)).optional().default([]),
 })
 
 function atStartOfDay(date: Date) {
@@ -143,11 +149,23 @@ export async function POST(req: NextRequest) {
 
     const companyCycle = await safeReadPayrollCycleConfig(ctx.companyId)
 
-    const { periodStart, periodEnd, payDate, notes } = parsed.data
+    const { periodStart, periodEnd, payDate, notes, payGroupLabel } = parsed.data
     const payFrequency = parsed.data.payFrequency ?? companyCycle?.payFrequency ?? 'SEMI_MONTHLY'
     const start = new Date(periodStart)
     const end = new Date(periodEnd)
     const payout = new Date(payDate)
+
+    // Normalize scope inputs. Default mode is ALL — unused arrays are cleared
+    // so we never silently mix CUSTOM ids with EMPLOYMENT_TYPE filtering.
+    const scopeMode = parsed.data.employeeScopeMode ?? 'ALL'
+    const employmentTypeFilter = scopeMode === 'EMPLOYMENT_TYPE' ? parsed.data.employmentTypeFilter ?? [] : []
+    const employeeIds = scopeMode === 'CUSTOM' ? parsed.data.employeeIds ?? [] : []
+    if (scopeMode === 'EMPLOYMENT_TYPE' && employmentTypeFilter.length === 0) {
+      return NextResponse.json({ error: 'Select at least one employment type for this run.' }, { status: 422 })
+    }
+    if (scopeMode === 'CUSTOM' && employeeIds.length === 0) {
+      return NextResponse.json({ error: 'Select at least one employee for this run.' }, { status: 422 })
+    }
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || Number.isNaN(payout.getTime())) {
       return NextResponse.json({ error: 'Invalid period or pay date' }, { status: 422 })
@@ -180,6 +198,10 @@ export async function POST(req: NextRequest) {
           payDate: payout,
           createdBy: ctx.userId,
           notes,
+          payGroupLabel: payGroupLabel?.trim() || null,
+          employeeScopeMode: scopeMode,
+          employmentTypeFilter,
+          employeeIds,
         },
       })
     } catch (e: unknown) {

@@ -166,8 +166,31 @@ export async function GET(
     select: { employeeId: true, incomeTypeId: true, amount: true },
   })
 
+  // Mirror the POST handler's scope when surfacing the variable-income
+  // matrix — otherwise HR is asked to enter amounts for employees the run
+  // will silently exclude later.
+  const runScopeGet = run as unknown as {
+    employeeScopeMode?: string | null
+    employmentTypeFilter?: string[] | null
+    employeeIds?: string[] | null
+  }
+  const scopeModeGet = runScopeGet.employeeScopeMode ?? 'ALL'
+  const employeeWhereGet: {
+    companyId: string
+    isActive: boolean
+    id?: { in: string[] }
+    employmentType?: { in: ('FULL_TIME' | 'PART_TIME' | 'CONTRACTUAL')[] }
+  } = { companyId: ctx.companyId, isActive: true }
+  if (scopeModeGet === 'CUSTOM' && (runScopeGet.employeeIds ?? []).length > 0) {
+    employeeWhereGet.id = { in: runScopeGet.employeeIds! }
+  } else if (scopeModeGet === 'EMPLOYMENT_TYPE' && (runScopeGet.employmentTypeFilter ?? []).length > 0) {
+    employeeWhereGet.employmentType = {
+      in: runScopeGet.employmentTypeFilter! as ('FULL_TIME' | 'PART_TIME' | 'CONTRACTUAL')[],
+    }
+  }
+
   const employees = await prisma.employee.findMany({
-    where: { companyId: ctx.companyId, isActive: true },
+    where: employeeWhereGet,
     select: {
       id: true,
       employeeNo: true,
@@ -347,8 +370,35 @@ export async function POST(
   // Fetch all active employees with their active loans. Schedule fields
   // (timeIn/timeOut/workDays/scheduleType) are needed for the schedule-
   // derived ND fallback applied to monthly night-shift hires with no DTR.
+  // Honor the per-run employee scope set when the run was created. Default
+  // mode "ALL" includes every active employee (back-compat). When the run
+  // is targeted at a subset, narrow the where-clause so only those rows
+  // get payslips. Cast read because Prisma types lag the new columns on
+  // older deploys — the DDL has been applied to prod.
+  const runScope = run as unknown as {
+    employeeScopeMode?: string | null
+    employmentTypeFilter?: string[] | null
+    employeeIds?: string[] | null
+  }
+  const scopeMode = runScope.employeeScopeMode ?? 'ALL'
+  const scopeEmploymentTypes = runScope.employmentTypeFilter ?? []
+  const scopeEmployeeIds = runScope.employeeIds ?? []
+  const employeeWhere: {
+    companyId: string
+    isActive: boolean
+    id?: { in: string[] }
+    employmentType?: { in: ('FULL_TIME' | 'PART_TIME' | 'CONTRACTUAL')[] }
+  } = { companyId: scopedCompanyId, isActive: true }
+  if (scopeMode === 'CUSTOM' && scopeEmployeeIds.length > 0) {
+    employeeWhere.id = { in: scopeEmployeeIds }
+  } else if (scopeMode === 'EMPLOYMENT_TYPE' && scopeEmploymentTypes.length > 0) {
+    employeeWhere.employmentType = {
+      in: scopeEmploymentTypes as ('FULL_TIME' | 'PART_TIME' | 'CONTRACTUAL')[],
+    }
+  }
+
   const employees = await prisma.employee.findMany({
-    where: { companyId: scopedCompanyId, isActive: true },
+    where: employeeWhere,
     include: {
       workSchedule: {
         select: {

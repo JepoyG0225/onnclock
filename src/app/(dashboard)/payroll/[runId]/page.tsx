@@ -213,14 +213,44 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
       </Card>
 
       {/* Pay Details */}
-      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-        <div>
-          <span className="font-medium">Pay Date:</span> {formatDate(run.payDate)}
-        </div>
-        <div>
-          <span className="font-medium">Created:</span> {formatDate(run.createdAt)}
-        </div>
-      </div>
+      {(() => {
+        const scope = run as unknown as {
+          payGroupLabel?: string | null
+          employeeScopeMode?: string | null
+          employmentTypeFilter?: string[] | null
+          employeeIds?: string[] | null
+        }
+        const scopeText = (() => {
+          if (scope.employeeScopeMode === 'EMPLOYMENT_TYPE' && (scope.employmentTypeFilter?.length ?? 0) > 0) {
+            return `Employment type: ${scope.employmentTypeFilter!.map(t => t.replace('_', ' ').toLowerCase()).join(', ')}`
+          }
+          if (scope.employeeScopeMode === 'CUSTOM' && (scope.employeeIds?.length ?? 0) > 0) {
+            return `Custom (${scope.employeeIds!.length} selected employees)`
+          }
+          return 'All active employees'
+        })()
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+            <div>
+              <span className="font-medium">Pay Date:</span> {formatDate(run.payDate)}
+            </div>
+            <div>
+              <span className="font-medium">Created:</span> {formatDate(run.createdAt)}
+            </div>
+            <div>
+              <span className="font-medium">Scope:</span> {scopeText}
+            </div>
+            {scope.payGroupLabel && (
+              <div className="md:col-span-3">
+                <span className="font-medium">Pay Group:</span>{' '}
+                <span className="font-semibold text-[#c44d00] bg-orange-50 inline-block px-1.5 py-0.5 rounded">
+                  {scope.payGroupLabel}
+                </span>
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

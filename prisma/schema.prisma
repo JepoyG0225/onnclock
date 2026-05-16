@@ -934,6 +934,19 @@ model PayrollRun {
   totalSssEr      Decimal          @default(0) @db.Decimal(14, 2)
   totalPhEr       Decimal          @default(0) @db.Decimal(14, 2)
   totalPagibigEr  Decimal          @default(0) @db.Decimal(14, 2)
+  // Per-run employee scoping. Default ALL preserves the original behavior
+  // (every active employee in the company is included).
+  //   ALL              → no filtering
+  //   EMPLOYMENT_TYPE  → include only employees whose employmentType is in
+  //                       employmentTypeFilter
+  //   CUSTOM           → include only employees whose id is in employeeIds
+  // payGroupLabel is a free-form display label ("Probationary cycle",
+  // "Project XYZ", etc.) so HR can scan the run list and distinguish
+  // parallel runs targeting different employee groups in the same period.
+  payGroupLabel        String?
+  employeeScopeMode    String   @default("ALL")
+  employmentTypeFilter String[] @default([])
+  employeeIds          String[] @default([])
   createdBy       String
   approvedBy      String?
   approvedAt      DateTime?

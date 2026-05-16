@@ -81,11 +81,35 @@ export default async function PayrollPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {runs.map((run) => (
+                  {runs.map((run) => {
+                    const scope = run as unknown as {
+                      payGroupLabel?: string | null
+                      employeeScopeMode?: string | null
+                      employmentTypeFilter?: string[] | null
+                      employeeIds?: string[] | null
+                    }
+                    const scopeBadge = (() => {
+                      if (scope.employeeScopeMode === 'EMPLOYMENT_TYPE' && (scope.employmentTypeFilter?.length ?? 0) > 0) {
+                        return scope.employmentTypeFilter!.map(t => t.replace('_', ' ').toLowerCase()).join(', ')
+                      }
+                      if (scope.employeeScopeMode === 'CUSTOM' && (scope.employeeIds?.length ?? 0) > 0) {
+                        return `${scope.employeeIds!.length} selected`
+                      }
+                      return null
+                    })()
+                    return (
                     <tr key={run.id} className="border-b hover:bg-gray-50">
                       <td className="p-4">
                         <p className="font-medium text-gray-900">{run.periodLabel}</p>
                         <p className="text-xs text-gray-500">{run.payFrequency}</p>
+                        {scope.payGroupLabel && (
+                          <p className="text-[11px] font-semibold text-[#c44d00] bg-orange-50 inline-block px-1.5 py-0.5 rounded mt-1">
+                            {scope.payGroupLabel}
+                          </p>
+                        )}
+                        {scopeBadge && (
+                          <p className="text-[10px] text-gray-500 mt-0.5">Scope: {scopeBadge}</p>
+                        )}
                       </td>
                       <td className="p-4 text-gray-600">{formatDate(run.payDate)}</td>
                       <td className="p-4">
@@ -105,7 +129,8 @@ export default async function PayrollPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
