@@ -44,21 +44,26 @@ export default async function DashboardLayout({
   const canManageCompanyData = !!companyId && (session.user.role !== 'SUPER_ADMIN' || !!impersonating)
   const effectiveRole = impersonating?.role ?? session.user.role
 
-  // Keep layout DB work light for faster route transitions.
+  // Keep layout DB work light for faster route transitions. The two
+  // queries below are independent — run them in parallel via Promise.all
+  // so the layout only blocks for max(company, sub), not sum(...).
+  // Saves roughly one Supabase round-trip on every navigation.
   let company: Awaited<ReturnType<typeof getCompanyLite>> | null = null
   const counts = { pendingDtr: 0, pendingLeaves: 0, pendingOvertime: 0 }
   let sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; pricePerSeat?: unknown } | null = null
 
   try {
-    if (companyId) {
-      company = await getCompanyLite(companyId)
-    }
-    if (canManageCompanyData) {
-      sub = await prisma.subscription.findUnique({
-        where: { companyId },
-        select: { status: true, trialEndsAt: true, currentPeriodEnd: true, pricePerSeat: true },
-      })
-    }
+    const [companyResult, subResult] = await Promise.all([
+      companyId ? getCompanyLite(companyId) : Promise.resolve(null),
+      canManageCompanyData
+        ? prisma.subscription.findUnique({
+            where: { companyId },
+            select: { status: true, trialEndsAt: true, currentPeriodEnd: true, pricePerSeat: true },
+          })
+        : Promise.resolve(null),
+    ])
+    company = companyResult
+    sub = subResult
   } catch (error) {
     console.error('DashboardLayout data load failed', error)
   }

@@ -122,12 +122,23 @@ export async function GET() {
       return sum + (unread ? 1 : 0)
     }, 0)
 
-    return NextResponse.json({
-      pendingDtr,
-      pendingLeaves,
-      pendingOvertime,
-      unreadChat: unreadDm + unreadGroups,
-    })
+    return NextResponse.json(
+      {
+        pendingDtr,
+        pendingLeaves,
+        pendingOvertime,
+        unreadChat: unreadDm + unreadGroups,
+      },
+      {
+        // Private SWR cache so quick navigations within ~30s reuse the
+        // last value instead of triggering 8+ Prisma queries again. The
+        // stale-while-revalidate window lets the browser show the cached
+        // counts immediately while a fresh fetch is in flight.
+        headers: {
+          'Cache-Control': 'private, max-age=30, stale-while-revalidate=120',
+        },
+      },
+    )
   } catch (err) {
     console.error('sidebar counts failed', err)
     return NextResponse.json({

@@ -22,8 +22,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CheckCircle,
-  Zap,
-  Timer,
   Shield,
   ClipboardList,
   AlertTriangle,
@@ -40,6 +38,7 @@ import { createPortal } from 'react-dom'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { useSidebar } from './SidebarContext'
 import { isFeatureNew } from '@/components/ui/NewFeatureBadge'
+import { TrialCountdownBanner } from './TrialCountdownBanner'
 
 const BRAND = '#1A2D42'
 
@@ -173,11 +172,11 @@ export function AppSidebar({
     'Employment', 'Time & Attendance', 'Leave Management', 'Reports', 'Settings', 'Payroll',
   ])
   const [counts, setCounts] = useState<{ pendingDtr: number; pendingLeaves: number; pendingOvertime: number }>(initialCounts)
-  const [trialEndsAt] = useState<number | null>(
-    initialTrialEndsAt ? new Date(initialTrialEndsAt).getTime() : null
-  )
-  const [trialTimeLeft, setTrialTimeLeft] = useState<string>('')
-  const [trialMsLeft, setTrialMsLeft] = useState(0)
+  // Trial-end timestamp is immutable for the session — keep it as a plain
+  // value (no state). The per-second countdown / banner UI lives in
+  // <TrialCountdownBanner /> so its 1s ticker doesn't re-render the
+  // entire sidebar tree.
+  const trialEndsAtMs = initialTrialEndsAt ? new Date(initialTrialEndsAt).getTime() : null
 
   useEffect(() => {
     let active = true
@@ -195,6 +194,9 @@ export function AppSidebar({
   useEffect(() => {
     let active = true
     async function loadCounts() {
+      // Skip polling when the tab is hidden — there's no UI to update
+      // and the server-side query is moderately expensive (8+ queries).
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       try {
         const res = await fetch('/api/sidebar-counts')
         if (!res.ok) return
@@ -209,37 +211,23 @@ export function AppSidebar({
       } catch { /* ignore */ }
     }
     loadCounts()
-    const id = window.setInterval(loadCounts, 60000)
+    // 120s poll (was 60s). The endpoint also sets Cache-Control:
+    // max-age=30, stale-while-revalidate=120 so quick tab-switches inside
+    // 30s reuse the cached response and don't hit Prisma at all.
+    const id = window.setInterval(loadCounts, 120_000)
+    // Refresh when the user comes back to the tab after >1min away so the
+    // counts feel current even if the 2-minute poll hasn't fired yet.
+    function onVisibility() {
+      if (document.visibilityState === 'visible') loadCounts()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
       active = false
       window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])
-  // Live countdown ticker updates every second.
-  useEffect(() => {
-    if (trialEndsAt === null) return
-    function tick() {
-      const diff = trialEndsAt! - Date.now()
-      const safeDiff = Math.max(0, diff)
-      setTrialMsLeft(safeDiff)
-      if (diff <= 0) { setTrialTimeLeft('Expired'); return }
-      const totalSec = Math.floor(diff / 1000)
-      const days  = Math.floor(totalSec / 86400)
-      const hours = Math.floor((totalSec % 86400) / 3600)
-      const mins  = Math.floor((totalSec % 3600) / 60)
-      const secs  = totalSec % 60
-      if (days > 0) {
-        setTrialTimeLeft(`${days}d ${String(hours).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`)
-      } else if (hours > 0) {
-        setTrialTimeLeft(`${hours}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`)
-      } else {
-        setTrialTimeLeft(`${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`)
-      }
-    }
-    tick()
-    const id = window.setInterval(tick, 1000)
-    return () => window.clearInterval(id)
-  }, [trialEndsAt])
+  // (Trial countdown ticker moved to <TrialCountdownBanner />.)
 
   function toggleExpand(label: string) {
     setExpanded(prev =>
@@ -257,9 +245,6 @@ export function AppSidebar({
             : item
         )
       : NAV_ITEMS
-  const trialDaysLeft = Math.max(0, Math.floor(trialMsLeft / 86400000))
-  const isTrialUrgent = trialMsLeft < 2 * 86400000
-  const trialProgressPct = Math.min(100, Math.max(2, (trialMsLeft / (7 * 86400000)) * 100))
 
   return (
     <aside
@@ -288,64 +273,10 @@ export function AppSidebar({
         )}
       </div>
 
-      {/* Trial countdown banner */}
-      {!isSystemAdmin && trialEndsAt !== null && (
-        collapsed ? (
-          /* Collapsed: compact icon badge */
-          <Tooltip label={`Free trial: ${trialTimeLeft} left`} side="right">
-            <Link
-              href="/settings/billing"
-              className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl relative mt-1 mb-1"
-              style={{ background: 'rgba(250,94,1,0.25)' }}
-            >
-              <Timer className="w-4 h-4 text-orange-300" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-[9px] font-black text-white leading-none">
-                {trialDaysLeft}
-              </span>
-            </Link>
-          </Tooltip>
-        ) : (
-          /* Expanded: full banner */
-          <div className="mx-3 mt-1 mb-2 rounded-2xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.18)' }}>
-            <div className="px-3 pt-3 pb-2">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <Timer className="w-3.5 h-3.5 text-orange-300" />
-                  <span className="text-[11px] font-bold text-white/80 uppercase tracking-wide">Free Trial</span>
-                </div>
-                <span
-                  className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                  style={{
-                    background: isTrialUrgent ? 'rgba(239,68,68,0.3)' : 'rgba(250,94,1,0.3)',
-                    color: isTrialUrgent ? '#fca5a5' : '#fdba74',
-                  }}
-                >
-                  {trialTimeLeft || 'â€"'}
-                </span>
-              </div>
-              {/* Progress bar â€" 7 day trial */}
-              <div className="h-1 rounded-full mb-2.5" style={{ background: 'rgba(255,255,255,0.15)' }}>
-                <div
-                  className="h-1 rounded-full transition-all"
-                  style={{
-                    width: `${trialProgressPct}%`,
-                    background: isTrialUrgent
-                      ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                      : 'linear-gradient(90deg, #f97316, #fbbf24)',
-                  }}
-                />
-              </div>
-              <Link
-                href="/settings/billing"
-                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-                style={{ background: 'linear-gradient(135deg, #fa5e01, #e04e00)' }}
-              >
-                <Zap className="w-3 h-3" />
-                Upgrade Now
-              </Link>
-            </div>
-          </div>
-        )
+      {/* Trial countdown banner — isolated to its own subtree so the
+          per-second tick doesn't re-render the entire 800-line sidebar. */}
+      {!isSystemAdmin && trialEndsAtMs !== null && (
+        <TrialCountdownBanner trialEndsAtMs={trialEndsAtMs} collapsed={collapsed} />
       )}
 
       {/* Navigation */}
