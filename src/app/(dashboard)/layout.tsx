@@ -15,6 +15,7 @@ import { AdminVirtualTour } from '@/components/onboarding/AdminVirtualTour'
 import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
+import { getSeatStatus } from '@/lib/billing/seat-limit'
 
 export default async function DashboardLayout({
   children,
@@ -52,8 +53,9 @@ export default async function DashboardLayout({
   const counts = { pendingDtr: 0, pendingLeaves: 0, pendingOvertime: 0 }
   let sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; pricePerSeat?: unknown } | null = null
 
+  let unbilledSeats = 0
   try {
-    const [companyResult, subResult] = await Promise.all([
+    const [companyResult, subResult, seatStatus] = await Promise.all([
       companyId ? getCompanyLite(companyId) : Promise.resolve(null),
       canManageCompanyData
         ? prisma.subscription.findUnique({
@@ -61,9 +63,16 @@ export default async function DashboardLayout({
             select: { status: true, trialEndsAt: true, currentPeriodEnd: true, pricePerSeat: true },
           })
         : Promise.resolve(null),
+      // Seat audit feeds SubscriptionGate. Returns {unbilled: 0} for
+      // TRIAL / no-subscription so the gate stays inactive there; only
+      // ACTIVE companies with activeCount > seatCount get redirected.
+      canManageCompanyData && companyId
+        ? getSeatStatus(companyId)
+        : Promise.resolve(null),
     ])
     company = companyResult
     sub = subResult
+    if (seatStatus?.isOver) unbilledSeats = seatStatus.unbilled
   } catch (error) {
     console.error('DashboardLayout data load failed', error)
   }
@@ -117,7 +126,12 @@ export default async function DashboardLayout({
           companyName={company?.name}
         />
         <MainContent>
-          <SubscriptionGate status={subStatus} trialEndsAt={trialEndsAt} bypassGate={session.user.role === 'SUPER_ADMIN'}>
+          <SubscriptionGate
+            status={subStatus}
+            trialEndsAt={trialEndsAt}
+            bypassGate={session.user.role === 'SUPER_ADMIN'}
+            unbilledSeats={unbilledSeats}
+          >
             {children}
           </SubscriptionGate>
         </MainContent>

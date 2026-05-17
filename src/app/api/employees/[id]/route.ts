@@ -5,6 +5,7 @@ import {
   diffPayrollAffectingFields,
   recomputeRunsForEmployee,
 } from '@/lib/payroll/recompute-runs'
+import { getSeatStatus } from '@/lib/billing/seat-limit'
 
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         id: true, employeeNo: true, workScheduleId: true,
         rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true,
         payFrequency: true,
+        isActive: true,
         isExemptFromTax: true, isMinimumWageEarner: true, disableHolidayPay: true,
         trackTime: true,
         sssEnabled: true, philhealthEnabled: true, pagibigEnabled: true,
@@ -60,6 +62,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     })
     if (!existing) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+
+    // Reactivation seat-cap guard. PATCH may flip isActive false→true via
+    // the EmployeeStatusButton component — that bumps the active count
+    // against paid seats the same way a fresh create does, so apply the
+    // same gate. SUPER_ADMIN and TRIAL bypass via getSeatStatus.
+    const willActivate = body.isActive === true && existing.isActive === false
+    if (willActivate && ctx.role !== 'SUPER_ADMIN') {
+      const seat = await getSeatStatus(ctx.companyId)
+      if (seat.enforceCap && seat.activeCount >= seat.paidSeats) {
+        return NextResponse.json(
+          {
+            error: `Seat limit reached: ${seat.activeCount} of ${seat.paidSeats} paid seats in use. Upgrade your subscription to reactivate this employee.`,
+            code: 'SEAT_LIMIT_EXCEEDED',
+            activeCount: seat.activeCount,
+            paidSeats: seat.paidSeats,
+          },
+          { status: 402 },
+        )
+      }
+    }
 
     // Convert empty strings / undefined to null for nullable fields
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

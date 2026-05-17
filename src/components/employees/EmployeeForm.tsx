@@ -399,6 +399,14 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
 
       if (!res.ok) {
         const err = await res.json()
+        // Hard seat-limit hit (POST /api/employees returns 402 with this
+        // code when activeCount would exceed paidSeats). Route the user
+        // to the billing page so they can upgrade in one click.
+        if (err.code === 'SEAT_LIMIT_EXCEEDED') {
+          toast.error(err.error || 'Subscribed seat limit reached. Redirecting to billing…')
+          router.push('/settings/billing')
+          return
+        }
         toast.error(err.error || 'Failed to save employee')
         return
       }

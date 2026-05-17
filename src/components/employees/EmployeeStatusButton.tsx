@@ -40,7 +40,17 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
         setOpen(false)
         router.refresh()
       } else {
-        toast.error('Action failed. Please try again.')
+        // Mirror EmployeeForm: when reactivation pushes the company past
+        // their paid seat cap, the PATCH route returns 402 with a
+        // SEAT_LIMIT_EXCEEDED code. Surface that and route to billing.
+        const err = await res.json().catch(() => ({}))
+        if (err.code === 'SEAT_LIMIT_EXCEEDED') {
+          toast.error(err.error || 'Subscribed seat limit reached. Redirecting to billing…')
+          setOpen(false)
+          router.push('/settings/billing')
+          return
+        }
+        toast.error(err.error || 'Action failed. Please try again.')
       }
     } finally {
       setLoading(false)

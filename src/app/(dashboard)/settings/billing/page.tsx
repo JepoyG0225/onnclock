@@ -190,6 +190,11 @@ export default function BillingPage() {
   const isOnTrial = sub?.status === 'TRIAL'
   const isExpired = sub?.status === 'EXPIRED'
   const isActive = sub?.status === 'ACTIVE'
+  // Active employees beyond the paid seatCount. Only flagged for ACTIVE
+  // subscriptions — TRIAL/EXPIRED have their own handling above. This
+  // matches src/lib/billing/seat-limit.ts so the banner shows exactly
+  // when SubscriptionGate routes here.
+  const unbilledSeats = isActive ? Math.max(0, employeeCount - Number(sub?.seatCount ?? 0)) : 0
 
   const effectiveSeatCount = Math.max(employeeCount, seatCount)
   // ── Plan total math, generalized over the selected duration ─────────────
@@ -323,6 +328,26 @@ export default function BillingPage() {
             </p>
             <p className={`text-xs mt-0.5 ${isExpired ? 'text-red-600' : 'text-slate-600'}`}>
               Subscribe now to keep payroll and attendance features running.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Over-seat banner ── */}
+      {unbilledSeats > 0 && (
+        <div className="rounded-2xl px-5 py-4 flex items-start gap-4 border bg-amber-50 border-amber-200">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-amber-100">
+            <AlertCircle className="w-5 h-5 text-amber-700" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-sm text-amber-900">
+              {unbilledSeats} unbilled {unbilledSeats === 1 ? 'employee' : 'employees'}
+            </p>
+            <p className="text-xs mt-0.5 text-amber-800">
+              You have <strong>{employeeCount}</strong> active {employeeCount === 1 ? 'employee' : 'employees'} but
+              only <strong>{Number(sub?.seatCount ?? 0)}</strong> paid {Number(sub?.seatCount ?? 0) === 1 ? 'seat' : 'seats'}.
+              Adding employees beyond your seat count is blocked until you upgrade your subscription below.
+              The seat quantity is pre-filled to match your current headcount.
             </p>
           </div>
         </div>

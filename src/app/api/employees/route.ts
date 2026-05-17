@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getSeatStatus } from '@/lib/billing/seat-limit'
 
 const createEmployeeSchema = z.object({
   employeeNo: z.string().min(1),
@@ -169,6 +170,27 @@ export async function POST(req: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
+  }
+
+  // Seat-cap guard. SUPER_ADMIN bypasses (they help customers from
+  // impersonation sessions and shouldn't be blocked). TRIAL companies
+  // are also bypassed inside getSeatStatus (enforceCap=false) so the
+  // free trial UX stays unrestricted. ACTIVE subscriptions hit a hard
+  // 402 the moment they'd exceed their paid seatCount — the client
+  // catches code === 'SEAT_LIMIT_EXCEEDED' and routes to /settings/billing.
+  if (ctx.role !== 'SUPER_ADMIN') {
+    const seat = await getSeatStatus(ctx.companyId)
+    if (seat.enforceCap && seat.activeCount >= seat.paidSeats) {
+      return NextResponse.json(
+        {
+          error: `Seat limit reached: ${seat.activeCount} of ${seat.paidSeats} paid seats in use. Upgrade your subscription to add more employees.`,
+          code: 'SEAT_LIMIT_EXCEEDED',
+          activeCount: seat.activeCount,
+          paidSeats: seat.paidSeats,
+        },
+        { status: 402 },
+      )
+    }
   }
 
   const data = parsed.data
