@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button'
 import { EmployeeDeleteButton } from '@/components/employees/EmployeeDeleteButton'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Users, Search } from 'lucide-react'
+import { Plus, Users, Search, AlertCircle } from 'lucide-react'
 import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
 import { EmploymentStatus } from '@prisma/client'
+import { getSeatStatus } from '@/lib/billing/seat-limit'
 
 export default async function EmployeesPage({
   searchParams,
@@ -41,7 +42,7 @@ export default async function EmployeesPage({
     }),
   }
 
-  const [employees, total, departments, company] = await Promise.all([
+  const [employees, total, departments, company, seat] = await Promise.all([
     prisma.employee.findMany({
       where,
       include: {
@@ -59,9 +60,18 @@ export default async function EmployeesPage({
       orderBy: { name: 'asc' },
     }),
     prisma.company.findUnique({ where: { id: companyId }, select: { payrollCurrency: true } }),
+    getSeatStatus(companyId),
   ])
   const currency = company?.payrollCurrency ?? 'PHP'
   const fmt = (n: number | string | null | undefined) => formatCurrency(n, currency)
+
+  // Preemptive UI block: when the company is at-or-over their paid seat
+  // cap, replace the "Add Employee" link with a disabled button that
+  // routes to billing instead. Saves the user from filling out the
+  // whole form and getting bounced by the API's 402. SUPER_ADMIN
+  // bypasses (same logic as the API).
+  const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
+  const atSeatCap = !isSuperAdmin && seat.enforceCap && seat.activeCount >= seat.paidSeats
 
   return (
     <div className="space-y-6">
@@ -71,12 +81,26 @@ export default async function EmployeesPage({
           <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
           <p className="text-gray-500 mt-1">{total} total employees</p>
         </div>
-        <Link href="/employees/new">
-          <Button>
-            <Plus className="mr-2 w-4 h-4" />
-            Add Employee
-          </Button>
-        </Link>
+        {atSeatCap ? (
+          <div className="flex flex-col items-end gap-1">
+            <Link href="/settings/billing">
+              <Button variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-50">
+                <AlertCircle className="mr-2 w-4 h-4" />
+                Seats full — upgrade
+              </Button>
+            </Link>
+            <p className="text-[11px] text-amber-700">
+              {seat.activeCount} of {seat.paidSeats} paid seats in use
+            </p>
+          </div>
+        ) : (
+          <Link href="/employees/new">
+            <Button>
+              <Plus className="mr-2 w-4 h-4" />
+              Add Employee
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Filters */}

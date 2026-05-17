@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { EmployeeForm } from '@/components/employees/EmployeeForm'
 import { resolveEffectiveCompanyId } from '@/lib/effective-company'
+import { getSeatStatus } from '@/lib/billing/seat-limit'
 
 export default async function NewEmployeePage() {
   const session = await auth()
@@ -10,6 +11,18 @@ export default async function NewEmployeePage() {
 
   const companyId = await resolveEffectiveCompanyId(session.user)
   if (!companyId) redirect('/login')
+
+  // Don't even render the form when the company is at-or-over their
+  // paid seat cap — bounce straight to billing. SUPER_ADMIN bypasses
+  // (impersonation support). Mirrors the API's POST /api/employees
+  // guard so the experience is consistent whether the user lands here
+  // via the navbar, a deep link, or browser history.
+  if (session.user.role !== 'SUPER_ADMIN') {
+    const seat = await getSeatStatus(companyId)
+    if (seat.enforceCap && seat.activeCount >= seat.paidSeats) {
+      redirect('/settings/billing')
+    }
+  }
 
   const [departments, positions, workSchedules] = await Promise.all([
     prisma.department.findMany({
