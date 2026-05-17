@@ -54,6 +54,10 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
           firstName: true,
           lastName: true,
           employeeNo: true,
+          // Needed for the per-row gross-pay breakdown — the label
+          // changes depending on whether the employee is paid by
+          // hour / day / month.
+          rateType: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
         },
@@ -184,6 +188,14 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
             payslips={payslips.map(ps => ({
               id: ps.id,
               basicSalary:        ps.basicSalary.toNumber(),
+              // Hours / day counters used by the expandable breakdown
+              dailyRate:          ps.dailyRate.toNumber(),
+              daysWorked:         ps.daysWorked.toNumber(),
+              hoursWorked:        ps.hoursWorked.toNumber(),
+              regularOtHours:     ps.regularOtHours.toNumber(),
+              restDayOtHours:     ps.restDayOtHours.toNumber(),
+              holidayOtHours:     ps.holidayOtHours.toNumber(),
+              nightDiffHours:     ps.nightDiffHours.toNumber(),
               regularOtAmount:    ps.regularOtAmount.toNumber(),
               restDayOtAmount:    ps.restDayOtAmount.toNumber(),
               holidayOtAmount:    ps.holidayOtAmount.toNumber(),
