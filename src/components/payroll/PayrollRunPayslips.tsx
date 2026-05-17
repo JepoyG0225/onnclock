@@ -51,6 +51,12 @@ export interface PayslipRow {
   }
 }
 
+export interface HolidayInPeriod {
+  date: string  // YYYY-MM-DD
+  name: string
+  type: 'REGULAR' | 'SPECIAL_NON_WORKING'
+}
+
 interface Props {
   payslips: PayslipRow[]
   runStatus: string
@@ -58,9 +64,10 @@ interface Props {
   totalGross: number
   totalDeductions: number
   totalNetPay: number
+  holidaysInPeriod?: HolidayInPeriod[]
 }
 
-export function PayrollRunPayslips({ payslips: initial, runStatus }: Props) {
+export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [] }: Props) {
   const [payslips, setPayslips] = useState<PayslipRow[]>(initial)
   const [editing, setEditing] = useState<PayslipEditData | null>(null)
   // Which payslip rows are currently expanded to show the gross-pay
@@ -266,7 +273,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus }: Props) {
                   {isOpen && (
                     <tr className="border-b bg-slate-50">
                       <td colSpan={14} className="px-6 py-4">
-                        <GrossPayBreakdown ps={ps} peso={peso} />
+                        <GrossPayBreakdown ps={ps} peso={peso} holidaysInPeriod={holidaysInPeriod} />
                       </td>
                     </tr>
                   )}
@@ -314,52 +321,99 @@ export function PayrollRunPayslips({ payslips: initial, runStatus }: Props) {
 
 // ─── Per-row gross-pay breakdown ────────────────────────────────────────────
 // Renders an itemized derivation of how the payslip's grossPay was reached,
-// styled to make audits fast: each line shows the formula (rate × quantity)
-// and the resulting peso amount. Sections only render when they're > 0.
+// styled to make audits fast. Goals:
+//   1. Every line shows the formula (rate × quantity) and the resulting peso
+//      amount so the user can verify the engine's math by inspection.
+//   2. Lines SUM to grossPay exactly — including the Art. 94 unworked-holiday
+//      credit, which is folded into basicSalary by the engine but exposed
+//      here as its own line so the basic-pay math reconciles.
+//   3. Holidays in the run's period are listed with status (worked / Art. 94
+//      credit / no pay) so users immediately see why basic includes a
+//      holiday credit.
+//
+// Derivation of Art. 94 credit:
+//   basicSalary stored on the payslip = workedBasic + (dailyRate × N) where
+//   N is the number of unworked regular holidays the employee was credited
+//   for. We back out the credit by subtracting (rate × actual quantity),
+//   which works for DAILY (dailyRate × hoursWorked/8) and HOURLY
+//   (hourlyRate × hoursWorked). For MONTHLY the credit is already inside
+//   the monthly salary so we report 0.
 
 interface BreakdownProps {
   ps: PayslipRow
   peso: (n: number) => string
+  holidaysInPeriod: HolidayInPeriod[]
 }
 
-function GrossPayBreakdown({ ps, peso }: BreakdownProps) {
+function GrossPayBreakdown({ ps, peso, holidaysInPeriod }: BreakdownProps) {
   // hourlyRate isn't persisted on Payslip — derive it from the snapshot
   // dailyRate using the standard 8-hour day. The OT amounts already
   // include the multiplier so we display them as-is.
   const hourlyRate = ps.dailyRate / 8
   const rt = ps.employee.rateType
+  const round2 = (n: number) => Math.round(n * 100) / 100
 
-  // Headline basic-pay line varies by rate type so the math reads right.
-  const basicLabel = (() => {
-    if (rt === 'HOURLY') {
-      return `${ps.hoursWorked.toFixed(2)} h × ${peso(hourlyRate)} / hr`
-    }
-    if (rt === 'DAILY') {
-      // hoursWorked / 8 gives the fractional days used by the engine
-      // post the pro-rate fix. Surface both so the user can verify.
-      const fractionalDays = ps.hoursWorked > 0 ? ps.hoursWorked / 8 : ps.daysWorked
-      return `${fractionalDays.toFixed(2)} day${fractionalDays === 1 ? '' : 's'} (${ps.hoursWorked.toFixed(2)} h) × ${peso(ps.dailyRate)} / day`
-    }
-    // MONTHLY — show day-count vs working days
-    return `Monthly basic pro-rated by attendance (${ps.daysWorked.toFixed(2)} days, ${ps.hoursWorked.toFixed(2)} h)`
-  })()
+  // ── Worked basic vs Art. 94 unworked-holiday credit ──
+  // For DAILY/HOURLY, the engine folds Art. 94 credit (unworked regular
+  // holidays paid at 100% per Labor Code) into basicSalary. We back it
+  // out so the breakdown shows both components.
+  let workedBasic = 0
+  let workedBasicFormula = ''
+  if (rt === 'HOURLY') {
+    workedBasic = round2(hourlyRate * ps.hoursWorked)
+    workedBasicFormula = `${ps.hoursWorked.toFixed(2)} h × ${peso(hourlyRate)} / hr`
+  } else if (rt === 'DAILY') {
+    const fractionalDays = ps.hoursWorked > 0 ? ps.hoursWorked / 8 : ps.daysWorked
+    workedBasic = round2(ps.dailyRate * fractionalDays)
+    workedBasicFormula = `${fractionalDays.toFixed(2)} day${fractionalDays === 1 ? '' : 's'} (${ps.hoursWorked.toFixed(2)} h) × ${peso(ps.dailyRate)} / day`
+  } else {
+    // MONTHLY — basicSalary IS the pro-rated worked basic; Art. 94
+    // credit is already baked into the monthly figure and can't be
+    // separated cleanly without extra fields.
+    workedBasic = ps.basicSalary
+    workedBasicFormula = `Monthly basic pro-rated by attendance (${ps.daysWorked.toFixed(2)} days, ${ps.hoursWorked.toFixed(2)} h)`
+  }
 
-  type Row = { label: string; formula?: string; amount: number; highlight?: boolean }
+  const art94Credit = Math.max(0, round2(ps.basicSalary - workedBasic))
+  // If the math comes out off by a tiny rounding amount, push the
+  // difference back into worked basic so the two lines sum exactly to
+  // the stored basicSalary.
+  if (art94Credit > 0 && rt !== 'MONTHLY') {
+    workedBasic = round2(ps.basicSalary - art94Credit)
+  }
+  const art94Days = art94Credit > 0 && ps.dailyRate > 0
+    ? round2(art94Credit / ps.dailyRate)
+    : 0
+
+  // ── Build itemized rows ──
+  type Row = { label: string; formula?: string; amount: number }
   const rows: Row[] = []
 
-  rows.push({ label: 'Basic pay', formula: basicLabel, amount: ps.basicSalary })
+  rows.push({
+    label: 'Worked basic',
+    formula: workedBasicFormula,
+    amount: workedBasic,
+  })
+
+  if (art94Credit > 0) {
+    rows.push({
+      label: 'Art. 94 holiday credit',
+      formula: `${art94Days} unworked regular holiday day${art94Days === 1 ? '' : 's'} × ${peso(ps.dailyRate)}`,
+      amount: art94Credit,
+    })
+  }
 
   if (ps.regularOtHours > 0 || ps.regularOtAmount > 0) {
     rows.push({
       label: 'Regular OT',
-      formula: `${ps.regularOtHours.toFixed(2)} h × ${peso(hourlyRate)} × 1.25 multiplier`,
+      formula: `${ps.regularOtHours.toFixed(2)} h × ${peso(hourlyRate)} × 1.25`,
       amount: ps.regularOtAmount,
     })
   }
   if (ps.restDayOtHours > 0 || ps.restDayOtAmount > 0) {
     rows.push({
       label: 'Rest-day OT',
-      formula: `${ps.restDayOtHours.toFixed(2)} h × ${peso(hourlyRate)} × 1.69 multiplier`,
+      formula: `${ps.restDayOtHours.toFixed(2)} h × ${peso(hourlyRate)} × 1.69`,
       amount: ps.restDayOtAmount,
     })
   }
@@ -379,26 +433,31 @@ function GrossPayBreakdown({ ps, peso }: BreakdownProps) {
   }
   if (ps.holidayPayAmount > 0) {
     rows.push({
-      label: 'Holiday premium',
-      formula: 'Worked-holiday premium (+100% regular / +30% special)',
+      label: 'Worked-holiday premium',
+      formula: '+100% regular / +30% special (per holiday worked)',
       amount: ps.holidayPayAmount,
     })
   }
 
-  // Variable / fixed income items already itemized on the payslip
+  // Income items (variable + fixed) — one row per type
   for (const inc of ps.incomes) {
     rows.push({ label: inc.typeName, formula: 'Other income', amount: inc.amount })
   }
-  // Catch-all when otherEarnings carries an amount not surfaced through
-  // ps.incomes (legacy free-form additions, etc.).
+  // Catch-all when otherEarnings has amount not surfaced through ps.incomes
+  // (legacy free-form additions, manual adjustments, etc.).
   const otherIncomeSurfaced = ps.incomes.reduce((s, i) => s + i.amount, 0)
-  const otherLeftover = Math.max(0, Math.round((ps.otherEarnings - otherIncomeSurfaced) * 100) / 100)
+  const otherLeftover = round2(Math.max(0, ps.otherEarnings - otherIncomeSurfaced))
   if (otherLeftover > 0) {
     rows.push({ label: 'Additional earnings', formula: 'Manual adjustment', amount: otherLeftover })
   }
 
+  // ── Tally check ──
+  const lineTotal = round2(rows.reduce((s, r) => s + r.amount, 0))
+  const tallyDelta = round2(ps.grossPay - lineTotal)
+  const matches = Math.abs(tallyDelta) < 0.02
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
           Gross Pay Breakdown
@@ -407,12 +466,14 @@ function GrossPayBreakdown({ ps, peso }: BreakdownProps) {
           Rate type: <span className="font-semibold text-slate-600">{rt.charAt(0) + rt.slice(1).toLowerCase()}</span>
         </p>
       </div>
+
+      {/* Itemized rows */}
       <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <table className="w-full text-xs">
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} className="border-b last:border-b-0">
-                <td className="px-3 py-2 align-top w-44">
+                <td className="px-3 py-2 align-top w-48">
                   <p className="font-semibold text-slate-700">{r.label}</p>
                 </td>
                 <td className="px-3 py-2 text-slate-500">
@@ -423,9 +484,25 @@ function GrossPayBreakdown({ ps, peso }: BreakdownProps) {
                 </td>
               </tr>
             ))}
-            <tr className="bg-slate-50">
+            <tr className="bg-slate-100 border-t border-slate-300">
               <td className="px-3 py-2 font-bold text-slate-700" colSpan={2}>
-                Gross pay total
+                Sum of lines
+              </td>
+              <td className="px-3 py-2 text-right font-bold text-slate-800">
+                {peso(lineTotal)}
+              </td>
+            </tr>
+            <tr className={matches ? 'bg-emerald-50' : 'bg-rose-50'}>
+              <td className="px-3 py-2 font-bold text-slate-800" colSpan={2}>
+                Gross pay (stored on payslip)
+                {!matches && (
+                  <span className="ml-2 text-[10px] font-semibold text-rose-700">
+                    ⚠ off by {peso(Math.abs(tallyDelta))}
+                  </span>
+                )}
+                {matches && (
+                  <span className="ml-2 text-[10px] font-semibold text-emerald-700">✓ tallies</span>
+                )}
               </td>
               <td className="px-3 py-2 text-right font-black text-slate-900">
                 {peso(ps.grossPay)}
@@ -434,6 +511,47 @@ function GrossPayBreakdown({ ps, peso }: BreakdownProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Holidays in period — context for the Art. 94 / worked-holiday lines */}
+      {holidaysInPeriod.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+          <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+              Holidays in this period ({holidaysInPeriod.length})
+            </p>
+          </div>
+          <table className="w-full text-xs">
+            <tbody>
+              {holidaysInPeriod.map((h, i) => {
+                const isRegular = h.type === 'REGULAR'
+                return (
+                  <tr key={i} className="border-b last:border-b-0">
+                    <td className="px-3 py-1.5 w-32 font-mono text-slate-600">{h.date}</td>
+                    <td className="px-3 py-1.5 text-slate-700">{h.name}</td>
+                    <td className="px-3 py-1.5 w-44">
+                      <span
+                        className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          isRegular
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {isRegular ? 'Regular' : 'Special non-working'}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <p className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50 border-t border-slate-200">
+            Regular holidays unworked → Art. 94 credit (paid at 100% of daily
+            rate for DAILY/HOURLY employees). Worked holidays add the
+            premium line above. Special non-working holidays only pay
+            premium when worked.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

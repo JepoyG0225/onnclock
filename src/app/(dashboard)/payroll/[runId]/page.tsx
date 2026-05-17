@@ -42,6 +42,15 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
       ? `Waiting for level ${nextLevel} approval`
       : 'Not authorized for this approval level'
 
+  const holidaysInPeriod = await prisma.holiday.findMany({
+    where: {
+      companyId,
+      date: { gte: run.periodStart, lte: run.periodEnd },
+    },
+    select: { date: true, name: true, type: true },
+    orderBy: { date: 'asc' },
+  })
+
   const payslips = await prisma.payslip.findMany({
     where: { payrollRunId: runId },
     include: {
@@ -185,6 +194,11 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
             totalGross={run.totalGross.toNumber()}
             totalDeductions={run.totalDeductions.toNumber()}
             totalNetPay={run.totalNetPay.toNumber()}
+            holidaysInPeriod={holidaysInPeriod.map(h => ({
+              date: h.date.toISOString().slice(0, 10),
+              name: h.name,
+              type: h.type as 'REGULAR' | 'SPECIAL_NON_WORKING',
+            }))}
             payslips={payslips.map(ps => ({
               id: ps.id,
               basicSalary:        ps.basicSalary.toNumber(),
