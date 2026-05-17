@@ -325,7 +325,19 @@ function computeBasicPay(
   regularHours: number,
 ): number {
   if (rateType === 'DAILY') {
-    return parseFloat((basicSalary * daysWorked).toFixed(2))
+    // Pro-rate basic pay by actual regular hours so a half-day clock-in
+    // pays a half-day. Previously DAILY counted every "checked-in" DTR
+    // as a full day regardless of hours — a 4-hour shift paid the same
+    // as an 8-hour shift, which violates strict DOLE "no work, no pay".
+    //
+    // Falls back to whole-day count when no DTR-derived hours exist
+    // (legacy data, time-tracking off, manual present-flag without
+    // timestamps) so historical behavior holds for those rows.
+    const STANDARD_HOURS_PER_DAY = 8
+    const fractionalDays = regularHours > 0
+      ? regularHours / STANDARD_HOURS_PER_DAY
+      : daysWorked
+    return parseFloat((basicSalary * fractionalDays).toFixed(2))
   }
 
   if (rateType === 'HOURLY') {
