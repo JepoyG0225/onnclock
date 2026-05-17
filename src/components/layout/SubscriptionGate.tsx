@@ -1,14 +1,13 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertCircle, ArrowRight } from 'lucide-react'
 
-// Pages that stay reachable even when the gate is active so the user
-// can pay or update their billing details. `/logout` is included so they
-// can sign out from anywhere; `/settings` so they can verify org info
-// before paying.
+// EXPIRED/CANCELLED still does a hard router.replace to billing — those
+// companies can't use the app at all. The list below stays the set of
+// pages allowed when fully gated.
 const ALLOWED_PATHS = ['/settings/billing', '/billing/invoices', '/settings', '/logout']
 
 interface Props {
@@ -20,8 +19,10 @@ interface Props {
    * Active employees − paid seats (clamped at 0). When > 0 on an ACTIVE
    * subscription the company is operating past their paid seat count, so
    * the gate pops a modal asking them to settle the unpaid seats. TRIAL
-   * companies pass 0 (no enforcement) — the value here is only the
-   * already-over portion, so we don't need to filter by status again.
+   * companies pass 0 (no enforcement). The modal appears on EVERY
+   * dashboard page so the prompt stays visible, with a "Dismiss for now"
+   * link that hides it for the rest of the session so the user can still
+   * pay on /settings/billing or sign out.
    */
   unbilledSeats?: number
 }
@@ -34,8 +35,7 @@ export function SubscriptionGate({ status, children, bypassGate, unbilledSeats =
   const isOverSeats = !bypassGate && unbilledSeats > 0
   const isAllowed = ALLOWED_PATHS.some(p => pathname.startsWith(p))
 
-  // EXPIRED/CANCELLED still hard-redirects (UX unchanged — those companies
-  // can't use the app at all, so dropping them on billing is the right move).
+  // EXPIRED/CANCELLED still hard-redirects.
   useEffect(() => {
     if (isExpired && !isAllowed) {
       router.replace('/settings/billing')
@@ -44,29 +44,64 @@ export function SubscriptionGate({ status, children, bypassGate, unbilledSeats =
 
   if (isExpired && !isAllowed) return null
 
-  const showOverSeatModal = isOverSeats && !isAllowed
-
   return (
     <>
       {children}
-      {showOverSeatModal && <UnpaidSeatsModal count={unbilledSeats} />}
+      {isOverSeats && <UnpaidSeatsModal count={unbilledSeats} />}
     </>
   )
 }
 
 /**
- * Blocking modal shown on every dashboard page (outside settings/billing)
- * when the company has more active employees than they're paying for.
- * Single CTA: route to /settings/billing to settle the unpaid seats.
+ * Blocking modal shown on every dashboard page when the company has
+ * more active employees than they're paying for. Two interactions:
+ *   - "Go to Billing"     → routes to /settings/billing
+ *   - "Dismiss for now"   → hides for the rest of the browser session
+ *                            (sessionStorage). Reappears on refresh so
+ *                            the prompt never gets permanently muted.
+ *
+ * Dismissal is keyed on the unbilled-seat count, so if HR adds another
+ * employee and the count changes, the modal re-pops.
  *
  * Rendered via createPortal so it escapes whatever container it's nested
- * in and sits above the rest of the UI. No dismiss button — by design;
- * the company has to acknowledge billing to continue using the dashboard.
+ * in and sits above the rest of the UI.
  */
 function UnpaidSeatsModal({ count }: { count: number }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const [dismissed, setDismissed] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  const storageKey = `unpaid-seats-dismissed:${count}`
+
+  useEffect(() => {
+    setMounted(true)
+    if (typeof window !== 'undefined') {
+      setDismissed(window.sessionStorage.getItem(storageKey) === '1')
+    }
+  }, [storageKey])
+
+  // Reset dismissal whenever the count changes (handled implicitly because
+  // the storageKey includes count — but also re-check on route change so
+  // the user gets a fresh evaluation when they navigate).
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setDismissed(window.sessionStorage.getItem(storageKey) === '1')
+    }
+  }, [pathname, storageKey])
+
+  function dismiss() {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(storageKey, '1')
+    }
+    setDismissed(true)
+  }
+
+  if (!mounted || dismissed) return null
   const target = typeof document !== 'undefined' ? document.body : null
   if (!target) return null
+
+  const onBilling = pathname.startsWith('/settings/billing')
 
   return createPortal(
     <div
@@ -89,15 +124,34 @@ function UnpaidSeatsModal({ count }: { count: number }) {
             Your active employee count has exceeded your paid subscription.
           </p>
         </div>
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-5 space-y-2">
+          {onBilling ? (
+            <button
+              type="button"
+              onClick={dismiss}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg,#2E4156,#1A2D42)' }}
+            >
+              Settle Now
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => router.push('/settings/billing')}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg,#2E4156,#1A2D42)' }}
+            >
+              Go to Billing
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => router.push('/settings/billing')}
-            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg,#2E4156,#1A2D42)' }}
+            onClick={dismiss}
+            className="w-full text-xs text-slate-500 hover:text-slate-700 py-1"
           >
-            Go to Billing
-            <ArrowRight className="w-4 h-4" />
+            Dismiss for now
           </button>
         </div>
       </div>
