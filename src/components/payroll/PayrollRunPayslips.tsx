@@ -368,115 +368,7 @@ interface BreakdownProps {
 }
 
 function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps) {
-  // hourlyRate isn't persisted on Payslip — derive it from the snapshot
-  // dailyRate using the standard 8-hour day. The OT amounts already
-  // include the multiplier so we display them as-is.
-  const hourlyRate = ps.dailyRate / 8
   const rt = ps.employee.rateType
-  const round2 = (n: number) => Math.round(n * 100) / 100
-
-  // ── Worked basic vs Art. 94 unworked-holiday credit ──
-  // For DAILY/HOURLY, the engine folds Art. 94 credit (unworked regular
-  // holidays paid at 100% per Labor Code) into basicSalary. We back it
-  // out so the breakdown shows both components.
-  let workedBasic = 0
-  let workedBasicFormula = ''
-  if (rt === 'HOURLY') {
-    workedBasic = round2(hourlyRate * ps.hoursWorked)
-    workedBasicFormula = `${ps.hoursWorked.toFixed(2)} h × ${peso(hourlyRate)} / hr`
-  } else if (rt === 'DAILY') {
-    const fractionalDays = ps.hoursWorked > 0 ? ps.hoursWorked / 8 : ps.daysWorked
-    workedBasic = round2(ps.dailyRate * fractionalDays)
-    workedBasicFormula = `${fractionalDays.toFixed(2)} day${fractionalDays === 1 ? '' : 's'} (${ps.hoursWorked.toFixed(2)} h) × ${peso(ps.dailyRate)} / day`
-  } else {
-    // MONTHLY — basicSalary IS the pro-rated worked basic; Art. 94
-    // credit is already baked into the monthly figure and can't be
-    // separated cleanly without extra fields.
-    workedBasic = ps.basicSalary
-    workedBasicFormula = `Monthly basic pro-rated by attendance (${ps.daysWorked.toFixed(2)} days, ${ps.hoursWorked.toFixed(2)} h)`
-  }
-
-  const art94Credit = Math.max(0, round2(ps.basicSalary - workedBasic))
-  // If the math comes out off by a tiny rounding amount, push the
-  // difference back into worked basic so the two lines sum exactly to
-  // the stored basicSalary.
-  if (art94Credit > 0 && rt !== 'MONTHLY') {
-    workedBasic = round2(ps.basicSalary - art94Credit)
-  }
-  const art94Days = art94Credit > 0 && ps.dailyRate > 0
-    ? round2(art94Credit / ps.dailyRate)
-    : 0
-
-  // ── Build itemized rows ──
-  type Row = { label: string; formula?: string; amount: number }
-  const rows: Row[] = []
-
-  rows.push({
-    label: 'Worked basic',
-    formula: workedBasicFormula,
-    amount: workedBasic,
-  })
-
-  if (art94Credit > 0) {
-    rows.push({
-      label: 'Art. 94 holiday credit',
-      formula: `${art94Days} unworked regular holiday day${art94Days === 1 ? '' : 's'} × ${peso(ps.dailyRate)}`,
-      amount: art94Credit,
-    })
-  }
-
-  if (ps.regularOtHours > 0 || ps.regularOtAmount > 0) {
-    rows.push({
-      label: 'Regular OT',
-      formula: `${ps.regularOtHours.toFixed(2)} h × ${peso(hourlyRate)} × 1.25`,
-      amount: ps.regularOtAmount,
-    })
-  }
-  if (ps.restDayOtHours > 0 || ps.restDayOtAmount > 0) {
-    rows.push({
-      label: 'Rest-day OT',
-      formula: `${ps.restDayOtHours.toFixed(2)} h × ${peso(hourlyRate)} × 1.69`,
-      amount: ps.restDayOtAmount,
-    })
-  }
-  if (ps.holidayOtHours > 0 || ps.holidayOtAmount > 0) {
-    rows.push({
-      label: 'Holiday OT',
-      formula: `${ps.holidayOtHours.toFixed(2)} h × ${peso(hourlyRate)} × holiday multiplier`,
-      amount: ps.holidayOtAmount,
-    })
-  }
-  if (ps.nightDiffHours > 0 || ps.nightDiffAmount > 0) {
-    rows.push({
-      label: 'Night differential',
-      formula: `${ps.nightDiffHours.toFixed(2)} h × ${peso(hourlyRate)} × 10%`,
-      amount: ps.nightDiffAmount,
-    })
-  }
-  if (ps.holidayPayAmount > 0) {
-    rows.push({
-      label: 'Worked-holiday premium',
-      formula: '+100% regular / +30% special (per holiday worked)',
-      amount: ps.holidayPayAmount,
-    })
-  }
-
-  // Income items (variable + fixed) — one row per type
-  for (const inc of ps.incomes) {
-    rows.push({ label: inc.typeName, formula: 'Other income', amount: inc.amount })
-  }
-  // Catch-all when otherEarnings has amount not surfaced through ps.incomes
-  // (legacy free-form additions, manual adjustments, etc.).
-  const otherIncomeSurfaced = ps.incomes.reduce((s, i) => s + i.amount, 0)
-  const otherLeftover = round2(Math.max(0, ps.otherEarnings - otherIncomeSurfaced))
-  if (otherLeftover > 0) {
-    rows.push({ label: 'Additional earnings', formula: 'Manual adjustment', amount: otherLeftover })
-  }
-
-  // ── Tally check ──
-  const lineTotal = round2(rows.reduce((s, r) => s + r.amount, 0))
-  const tallyDelta = round2(ps.grossPay - lineTotal)
-  const matches = Math.abs(tallyDelta) < 0.02
 
   return (
     <div className="space-y-4">
@@ -489,52 +381,7 @@ function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps)
         </p>
       </div>
 
-      {/* Itemized rows */}
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-        <table className="w-full text-xs">
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-b last:border-b-0">
-                <td className="px-3 py-2 align-top w-48">
-                  <p className="font-semibold text-slate-700">{r.label}</p>
-                </td>
-                <td className="px-3 py-2 text-slate-500">
-                  {r.formula ?? '—'}
-                </td>
-                <td className="px-3 py-2 text-right font-bold text-slate-800 whitespace-nowrap w-32">
-                  {peso(r.amount)}
-                </td>
-              </tr>
-            ))}
-            <tr className="bg-slate-100 border-t border-slate-300">
-              <td className="px-3 py-2 font-bold text-slate-700" colSpan={2}>
-                Sum of lines
-              </td>
-              <td className="px-3 py-2 text-right font-bold text-slate-800">
-                {peso(lineTotal)}
-              </td>
-            </tr>
-            <tr className={matches ? 'bg-emerald-50' : 'bg-rose-50'}>
-              <td className="px-3 py-2 font-bold text-slate-800" colSpan={2}>
-                Gross pay (stored on payslip)
-                {!matches && (
-                  <span className="ml-2 text-[10px] font-semibold text-rose-700">
-                    ⚠ off by {peso(Math.abs(tallyDelta))}
-                  </span>
-                )}
-                {matches && (
-                  <span className="ml-2 text-[10px] font-semibold text-emerald-700">✓ tallies</span>
-                )}
-              </td>
-              <td className="px-3 py-2 text-right font-black text-slate-900">
-                {peso(ps.grossPay)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Holidays in period — context for the Art. 94 / worked-holiday lines */}
+      {/* Holidays in period — context for any Art. 94 / worked-holiday rows below */}
       {holidaysInPeriod.length > 0 && (
         <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
           <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
@@ -577,6 +424,52 @@ function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps)
 
       {/* Per-day breakdown — what was earned each date */}
       <PerDayBreakdown ps={ps} dtrs={dtrs} holidaysInPeriod={holidaysInPeriod} peso={peso} />
+
+      {/* Final gross-pay tally — what the payslip actually recorded.
+          Other-income lines are surfaced here too since they don't
+          appear in the per-day table above. */}
+      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <table className="w-full text-xs">
+          <tbody>
+            {ps.incomes.map((inc, i) => (
+              <tr key={i} className="border-b last:border-b-0">
+                <td className="px-3 py-2 align-top">
+                  <p className="font-semibold text-slate-700">{inc.typeName}</p>
+                  <p className="text-[10px] text-slate-400">Other income</p>
+                </td>
+                <td className="px-3 py-2 text-right font-bold text-slate-800 whitespace-nowrap w-32">
+                  {peso(inc.amount)}
+                </td>
+              </tr>
+            ))}
+            {(() => {
+              const surfaced = ps.incomes.reduce((s, i) => s + i.amount, 0)
+              const leftover = Math.max(0, Math.round((ps.otherEarnings - surfaced) * 100) / 100)
+              if (leftover <= 0) return null
+              return (
+                <tr className="border-b last:border-b-0">
+                  <td className="px-3 py-2 align-top">
+                    <p className="font-semibold text-slate-700">Additional earnings</p>
+                    <p className="text-[10px] text-slate-400">Manual adjustment</p>
+                  </td>
+                  <td className="px-3 py-2 text-right font-bold text-slate-800 whitespace-nowrap w-32">
+                    {peso(leftover)}
+                  </td>
+                </tr>
+              )
+            })()}
+            <tr className="bg-emerald-50 border-t-2 border-emerald-200">
+              <td className="px-3 py-2 font-black text-slate-900 text-sm">
+                Gross pay
+                <span className="ml-2 text-[10px] font-semibold text-emerald-700">stored on payslip</span>
+              </td>
+              <td className="px-3 py-2 text-right font-black text-slate-900 text-base whitespace-nowrap w-32">
+                {peso(ps.grossPay)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
