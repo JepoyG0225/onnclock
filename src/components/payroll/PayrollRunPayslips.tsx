@@ -457,6 +457,55 @@ function PerDayBreakdown({
   const holidayByDate = new Map<string, HolidayInPeriod>()
   for (const h of holidaysInPeriod) holidayByDate.set(h.date, h)
 
+  const dtrByDate = new Map<string, DtrEntry>()
+  for (const d of dtrs) dtrByDate.set(d.date, d)
+
+  // ── Distribution-safe approach ────────────────────────────────────────
+  // Previously this computed each day's amount independently (hours ×
+  // rate × multiplier). That over-reported in two cases:
+  //   1. OT that wasn't approved via the OT-request system — DTR records
+  //      the raw overtimeHours but the engine pays ₱0 OT
+  //   2. Employees with disableHolidayPay=true — DTRs still flag the
+  //      holiday but the engine pays no Art. 94 credit + no premium
+  //
+  // Now we distribute the engine's STORED totals (ps.regularOtAmount,
+  // ps.nightDiffAmount, ps.holidayPayAmount, derived Art. 94) across the
+  // matching days. If a stored total is 0 (e.g. OT not approved), every
+  // day shows 0 for that component. That way the daily sum always tallies
+  // to what the engine actually paid.
+  const totalOtHoursDtr = dtrs.reduce((s, d) => s + d.overtimeHours, 0)
+  const totalNdHoursDtr = dtrs.reduce((s, d) => s + d.nightDiffHours, 0)
+
+  // Worked-holiday day classification (for premium distribution)
+  const workedRegularHolidayDates: string[] = []
+  const workedSpecialHolidayDates: string[] = []
+  const unworkedRegularHolidayDates: string[] = []
+  for (const h of holidaysInPeriod) {
+    const d = dtrByDate.get(h.date)
+    const reg = d?.regularHours ?? 0
+    const wasWorked = !!d && !d.isAbsent && !(d.isLeave && !d.isLeavePaid) && reg > 0
+    if (h.type === 'REGULAR') {
+      if (wasWorked) workedRegularHolidayDates.push(h.date)
+      else unworkedRegularHolidayDates.push(h.date)
+    } else if (h.type === 'SPECIAL_NON_WORKING' && wasWorked) {
+      workedSpecialHolidayDates.push(h.date)
+    }
+  }
+
+  // Derive what the engine actually credited for Art. 94. For HOURLY/DAILY
+  // basicSalary stored = (rate × hoursWorked) + art94CreditTotal. For
+  // MONTHLY it's all rolled into the monthly figure so we can't split.
+  let workedBasicReference = ps.basicSalary
+  if (rt === 'HOURLY') workedBasicReference = round2(hourlyRate * ps.hoursWorked)
+  else if (rt === 'DAILY') workedBasicReference = round2(ps.dailyRate * (ps.hoursWorked / 8))
+  const art94CreditTotal = rt === 'MONTHLY'
+    ? 0
+    : Math.max(0, round2(ps.basicSalary - workedBasicReference))
+  // disableHolidayPay zeros out BOTH art94 and worked-holiday premium —
+  // if the engine paid 0 holiday premium AND 0 art94 credit despite the
+  // employee being on a holiday, that's the case. We use the stored
+  // totals as the source of truth so the breakdown matches reality.
+
   // Build the row list: one entry per date, sourced from DTR ∪ holidays.
   type Row = {
     date: string
@@ -473,9 +522,6 @@ function PerDayBreakdown({
     note?: string
   }
 
-  const dtrByDate = new Map<string, DtrEntry>()
-  for (const d of dtrs) dtrByDate.set(d.date, d)
-
   const allDates = new Set<string>([...dtrByDate.keys(), ...holidayByDate.keys()])
   const sortedDates = Array.from(allDates).sort()
 
@@ -491,30 +537,41 @@ function PerDayBreakdown({
     const isLeave = d?.isLeave ?? false
     const isLeavePaid = d?.isLeavePaid ?? false
 
-    // Worked amount: hourly × regular hours (works for HOURLY + DAILY
-    // because hourlyRate = dailyRate / 8). MONTHLY is pro-rated by the
-    // engine from the monthly salary; here we use the same derivation
-    // for visual consistency.
+    // Worked basic for this day — uses worker's rate × hours. Matches
+    // engine for HOURLY/DAILY; for MONTHLY this is illustrative since
+    // the engine pro-rates a single monthly figure.
     const workedAmount = round2(hourlyRate * reg)
-    const overtimeAmount = round2(hourlyRate * ot * 1.25)  // approx — engine uses configured multiplier
-    const nightDiffAmount = round2(hourlyRate * nd * 0.10)
 
-    // Worked-holiday premium
+    // Distribute stored OT/ND totals proportional to this day's hours.
+    // When the engine paid ₱0 (OT not approved, ND disabled, etc.) the
+    // per-day amount is also 0.
+    const overtimeAmount = totalOtHoursDtr > 0
+      ? round2((ot / totalOtHoursDtr) * ps.regularOtAmount)
+      : 0
+    const nightDiffAmount = totalNdHoursDtr > 0
+      ? round2((nd / totalNdHoursDtr) * ps.nightDiffAmount)
+      : 0
+
+    // Worked-holiday premium: distribute stored holidayPayAmount across
+    // the worked-holiday days. If the engine paid 0 (disableHolidayPay),
+    // every day shows 0.
     let holidayPremium = 0
-    if (holiday && !isAbsent && reg > 0) {
-      if (holiday.type === 'REGULAR') holidayPremium = round2(ps.dailyRate * 1.0)
-      else holidayPremium = round2(ps.dailyRate * 0.3)
+    const workedHolidayCount = workedRegularHolidayDates.length + workedSpecialHolidayDates.length
+    if (workedHolidayCount > 0 && (workedRegularHolidayDates.includes(dateKey) || workedSpecialHolidayDates.includes(dateKey))) {
+      holidayPremium = round2(ps.holidayPayAmount / workedHolidayCount)
     }
 
-    // Art. 94 unworked-regular-holiday credit (DAILY/HOURLY only; MONTHLY
-    // employees already get it folded into monthly salary)
+    // Art. 94 credit: distribute the derived total across unworked
+    // regular holidays. If disableHolidayPay was on, art94CreditTotal=0
+    // (because the engine didn't fold a credit into basicSalary), so
+    // every day shows 0.
     let art94Credit = 0
     if (
-      (rt === 'DAILY' || rt === 'HOURLY')
-      && holiday?.type === 'REGULAR'
-      && (!d || isAbsent || (isLeave && !isLeavePaid) || reg === 0)
+      unworkedRegularHolidayDates.length > 0
+      && unworkedRegularHolidayDates.includes(dateKey)
+      && art94CreditTotal > 0
     ) {
-      art94Credit = round2(ps.dailyRate)
+      art94Credit = round2(art94CreditTotal / unworkedRegularHolidayDates.length)
     }
 
     let status: string
@@ -654,10 +711,11 @@ function PerDayBreakdown({
         </tbody>
       </table>
       <p className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50 border-t border-slate-200">
-        OT multiplier shown is the default 1.25× regular OT rate; the engine uses
-        whatever multiplier is configured on PayrollDifferentialConfig. Sum may
-        differ slightly from the gross-pay total when companies customize their
-        OT/holiday multipliers.
+        OT / ND / holiday-premium amounts are distributed from the engine&apos;s
+        stored totals proportional to each day&apos;s hours, so the daily sum
+        always tallies to what the payslip actually paid. Days show ₱0 for
+        a component when the engine credited none (e.g. unapproved OT,
+        disableHolidayPay turned on).
       </p>
     </div>
   )
