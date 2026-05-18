@@ -119,6 +119,20 @@ function getAdminAppUrl() {
   return `${getServerUrl()}/login`
 }
 
+async function clearAdminWebCache(webContents) {
+  if (!webContents || webContents.isDestroyed()) return
+  try {
+    const ses = webContents.session
+    await ses.clearCache()
+    await ses.clearStorageData({
+      storages: ['serviceworkers', 'cachestorage'],
+    })
+    log('Admin web cache cleared before loading app')
+  } catch (err) {
+    log(`Admin cache clear skipped: ${err?.message ?? err}`)
+  }
+}
+
 function getToken() {
   return store.get('token', null)
 }
@@ -1244,7 +1258,10 @@ function createMainWindow() {
   mainWindow = new BrowserWindow(windowOptions)
 
   if (adminBuild) {
-    mainWindow.loadURL(getAdminAppUrl())
+    void clearAdminWebCache(mainWindow.webContents).finally(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      mainWindow.loadURL(getAdminAppUrl())
+    })
   } else {
     mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'))
   }
@@ -1279,7 +1296,9 @@ function showMainWindow() {
 // ----
 
 function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png')
+  const icoPath = path.join(__dirname, 'assets', 'icon.ico')
+  const pngPath = path.join(__dirname, 'assets', 'icon.png')
+  const iconPath = fs.existsSync(icoPath) ? icoPath : pngPath
   let icon
   try {
     icon = nativeImage.createFromPath(iconPath)

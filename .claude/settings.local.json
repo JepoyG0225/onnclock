@@ -177,7 +177,10 @@
       "Bash(git push *)",
       "Bash(printenv)",
       "Bash(psql 'postgresql://postgres.uughscwxexcipojotjzh:!!Clocckon2026**@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1' -c ' *)",
-      "Bash(brew list *)"
+      "Bash(brew list *)",
+      "Bash(findstr /i \"PAYMONGO\" .env)",
+      "Bash(findstr /i \"PAYMONGO MAYA PAYMENT\")",
+      "PowerShell(Stop-Process -Name node -Force -ErrorAction SilentlyContinue)"
     ]
   },
   "disableAllHooks": true

@@ -6,5 +6,6 @@
 !macro customInit
   ; Kill any running instance silently before the running-app check
   nsExec::ExecToLog '"taskkill" /F /IM "OnClock Desktop.exe" /T'
+  nsExec::ExecToLog '"taskkill" /F /IM "OnClock Admin Desktop.exe" /T'
   Sleep 800
 !macroend

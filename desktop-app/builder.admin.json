@@ -34,7 +34,10 @@
     "perMachine": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "OnClock Admin Desktop"
+    "shortcutName": "OnClock Admin Desktop",
+    "installerIcon": "assets/icon.ico",
+    "uninstallerIcon": "assets/icon.ico",
+    "installerHeaderIcon": "assets/icon.ico"
   },
   "files": [
     "main.js",
