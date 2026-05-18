@@ -124,8 +124,10 @@ export default function BillingPage() {
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const expiresRef = useRef<number>(0)
 
+  const [loadError, setLoadError] = useState<{ message: string; code?: string } | null>(null)
   const loadData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const [subRes, invRes] = await Promise.all([
         fetch('/api/billing/subscription'),
@@ -137,10 +139,19 @@ export default function BillingPage() {
         setSeatCount(Math.max(next.employeeCount, next.subscription?.seatCount ?? 1))
         const rate = Number(next.subscription?.pricePerSeat ?? STANDARD_PRICE)
         setSelectedPricePerSeat(rate >= PRO_PRICE ? PRO_PRICE : STANDARD_PRICE)
+      } else {
+        // Surface API failures so the page never silently renders blank.
+        const body = await subRes.json().catch(() => ({}))
+        setLoadError({
+          message: body?.error ?? `Failed to load billing (HTTP ${subRes.status})`,
+          code: body?.code,
+        })
       }
       if (invRes.ok) setInvoices((await invRes.json()).invoices ?? [])
-    } catch {
-      toast.error('Failed to load billing information')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load billing information'
+      setLoadError({ message: msg })
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -373,7 +384,52 @@ export default function BillingPage() {
       </div>
     )
   }
-  if (!data || !sub) return null
+  // Failure state — visible so the page never silently renders blank.
+  // Most common case: SUPER_ADMIN viewing without active impersonation,
+  // which the API rejects with code='NO_COMPANY_CONTEXT'.
+  if (!data || !sub) {
+    const isNoCompany = loadError?.code === 'NO_COMPANY_CONTEXT'
+    return (
+      <div className="space-y-6">
+        <SettingsTabs />
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-8 max-w-2xl">
+          <div className="flex items-start gap-4">
+            <AlertCircle className="w-6 h-6 text-amber-700 flex-shrink-0" />
+            <div className="space-y-3 flex-1">
+              <div>
+                <h2 className="font-bold text-amber-900 text-base">
+                  {isNoCompany ? 'No company selected' : 'Couldn’t load billing'}
+                </h2>
+                <p className="text-sm text-amber-800 mt-1">
+                  {isNoCompany
+                    ? "You're signed in as a system admin without an active impersonation session. The billing page is company-scoped — impersonate a company first to view their subscription."
+                    : (loadError?.message ?? 'Something went wrong loading your billing data.')}
+                </p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {isNoCompany && (
+                  <Link
+                    href="/admin/companies"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                    style={{ background: 'linear-gradient(135deg,#2E4156,#1A2D42)' }}
+                  >
+                    Pick a company
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={loadData}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-amber-300 text-amber-900 hover:bg-amber-100"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

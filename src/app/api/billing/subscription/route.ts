@@ -9,6 +9,20 @@ export async function GET() {
   const denied = requireAdminOrHR(ctx)
   if (denied) return denied
 
+  // SUPER_ADMIN without an active impersonation session has no
+  // companyId — they shouldn't be hitting this endpoint. Return a
+  // clear error code so the billing page can render a friendly
+  // "pick a company to view billing" prompt instead of going blank.
+  if (!ctx.companyId) {
+    return NextResponse.json(
+      {
+        error: 'No company context. Impersonate a company to view their billing.',
+        code: 'NO_COMPANY_CONTEXT',
+      },
+      { status: 400 },
+    )
+  }
+
   let sub = await prisma.subscription.findUnique({
     where: { companyId: ctx.companyId },
   })
