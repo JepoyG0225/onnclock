@@ -113,6 +113,10 @@ export default function BillingPage() {
   const [selectedPricePerSeat, setSelectedPricePerSeat] = useState<50 | 100>(STANDARD_PRICE)
   const [selectedDuration, setSelectedDuration] = useState<Duration>('ANNUAL')
   const [seatCount, setSeatCount] = useState(1)
+  // Add-seats flow (current-cycle, pro-rated). Default to whatever the
+  // company is over by; if not over, prefill 1.
+  const [seatsToAdd, setSeatsToAdd] = useState(1)
+  const [addingSeats, setAddingSeats] = useState(false)
   const [qr, setQr] = useState<QrState>({ phase: 'idle' })
   const [countdown, setCountdown] = useState(0)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -184,6 +188,18 @@ export default function BillingPage() {
 
   useEffect(() => () => stopPolling(), [])
 
+  // Default the add-seats input to whatever the company is over by, so a
+  // single click pays for the unbilled headcount. Re-runs whenever the
+  // unbilled count changes (after data load or seat-count refresh).
+  useEffect(() => {
+    if (data) {
+      const ac = data.employeeCount
+      const sc = Number(data.subscription?.seatCount ?? 0)
+      const unbilled = Math.max(0, ac - sc)
+      setSeatsToAdd(Math.max(1, unbilled))
+    }
+  }, [data])
+
   // ── Computed values ───────────────────────────────────────────────────────
   const employeeCount = data?.employeeCount ?? 0
   const sub = data?.subscription
@@ -195,6 +211,24 @@ export default function BillingPage() {
   // matches src/lib/billing/seat-limit.ts so the banner shows exactly
   // when SubscriptionGate routes here.
   const unbilledSeats = isActive ? Math.max(0, employeeCount - Number(sub?.seatCount ?? 0)) : 0
+
+  // Add-seats cost preview (mirrors api/billing/qrph/add-seats math so the
+  // user can verify before paying). Only meaningful for ACTIVE subs.
+  const addSeatsCost = (() => {
+    if (!isActive || !sub?.currentPeriodStart || !sub?.currentPeriodEnd) return null
+    const cycleKey = (sub.billingCycle as Duration | null) ?? 'ANNUAL'
+    const cycleMonths = DURATION_MONTHS[cycleKey] ?? 12
+    const discountPct = (DURATION_DISCOUNT[cycleKey] ?? 0) * 100
+    const subPricePerSeat = Number(sub.pricePerSeat ?? 0)
+    const totalCycleMs = Math.max(1, new Date(sub.currentPeriodEnd).getTime() - new Date(sub.currentPeriodStart).getTime())
+    const remainingMs = Math.max(0, new Date(sub.currentPeriodEnd).getTime() - Date.now())
+    const remainingRatio = Math.min(1, remainingMs / totalCycleMs)
+    const daysRemaining = Math.max(0, Math.round(remainingMs / 86_400_000))
+    const subtotalBase = Math.round(seatsToAdd * cycleMonths * subPricePerSeat * remainingRatio * 100) / 100
+    const discountAmount = Math.round(subtotalBase * (discountPct / 100) * 100) / 100
+    const total = Math.max(0, Math.round((subtotalBase - discountAmount) * 100) / 100)
+    return { subtotalBase, discountAmount, total, daysRemaining, cycleMonths, discountPct, subPricePerSeat }
+  })()
 
   const effectiveSeatCount = Math.max(employeeCount, seatCount)
   // ── Plan total math, generalized over the selected duration ─────────────
@@ -285,6 +319,46 @@ export default function BillingPage() {
     setQr({ phase: 'idle' })
   }
 
+  // ── Add seats to current cycle ────────────────────────────────────────────
+  // Pro-rated by remaining cycle days; opens the same QR modal as the main
+  // checkout, just with a different API + activation type. seatCount on
+  // the subscription is incremented (not replaced) on payment success.
+  async function addSeats() {
+    if (seatsToAdd <= 0) {
+      toast.error('Enter at least 1 seat to add')
+      return
+    }
+    setAddingSeats(true)
+    setQr({ phase: 'loading' })
+    try {
+      const res = await fetch('/api/billing/qrph/add-seats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ additionalSeats: seatsToAdd }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to start add-seats payment')
+        setQr({ phase: 'idle' })
+        return
+      }
+      setQr({
+        phase: 'qr',
+        qrImage: json.qrImage,
+        paymentIntentId: json.paymentIntentId,
+        amountDue: json.amountDue,
+        invoiceNo: json.invoiceNo,
+        expiresAt: json.expiresAt,
+      })
+      startPolling(json.paymentIntentId, json.expiresAt)
+    } catch {
+      toast.error('Connection error — please try again')
+      setQr({ phase: 'idle' })
+    } finally {
+      setAddingSeats(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -349,6 +423,102 @@ export default function BillingPage() {
               Adding employees beyond your seat count is blocked until you upgrade your subscription below.
               The seat quantity is pre-filled to match your current headcount.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add seats to current cycle ── */}
+      {/* Only shown on ACTIVE subscriptions. Lets HR top up seats mid-cycle
+          without restarting the whole subscription period. Cost is the
+          per-seat-per-month rate × number of cycle months × the fraction
+          of the cycle that's still remaining, with the same discount the
+          parent cycle was bought under (0% for 3M/6M, 20% for annual). */}
+      {isActive && addSeatsCost && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+            <Users className="w-4 h-4 text-slate-500" />
+            <h3 className="text-base font-bold text-slate-900">Add seats to current plan</h3>
+            <span className="ml-auto text-xs text-slate-500">
+              {addSeatsCost.daysRemaining} day{addSeatsCost.daysRemaining === 1 ? '' : 's'} remaining
+            </span>
+          </div>
+          <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Seats to add</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={seatsToAdd}
+                  onChange={(e) => setSeatsToAdd(Math.max(1, Number(e.target.value) || 1))}
+                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                {unbilledSeats > 0 && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Pre-filled to {unbilledSeats} to cover your unbilled employee{unbilledSeats === 1 ? '' : 's'}.
+                  </p>
+                )}
+                {unbilledSeats === 0 && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    No unbilled employees right now — add seats ahead of time so new hires aren&apos;t blocked.
+                  </p>
+                )}
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 space-y-1.5">
+                <p className="font-bold text-slate-700 mb-2">Cost preview</p>
+                <div className="flex justify-between">
+                  <span>Per-seat rate</span>
+                  <span className="font-bold text-[#1A2D42]">{fmt(addSeatsCost.subPricePerSeat)} / month</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cycle length</span>
+                  <span className="font-bold text-[#1A2D42]">
+                    {addSeatsCost.cycleMonths} month{addSeatsCost.cycleMonths === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pro-rated to cycle remaining</span>
+                  <span className="font-bold text-[#1A2D42]">{addSeatsCost.daysRemaining} days</span>
+                </div>
+                {addSeatsCost.discountPct > 0 && (
+                  <div className="flex justify-between text-emerald-700 text-xs">
+                    <span>Annual discount</span>
+                    <span className="font-bold">−{addSeatsCost.discountPct.toFixed(0)}% (−{fmt(addSeatsCost.discountAmount)})</span>
+                  </div>
+                )}
+                <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between text-base">
+                  <span className="font-bold text-slate-800">Amount Due Now</span>
+                  <span className="font-black text-[#1A2D42] text-lg">{fmt(addSeatsCost.total)}</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Seats are added to your current cycle and expire alongside it.
+                  Cycle period is unchanged.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col justify-between gap-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center flex flex-col items-center gap-3">
+                <img src="/qrph-logo.svg" alt="QR Ph" className="h-10 w-auto" />
+                <div>
+                  <p className="font-bold text-slate-700 text-sm">Pay via QR Ph</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Same payment flow as your subscription. Scan to confirm.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={addSeats}
+                disabled={addingSeats || seatsToAdd <= 0 || addSeatsCost.total <= 0}
+                className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg,#2E4156,#1A2D42)' }}
+              >
+                {addingSeats
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <QrCode className="w-4 h-4" />}
+                Pay to add {seatsToAdd} seat{seatsToAdd === 1 ? '' : 's'}
+              </button>
+            </div>
           </div>
         </div>
       )}

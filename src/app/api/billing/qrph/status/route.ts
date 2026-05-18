@@ -16,16 +16,32 @@ import { Prisma } from '@prisma/client'
 // field — plan is mapped to MONTHLY for those so we don't need a Prisma
 // migration. Read billingCycle whenever the actual contract length matters.
 type Cycle = '3_MONTH' | '6_MONTH' | 'ANNUAL'
-type ActivationPayload = {
-  plan: 'MONTHLY' | 'ANNUAL'
-  status: 'ACTIVE'
-  billingCycle: Cycle
-  pricePerSeat: number
-  seatCount: number
-  periodStart: string
-  periodEnd: string
-  skipPeriodReset?: boolean
-}
+
+/**
+ * Activation payload variants stored in Invoice.notes:
+ *   - "new cycle": full plan replace. Has plan / billingCycle / period* /
+ *     seatCount / pricePerSeat. Used by /api/billing/qrph.
+ *   - "add seats": current-cycle seat increment. Has addSeats. Used by
+ *     /api/billing/qrph/add-seats. Period and plan stay as-is.
+ */
+type ActivationPayload =
+  | {
+      addSeats: number
+      pricePerSeat?: number
+      billingCycle?: Cycle
+      status?: 'ACTIVE'
+      // No period* fields — seats expire with the existing cycle.
+    }
+  | {
+      plan: 'MONTHLY' | 'ANNUAL'
+      status: 'ACTIVE'
+      billingCycle: Cycle
+      pricePerSeat: number
+      seatCount: number
+      periodStart: string
+      periodEnd: string
+      skipPeriodReset?: boolean
+    }
 
 function parseNotes(notes: string | null): { paymentIntentId?: string; subscriptionActivationPayload?: ActivationPayload } {
   if (!notes) return {}
@@ -81,36 +97,51 @@ export async function GET(req: NextRequest) {
     const { subscriptionActivationPayload: activation } = parseNotes(matchedInvoice.notes)
 
     if (activation) {
-      const subUpdateData: Prisma.SubscriptionUpdateInput = {
-        plan: activation.plan,
-        status: activation.status,
-        billingCycle: activation.billingCycle,
-        pricePerSeat: activation.pricePerSeat,
-        seatCount: activation.seatCount,
-        trialEndsAt: null,
-        cancelledAt: null,
-        updatedAt: new Date(),
-      }
-      if (!activation.skipPeriodReset) {
-        subUpdateData.currentPeriodStart = new Date(activation.periodStart)
-        subUpdateData.currentPeriodEnd = new Date(activation.periodEnd)
-      }
-
-      await prisma.subscription.upsert({
-        where: { companyId: ctx.companyId },
-        update: subUpdateData,
-        create: {
-          id: `sub_${ctx.companyId}`,
-          companyId: ctx.companyId,
+      if ('addSeats' in activation && activation.addSeats > 0) {
+        // Add-seats flow: increment seatCount on the EXISTING subscription
+        // without touching cycle dates or plan. The seats expire with the
+        // current cycle. No upsert path because add-seats requires an
+        // already-ACTIVE subscription (validated at the create endpoint).
+        await prisma.subscription.update({
+          where: { companyId: ctx.companyId },
+          data: {
+            seatCount: { increment: activation.addSeats },
+            updatedAt: new Date(),
+          },
+        })
+      } else if ('plan' in activation) {
+        // Original full-cycle activation
+        const subUpdateData: Prisma.SubscriptionUpdateInput = {
           plan: activation.plan,
           status: activation.status,
           billingCycle: activation.billingCycle,
           pricePerSeat: activation.pricePerSeat,
           seatCount: activation.seatCount,
-          currentPeriodStart: new Date(activation.periodStart),
-          currentPeriodEnd: new Date(activation.periodEnd),
-        },
-      })
+          trialEndsAt: null,
+          cancelledAt: null,
+          updatedAt: new Date(),
+        }
+        if (!activation.skipPeriodReset) {
+          subUpdateData.currentPeriodStart = new Date(activation.periodStart)
+          subUpdateData.currentPeriodEnd = new Date(activation.periodEnd)
+        }
+
+        await prisma.subscription.upsert({
+          where: { companyId: ctx.companyId },
+          update: subUpdateData,
+          create: {
+            id: `sub_${ctx.companyId}`,
+            companyId: ctx.companyId,
+            plan: activation.plan,
+            status: activation.status,
+            billingCycle: activation.billingCycle,
+            pricePerSeat: activation.pricePerSeat,
+            seatCount: activation.seatCount,
+            currentPeriodStart: new Date(activation.periodStart),
+            currentPeriodEnd: new Date(activation.periodEnd),
+          },
+        })
+      }
     }
 
     await prisma.invoice.update({
