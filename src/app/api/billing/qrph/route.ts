@@ -12,6 +12,7 @@ import { z, ZodError } from 'zod'
 import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createQrPhPayment } from '@/lib/payments/paymongo'
+import { computeCreditApplied } from '@/lib/billing/credit'
 
 const schema = z.object({
   // Subscription duration. 3M and 6M are prepay plans at the standard
@@ -159,6 +160,22 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  // ── Apply billing credit ──────────────────────────────────────────────────
+  // Credit accrues when employees are deactivated mid-cycle (see
+  // src/lib/billing/credit.ts). Applied to the total here; the actual
+  // decrement happens in the status route after PayMongo confirms the
+  // payment so we don't burn credit on abandoned QR sessions.
+  const creditBalance = Number(
+    (sub as unknown as { creditBalance?: { toNumber(): number } | number }).creditBalance ?? 0,
+  )
+  const creditApplied = computeCreditApplied(
+    typeof creditBalance === 'object' && creditBalance !== null
+      ? (creditBalance as { toNumber(): number }).toNumber()
+      : creditBalance,
+    total,
+  )
+  const totalAfterCredit = Math.max(0, parseFloat((total - creditApplied).toFixed(2)))
+
   // ── Company details for PayMongo billing ──────────────────────────────────
   const company = await prisma.company.findUnique({
     where: { id: ctx.companyId },
@@ -187,6 +204,9 @@ export async function POST(req: NextRequest) {
     periodStart: periodStart.toISOString(),
     periodEnd: periodEnd.toISOString(),
     skipPeriodReset: Boolean(hasActiveRemainingPeriod && isSameCycleChange),
+    // Credit consumed by this invoice. The status route decrements
+    // Subscription.creditBalance by this amount once PayMongo confirms.
+    creditApplied,
   }
 
   // ── Create invoice as VOID (payment session) so the number is reserved ──────
@@ -207,7 +227,7 @@ export async function POST(req: NextRequest) {
       subtotal,
       discountPct,
       discountAmount: subtotal * discountPct / 100,
-      total,
+      total: totalAfterCredit,
       paymentMethodCode: 'QRPH',
       paymentMethodLabel: 'QR Ph (GCash / Maya)',
       dueDate,
@@ -227,7 +247,7 @@ export async function POST(req: NextRequest) {
   let qrResult: Awaited<ReturnType<typeof createQrPhPayment>>
   try {
     qrResult = await createQrPhPayment({
-      amountPeso: total,
+      amountPeso: totalAfterCredit,
       description: `OnClock ${cycleLabel} Subscription — ${billedSeatCount} seat${billedSeatCount !== 1 ? 's' : ''}`,
       billingName: company?.name || 'Company',
       billingEmail: company?.email || ctx.email || 'billing@onclockph.com',
@@ -275,7 +295,8 @@ export async function POST(req: NextRequest) {
     invoiceId: invoice.id,
     paymentIntentId: qrResult.paymentIntentId,
     qrImage: qrResult.qrImage,
-    amountDue: total,
+    amountDue: totalAfterCredit,
+    creditApplied,
     expiresAt,
   })
 }

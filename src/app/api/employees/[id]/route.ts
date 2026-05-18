@@ -6,6 +6,7 @@ import {
   recomputeRunsForEmployee,
 } from '@/lib/payroll/recompute-runs'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
+import { issueDeactivationCredit } from '@/lib/billing/credit'
 
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -202,7 +203,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       recompute = { ...result, fields: changedFields }
     }
 
-    return NextResponse.json({ success: true, recompute })
+    // ── Deactivation credit ──────────────────────────────────────────────
+    // PATCH may flip isActive true→false (admin "deactivate" path). When
+    // the company is on an ACTIVE subscription, issue a pro-rated credit
+    // for the freed-up seat. No-op for TRIAL / EXPIRED — they never paid
+    // for the seat, so there's nothing to refund.
+    let credit: { amount: number; entryId: string | null; reason?: string } | null = null
+    const willDeactivate = body.isActive === false && existing.isActive === true
+    if (willDeactivate) {
+      try {
+        credit = await issueDeactivationCredit({
+          companyId: ctx.companyId,
+          employeeId: id,
+          notes: `Deactivated ${existing.employeeNo}`,
+        })
+      } catch (err) {
+        // Don't fail the deactivation just because the credit couldn't
+        // be issued — log and continue.
+        console.error('[PATCH /api/employees/:id] credit issuance failed', err)
+      }
+    }
+
+    return NextResponse.json({ success: true, recompute, credit })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[PATCH /api/employees/:id]', msg)
@@ -215,11 +237,33 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  // Soft delete — just mark as inactive
+  // Soft delete — just mark as inactive. Need the employee number first
+  // so we can stamp the credit ledger entry with it for audit.
+  const employee = await prisma.employee.findFirst({
+    where: { id, companyId: ctx.companyId },
+    select: { id: true, employeeNo: true, isActive: true },
+  })
+  if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+
   await prisma.employee.updateMany({
     where: { id, companyId: ctx.companyId },
     data: { isActive: false, updatedAt: new Date() },
   })
 
-  return NextResponse.json({ success: true })
+  // Only issue credit if the employee was active immediately before this
+  // call — otherwise we'd double-credit on repeated soft-delete clicks.
+  let credit: { amount: number; entryId: string | null; reason?: string } | null = null
+  if (employee.isActive) {
+    try {
+      credit = await issueDeactivationCredit({
+        companyId: ctx.companyId,
+        employeeId: id,
+        notes: `Soft-deleted ${employee.employeeNo}`,
+      })
+    } catch (err) {
+      console.error('[DELETE /api/employees/:id] credit issuance failed', err)
+    }
+  }
+
+  return NextResponse.json({ success: true, credit })
 }

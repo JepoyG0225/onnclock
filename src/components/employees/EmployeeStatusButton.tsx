@@ -36,7 +36,18 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
         })
       }
       if (res.ok) {
-        toast.success(isActive ? 'Employee deactivated' : 'Employee reactivated')
+        // If the deactivation generated a billing credit (ACTIVE
+        // subscription mid-cycle), surface the refunded amount so HR
+        // immediately sees the next-invoice savings.
+        let creditMsg = ''
+        try {
+          const data = await res.json()
+          const amount = Number(data?.credit?.amount ?? 0)
+          if (amount > 0) {
+            creditMsg = ` · ₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })} credit added`
+          }
+        } catch { /* ignore */ }
+        toast.success((isActive ? 'Employee deactivated' : 'Employee reactivated') + creditMsg)
         setOpen(false)
         router.refresh()
       } else {

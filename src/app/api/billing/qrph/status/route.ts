@@ -10,6 +10,7 @@ import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPaymentIntentStatus } from '@/lib/payments/paymongo'
 import { Prisma } from '@prisma/client'
+import { spendCreditOnInvoice } from '@/lib/billing/credit'
 
 // Plan stays inside the Prisma SubscriptionPlan enum (MONTHLY | ANNUAL).
 // 3_MONTH and 6_MONTH cycles are persisted via the separate billingCycle
@@ -31,6 +32,7 @@ type ActivationPayload =
       billingCycle?: Cycle
       status?: 'ACTIVE'
       // No period* fields — seats expire with the existing cycle.
+      creditApplied?: number
     }
   | {
       plan: 'MONTHLY' | 'ANNUAL'
@@ -41,6 +43,7 @@ type ActivationPayload =
       periodStart: string
       periodEnd: string
       skipPeriodReset?: boolean
+      creditApplied?: number
     }
 
 function parseNotes(notes: string | null): { paymentIntentId?: string; subscriptionActivationPayload?: ActivationPayload } {
@@ -149,7 +152,25 @@ export async function GET(req: NextRequest) {
       data: { status: 'PAID', paidAt: new Date() },
     })
 
-    return NextResponse.json({ status: 'succeeded', activated: true, invoiceNo: matchedInvoice.invoiceNo })
+    // Now that the invoice is confirmed paid, decrement the cached
+    // creditBalance + log the negative ledger entry. Done AFTER the
+    // subscription update + invoice flip so a partial failure leaves
+    // the company over-credited rather than over-charged.
+    const creditUsed = Number(activation?.creditApplied ?? 0)
+    if (creditUsed > 0) {
+      try {
+        await spendCreditOnInvoice({
+          companyId: ctx.companyId,
+          amount: creditUsed,
+          invoiceId: matchedInvoice.id,
+          invoiceNo: matchedInvoice.invoiceNo,
+        })
+      } catch (err) {
+        console.error('[billing/qrph/status] credit-spend failed', err)
+      }
+    }
+
+    return NextResponse.json({ status: 'succeeded', activated: true, invoiceNo: matchedInvoice.invoiceNo, creditApplied: creditUsed })
   }
 
   // Payment failed or was cancelled — the invoice stays VOID (abandoned session)

@@ -72,6 +72,9 @@ export async function GET() {
     subscription: {
       ...sub,
       pricePerSeat: Number(sub.pricePerSeat),
+      creditBalance: Number(
+        (sub as unknown as { creditBalance?: { toNumber(): number } | number }).creditBalance ?? 0,
+      ),
     },
     employeeCount,
     daysLeft,

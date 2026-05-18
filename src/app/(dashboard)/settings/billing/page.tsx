@@ -22,6 +22,7 @@ interface SubscriptionData {
     billingCycle: string | null
     pricePerSeat: number
     seatCount: number
+    creditBalance?: number
   }
   employeeCount: number
   daysLeft: number | null
@@ -211,6 +212,9 @@ export default function BillingPage() {
   // matches src/lib/billing/seat-limit.ts so the banner shows exactly
   // when SubscriptionGate routes here.
   const unbilledSeats = isActive ? Math.max(0, employeeCount - Number(sub?.seatCount ?? 0)) : 0
+  // Available billing credit earned from deactivations / refunds. Applied
+  // automatically against any paid invoice (renewal or add-seats).
+  const creditBalance = Number(sub?.creditBalance ?? 0)
 
   // Add-seats cost preview (mirrors api/billing/qrph/add-seats math so the
   // user can verify before paying). Only meaningful for ACTIVE subs.
@@ -407,6 +411,24 @@ export default function BillingPage() {
         </div>
       )}
 
+      {/* ── Billing credit balance ── */}
+      {creditBalance > 0 && (
+        <div className="rounded-2xl px-5 py-4 flex items-start gap-4 border bg-emerald-50 border-emerald-200">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-emerald-100">
+            <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-sm text-emerald-900">
+              You have {fmt(creditBalance)} in billing credit
+            </p>
+            <p className="text-xs mt-0.5 text-emerald-800">
+              Earned from mid-cycle employee deactivations. Applied automatically
+              to your next paid invoice (renewal or added seats).
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Over-seat banner ── */}
       {unbilledSeats > 0 && (
         <div className="rounded-2xl px-5 py-4 flex items-start gap-4 border bg-amber-50 border-amber-200">
@@ -487,9 +509,17 @@ export default function BillingPage() {
                     <span className="font-bold">−{addSeatsCost.discountPct.toFixed(0)}% (−{fmt(addSeatsCost.discountAmount)})</span>
                   </div>
                 )}
+                {creditBalance > 0 && (
+                  <div className="flex justify-between text-emerald-700 text-xs">
+                    <span>Billing credit applied</span>
+                    <span className="font-bold">−{fmt(Math.min(creditBalance, addSeatsCost.total))}</span>
+                  </div>
+                )}
                 <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between text-base">
                   <span className="font-bold text-slate-800">Amount Due Now</span>
-                  <span className="font-black text-[#1A2D42] text-lg">{fmt(addSeatsCost.total)}</span>
+                  <span className="font-black text-[#1A2D42] text-lg">
+                    {fmt(Math.max(0, addSeatsCost.total - Math.min(creditBalance, addSeatsCost.total)))}
+                  </span>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Seats are added to your current cycle and expire alongside it.
@@ -653,9 +683,17 @@ export default function BillingPage() {
                   <span className="font-bold">−{fmt(remainingCredit)}</span>
                 </div>
               )}
+              {creditBalance > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Billing credit applied</span>
+                  <span className="font-bold">−{fmt(Math.min(creditBalance, selectedTotal))}</span>
+                </div>
+              )}
               <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between text-base">
                 <span className="font-bold text-slate-800">Amount Due Now</span>
-                <span className="font-black text-[#1A2D42] text-lg">{fmt(selectedTotal)}</span>
+                <span className="font-black text-[#1A2D42] text-lg">
+                  {fmt(Math.max(0, selectedTotal - Math.min(creditBalance, selectedTotal)))}
+                </span>
               </div>
             </div>
           </div>

@@ -1788,9 +1788,15 @@ model Subscription {
   trialEndsAt        DateTime?
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
-  billingCycle       String? // 'MONTHLY' | 'ANNUAL'
+  billingCycle       String? // 'MONTHLY' | '3_MONTH' | '6_MONTH' | 'ANNUAL'
   pricePerSeat       Decimal            @default(50) @db.Decimal(10, 2)
   seatCount          Int                @default(0)
+  // Running balance of unspent billing credit, refunded when employees
+  // are deactivated mid-cycle. Applied to the next paid invoice
+  // (renewal or add-seats). Source of truth is billing_credit_entries —
+  // this field is an aggregate cache so we don't have to sum the ledger
+  // on every page load.
+  creditBalance      Decimal            @default(0) @db.Decimal(12, 2)
   storageAddOnGb     Int                @default(0)
   storageAddOnPrice  Decimal            @default(0) @db.Decimal(10, 2)
   cancelledAt        DateTime?
@@ -1829,6 +1835,28 @@ model Invoice {
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
 
   @@map("invoices")
+}
+
+// Append-only ledger of every change to Subscription.creditBalance.
+// Positive amount = credit earned (employee deactivation, manual refund).
+// Negative amount = credit spent (applied to a paid invoice).
+// Sum of (amount) for a company should always equal Subscription.creditBalance.
+model BillingCreditEntry {
+  id               String   @id @default(cuid())
+  companyId        String
+  amount           Decimal  @db.Decimal(12, 2)
+  // Free-form tag for what generated the entry. Common values:
+  //   - 'EMPLOYEE_DEACTIVATION'
+  //   - 'APPLIED_TO_INVOICE'
+  //   - 'MANUAL_ADJUSTMENT'
+  reason           String
+  sourceEmployeeId String?
+  sourceInvoiceId  String?
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@map("billing_credit_entries")
 }
 
 model PaymentMethod {
