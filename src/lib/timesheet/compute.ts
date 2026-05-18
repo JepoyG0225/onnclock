@@ -179,6 +179,19 @@ export function computeHours(
   const effectiveTimeOut = new Date(timeIn.getTime() + totalMinutes * 60_000)
 
   const allowed = opts.allowedBreakMinutes ?? 60
+  // Break-deduction policy:
+  //   - Both breakIn and breakOut clocked → use the actual measured break
+  //   - Otherwise → ASSUME the standard `allowed` break was taken
+  //
+  // The "assume" branch matches DOLE Handbook practice: every employee on
+  // an 8h+ shift is entitled to a 60-min unpaid meal break, and the
+  // default is that they take it. Manual DTR entries (no clock events)
+  // therefore get the scheduled break deducted just like GPS-clocked
+  // entries. To explicitly credit a "worked through break" case (no
+  // deduction), callers can pass allowedBreakMinutes: 0.
+  //
+  // Previously the missing-timestamps branch returned 0, which silently
+  // over-credited 1 hour on every MANUAL DTR — see commit message.
   const actualBreakMins =
     breakIn && breakOut
       ? Math.max(
@@ -188,11 +201,13 @@ export function computeHours(
             breakIn < timeIn ? timeIn : breakIn,
           ),
         )
-      : 0
+      : allowed
   // Only the allowed portion of break is deducted from worked time. Anything
   // beyond becomes tardiness via computeLateAndUndertime's break-late path.
   const effectiveBreak = Math.min(actualBreakMins, allowed)
-  const workedMinutes = Math.max(0, totalMinutes - effectiveBreak)
+  // Don't deduct a break that's longer than the shift itself — e.g. a
+  // 30-min visit shouldn't go negative because the policy break is 60.
+  const workedMinutes = Math.max(0, totalMinutes - Math.min(effectiveBreak, totalMinutes))
 
   const cap = Math.max(
     1,
