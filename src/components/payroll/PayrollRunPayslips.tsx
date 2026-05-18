@@ -381,47 +381,6 @@ function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps)
         </p>
       </div>
 
-      {/* Holidays in period — context for any Art. 94 / worked-holiday rows below */}
-      {holidaysInPeriod.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-          <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              Holidays in this period ({holidaysInPeriod.length})
-            </p>
-          </div>
-          <table className="w-full text-xs">
-            <tbody>
-              {holidaysInPeriod.map((h, i) => {
-                const isRegular = h.type === 'REGULAR'
-                return (
-                  <tr key={i} className="border-b last:border-b-0">
-                    <td className="px-3 py-1.5 w-32 font-mono text-slate-600">{h.date}</td>
-                    <td className="px-3 py-1.5 text-slate-700">{h.name}</td>
-                    <td className="px-3 py-1.5 w-44">
-                      <span
-                        className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          isRegular
-                            ? 'bg-rose-100 text-rose-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        {isRegular ? 'Regular' : 'Special non-working'}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <p className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50 border-t border-slate-200">
-            Regular holidays unworked → Art. 94 credit (paid at 100% of daily
-            rate for DAILY/HOURLY employees). Worked holidays add the
-            premium line above. Special non-working holidays only pay
-            premium when worked.
-          </p>
-        </div>
-      )}
-
       {/* Per-day breakdown — what was earned each date */}
       <PerDayBreakdown ps={ps} dtrs={dtrs} holidaysInPeriod={holidaysInPeriod} peso={peso} />
 
@@ -655,9 +614,6 @@ function PerDayBreakdown({
                   </span>
                   {r.note && (
                     <p className="text-[10px] text-slate-500 mt-0.5">{r.note}</p>
-                  )}
-                  {r.art94Credit > 0 && (
-                    <p className="text-[10px] text-emerald-700 mt-0.5">+ Art. 94 credit {peso(r.art94Credit)}</p>
                   )}
                   {r.holidayPremium > 0 && (
                     <p className="text-[10px] text-purple-700 mt-0.5">+ Worked-holiday premium {peso(r.holidayPremium)}</p>
