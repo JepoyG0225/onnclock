@@ -57,6 +57,20 @@ export interface HolidayInPeriod {
   type: 'REGULAR' | 'SPECIAL_NON_WORKING'
 }
 
+export interface DtrEntry {
+  date: string  // YYYY-MM-DD
+  regularHours: number
+  overtimeHours: number
+  nightDiffHours: number
+  lateMinutes: number
+  undertimeMinutes: number
+  isAbsent: boolean
+  isLeave: boolean
+  isLeavePaid: boolean
+  isHoliday: boolean
+  holidayType: string | null
+}
+
 interface Props {
   payslips: PayslipRow[]
   runStatus: string
@@ -65,9 +79,11 @@ interface Props {
   totalDeductions: number
   totalNetPay: number
   holidaysInPeriod?: HolidayInPeriod[]
+  /** Per-employee DTR rows for the run's period, keyed by employeeId. */
+  dtrsByEmployee?: Record<string, DtrEntry[]>
 }
 
-export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [] }: Props) {
+export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [], dtrsByEmployee = {} }: Props) {
   const [payslips, setPayslips] = useState<PayslipRow[]>(initial)
   const [editing, setEditing] = useState<PayslipEditData | null>(null)
   // Which payslip rows are currently expanded to show the gross-pay
@@ -273,7 +289,12 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
                   {isOpen && (
                     <tr className="border-b bg-slate-50">
                       <td colSpan={14} className="px-6 py-4">
-                        <GrossPayBreakdown ps={ps} peso={peso} holidaysInPeriod={holidaysInPeriod} />
+                        <GrossPayBreakdown
+                          ps={ps}
+                          peso={peso}
+                          holidaysInPeriod={holidaysInPeriod}
+                          dtrs={dtrsByEmployee[ps.employee.id] ?? []}
+                        />
                       </td>
                     </tr>
                   )}
@@ -343,9 +364,10 @@ interface BreakdownProps {
   ps: PayslipRow
   peso: (n: number) => string
   holidaysInPeriod: HolidayInPeriod[]
+  dtrs: DtrEntry[]
 }
 
-function GrossPayBreakdown({ ps, peso, holidaysInPeriod }: BreakdownProps) {
+function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps) {
   // hourlyRate isn't persisted on Payslip — derive it from the snapshot
   // dailyRate using the standard 8-hour day. The OT amounts already
   // include the multiplier so we display them as-is.
@@ -552,6 +574,242 @@ function GrossPayBreakdown({ ps, peso, holidaysInPeriod }: BreakdownProps) {
           </p>
         </div>
       )}
+
+      {/* Per-day breakdown — what was earned each date */}
+      <PerDayBreakdown ps={ps} dtrs={dtrs} holidaysInPeriod={holidaysInPeriod} peso={peso} />
+    </div>
+  )
+}
+
+// ─── Per-day earnings rows ────────────────────────────────────────────────
+// Lists every day in the run period (union of DTR rows + holidays) with
+// the hours worked, a status badge, and the peso amount that day
+// contributed to gross pay. Matches the format the user asked for:
+//   April 27 — 8.00 h — ₱800
+//   April 28 — 7.50 h — ₱780
+//   May 1   — Holiday — ₱800
+
+function PerDayBreakdown({
+  ps, dtrs, holidaysInPeriod, peso,
+}: {
+  ps: PayslipRow
+  dtrs: DtrEntry[]
+  holidaysInPeriod: HolidayInPeriod[]
+  peso: (n: number) => string
+}) {
+  const hourlyRate = ps.dailyRate / 8
+  const rt = ps.employee.rateType
+  const round2 = (n: number) => Math.round(n * 100) / 100
+
+  // Index holidays for quick lookup
+  const holidayByDate = new Map<string, HolidayInPeriod>()
+  for (const h of holidaysInPeriod) holidayByDate.set(h.date, h)
+
+  // Build the row list: one entry per date, sourced from DTR ∪ holidays.
+  type Row = {
+    date: string
+    hours: number
+    overtimeHours: number
+    nightDiffHours: number
+    workedAmount: number
+    overtimeAmount: number
+    nightDiffAmount: number
+    holidayPremium: number
+    art94Credit: number
+    status: string
+    statusTone: 'green' | 'amber' | 'red' | 'blue' | 'slate'
+    note?: string
+  }
+
+  const dtrByDate = new Map<string, DtrEntry>()
+  for (const d of dtrs) dtrByDate.set(d.date, d)
+
+  const allDates = new Set<string>([...dtrByDate.keys(), ...holidayByDate.keys()])
+  const sortedDates = Array.from(allDates).sort()
+
+  const rows: Row[] = []
+  for (const dateKey of sortedDates) {
+    const d = dtrByDate.get(dateKey)
+    const holiday = holidayByDate.get(dateKey)
+
+    const reg = d ? d.regularHours : 0
+    const ot = d ? d.overtimeHours : 0
+    const nd = d ? d.nightDiffHours : 0
+    const isAbsent = d?.isAbsent ?? false
+    const isLeave = d?.isLeave ?? false
+    const isLeavePaid = d?.isLeavePaid ?? false
+
+    // Worked amount: hourly × regular hours (works for HOURLY + DAILY
+    // because hourlyRate = dailyRate / 8). MONTHLY is pro-rated by the
+    // engine from the monthly salary; here we use the same derivation
+    // for visual consistency.
+    const workedAmount = round2(hourlyRate * reg)
+    const overtimeAmount = round2(hourlyRate * ot * 1.25)  // approx — engine uses configured multiplier
+    const nightDiffAmount = round2(hourlyRate * nd * 0.10)
+
+    // Worked-holiday premium
+    let holidayPremium = 0
+    if (holiday && !isAbsent && reg > 0) {
+      if (holiday.type === 'REGULAR') holidayPremium = round2(ps.dailyRate * 1.0)
+      else holidayPremium = round2(ps.dailyRate * 0.3)
+    }
+
+    // Art. 94 unworked-regular-holiday credit (DAILY/HOURLY only; MONTHLY
+    // employees already get it folded into monthly salary)
+    let art94Credit = 0
+    if (
+      (rt === 'DAILY' || rt === 'HOURLY')
+      && holiday?.type === 'REGULAR'
+      && (!d || isAbsent || (isLeave && !isLeavePaid) || reg === 0)
+    ) {
+      art94Credit = round2(ps.dailyRate)
+    }
+
+    let status: string
+    let statusTone: Row['statusTone']
+    let note: string | undefined
+    if (holiday) {
+      status = holiday.type === 'REGULAR' ? 'Regular holiday' : 'Special holiday'
+      statusTone = 'amber'
+      note = holiday.name
+    } else if (isAbsent) {
+      status = 'Absent'
+      statusTone = 'red'
+    } else if (isLeave) {
+      status = isLeavePaid ? 'Paid leave' : 'Unpaid leave'
+      statusTone = isLeavePaid ? 'blue' : 'slate'
+    } else if (reg > 0 || ot > 0) {
+      status = 'Present'
+      statusTone = 'green'
+    } else {
+      status = 'No work'
+      statusTone = 'slate'
+    }
+
+    rows.push({
+      date: dateKey,
+      hours: reg,
+      overtimeHours: ot,
+      nightDiffHours: nd,
+      workedAmount,
+      overtimeAmount,
+      nightDiffAmount,
+      holidayPremium,
+      art94Credit,
+      status,
+      statusTone,
+      note,
+    })
+  }
+
+  if (rows.length === 0) {
+    return null
+  }
+
+  const toneClasses: Record<Row['statusTone'], string> = {
+    green: 'bg-emerald-100 text-emerald-700',
+    amber: 'bg-amber-100 text-amber-700',
+    red: 'bg-rose-100 text-rose-700',
+    blue: 'bg-sky-100 text-sky-700',
+    slate: 'bg-slate-100 text-slate-600',
+  }
+  const formatDate = (iso: string) => {
+    // YYYY-MM-DD → "Apr 27, Mon"
+    const [y, m, d] = iso.split('-').map(n => Number(n))
+    const dt = new Date(Date.UTC(y, m - 1, d))
+    const month = dt.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
+    const dow = dt.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' })
+    return `${month} ${d}, ${dow}`
+  }
+
+  const grandWorked = round2(rows.reduce((s, r) => s + r.workedAmount, 0))
+  const grandPremium = round2(rows.reduce((s, r) => s + r.holidayPremium + r.art94Credit, 0))
+  const grandOt = round2(rows.reduce((s, r) => s + r.overtimeAmount, 0))
+  const grandNd = round2(rows.reduce((s, r) => s + r.nightDiffAmount, 0))
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+          Per-day breakdown ({rows.length})
+        </p>
+        <p className="text-[10px] text-slate-400">
+          {rt === 'HOURLY' ? `${peso(hourlyRate)} / hr` : `${peso(ps.dailyRate)} / day · ${peso(hourlyRate)} / hr`}
+        </p>
+      </div>
+      <table className="w-full text-xs">
+        <thead className="bg-slate-50/50">
+          <tr className="text-slate-500 text-[10px] uppercase tracking-wide">
+            <th className="text-left px-3 py-1.5 font-semibold">Date</th>
+            <th className="text-left px-3 py-1.5 font-semibold">Status</th>
+            <th className="text-right px-3 py-1.5 font-semibold">Reg hrs</th>
+            <th className="text-right px-3 py-1.5 font-semibold">OT</th>
+            <th className="text-right px-3 py-1.5 font-semibold">ND</th>
+            <th className="text-right px-3 py-1.5 font-semibold">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const totalForDay = round2(r.workedAmount + r.overtimeAmount + r.nightDiffAmount + r.holidayPremium + r.art94Credit)
+            return (
+              <tr key={r.date} className="border-b last:border-b-0">
+                <td className="px-3 py-1.5 align-top">
+                  <p className="font-mono text-slate-700">{formatDate(r.date)}</p>
+                </td>
+                <td className="px-3 py-1.5 align-top">
+                  <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${toneClasses[r.statusTone]}`}>
+                    {r.status}
+                  </span>
+                  {r.note && (
+                    <p className="text-[10px] text-slate-500 mt-0.5">{r.note}</p>
+                  )}
+                  {r.art94Credit > 0 && (
+                    <p className="text-[10px] text-emerald-700 mt-0.5">+ Art. 94 credit {peso(r.art94Credit)}</p>
+                  )}
+                  {r.holidayPremium > 0 && (
+                    <p className="text-[10px] text-purple-700 mt-0.5">+ Worked-holiday premium {peso(r.holidayPremium)}</p>
+                  )}
+                </td>
+                <td className="px-3 py-1.5 text-right align-top text-slate-700">
+                  {r.hours > 0 ? `${r.hours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
+                </td>
+                <td className="px-3 py-1.5 text-right align-top text-blue-700">
+                  {r.overtimeHours > 0 ? `${r.overtimeHours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
+                </td>
+                <td className="px-3 py-1.5 text-right align-top text-cyan-700">
+                  {r.nightDiffHours > 0 ? `${r.nightDiffHours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
+                </td>
+                <td className="px-3 py-1.5 text-right align-top font-bold text-slate-800 whitespace-nowrap">
+                  {totalForDay > 0 ? peso(totalForDay) : <span className="text-slate-300">—</span>}
+                </td>
+              </tr>
+            )
+          })}
+          <tr className="bg-slate-50 border-t-2 border-slate-300">
+            <td className="px-3 py-1.5 font-bold text-slate-700" colSpan={2}>
+              Daily totals
+            </td>
+            <td className="px-3 py-1.5 text-right font-bold text-slate-700">
+              {peso(grandWorked)}
+            </td>
+            <td className="px-3 py-1.5 text-right font-bold text-blue-700">
+              {grandOt > 0 ? peso(grandOt) : <span className="text-slate-300">—</span>}
+            </td>
+            <td className="px-3 py-1.5 text-right font-bold text-cyan-700">
+              {grandNd > 0 ? peso(grandNd) : <span className="text-slate-300">—</span>}
+            </td>
+            <td className="px-3 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">
+              {peso(round2(grandWorked + grandOt + grandNd + grandPremium))}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50 border-t border-slate-200">
+        OT multiplier shown is the default 1.25× regular OT rate; the engine uses
+        whatever multiplier is configured on PayrollDifferentialConfig. Sum may
+        differ slightly from the gross-pay total when companies customize their
+        OT/holiday multipliers.
+      </p>
     </div>
   )
 }

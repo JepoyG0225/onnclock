@@ -51,6 +51,26 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
     orderBy: { date: 'asc' },
   })
 
+  // DTR rows for every employee on this run, scoped to the run's period.
+  // Used by the per-day breakdown inside the expandable payslip row.
+  // Fetched once at the page level (instead of lazy-loading per row) since
+  // a typical run is ~15 employees × ~15 days = ~225 rows = trivial payload.
+  const dtrRows = await prisma.dTRRecord.findMany({
+    where: {
+      employee: { companyId },
+      date: { gte: run.periodStart, lte: run.periodEnd },
+    },
+    select: {
+      employeeId: true, date: true,
+      timeIn: true, timeOut: true,
+      regularHours: true, overtimeHours: true, nightDiffHours: true,
+      lateMinutes: true, undertimeMinutes: true,
+      isAbsent: true, isLeave: true, isLeavePaid: true,
+      isHoliday: true, holidayType: true,
+    },
+    orderBy: { date: 'asc' },
+  })
+
   const payslips = await prisma.payslip.findMany({
     where: { payrollRunId: runId },
     include: {
@@ -199,6 +219,39 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
               name: h.name,
               type: h.type as 'REGULAR' | 'SPECIAL_NON_WORKING',
             }))}
+            dtrsByEmployee={(() => {
+              const grouped: Record<string, Array<{
+                date: string
+                regularHours: number
+                overtimeHours: number
+                nightDiffHours: number
+                lateMinutes: number
+                undertimeMinutes: number
+                isAbsent: boolean
+                isLeave: boolean
+                isLeavePaid: boolean
+                isHoliday: boolean
+                holidayType: string | null
+              }>> = {}
+              for (const d of dtrRows) {
+                const eid = d.employeeId
+                if (!grouped[eid]) grouped[eid] = []
+                grouped[eid].push({
+                  date: d.date.toISOString().slice(0, 10),
+                  regularHours: d.regularHours?.toNumber() ?? 0,
+                  overtimeHours: d.overtimeHours?.toNumber() ?? 0,
+                  nightDiffHours: d.nightDiffHours?.toNumber() ?? 0,
+                  lateMinutes: d.lateMinutes ?? 0,
+                  undertimeMinutes: d.undertimeMinutes ?? 0,
+                  isAbsent: d.isAbsent,
+                  isLeave: d.isLeave,
+                  isLeavePaid: d.isLeavePaid,
+                  isHoliday: d.isHoliday,
+                  holidayType: d.holidayType ?? null,
+                })
+              }
+              return grouped
+            })()}
             payslips={payslips.map(ps => ({
               id: ps.id,
               basicSalary:        ps.basicSalary.toNumber(),
