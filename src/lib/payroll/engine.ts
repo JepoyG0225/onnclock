@@ -167,14 +167,24 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
   // ── 3. DEDUCTIONS (attendance) ────────────────
   const minuteRate = hourlyRate / 60
-  // Late deduction is suppressed when the company has opted to handle
-  // tardiness via disciplinary records instead of payroll docking. The
-  // DTR still records lateMinutes for audit — it just doesn't translate
+  // Late + undertime deductions are suppressed when EITHER the
+  // company-wide policy OR the per-employee toggle says so. The DTR
+  // still records the raw minutes for audit — they just don't translate
   // to a peso amount on the payslip.
-  const lateDeduction = period.disableLateDeductions
+  //
+  // Per-employee toggles exist because HOURLY/DAILY employees' basic
+  // pay is already pro-rated by actual hours worked, so deducting
+  // late/UT on top would double-count the same missed minutes. HR
+  // typically flips these on for HOURLY/DAILY hires and leaves them
+  // off for MONTHLY hires (whose basic is a fixed salary).
+  const skipLate = period.disableLateDeductions || employee.disableLateDeduction === true
+  const skipUt = employee.disableUndertimeDeduction === true
+  const lateDeduction = skipLate
     ? 0
     : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
-  const undertimeDeduction = parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
+  const undertimeDeduction = skipUt
+    ? 0
+    : parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
   const absenceDeduction = computeAbsenceDeduction(employee.dailyRate, attendance.absentDays)
 
   // ── 4. ALLOWANCES & DE MINIMIS ────────────────

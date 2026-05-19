@@ -61,6 +61,8 @@ const employeeSchema = z.object({
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
   disableHolidayPay: z.boolean().default(false),
+  disableLateDeduction: z.boolean().default(false),
+  disableUndertimeDeduction: z.boolean().default(false),
   trackTime: z.boolean().default(false),
   fingerprintExempt: z.boolean().default(false),
   geofenceExempt: z.boolean().default(false),
@@ -338,6 +340,8 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       isExemptFromTax: false,
       isMinimumWageEarner: false,
       disableHolidayPay: false,
+      disableLateDeduction: false,
+      disableUndertimeDeduction: false,
       trackTime: false,
       fingerprintExempt: false,
       geofenceExempt: false,
@@ -920,6 +924,44 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                   <Switch
                     checked={watch('disableHolidayPay')}
                     onCheckedChange={v => setValue('disableHolidayPay', v)}
+                  />
+                </div>
+                <div
+                  className="flex items-center justify-between p-3 rounded-lg border-2"
+                  style={{
+                    background: watch('disableLateDeduction') ? 'rgba(239,68,68,0.06)' : '#f9fafb',
+                    borderColor: watch('disableLateDeduction') ? 'rgba(239,68,68,0.3)' : 'transparent',
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium">Disable Late Deduction</p>
+                    <p className="text-xs text-gray-500">
+                      Skip pay docking for late minutes (recommended for
+                      HOURLY / DAILY where basic already pro-rates by hours)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={watch('disableLateDeduction')}
+                    onCheckedChange={v => setValue('disableLateDeduction', v)}
+                  />
+                </div>
+                <div
+                  className="flex items-center justify-between p-3 rounded-lg border-2"
+                  style={{
+                    background: watch('disableUndertimeDeduction') ? 'rgba(239,68,68,0.06)' : '#f9fafb',
+                    borderColor: watch('disableUndertimeDeduction') ? 'rgba(239,68,68,0.3)' : 'transparent',
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium">Disable Undertime Deduction</p>
+                    <p className="text-xs text-gray-500">
+                      Skip pay docking for undertime minutes (recommended for
+                      HOURLY / DAILY — basic already reflects actual hours)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={watch('disableUndertimeDeduction')}
+                    onCheckedChange={v => setValue('disableUndertimeDeduction', v)}
                   />
                 </div>
               </div>

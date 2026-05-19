@@ -30,6 +30,8 @@ export const PAYROLL_AFFECTING_FIELDS = [
   'isExemptFromTax',
   'isMinimumWageEarner',
   'disableHolidayPay',
+  'disableLateDeduction',
+  'disableUndertimeDeduction',
   'trackTime',
   'sssEnabled',
   'philhealthEnabled',

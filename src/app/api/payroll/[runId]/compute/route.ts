@@ -812,6 +812,8 @@ export async function POST(
         isMinimumWageEarner:   emp.isMinimumWageEarner,
         isExemptFromTax:       emp.isExemptFromTax,
         disableHolidayPay:     (emp as { disableHolidayPay?: boolean }).disableHolidayPay ?? false,
+        disableLateDeduction:  (emp as { disableLateDeduction?: boolean }).disableLateDeduction ?? false,
+        disableUndertimeDeduction: (emp as { disableUndertimeDeduction?: boolean }).disableUndertimeDeduction ?? false,
         sssEnabled:            emp.sssEnabled,
         philhealthEnabled:     emp.philhealthEnabled,
         pagibigEnabled:        emp.pagibigEnabled,

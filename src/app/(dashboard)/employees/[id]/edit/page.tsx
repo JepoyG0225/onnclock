@@ -88,6 +88,8 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     isExemptFromTax: employee.isExemptFromTax,
     isMinimumWageEarner: employee.isMinimumWageEarner,
     disableHolidayPay: (employee as { disableHolidayPay?: boolean }).disableHolidayPay ?? false,
+    disableLateDeduction: (employee as { disableLateDeduction?: boolean }).disableLateDeduction ?? false,
+    disableUndertimeDeduction: (employee as { disableUndertimeDeduction?: boolean }).disableUndertimeDeduction ?? false,
     trackTime: employee.trackTime,
     fingerprintExempt: employee.fingerprintExempt ?? false,
     geofenceExempt: employee.geofenceExempt ?? false,

@@ -48,6 +48,8 @@ const createEmployeeSchema = z.object({
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
   disableHolidayPay: z.boolean().default(false),
+  disableLateDeduction: z.boolean().default(false),
+  disableUndertimeDeduction: z.boolean().default(false),
   fingerprintExempt: z.boolean().default(false),
   geofenceExempt: z.boolean().default(false),
   selfieExempt: z.boolean().default(false),

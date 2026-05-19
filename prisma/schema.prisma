@@ -564,6 +564,12 @@ model Employee {
   // engine's default Art. 94 behaviour on a per-employee basis — useful
   // for project-based / consultancy roles where holidays aren't paid.
   disableHolidayPay     Boolean @default(false)
+  // Per-employee toggle to suppress late + undertime pay deductions.
+  // Useful for HOURLY/DAILY hires where basic pay is already pro-rated
+  // by actual hours worked — deducting late/UT on top would double-
+  // count the same missing minutes. Defaults false (deductions on).
+  disableLateDeduction       Boolean @default(false)
+  disableUndertimeDeduction  Boolean @default(false)
 
   photoUrl             String?
   faceEmbedding        Json?

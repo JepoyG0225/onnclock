@@ -14,6 +14,18 @@ export interface PayrollInput {
      * company calendar. Useful for project-based / contractor roles.
      */
     disableHolidayPay?: boolean
+    /**
+     * Per-employee override: when TRUE the late-minutes pay deduction
+     * is suppressed for THIS employee even if the company-wide setting
+     * has it enabled. Useful for HOURLY/DAILY hires where basic pay
+     * already pro-rates by actual hours worked — deducting late on top
+     * would double-count the same missed minutes.
+     */
+    disableLateDeduction?: boolean
+    /**
+     * Same idea, but for undertime minutes.
+     */
+    disableUndertimeDeduction?: boolean
     sssEnabled: boolean
     philhealthEnabled: boolean
     pagibigEnabled: boolean
