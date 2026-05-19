@@ -168,7 +168,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
       yl -= 18
     })
 
-    let yr = 654
+    // Match earnings column start (yl = 642) so the first deduction row
+    // doesn't overlap the "DEDUCTIONS" header at y=662 / the underline
+    // at y=658. Previously yr=654 produced a visible overlap.
+    let yr = 642
     deductionRows.forEach(([label, value], i) => {
       if (i % 2 === 1) page.drawRectangle({ x: 310, y: yr - 4, width: 261, height: 18, color: C.alt })
       draw(label, 314, yr, 8.5, false, C.text)
