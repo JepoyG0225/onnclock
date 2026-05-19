@@ -34,6 +34,44 @@ export interface SeatStatus {
   isOver: boolean
 }
 
+export interface PausedEmployee {
+  id: string
+  firstName: string
+  lastName: string
+  employeeNo: string
+  createdAt: Date
+}
+
+export interface PausedEmployees {
+  ids: string[]
+  details: PausedEmployee[]
+}
+
+/**
+ * Identify which active employees exceed the company's paid seat count
+ * and should have their portal access "paused for billing." Returns the
+ * NEWEST `unbilled` employees (those who pushed the count past the
+ * paid limit) sorted by createdAt DESC.
+ *
+ *   ACTIVE sub with unbilled = 3 → returns the 3 newest active employees
+ *   TRIAL / no sub / not over    → returns empty arrays
+ */
+export const getPausedEmployees = cache(async (companyId: string): Promise<PausedEmployees> => {
+  const seat = await getSeatStatus(companyId)
+  if (!seat.enforceCap || seat.unbilled <= 0) return { ids: [], details: [] }
+
+  const overflow = await prisma.employee.findMany({
+    where: { companyId, isActive: true },
+    select: { id: true, firstName: true, lastName: true, employeeNo: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+    take: seat.unbilled,
+  })
+  return {
+    ids: overflow.map(e => e.id),
+    details: overflow,
+  }
+})
+
 /**
  * Look up the seat status for a company. Wrapped in React `cache()` so a
  * single request that calls this multiple times (layout + API + helper)

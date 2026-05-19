@@ -27,6 +27,7 @@ interface SubscriptionData {
   employeeCount: number
   daysLeft: number | null
   estimatedMonthly: number
+  pausedEmployees?: Array<{ id: string; employeeNo: string; fullName: string }>
 }
 
 interface Invoice {
@@ -487,21 +488,44 @@ export default function BillingPage() {
 
       {/* ── Over-seat banner ── */}
       {unbilledSeats > 0 && (
-        <div className="rounded-2xl px-5 py-4 flex items-start gap-4 border bg-amber-50 border-amber-200">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-amber-100">
-            <AlertCircle className="w-5 h-5 text-amber-700" />
+        <div className="rounded-2xl px-5 py-4 border bg-amber-50 border-amber-200 space-y-3">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-amber-100">
+              <AlertCircle className="w-5 h-5 text-amber-700" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-sm text-amber-900">
+                Access of the following {unbilledSeats === 1 ? 'employee has' : `${unbilledSeats} employees have`} been paused
+              </p>
+              <p className="text-xs mt-0.5 text-amber-800">
+                You have <strong>{employeeCount}</strong> active {employeeCount === 1 ? 'employee' : 'employees'} but
+                only <strong>{Number(sub?.seatCount ?? 0)}</strong> paid {Number(sub?.seatCount ?? 0) === 1 ? 'seat' : 'seats'}.
+                Please purchase additional seats below to reactivate their portal access.
+                The seat quantity is pre-filled to match your current headcount.
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="font-bold text-sm text-amber-900">
-              {unbilledSeats} unbilled {unbilledSeats === 1 ? 'employee' : 'employees'}
-            </p>
-            <p className="text-xs mt-0.5 text-amber-800">
-              You have <strong>{employeeCount}</strong> active {employeeCount === 1 ? 'employee' : 'employees'} but
-              only <strong>{Number(sub?.seatCount ?? 0)}</strong> paid {Number(sub?.seatCount ?? 0) === 1 ? 'seat' : 'seats'}.
-              Adding employees beyond your seat count is blocked until you upgrade your subscription below.
-              The seat quantity is pre-filled to match your current headcount.
-            </p>
-          </div>
+          {data.pausedEmployees && data.pausedEmployees.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-white overflow-hidden ml-14">
+              <div className="px-3 py-1.5 bg-amber-50 border-b border-amber-200">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                  Paused employees ({data.pausedEmployees.length})
+                </p>
+              </div>
+              <ul className="divide-y divide-amber-100">
+                {data.pausedEmployees.map(e => (
+                  <li key={e.id} className="px-3 py-2 flex items-center gap-3 text-xs">
+                    <span className="inline-flex w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                    <span className="font-semibold text-slate-800">{e.fullName}</span>
+                    <span className="text-slate-400 font-mono ml-auto">{e.employeeNo}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="px-3 py-1.5 bg-amber-50 border-t border-amber-200 text-[10px] text-amber-700">
+                Portal access automatically restores once the company is within paid seat capacity.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

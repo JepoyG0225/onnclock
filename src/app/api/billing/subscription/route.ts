@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { getPausedEmployees } from '@/lib/billing/seat-limit'
 
 export async function GET() {
   try {
@@ -82,6 +83,12 @@ export async function GET() {
       ? Math.max(0, Math.ceil((sub.trialEndsAt.getTime() - Date.now()) / 86_400_000))
       : null
 
+  // Paused employees — those over the paid seat cap whose portal access
+  // is auto-locked until the company adds seats. Returned with the
+  // subscription payload so the billing page can list them inline next
+  // to the "X unbilled employees" banner.
+  const paused = await getPausedEmployees(ctx.companyId)
+
   return NextResponse.json({
     subscription: {
       ...sub,
@@ -97,6 +104,11 @@ export async function GET() {
     estimatedMonthly,
     estimatedAnnual,
     company,
+    pausedEmployees: paused.details.map(e => ({
+      id: e.id,
+      employeeNo: e.employeeNo,
+      fullName: `${e.lastName}, ${e.firstName}`,
+    })),
   })
   } catch (err) {
     console.error('[GET /api/billing/subscription]', err)
