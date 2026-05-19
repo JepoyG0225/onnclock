@@ -1,17 +1,28 @@
 import { PAGIBIG_2024 } from '../constants'
 
-// Pag-IBIG monthly contribution. Effective May 2026: flat 2% on both
-// sides, capped at ₱200 each (based on the ₱10,000 monthly compensation
-// ceiling). An employee earning ₱5,000 pays ₱100 (no cap hit); one earning
-// ₱20,000 pays ₱200 (capped).
+// Pag-IBIG monthly contribution — HDMF Circular No. 460 (effective
+// February 2024, still in force as of 2026).
+//
+//   MC ≤ ₱1,500 → EE 1%, ER 2%
+//   MC > ₱1,500 → EE 2%, ER 2%
+//   Monthly compensation ceiling: ₱10,000
+//   Max contribution per share: ₱200/month
+//
+// Examples (post-cap):
+//   MC ₱1,000  → EE  ₱10 (1%)   ER  ₱20 (2%)   → ₱30 total
+//   MC ₱5,000  → EE ₱100 (2%)   ER ₱100 (2%)   → ₱200 total
+//   MC ₱20,000 → EE ₱200 (cap)  ER ₱200 (cap)  → ₱400 total
 export function computePagIBIG(monthlySalary: number): {
   employeeShare: number
   employerShare: number
   total: number
 } {
   const cappedComp = Math.min(monthlySalary, 10_000) // policy salary ceiling
+  const eeRate = cappedComp <= PAGIBIG_2024.THRESHOLD
+    ? PAGIBIG_2024.EMPLOYEE_LOW_RATE   // 1% for low-MC tier
+    : PAGIBIG_2024.EMPLOYEE_HIGH_RATE  // 2% for the rest
   const employeeShare = Math.min(
-    parseFloat((cappedComp * PAGIBIG_2024.EMPLOYEE_HIGH_RATE).toFixed(2)),
+    parseFloat((cappedComp * eeRate).toFixed(2)),
     PAGIBIG_2024.MAX_EMPLOYEE,
   )
   const employerShare = Math.min(

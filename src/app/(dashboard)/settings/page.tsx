@@ -328,10 +328,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <p className="font-semibold text-yellow-700">Pag-IBIG 2025</p>
+                  <p className="font-semibold text-yellow-700">Pag-IBIG (Circular 460, 2024)</p>
                   <div className="space-y-1 text-gray-600">
-                    <p>Employee: 2% of MC</p>
-                    <p>Employer: 2% of MC</p>
+                    <p>Employee: 1% (MC ≤ ₱1,500) / 2%</p>
+                    <p>Employer: 2% of MC always</p>
+                    <p>MC ceiling: ₱10,000</p>
                     <p>Max EE/ER: ₱200/month</p>
                   </div>
                 </div>
