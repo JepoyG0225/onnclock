@@ -275,8 +275,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                     ['Minimum Wage Earner', employee.isMinimumWageEarner ? 'Yes' : 'No'],
                     ['Exempt from Tax', employee.isExemptFromTax ? 'Yes' : 'No'],
                     ['Holiday Pay Disabled', (employee as { disableHolidayPay?: boolean }).disableHolidayPay ? 'Yes' : 'No'],
-                    ['Late Deduction Disabled', (employee as { disableLateDeduction?: boolean }).disableLateDeduction ? 'Yes' : 'No'],
-                    ['Undertime Deduction Disabled', (employee as { disableUndertimeDeduction?: boolean }).disableUndertimeDeduction ? 'Yes' : 'No'],
+                    ['Late + Overbreak Deduction Disabled', (employee as { disableLateDeduction?: boolean }).disableLateDeduction ? 'Yes' : 'No'],
                     ['Track Time (DTR-Based Pay)', employee.trackTime ? 'Yes' : 'No'],
                   ] as [string, string][]
                 }
@@ -290,8 +289,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                   ['Minimum Wage Earner', employee.isMinimumWageEarner ? 'Yes' : 'No'],
                   ['Exempt from Tax', employee.isExemptFromTax ? 'Yes' : 'No'],
                   ['Holiday Pay Disabled', (employee as { disableHolidayPay?: boolean }).disableHolidayPay ? 'Yes' : 'No'],
-                  ['Late Deduction Disabled', (employee as { disableLateDeduction?: boolean }).disableLateDeduction ? 'Yes' : 'No'],
-                  ['Undertime Deduction Disabled', (employee as { disableUndertimeDeduction?: boolean }).disableUndertimeDeduction ? 'Yes' : 'No'],
+                  ['Late + Overbreak Deduction Disabled', (employee as { disableLateDeduction?: boolean }).disableLateDeduction ? 'Yes' : 'No'],
                   ['Track Time (DTR-Based Pay)', employee.trackTime ? 'Yes' : 'No'],
                 ].filter(Boolean) as [string, string][]
               })().map(([k, v]) => (

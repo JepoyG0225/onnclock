@@ -167,24 +167,30 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
   // ── 3. DEDUCTIONS (attendance) ────────────────
   const minuteRate = hourlyRate / 60
-  // Late + undertime deductions are suppressed when EITHER the
-  // company-wide policy OR the per-employee toggle says so. The DTR
-  // still records the raw minutes for audit — they just don't translate
-  // to a peso amount on the payslip.
+  // Late deductions can be suppressed by company-wide config or per-
+  // employee toggle. The DTR still records lateMinutes for audit even
+  // when the deduction is skipped.
   //
-  // Per-employee toggles exist because HOURLY/DAILY employees' basic
-  // pay is already pro-rated by actual hours worked, so deducting
-  // late/UT on top would double-count the same missed minutes. HR
-  // typically flips these on for HOURLY/DAILY hires and leaves them
-  // off for MONTHLY hires (whose basic is a fixed salary).
+  // Note: `lateMinutes` on the DTR ALREADY includes any overbreak
+  // (minutes spent on break beyond the allowed limit) — that math
+  // happens in attendance/clock-out:
+  //   lateMinutes = baseLateMinutes + overBreakMinutes
+  // So suppressing late deductions also suppresses overbreak penalties.
+  // If you want overbreaks deducted but not arrival-late, that's a
+  // future split — track them separately on the DTR.
   const skipLate = period.disableLateDeductions || employee.disableLateDeduction === true
-  const skipUt = employee.disableUndertimeDeduction === true
   const lateDeduction = skipLate
     ? 0
     : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
-  const undertimeDeduction = skipUt
-    ? 0
-    : parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
+  // Undertime deductions are GLOBALLY DISABLED.
+  //   1. HOURLY / DAILY: basic pay already pro-rates by actual hours
+  //      worked (no work, no pay) — deducting UT on top double-counts.
+  //   2. MONTHLY: company policy decision — undertime is handled via
+  //      disciplinary process, not payroll docking.
+  // The DTR's undertimeMinutes is still recorded for audit + late /
+  // overbreak (which the clock-out route stores inside lateMinutes)
+  // remain deductible.
+  const undertimeDeduction = 0
   const absenceDeduction = computeAbsenceDeduction(employee.dailyRate, attendance.absentDays)
 
   // ── 4. ALLOWANCES & DE MINIMIS ────────────────
