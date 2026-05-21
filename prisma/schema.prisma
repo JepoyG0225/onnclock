@@ -1055,10 +1055,11 @@ model IncomeType {
   code          String?
   mode          IncomeTypeMode @default(VARIABLE)
   defaultAmount Decimal        @default(0) @db.Decimal(12, 2)
-  isTaxable     Boolean        @default(true)
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  isTaxable       Boolean        @default(true)
+  excludeFrom2316 Boolean        @default(false) // exclude this income from BIR Form 2316 totals
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   company             Company                    @relation(fields: [companyId], references: [id])
   employeeAssignments EmployeeIncomeAssignment[]

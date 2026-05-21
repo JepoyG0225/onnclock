@@ -9,6 +9,7 @@ const updateIncomeTypeSchema = z.object({
   mode: z.enum(['FIXED', 'VARIABLE']).optional(),
   defaultAmount: z.coerce.number().min(0).optional(),
   isTaxable: z.boolean().optional(),
+  excludeFrom2316: z.boolean().optional(),
   isActive: z.boolean().optional(),
 })
 
@@ -45,6 +46,7 @@ export async function PATCH(
             ? { defaultAmount: 0 }
             : {}),
         ...(payload.isTaxable != null ? { isTaxable: payload.isTaxable } : {}),
+        ...(payload.excludeFrom2316 != null ? { excludeFrom2316: payload.excludeFrom2316 } : {}),
         ...(payload.isActive != null ? { isActive: payload.isActive } : {}),
       },
     })

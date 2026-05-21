@@ -16,6 +16,7 @@ interface IncomeTypeItem {
   mode: 'FIXED' | 'VARIABLE'
   defaultAmount: number
   isTaxable: boolean
+  excludeFrom2316: boolean
 }
 
 export default function PayrollIncomeTypesManager() {
@@ -28,6 +29,7 @@ export default function PayrollIncomeTypesManager() {
     mode: 'VARIABLE' as 'FIXED' | 'VARIABLE',
     defaultAmount: 0,
     isTaxable: true,
+    excludeFrom2316: false,
   })
 
   async function loadIncomeTypes() {
@@ -67,7 +69,7 @@ export default function PayrollIncomeTypesManager() {
         return
       }
       toast.success('Income type created')
-      setNewIncomeType({ name: '', code: '', mode: 'VARIABLE', defaultAmount: 0, isTaxable: true })
+      setNewIncomeType({ name: '', code: '', mode: 'VARIABLE', defaultAmount: 0, isTaxable: true, excludeFrom2316: false })
       await loadIncomeTypes()
     } finally {
       setCreatingIncomeType(false)
@@ -83,6 +85,20 @@ export default function PayrollIncomeTypesManager() {
     }
     toast.success('Income type deactivated')
     await loadIncomeTypes()
+  }
+
+  async function toggleExcludeFrom2316(id: string, current: boolean) {
+    const res = await fetch(`/api/income-types/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ excludeFrom2316: !current }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      toast.error(data.error || 'Failed to update income type')
+      return
+    }
+    setIncomeTypes(prev => prev.map(t => t.id === id ? { ...t, excludeFrom2316: !current } : t))
   }
 
   return (
@@ -132,6 +148,16 @@ export default function PayrollIncomeTypesManager() {
             />
           </div>
         </div>
+        <div className="flex items-center gap-3 rounded-lg border px-3 py-2 bg-amber-50 border-amber-200">
+          <Switch
+            checked={newIncomeType.excludeFrom2316}
+            onCheckedChange={v => setNewIncomeType(prev => ({ ...prev, excludeFrom2316: v }))}
+          />
+          <div>
+            <p className="text-sm font-medium">Exclude from BIR Form 2316</p>
+            <p className="text-xs text-gray-500">This income type will not appear in the employee&apos;s annual BIR 2316 totals.</p>
+          </div>
+        </div>
 
         <div className="flex justify-end">
           <Button type="button" onClick={createIncomeType} disabled={creatingIncomeType}>
@@ -146,24 +172,36 @@ export default function PayrollIncomeTypesManager() {
             <p className="text-sm text-gray-400">No income types yet.</p>
           ) : (
             incomeTypes.map(type => (
-              <div key={type.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium">{type.name}</p>
+              <div key={type.id} className="flex items-center justify-between border rounded-lg px-3 py-2 gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{type.name}{type.code ? <span className="ml-1 text-xs text-gray-400">({type.code})</span> : null}</p>
                   <p className="text-xs text-gray-500">
                     {type.mode === 'FIXED' ? `Fixed: PHP ${Number(type.defaultAmount).toFixed(2)}` : 'Variable'}
                     {' • '}
                     {type.isTaxable ? 'Taxable' : 'Non-taxable'}
+                    {type.excludeFrom2316 && (
+                      <span className="ml-1 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700">Excl. 2316</span>
+                    )}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                  onClick={() => deactivateIncomeType(type.id)}
-                >
-                  Deactivate
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-500 hidden sm:block">Excl. 2316</span>
+                    <Switch
+                      checked={type.excludeFrom2316}
+                      onCheckedChange={() => toggleExcludeFrom2316(type.id, type.excludeFrom2316)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                    onClick={() => deactivateIncomeType(type.id)}
+                  >
+                    Deactivate
+                  </Button>
+                </div>
               </div>
             ))
           )}

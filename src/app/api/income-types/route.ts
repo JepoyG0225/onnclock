@@ -9,6 +9,7 @@ const createIncomeTypeSchema = z.object({
   mode: z.enum(['FIXED', 'VARIABLE']),
   defaultAmount: z.coerce.number().min(0).optional().default(0),
   isTaxable: z.boolean().default(true),
+  excludeFrom2316: z.boolean().default(false),
   isActive: z.boolean().optional().default(true),
 })
 
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
         mode: data.mode,
         defaultAmount: data.mode === 'FIXED' ? data.defaultAmount : 0,
         isTaxable: data.isTaxable,
+        excludeFrom2316: data.excludeFrom2316,
         isActive: data.isActive,
       },
     })

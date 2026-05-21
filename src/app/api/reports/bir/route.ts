@@ -61,6 +61,14 @@ export async function GET(req: NextRequest) {
         clothingAllowance: true,
         medicalAllowance: true,
         otherAllowances: true,
+        // Include per-payslip income entries so we can subtract excluded types
+        incomes: {
+          select: {
+            amount: true,
+            isTaxable: true,
+            incomeType: { select: { excludeFrom2316: true } },
+          },
+        },
       },
     })
 
@@ -78,8 +86,17 @@ export async function GET(req: NextRequest) {
       acc.nightDiff    += p.nightDiffAmount.toNumber()
       acc.thirteenth   += p.thirteenthMonthContribution.toNumber()
       acc.deMinimis    += (p.riceAllowance.toNumber() + p.clothingAllowance.toNumber() + p.medicalAllowance.toNumber() + p.otherAllowances.toNumber())
+      // Sum income entries marked excludeFrom2316 (split by taxable flag for proper subtraction)
+      for (const pi of p.incomes ?? []) {
+        if (pi.incomeType?.excludeFrom2316) {
+          const amt = pi.amount.toNumber()
+          acc.excludedTaxable    += pi.isTaxable ? amt : 0
+          acc.excludedNonTaxable += pi.isTaxable ? 0 : amt
+          acc.excludedGross      += amt
+        }
+      }
       return acc
-    }, { gross: 0, basicSalary: 0, taxable: 0, nonTaxable: 0, taxWithheld: 0, sss: 0, ph: 0, pagibig: 0, holidayPay: 0, overtimePay: 0, nightDiff: 0, thirteenth: 0, deMinimis: 0 })
+    }, { gross: 0, basicSalary: 0, taxable: 0, nonTaxable: 0, taxWithheld: 0, sss: 0, ph: 0, pagibig: 0, holidayPay: 0, overtimePay: 0, nightDiff: 0, thirteenth: 0, deMinimis: 0, excludedTaxable: 0, excludedNonTaxable: 0, excludedGross: 0 })
 
     // thirteenthMonthContribution is tracked separately — NOT included in grossPay/nonTaxableIncome.
     // The 13th month is additional annual compensation on top of gross.
@@ -87,11 +104,12 @@ export async function GET(req: NextRequest) {
     const thirteenthNonTax  = Math.min(totals.thirteenth, 90000)
     const thirteenthTaxable = Math.max(0, totals.thirteenth - 90000)
 
-    // For BIR 2316: gross includes 13th month; non-taxable adds 13th month non-taxable portion
-    const effectiveGross      = totals.gross + totals.thirteenth
-    const effectiveNonTaxable = totals.nonTaxable + thirteenthNonTax
+    // For BIR 2316: gross includes 13th month; non-taxable adds 13th month non-taxable portion.
+    // Subtract any income amounts whose incomeType.excludeFrom2316 = true.
+    const effectiveGross      = Math.max(0, totals.gross + totals.thirteenth - totals.excludedGross)
+    const effectiveNonTaxable = Math.max(0, totals.nonTaxable + thirteenthNonTax - totals.excludedNonTaxable)
     // Taxable = original payslip taxable + any taxable excess of 13th month (don't subtract from basic)
-    const effectiveTaxable    = totals.taxable + thirteenthTaxable
+    const effectiveTaxable    = Math.max(0, totals.taxable + thirteenthTaxable - totals.excludedTaxable)
 
     // Basic salary non-taxable: for employees with zero taxable income (below threshold),
     // show their total basic salary. Otherwise derive from non-taxable income minus other components.
