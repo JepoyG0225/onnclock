@@ -15,6 +15,7 @@ export function computeAnnualTax(annualTaxableIncome: number): number {
 export interface WithholdingTaxInput {
   basicAndAllowances: number        // basic pay + regular allowances (taxable)
   overtimeAndPremium: number        // OT, holiday pay, night diff (taxable)
+  additionalTaxable: number         // commissions and other taxable variable income
   deMinimisNonTaxable: number       // within BIR limits (non-taxable)
   additionalNonTaxable: number
   sssEmployee: number               // deducted from taxable base
@@ -45,7 +46,7 @@ export function computeWithholdingTax(input: WithholdingTaxInput): WithholdingTa
   if (input.isExempt || input.isMinimumWageEarner) {
     return {
       taxableIncome: 0,
-      nonTaxableIncome: input.basicAndAllowances + input.overtimeAndPremium + input.deMinimisNonTaxable + input.additionalNonTaxable,
+      nonTaxableIncome: input.basicAndAllowances + input.overtimeAndPremium + input.additionalTaxable + input.deMinimisNonTaxable + input.additionalNonTaxable,
       withholdingTax: 0,
       annualizedTaxable: 0,
       annualTax: 0,
@@ -55,10 +56,10 @@ export function computeWithholdingTax(input: WithholdingTaxInput): WithholdingTa
   // Government contributions reduce taxable income
   const govContributions = input.sssEmployee + input.philhealthEmployee + input.pagibigEmployee
 
-  // Period taxable income = (basic + allowances + OT/premium) - gov contributions
+  // Period taxable income = (basic + allowances + OT/premium + commissions/variable) - gov contributions
   const periodTaxableIncome = Math.max(
     0,
-    input.basicAndAllowances + input.overtimeAndPremium - govContributions
+    input.basicAndAllowances + input.overtimeAndPremium + input.additionalTaxable - govContributions
   )
 
   // Non-taxable = de minimis + gov contributions

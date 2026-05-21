@@ -255,6 +255,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const taxResult = computeWithholdingTax({
     basicAndAllowances: basicPayWithHolidayCredit + allowancesTotal - lateDeduction - undertimeDeduction - absenceDeduction,
     overtimeAndPremium: regularOtAmount + restDayOtAmount + holidayOtAmount + nightDiffAmount + holidayPayAmount,
+    additionalTaxable: input.additionalTaxableIncome,   // commissions & taxable variable income
     deMinimisNonTaxable: deMinimisTotal,
     additionalNonTaxable: input.additionalNonTaxableIncome,
     sssEmployee: sss.employee,
