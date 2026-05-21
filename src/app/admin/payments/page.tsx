@@ -21,6 +21,10 @@ interface SubmittedPayment {
   proofUploadedAt: string | null
   manualEntry?: boolean
   adminNotes?: string | null
+  // Digital payment fields
+  paymentProvider?: string | null
+  paymentIntentId?: string | null
+  mayaCheckoutId?: string | null
 }
 
 interface Company {
@@ -229,7 +233,7 @@ export default function AdminPaymentsPage() {
             return (
               <div key={payment.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                 <div className="flex flex-col md:flex-row md:items-start gap-4">
-                  {/* Proof thumbnail */}
+                  {/* Proof thumbnail / payment type icon */}
                   {payment.proofOfPaymentDataUrl ? (
                     <button
                       onClick={() => setPreviewUrl(payment.proofOfPaymentDataUrl)}
@@ -243,7 +247,11 @@ export default function AdminPaymentsPage() {
                   ) : (
                     <div className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-700 bg-slate-950 flex flex-col items-center justify-center gap-1 text-slate-500">
                       <Receipt className="w-5 h-5" />
-                      <span className="text-[10px] font-semibold">{payment.manualEntry ? 'Manual' : 'No proof'}</span>
+                      <span className="text-[10px] font-semibold text-center leading-tight px-1">
+                        {payment.paymentProvider === 'PAYMONGO_QRPH' ? 'QR Ph' :
+                         payment.paymentProvider === 'MAYA' ? 'Maya' :
+                         payment.manualEntry ? 'Manual' : 'No proof'}
+                      </span>
                     </div>
                   )}
 
@@ -276,6 +284,19 @@ export default function AdminPaymentsPage() {
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 text-[10px] font-semibold border border-sky-500/20">
                           Manual entry
                         </span>
+                      )}
+                      {payment.paymentProvider === 'PAYMONGO_QRPH' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 text-[10px] font-semibold border border-violet-500/20">
+                          QR Ph / GCash
+                        </span>
+                      )}
+                      {payment.paymentProvider === 'MAYA' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-300 text-[10px] font-semibold border border-green-500/20">
+                          Maya
+                        </span>
+                      )}
+                      {payment.paymentIntentId && (
+                        <span className="text-[10px] text-slate-600 font-mono">PI: {payment.paymentIntentId.slice(0, 20)}…</span>
                       )}
                     </div>
                     {payment.adminNotes && (

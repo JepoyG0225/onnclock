@@ -7,6 +7,10 @@ interface ProofPayload {
   proofUploadedAt?: string
   manualEntry?: boolean
   adminNotes?: string | null
+  // Digital payment fields (QR Ph / Maya)
+  paymentProvider?: string | null
+  paymentIntentId?: string | null
+  mayaCheckoutId?: string | null
 }
 
 export async function GET() {
@@ -38,8 +42,9 @@ export async function GET() {
           parsed = {}
         }
       }
-      // Show if has proof image OR was manually recorded by admin
-      if (!parsed.proofOfPaymentDataUrl && !parsed.manualEntry) return null
+      // Show if: has proof image, manually recorded by admin, OR paid via digital provider (QR Ph / Maya)
+      const isDigitalPayment = !!(parsed.paymentProvider && parsed.paymentProvider !== 'MANUAL')
+      if (!parsed.proofOfPaymentDataUrl && !parsed.manualEntry && !isDigitalPayment) return null
 
       return {
         id: invoice.id,
@@ -54,6 +59,10 @@ export async function GET() {
         proofUploadedAt: parsed.proofUploadedAt ?? null,
         manualEntry: parsed.manualEntry ?? false,
         adminNotes: parsed.adminNotes ?? null,
+        // Digital payment fields — passed through for UI badge/display
+        paymentProvider: parsed.paymentProvider ?? null,
+        paymentIntentId: parsed.paymentIntentId ?? null,
+        mayaCheckoutId: parsed.mayaCheckoutId ?? null,
       }
     })
     .filter(Boolean)
