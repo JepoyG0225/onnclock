@@ -322,6 +322,12 @@ model Company {
   defaultBreakMinutes           Int      @default(60)
   timezone                      String   @default("Asia/Manila")
   payrollCurrency               String   @default("PHP")
+  // Payroll disbursement wallet (funded via QR Ph top-up)
+  disbursementBalance           Decimal  @default(0) @db.Decimal(14, 2)
+  // Source bank/wallet account for PayMongo batch_transfers
+  disbursementSourceAccountNo   String?
+  disbursementSourceAccountName String?
+  disbursementSourceBic         String?
   thirteenthPayStartMonth       Int      @default(1)
   thirteenthPayStartDay         Int      @default(1)
   thirteenthPayEndMonth         Int      @default(12)
@@ -362,8 +368,10 @@ model Company {
   invoices              Invoice[]
   assets                CompanyAsset[]
   cashAdvanceRequests   CashAdvanceRequest[]
-  shiftAssignments      EmployeeShiftAssignment[]
-  incomeTypes           IncomeType[]
+  shiftAssignments          EmployeeShiftAssignment[]
+  incomeTypes               IncomeType[]
+  disbursementTopUps        DisbursementTopUp[]
+  payrollDisbursements      PayrollDisbursement[]
   jobPosts              JobPost[]
   jobApplications       JobApplication[]
   recruitmentEmailTemplates RecruitmentEmailTemplate[]
@@ -545,6 +553,7 @@ model Employee {
 
   bankName      String?
   bankAccountNo String?
+  bankBic       String?  // ISO 9362 BIC/SWIFT for PayMongo disbursements
 
   isExemptFromTax     Boolean @default(false)
   isMinimumWageEarner Boolean @default(false)
@@ -964,6 +973,7 @@ model PayrollRun {
   company       Company                 @relation(fields: [companyId], references: [id])
   payslips      Payslip[]
   incomeEntries PayrollRunIncomeEntry[]
+  disbursement  PayrollDisbursement?
 
   @@index([companyId, status])
   @@index([companyId, periodStart])
@@ -2171,4 +2181,79 @@ model BiometricClockEvent {
   @@index([deviceId, capturedAt])
   @@index([employeeId, capturedAt])
   @@map("biometric_clock_events")
+}
+
+// ─────────────────────────────────────────────
+// PAYROLL DISBURSEMENT
+// ─────────────────────────────────────────────
+
+/// Records each QR Ph top-up of the company disbursement wallet
+model DisbursementTopUp {
+  id              String   @id @default(cuid())
+  companyId       String
+  amountPeso      Decimal  @db.Decimal(12, 2)
+  /// PENDING | CONFIRMED | FAILED | EXPIRED
+  status          String   @default("PENDING")
+  paymentIntentId String?
+  qrImage         String?  @db.Text
+  expiresAt       DateTime?
+  confirmedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, createdAt])
+  @@map("disbursement_top_ups")
+}
+
+/// One record per payroll-run disbursement batch
+model PayrollDisbursement {
+  id              String   @id @default(cuid())
+  companyId       String
+  payrollRunId    String   @unique
+  totalAmount     Decimal  @db.Decimal(14, 2)
+  /// PENDING | PROCESSING | COMPLETED | PARTIAL | FAILED | CANCELLED
+  status          String   @default("PENDING")
+  /// PayMongo /v2/batch_transfers id
+  batchTransferId String?
+  initiatedBy     String
+  initiatedAt     DateTime @default(now())
+  completedAt     DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company    Company    @relation(fields: [companyId], references: [id])
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id])
+  items      PayrollDisbursementItem[]
+
+  @@index([companyId, createdAt])
+  @@map("payroll_disbursements")
+}
+
+/// One record per employee per disbursement batch
+model PayrollDisbursementItem {
+  id             String   @id @default(cuid())
+  disbursementId String
+  payslipId      String   @unique
+  employeeId     String
+  employeeName   String
+  bankName       String?
+  bankAccountNo  String?
+  bankBic        String?
+  amount         Decimal  @db.Decimal(12, 2)
+  /// instapay | pesonet
+  channel        String
+  /// PENDING | PROCESSING | COMPLETED | FAILED | SKIPPED
+  status         String   @default("PENDING")
+  referenceNo    String?
+  failureReason  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  disbursement PayrollDisbursement @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+
+  @@index([disbursementId])
+  @@map("payroll_disbursement_items")
 }

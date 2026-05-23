@@ -160,6 +160,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         payFrequency:             body.payFrequency,
         bankName:                 n(body.bankName),
         bankAccountNo:            n(body.bankAccountNo),
+        bankBic:                  n(body.bankBic),
         isExemptFromTax:          body.isExemptFromTax          != null ? Boolean(body.isExemptFromTax)          : undefined,
         isMinimumWageEarner:      body.isMinimumWageEarner      != null ? Boolean(body.isMinimumWageEarner)      : undefined,
         disableHolidayPay:        body.disableHolidayPay        != null ? Boolean(body.disableHolidayPay)        : undefined,

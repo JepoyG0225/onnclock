@@ -7,7 +7,8 @@
  * QR codes expire 30 minutes after creation.
  */
 
-const PM_BASE = 'https://api.paymongo.com/v1'
+const PM_BASE    = 'https://api.paymongo.com/v1'
+const PM_BASE_V2 = 'https://api.paymongo.com/v2'
 
 function secretKey(): string {
   return process.env.PAYMONGO_SECRET_KEY ?? ''
@@ -21,8 +22,9 @@ async function pmFetch<T = unknown>(
   method: 'GET' | 'POST',
   path: string,
   body?: unknown,
+  baseUrl = PM_BASE,
 ): Promise<T> {
-  const res = await fetch(`${PM_BASE}${path}`, {
+  const res = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
       Authorization: authHeader(),
@@ -192,5 +194,100 @@ export async function getPaymentIntentStatus(
   return {
     paymentIntentId,
     status: res.data.attributes.status,
+  }
+}
+
+// ─── Disbursement / Batch Transfers (v2) ─────────────────────────────────────
+
+export interface BatchTransferItem {
+  sourceAccount: { number: string; name: string; bic: string }
+  destinationAccount: { number: string; name: string; bic: string }
+  amountCentavos: number
+  /** 'instapay' for ≤ PHP 50,000 | 'pesonet' for > PHP 50,000 */
+  provider: 'instapay' | 'pesonet' | 'paymongo'
+  referenceNumber?: string
+  purpose?: string
+  description?: string
+}
+
+export interface BatchTransferResult {
+  id: string
+  status: string
+  transfers: Array<{
+    id?: string
+    status: string
+    amount: number
+    provider: string
+    referenceNumber?: string
+    providerReferenceNumber?: string
+    error?: string
+  }>
+}
+
+/**
+ * Create a PayMongo v2 batch transfer (disbursement).
+ * Docs: https://docs.paymongo.com/docs/money-movement-disbursements
+ */
+export async function createBatchTransfer(
+  items: BatchTransferItem[],
+): Promise<BatchTransferResult> {
+  const body = {
+    transfers: items.map(t => ({
+      source_account: {
+        number: t.sourceAccount.number,
+        name: t.sourceAccount.name,
+        bic: t.sourceAccount.bic,
+      },
+      destination_account: {
+        number: t.destinationAccount.number,
+        name: t.destinationAccount.name,
+        bic: t.destinationAccount.bic,
+      },
+      amount: t.amountCentavos,
+      currency: 'PHP',
+      provider: t.provider,
+      ...(t.referenceNumber ? { reference_number: t.referenceNumber } : {}),
+      ...(t.purpose        ? { purpose: t.purpose }                  : {}),
+      ...(t.description    ? { description: t.description }          : {}),
+    })),
+  }
+
+  const res = await pmFetch<Record<string, unknown>>('POST', '/batch_transfers', body, PM_BASE_V2)
+
+  // Normalise response
+  const rawTransfers = (res.transfers as Array<Record<string, unknown>>) ?? []
+  return {
+    id: (res.id as string) ?? '',
+    status: (res.status as string) ?? 'pending',
+    transfers: rawTransfers.map(t => ({
+      id: t.id as string | undefined,
+      status: (t.status as string) ?? 'pending',
+      amount: (t.amount as number) ?? 0,
+      provider: (t.provider as string) ?? '',
+      referenceNumber: t.reference_number as string | undefined,
+      providerReferenceNumber: t.provider_reference_number as string | undefined,
+      error: t.error as string | undefined,
+    })),
+  }
+}
+
+/**
+ * Retrieve a PayMongo v2 batch transfer by ID.
+ */
+export async function getBatchTransfer(batchId: string): Promise<BatchTransferResult> {
+  const res = await pmFetch<Record<string, unknown>>('GET', `/batch_transfers/${batchId}`, undefined, PM_BASE_V2)
+  const rawTransfers = (res.transfers as Array<Record<string, unknown>>) ?? []
+  return {
+    id: (res.id as string) ?? '',
+    status: (res.status as string) ?? 'pending',
+    transfers: rawTransfers.map(t => ({
+      id: t.id as string | undefined,
+      status: (t.status as string) ?? 'pending',
+      amount: (t.amount as number) ?? 0,
+      provider: (t.provider as string) ?? '',
+      referenceNumber: t.reference_number as string | undefined,
+      providerReferenceNumber: t.provider_reference_number as string | undefined,
+      error: t.error as string | undefined,
+    })),
   }
 }

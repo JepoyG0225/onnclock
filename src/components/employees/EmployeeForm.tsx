@@ -58,6 +58,7 @@ const employeeSchema = z.object({
   dayOffDays: z.array(z.number().int().min(0).max(6)).optional(),
   bankName: z.string().optional(),
   bankAccountNo: z.string().optional(),
+  bankBic: z.string().optional(),
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
   disableHolidayPay: z.boolean().default(false),
@@ -868,6 +869,10 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </Field>
               <Field label="Bank Account Number">
                 <Input {...register('bankAccountNo')} placeholder="1234-5678-9012" />
+              </Field>
+              <Field label="Bank BIC / SWIFT Code">
+                <Input {...register('bankBic')} placeholder="e.g. BNORPHMMXXX (for BDO)" />
+                <p className="text-[11px] text-gray-400 mt-0.5">Required for payroll disbursement. BDO: BNORPHMMXXX · BPI: BOPIPHMMXXX · GCash: GCSHPHM2XXX · Maya: PAEYPHM2XXX</p>
               </Field>
               {/* Toggles — single row of 4 on md+ (2-col on small screens) */}
               <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">

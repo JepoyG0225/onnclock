@@ -45,6 +45,7 @@ const createEmployeeSchema = z.object({
   dayOffDays: z.array(z.number().int().min(0).max(6)).optional(),
   bankName: z.string().optional(),
   bankAccountNo: z.string().optional(),
+  bankBic: z.string().optional(),
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
   disableHolidayPay: z.boolean().default(false),
