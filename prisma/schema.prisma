@@ -772,6 +772,8 @@ model DTRRecord {
   isAbsent         Boolean      @default(false)
   isLeave          Boolean      @default(false)
   isLeavePaid      Boolean      @default(false)
+  isHalfDay        Boolean      @default(false)
+  halfDayPeriod    String?      /// "AM" or "PM" when isHalfDay = true
   leaveRequestId   String?
   source           String       @default("MANUAL")
   remarks          String?
@@ -879,6 +881,8 @@ model LeaveRequest {
   startDate      DateTime    @db.Date
   endDate        DateTime    @db.Date
   totalDays      Decimal     @db.Decimal(6, 2)
+  isHalfDay      Boolean     @default(false)
+  halfDayPeriod  String?     /// "AM" or "PM" — only set when isHalfDay = true
   reason         String?
   status         LeaveStatus @default(PENDING)
   approvalLevel  Int         @default(0)

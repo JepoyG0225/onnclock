@@ -565,7 +565,13 @@ export async function POST(
     })
 
     const hasDtr = enhancedDtr.length > 0
-    const dtrWorked = enhancedDtr.filter(d => !d.isAbsent && (!d.isLeave || d.isLeavePaid)).length
+    // Half-day leave counts as 0.5 worked day (if paid) or 0.5 absent day (if unpaid).
+    // Full rows: count as 1.0; half-day rows: count as 0.5.
+    const dtrWorked = enhancedDtr.reduce((sum, d) => {
+      if (d.isAbsent) return sum
+      if (d.isLeave && !d.isLeavePaid) return sum
+      return sum + ((d as { isHalfDay?: boolean }).isHalfDay ? 0.5 : 1)
+    }, 0)
     const daysWorked = emp.trackTime
       ? dtrWorked
       : (hasDtr ? dtrWorked : workingDays)
@@ -606,8 +612,9 @@ export async function POST(
           const regularMinutes = Math.min(totalMinutes, workHoursPerDayForCap * 60)
           regularHoursTotal += regularMinutes / 60
         } else if (d.isLeave && d.isLeavePaid) {
-          // Paid leave: credit a full standard day's hours
-          regularHoursTotal += workHoursPerDayForCap
+          // Paid leave: credit full or half standard day's hours
+          const halfDay = (d as { isHalfDay?: boolean }).isHalfDay ?? false
+          regularHoursTotal += halfDay ? workHoursPerDayForCap / 2 : workHoursPerDayForCap
         } else if (!d.isAbsent) {
           // Present but no timestamps (manual DTR check-mark): credit full day
           regularHoursTotal += workHoursPerDayForCap
@@ -670,7 +677,13 @@ export async function POST(
     const undertimeMinutes = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + (d.undertimeMinutes ?? 0), 0)
       : 0
-    const dtrAbsent = enhancedDtr.filter(d => d.isAbsent).length
+    // Unpaid half-day leave counts as 0.5 absent day
+    const dtrAbsent = enhancedDtr.reduce((sum, d) => {
+      if (d.isAbsent) return sum + 1
+      // Unpaid half-day leave: 0.5 absent day
+      if (d.isLeave && !d.isLeavePaid && (d as { isHalfDay?: boolean }).isHalfDay) return sum + 0.5
+      return sum
+    }, 0)
     // If trackTime is enabled, basic pay is already pro-rated by daysWorked,
     // so do not apply absence deductions again.
     const absentDays = emp.trackTime ? 0 : dtrAbsent

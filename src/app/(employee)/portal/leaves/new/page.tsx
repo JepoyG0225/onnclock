@@ -5,17 +5,19 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format, differenceInCalendarDays, parseISO, isWeekend } from 'date-fns'
+import { format, parseISO, isWeekend } from 'date-fns'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { DatePicker } from '@/components/ui/date-picker'
 
 const schema = z.object({
-  leaveTypeId: z.string().min(1, 'Please select a leave type'),
-  startDate: z.string().min(1, 'Start date is required'),
-  endDate: z.string().min(1, 'End date is required'),
-  reason: z.string().min(3, 'Please provide a reason'),
+  leaveTypeId:   z.string().min(1, 'Please select a leave type'),
+  startDate:     z.string().min(1, 'Start date is required'),
+  endDate:       z.string().min(1, 'End date is required'),
+  isHalfDay:     z.boolean().optional(),
+  halfDayPeriod: z.enum(['AM', 'PM']).optional(),
+  reason:        z.string().min(3, 'Please provide a reason'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -53,16 +55,28 @@ export default function NewLeavePage() {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      startDate: format(new Date(), 'yyyy-MM-dd'),
-      endDate: format(new Date(), 'yyyy-MM-dd'),
+      startDate:     format(new Date(), 'yyyy-MM-dd'),
+      endDate:       format(new Date(), 'yyyy-MM-dd'),
+      isHalfDay:     false,
+      halfDayPeriod: 'AM',
     },
   })
 
-  const startDate = watch('startDate')
-  const endDate = watch('endDate')
-  const leaveTypeId = watch('leaveTypeId')
+  const startDate     = watch('startDate')
+  const endDate       = watch('endDate')
+  const leaveTypeId   = watch('leaveTypeId')
+  const isHalfDay     = watch('isHalfDay') ?? false
+  const halfDayPeriod = watch('halfDayPeriod') ?? 'AM'
 
-  const days = startDate && endDate ? workingDays(startDate, endDate) : 0
+  // Half-day only valid when start === end
+  const isSameDay = startDate === endDate
+
+  // When dates diverge, auto-clear half-day toggle
+  useEffect(() => {
+    if (!isSameDay && isHalfDay) setValue('isHalfDay', false)
+  }, [isSameDay, isHalfDay, setValue])
+
+  const days = isHalfDay ? 0.5 : (startDate && endDate ? workingDays(startDate, endDate) : 0)
   const selectedBalance = balances.find(b => b.leaveTypeId === leaveTypeId)
 
   function addWorkingDays(start: string, daysToAdd: number) {
@@ -75,19 +89,19 @@ export default function NewLeavePage() {
     return d
   }
 
-  const maxDays = selectedBalance ? Math.max(0, Math.floor(Number(selectedBalance.balance) || 0)) : null
-  const maxEndDate = startDate && maxDays !== null
-    ? format(addWorkingDays(startDate, Math.max(0, maxDays - 1)), 'yyyy-MM-dd')
+  const maxDays = selectedBalance ? Math.max(0, Number(selectedBalance.balance) || 0) : null
+  const maxEndDate = startDate && maxDays !== null && maxDays >= 1
+    ? format(addWorkingDays(startDate, Math.max(0, Math.floor(maxDays) - 1)), 'yyyy-MM-dd')
     : undefined
 
   useEffect(() => {
     if (!startDate || maxDays === null || maxDays <= 0) return
-    if (!endDate) return
+    if (!endDate || isHalfDay) return
     const maxDate = maxEndDate ? parseISO(maxEndDate) : null
     if (maxDate && parseISO(endDate) > maxDate && maxEndDate) {
       setValue('endDate', maxEndDate)
     }
-  }, [startDate, endDate, maxDays, maxEndDate, setValue])
+  }, [startDate, endDate, maxDays, maxEndDate, isHalfDay, setValue])
 
   useEffect(() => {
     async function load() {
@@ -102,10 +116,7 @@ export default function NewLeavePage() {
         const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
         const computed = n(b.entitled) + n(b.carriedOver) - n(b.used) - n(b.pending)
         const balance = Number.isFinite(Number(b.balance)) ? Number(b.balance) : computed
-        return {
-          leaveTypeId: b.leaveTypeId,
-          balance,
-        }
+        return { leaveTypeId: b.leaveTypeId, balance }
       }))
     }
     load()
@@ -114,10 +125,19 @@ export default function NewLeavePage() {
   const onSubmit = async (data: FormData) => {
     setLoading(true)
     try {
+      const payload = {
+        leaveTypeId:   data.leaveTypeId,
+        startDate:     data.startDate,
+        endDate:       data.isHalfDay ? data.startDate : data.endDate, // half-day: same day
+        isHalfDay:     data.isHalfDay ?? false,
+        halfDayPeriod: data.isHalfDay ? data.halfDayPeriod : undefined,
+        totalDays:     days,
+        reason:        data.reason,
+      }
       const res = await fetch('/api/leaves', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, totalDays: days }),
+        body: JSON.stringify(payload),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed to file leave')
@@ -148,7 +168,7 @@ export default function NewLeavePage() {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Type</label>
           <select
             {...register('leaveTypeId')}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
           >
             <option value="">Select leave type...</option>
             {leaveTypes.map(lt => (
@@ -171,7 +191,10 @@ export default function NewLeavePage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>
             <DatePicker
               value={startDate}
-              onChange={(v) => setValue('startDate', v)}
+              onChange={(v) => {
+                setValue('startDate', v)
+                if (!isHalfDay && endDate < v) setValue('endDate', v)
+              }}
               className="w-full"
             />
             <input type="hidden" {...register('startDate')} value={startDate} />
@@ -180,24 +203,62 @@ export default function NewLeavePage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">End Date</label>
             <DatePicker
-              value={endDate}
+              value={isHalfDay ? startDate : endDate}
               onChange={(v) => setValue('endDate', v)}
               min={startDate}
               max={maxEndDate}
-              className="w-full"
+              disabled={isHalfDay}
+              className={`w-full ${isHalfDay ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
-            <input type="hidden" {...register('endDate')} value={endDate} />
+            <input type="hidden" {...register('endDate')} value={isHalfDay ? startDate : endDate} />
             {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate.message}</p>}
-            {maxDays !== null && maxDays <= 0 && (
+            {!isHalfDay && maxDays !== null && maxDays <= 0 && (
               <p className="text-xs text-amber-600 mt-1">No available balance for this leave type.</p>
             )}
           </div>
         </div>
 
+        {/* Half-day toggle — only show when single day selected */}
+        {isSameDay && (
+          <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isHalfDay}
+                onChange={e => setValue('isHalfDay', e.target.checked)}
+                className="w-4 h-4 rounded accent-[#032b63]"
+              />
+              <span className="text-sm font-medium text-gray-700">Half-day leave (0.5 day)</span>
+            </label>
+            {isHalfDay && (
+              <div className="flex gap-2 pl-6">
+                {(['AM', 'PM'] as const).map(period => (
+                  <button
+                    key={period}
+                    type="button"
+                    onClick={() => setValue('halfDayPeriod', period)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      halfDayPeriod === period
+                        ? 'bg-[#032b63] text-white border-[#032b63]'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-[#032b63]'
+                    }`}
+                  >
+                    {period} — {period === 'AM' ? 'Morning' : 'Afternoon'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Days Preview */}
         {days > 0 && (
-          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: '#2E4156' }}>
-            <strong>{days} working day{days !== 1 ? 's' : ''}</strong> from {format(parseISO(startDate), 'MMM d')} to {format(parseISO(endDate), 'MMM d, yyyy')}
+          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: '#032b63' }}>
+            <strong>{days} working day{days !== 1 ? 's' : ''}</strong>
+            {isHalfDay
+              ? ` — ${halfDayPeriod === 'AM' ? 'Morning' : 'Afternoon'} half of ${format(parseISO(startDate), 'MMM d, yyyy')}`
+              : ` from ${format(parseISO(startDate), 'MMM d')} to ${format(parseISO(isHalfDay ? startDate : endDate), 'MMM d, yyyy')}`
+            }
             {selectedBalance !== undefined && selectedBalance.balance < days && (
               <p className="text-red-600 mt-1"> Insufficient balance. You have {selectedBalance.balance.toFixed(1)} day(s) available.</p>
             )}
@@ -211,7 +272,7 @@ export default function NewLeavePage() {
             {...register('reason')}
             rows={3}
             placeholder="Please state your reason for filing this leave..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156] resize-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63] resize-none"
           />
           {errors.reason && <p className="text-red-500 text-xs mt-1">{errors.reason.message}</p>}
         </div>
@@ -225,8 +286,8 @@ export default function NewLeavePage() {
           </Link>
           <button
             type="submit"
-            disabled={loading}
-            className="flex-1 py-2.5 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={{ background: '#2E4156' }}
+            disabled={loading || (selectedBalance !== undefined && selectedBalance.balance < days)}
+            className="flex-1 py-2.5 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={{ background: '#0055d4' }}
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Submit Request
@@ -236,4 +297,3 @@ export default function NewLeavePage() {
     </div>
   )
 }
-

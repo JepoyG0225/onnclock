@@ -8,6 +8,8 @@ const createLeaveSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
   totalDays: z.number().positive().optional(),
+  isHalfDay: z.boolean().optional(),
+  halfDayPeriod: z.enum(['AM', 'PM']).optional().nullable(),
   reason: z.string().optional().nullable(),
   employeeId: z.string().optional(), // HR can file on behalf
 })
@@ -93,22 +95,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { leaveTypeId, startDate, endDate, reason, employeeId: targetEmployeeId } = parsed.data
+  const { leaveTypeId, startDate, endDate, reason, employeeId: targetEmployeeId, isHalfDay, halfDayPeriod } = parsed.data
   const finalEmployeeId = targetEmployeeId || employeeId
 
-  // Compute working days if totalDays not provided
+  // Half-day: always 0.5 days, start === end
+  // Full day(s): count working days between start and end
   let totalDays = parsed.data.totalDays
   if (!totalDays) {
-    const start = new Date(startDate)
-    const end   = new Date(endDate)
-    let days = 0
-    const cur = new Date(start)
-    while (cur <= end) {
-      const dow = cur.getDay()
-      if (dow !== 0 && dow !== 6) days++
-      cur.setDate(cur.getDate() + 1)
+    if (isHalfDay) {
+      totalDays = 0.5
+    } else {
+      const start = new Date(startDate)
+      const end   = new Date(endDate)
+      let days = 0
+      const cur = new Date(start)
+      while (cur <= end) {
+        const dow = cur.getDay()
+        if (dow !== 0 && dow !== 6) days++
+        cur.setDate(cur.getDate() + 1)
+      }
+      totalDays = Math.max(1, days)
     }
-    totalDays = Math.max(1, days)
   }
 
   if (!finalEmployeeId) {
@@ -140,6 +147,8 @@ export async function POST(req: NextRequest) {
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         totalDays,
+        isHalfDay: isHalfDay ?? false,
+        halfDayPeriod: isHalfDay ? (halfDayPeriod ?? 'AM') : null,
         reason,
         status: 'PENDING',
       },

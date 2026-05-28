@@ -23,6 +23,8 @@ export async function POST(
       startDate: true,
       endDate: true,
       totalDays: true,
+      isHalfDay: true,
+      halfDayPeriod: true,
       status: true,
       approvalLevel: true,
       reviewedBy: true,
@@ -119,6 +121,13 @@ export async function POST(
         cursor.setDate(cursor.getDate() + 1)
       }
 
+      const isPaid     = !!leaveRequest.leaveType?.isWithPay
+      const typeName   = leaveRequest.leaveType?.name ?? 'Leave'
+      const isHalfDay  = leaveRequest.isHalfDay ?? false
+      const halfPeriod = leaveRequest.halfDayPeriod ?? 'AM'
+      const halfLabel  = isHalfDay ? ` (Half-day ${halfPeriod})` : ''
+      const dtrRemarks = `Leave - ${typeName}${halfLabel}`
+
       const existing = await tx.dTRRecord.findMany({
         where: {
           employeeId: leaveRequest.employeeId,
@@ -136,6 +145,16 @@ export async function POST(
         const prev = existingMap.get(key)
         if (prev && (prev.timeIn || prev.timeOut)) continue
 
+        const dtrData = {
+          isLeave:        true,
+          isLeavePaid:    isPaid,
+          isAbsent:       false,
+          isHalfDay,
+          halfDayPeriod:  isHalfDay ? halfPeriod : null,
+          remarks:        dtrRemarks,
+          leaveRequestId: leaveRequest.id,
+        }
+
         const updateRes = await tx.dTRRecord.updateMany({
           where: {
             employeeId: leaveRequest.employeeId,
@@ -143,24 +162,14 @@ export async function POST(
             timeIn: null,
             timeOut: null,
           },
-          data: {
-            isLeave: true,
-            isLeavePaid: !!leaveRequest.leaveType?.isWithPay,
-            isAbsent: false,
-            remarks: leaveRequest.leaveType?.name ? `Leave - ${leaveRequest.leaveType.name}` : 'Leave',
-            leaveRequestId: leaveRequest.id,
-          },
+          data: dtrData,
         })
         if (updateRes.count === 0) {
           await tx.dTRRecord.create({
             data: {
               employeeId: leaveRequest.employeeId,
               date: d,
-              isLeave: true,
-              isLeavePaid: !!leaveRequest.leaveType?.isWithPay,
-              isAbsent: false,
-              remarks: leaveRequest.leaveType?.name ? `Leave - ${leaveRequest.leaveType.name}` : 'Leave',
-              leaveRequestId: leaveRequest.id,
+              ...dtrData,
             },
           })
         }
