@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import { z } from 'zod'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
@@ -65,6 +66,14 @@ export async function PATCH(
   }
 
   const { status, rejectionReason } = parsed.data
+
+  // Block manual approval when overtime pay is disabled in payroll settings
+  if (status === 'APPROVED' && !(await isOvertimeEnabledForCompany(ctx.companyId))) {
+    return NextResponse.json(
+      { error: 'Overtime pay is disabled in payroll settings. Enable it before approving overtime requests.' },
+      { status: 422 }
+    )
+  }
 
   const updateData: Record<string, unknown> = { status }
   if (status === 'APPROVED') {

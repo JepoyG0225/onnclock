@@ -39,6 +39,25 @@ export async function syncAutoOvertimeRequest(params: {
   const overtimeHours = Number(params.overtimeHours || 0)
   const normalizedHours = Math.round(Math.max(0, overtimeHours) * 100) / 100
 
+  // If overtime pay is disabled for this company, clean up any existing
+  // PENDING auto-OT requests and do not create new ones.
+  const otEnabled = await isOvertimeEnabledForCompany(companyId)
+  if (!otEnabled) {
+    // Delete stale PENDING auto-OT if it exists
+    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+    const stale = await prisma.overtimeRequest.findFirst({
+      where: {
+        companyId, employeeId,
+        date: { gte: dayStart, lt: dayEnd },
+        reason: { startsWith: AUTO_OT_REASON_PREFIX },
+        status: 'PENDING',
+      },
+    })
+    if (stale) await prisma.overtimeRequest.delete({ where: { id: stale.id } })
+    return
+  }
+
   const dayStart = new Date(date)
   dayStart.setHours(0, 0, 0, 0)
   const dayEnd = new Date(dayStart)
