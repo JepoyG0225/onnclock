@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>OnClock</title>
+    <style>
+      body {
+        margin: 0;
+        background: #1A2D42;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      .spinner {
+        border: 3px solid rgba(255,255,255,0.15);
+        border-top: 3px solid #fa5e01;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        animation: spin 0.9s linear infinite;
+        margin-bottom: 16px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="spinner"></div>
+    <p>Loading OnClock…</p>
+  </body>
+</html>
