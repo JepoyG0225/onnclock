@@ -2249,7 +2249,7 @@ model PayrollDisbursementItem {
   status         String   @default("PENDING")
   /// PayMongo transfer ID for this single employee transfer.
   /// Used by the status-polling route to query each transfer individually.
-  pmTransferId   String?
+  pmTransferId   String?   /// PayMongo batch_transfers id for this individual transfer (send-money approach)
   referenceNo    String?
   failureReason  String?
   createdAt      DateTime @default(now())
