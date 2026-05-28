@@ -253,14 +253,6 @@ export default function PortalLoginPage() {
               </button>
             )}
 
-            {!isStandalone && isIos && (
-              <div
-                className="rounded-xl border px-3 py-2 text-xs font-semibold text-slate-600"
-                style={{ borderColor: '#dbe6e8', background: '#eef6f7' }}
-              >
-                Install on iPhone: tap <span className="font-bold">Share</span> then <span className="font-bold">Add to Home Screen</span>.
-              </div>
-            )}
           </form>
         </div>
 
