@@ -224,6 +224,70 @@ export interface BatchTransferResult {
 }
 
 /**
+ * Create a PayMongo v2 batch_transfer with one or more recipients.
+ * source_account is embedded inside each transfer item per the API spec.
+ */
+export async function createBatchTransfer(
+  items: Array<BatchTransferItem & { sourceAccount: { number: string; name?: string; bic: string } }>,
+): Promise<BatchTransferResult> {
+  const mockRaw = (process.env.PAYMONGO_MOCK_DISBURSEMENT ?? '').trim().toLowerCase().replace(/^["']+|["']+$/g, '')
+  if (mockRaw === 'true' || mockRaw === '1') {
+    return {
+      id: `mock_batch_${Date.now()}`,
+      status: 'pending',
+      transfers: items.map((item, i) => ({
+        id: `mock_transfer_${Date.now()}_${i}`,
+        status: 'succeeded',
+        amount: item.amountCentavos,
+        provider: item.provider,
+        referenceNumber: item.referenceNumber,
+        providerReferenceNumber: `MOCK-${(Date.now() + i).toString(36).toUpperCase()}`,
+      })),
+    }
+  }
+
+  const body = {
+    transfers: items.map(item => ({
+      source_account: {
+        number: item.sourceAccount.number,
+        name:   item.sourceAccount.name || undefined,
+        bic:    item.sourceAccount.bic,
+      },
+      destination_account: {
+        number: item.destinationAccount.number,
+        name:   item.destinationAccount.name,
+        bic:    item.destinationAccount.bic,
+      },
+      amount:   item.amountCentavos,
+      currency: 'PHP',
+      provider: item.provider,
+      ...(item.referenceNumber ? { reference_number: item.referenceNumber } : {}),
+      ...(item.description     ? { description: item.description }          : {}),
+    })),
+  }
+
+  const res = await pmFetch<{ data: { id: string; transfers: Array<Record<string, unknown>> } }>(
+    'POST', '/batch_transfers', body, PM_BASE_V2,
+  )
+  const batchData    = res.data ?? (res as unknown as { id: string; transfers: Array<Record<string, unknown>> })
+  const rawTransfers = (batchData.transfers ?? []) as Array<Record<string, unknown>>
+
+  return {
+    id: batchData.id ?? '',
+    status: 'pending',
+    transfers: rawTransfers.map(t => ({
+      id:                      t.id as string | undefined,
+      status:                  (t.status as string) ?? 'pending',
+      amount:                  (t.amount as number) ?? 0,
+      provider:                (t.provider as string) ?? '',
+      referenceNumber:         t.reference_number as string | undefined,
+      providerReferenceNumber: t.provider_reference_number as string | undefined,
+      error:                   t.error as string | undefined,
+    })),
+  }
+}
+
+/**
  * Retrieve a single PayMongo v2 transfer by its individual transfer ID
  * (the `id` field of one transfer inside a batch_transfer).
  */
