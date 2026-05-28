@@ -9,8 +9,8 @@
     "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
     "build": "electron-builder --win --x64",
     "build:dir": "electron-builder --win --x64 --dir",
-    "build:mac": "electron-builder --mac",
-    "build:mac:dir": "electron-builder --mac --dir",
+    "build:mac": "set -a && . ./.env && set +a && electron-builder --mac",
+    "build:mac:dir": "set -a && . ./.env && set +a && electron-builder --mac --dir",
     "build:selfsigned:win": "electron-builder --win --x64 --config.win.certificateSubjectName=\"OnClock Employee Desktop Self Signed\""
   },
   "build": {
@@ -31,12 +31,18 @@
     },
     "mac": {
       "icon": "assets/icon.icns",
-      "identity": null,
-      "hardenedRuntime": false,
+      "identity": "Jeffrey Gealon (826TQNNT37)",
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": {
+        "teamId": "826TQNNT37"
+      },
       "target": [
         {
-          "target": "dmg"
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
         }
       ]
     },

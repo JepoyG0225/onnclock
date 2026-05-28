@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Required for Electron V8 JIT under hardened runtime -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Required so Electron can load its native modules (.node files) signed by different teams -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- Allows the app to fetch the current user's network info (geofence/GPS use) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Used by clock-in selfie verification (camera) -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+</dict>
+</plist>
