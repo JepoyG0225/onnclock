@@ -53,20 +53,27 @@ export default function DownloadPage() {
                 <h2 className="text-xl font-black text-slate-900">{section.title}</h2>
                 <p className="mt-1 text-sm text-slate-500">{section.subtitle}</p>
                 <div className="mt-5 space-y-3">
-                  {platforms.map((platform) => (
-                    platform.key === 'mac' ? (
-                      <div
-                        key={platform.key}
-                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-500 cursor-not-allowed"
-                        aria-disabled="true"
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <Image src={platform.icon} alt={platform.label} width={18} height={18} />
-                          {platform.label}
-                        </span>
-                        <span className="text-xs text-amber-600 font-bold">Coming soon</span>
-                      </div>
-                    ) : (
+                  {platforms.map((platform) => {
+                    // macOS for the employee build hasn't been notarized yet —
+                    // hide that one until it ships. Admin macOS DMG is signed
+                    // and notarized as of 2026-05-28.
+                    const isUnavailable = platform.key === 'mac' && section.role === 'employee'
+                    if (isUnavailable) {
+                      return (
+                        <div
+                          key={platform.key}
+                          className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-500 cursor-not-allowed"
+                          aria-disabled="true"
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <Image src={platform.icon} alt={platform.label} width={18} height={18} />
+                            {platform.label}
+                          </span>
+                          <span className="text-xs text-amber-600 font-bold">Coming soon</span>
+                        </div>
+                      )
+                    }
+                    return (
                       <a
                         key={platform.key}
                         href={`/api/desktop-app/download/${section.role}/${platform.key}`}
@@ -79,7 +86,7 @@ export default function DownloadPage() {
                         <span className="text-xs text-slate-500">Download</span>
                       </a>
                     )
-                  ))}
+                  })}
                 </div>
               </article>
             ))}

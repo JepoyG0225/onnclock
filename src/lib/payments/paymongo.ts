@@ -291,3 +291,77 @@ export async function getBatchTransfer(batchId: string): Promise<BatchTransferRe
     })),
   }
 }
+
+/**
+ * Retrieve a single PayMongo v2 transfer by its individual transfer ID
+ * (the `id` field of one transfer inside a batch_transfer).
+ */
+export interface SingleTransferResult {
+  id: string
+  status: string
+  amount: number
+  provider: string
+  referenceNumber?: string
+  providerReferenceNumber?: string
+  error?: string
+}
+
+export async function getSingleTransfer(transferId: string): Promise<SingleTransferResult> {
+  const res = await pmFetch<Record<string, unknown>>('GET', `/transfers/${transferId}`, undefined, PM_BASE_V2)
+  return {
+    id: (res.id as string) ?? '',
+    status: (res.status as string) ?? 'pending',
+    amount: (res.amount as number) ?? 0,
+    provider: (res.provider as string) ?? '',
+    referenceNumber: res.reference_number as string | undefined,
+    providerReferenceNumber: res.provider_reference_number as string | undefined,
+    error: res.error as string | undefined,
+  }
+}
+
+/**
+ * Submit a single transfer (one employee disbursement) via PayMongo.
+ * The source account is resolved from environment variables since OnClock
+ * always disburses from the same operational account.
+ *
+ * Implemented on top of `createBatchTransfer` with a single-item array so
+ * the request/response normalization stays in one place.
+ */
+export async function createSingleTransfer(
+  item: Omit<BatchTransferItem, 'sourceAccount'>,
+  _index?: number,
+): Promise<{
+  pmTransferId: string
+  status: string
+  amount: number
+  provider: string
+  referenceNumber?: string
+  providerReferenceNumber?: string
+  error?: string
+}> {
+  const sourceAccount = {
+    number: process.env.PAYMONGO_SOURCE_ACCOUNT_NUMBER ?? '',
+    name:   process.env.PAYMONGO_SOURCE_ACCOUNT_NAME   ?? '',
+    bic:    process.env.PAYMONGO_SOURCE_ACCOUNT_BIC    ?? '',
+  }
+  const batch = await createBatchTransfer([{ ...item, sourceAccount }])
+  const t = batch.transfers[0]
+  if (!t) {
+    return {
+      pmTransferId: '',
+      status: 'failed',
+      amount: 0,
+      provider: item.provider,
+      error: 'PayMongo did not return a transfer record',
+    }
+  }
+  return {
+    pmTransferId: t.id ?? '',
+    status: t.status,
+    amount: t.amount,
+    provider: t.provider,
+    referenceNumber: t.referenceNumber,
+    providerReferenceNumber: t.providerReferenceNumber,
+    error: t.error,
+  }
+}

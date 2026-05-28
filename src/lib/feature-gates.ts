@@ -42,3 +42,13 @@ export function hasScreenCaptureFeature(pricePerSeat: number, isTrial: boolean):
 export function isDesktopApp(userAgent: string): boolean {
   return /OnClock-Desktop\//i.test(userAgent)
 }
+
+/**
+ * Check whether a company can use HRIS-Pro features (disbursement, etc).
+ * Trial subscriptions get full Pro access so customers can evaluate the
+ * paid feature set before committing.
+ */
+export async function checkHrisProAccess(companyId: string): Promise<boolean> {
+  const sub = await getCompanySubscription(companyId)
+  return sub.isTrial || hasHrisProFeature(sub.pricePerSeat)
+}

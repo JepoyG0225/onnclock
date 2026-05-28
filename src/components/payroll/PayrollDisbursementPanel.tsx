@@ -219,7 +219,14 @@ function TopUpModal({ onClose, onConfirmed }: { onClose: () => void; onConfirmed
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-export default function PayrollDisbursementPanel({ runId }: { runId: string }) {
+export default function PayrollDisbursementPanel({
+  runId,
+  onDisbursed,
+}: {
+  runId: string
+  /** Called after a successful disbursement initiation so parent screens can refresh */
+  onDisbursed?: () => void
+}) {
   const [preview,     setPreview]     = useState<DisbursementPreview | null>(null)
   const [statusItems, setStatusItems] = useState<StatusItem[]>([])
   const [loading,     setLoading]     = useState(true)
@@ -290,6 +297,7 @@ export default function PayrollDisbursementPanel({ runId }: { runId: string }) {
       if (!res.ok) { toast.error(data.error ?? 'Failed to initiate disbursement'); return }
       toast.success('Disbursement initiated!')
       await loadPreview()
+      onDisbursed?.()
     } finally {
       setDisbursing(false)
     }
