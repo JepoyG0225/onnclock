@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const payslips = await prisma.payslip.findMany({
     where: {
-      employee: { companyId: ctx.companyId },
+      employee: { companyId: ctx.companyId, sssEnabled: true },
       payrollRun: {
         payDate: { gte: payDateStart, lte: payDateEnd },
       },
@@ -43,35 +43,47 @@ export async function GET(req: NextRequest) {
           middleName: true,
           sssNo: true,
           basicSalary: true,
+          sssEnabled: true,
         },
       },
     },
   })
 
-  // Aggregate by employee
-  const map = new Map<string, typeof payslips[number]>()
+  // Aggregate by employee — sum SSS across multiple payslips in the month
+  const map = new Map<string, { ps: typeof payslips[number]; employeeShare: number; employerShare: number; ec: number }>()
   for (const ps of payslips) {
-    if (!map.has(ps.employeeId)) {
-      map.set(ps.employeeId, { ...ps })
+    const existing = map.get(ps.employeeId)
+    if (existing) {
+      existing.employeeShare += Number(ps.sssEc)          // employee share stored in sssEc field
+      existing.employerShare += Number(ps.sssEmployer)
+      existing.ec            += Number(ps.sssEc)
+    } else {
+      map.set(ps.employeeId, {
+        ps,
+        employeeShare: Number(ps.sssEc),
+        employerShare: Number(ps.sssEmployer),
+        ec:            Number(ps.sssEc),
+      })
     }
-    // Just take the first payslip's SSS amounts (they're monthly, not doubled)
   }
 
-  const rows = Array.from(map.values()).map(ps => {
-    const sss = computeSSS(ps.employee.basicSalary.toNumber())
-    return {
-      employeeNo:     ps.employee.employeeNo || '',
-      sssNo:          ps.employee.sssNo || '',
-      lastName:       ps.employee.lastName,
-      firstName:      ps.employee.firstName,
-      middleName:     ps.employee.middleName || '',
-      msc:            sss.msc,
-      employeeShare:  sss.employeeShare,
-      employerShare:  sss.employerShare,
-      ec:             sss.ec,
-      total:          sss.total,
-    }
-  })
+  const rows = Array.from(map.values())
+    .filter(({ employeeShare, employerShare }) => employeeShare > 0 || employerShare > 0)
+    .map(({ ps, employeeShare, employerShare, ec }) => {
+      const sss = computeSSS(ps.employee.basicSalary.toNumber())
+      return {
+        employeeNo:     ps.employee.employeeNo || '',
+        sssNo:          ps.employee.sssNo || '',
+        lastName:       ps.employee.lastName,
+        firstName:      ps.employee.firstName,
+        middleName:     ps.employee.middleName || '',
+        msc:            sss.msc,
+        employeeShare,
+        employerShare,
+        ec,
+        total:          employeeShare + employerShare,
+      }
+    })
 
   const monthName = new Date(year, month - 1).toLocaleString('en-PH', { month: 'long' })
 

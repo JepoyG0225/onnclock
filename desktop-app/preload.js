@@ -44,6 +44,12 @@ contextBridge.exposeInMainWorld('onclock', {
   logout: () => ipcRenderer.invoke('auth:logout'),
   getSession: () => ipcRenderer.invoke('auth:getSession'),
 
+  // PIN lock
+  hasPinLock:   ()                      => ipcRenderer.invoke('auth:hasPinLock'),
+  setupPin:     (pin, email, password)  => ipcRenderer.invoke('auth:setupPin', { pin, email, password }),
+  verifyPin:    (pin)                   => ipcRenderer.invoke('auth:verifyPin', { pin }),
+  clearPin:     ()                      => ipcRenderer.invoke('auth:clearPin'),
+
   // Attendance — location is optional { lat, lng, accuracy, address }
   clockIn: (location) => ipcRenderer.invoke('attendance:clockIn', location),
   clockOut: (location) => ipcRenderer.invoke('attendance:clockOut', location),

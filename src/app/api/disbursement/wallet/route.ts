@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createQrPhPayment } from '@/lib/payments/paymongo'
+import { checkHrisProAccess } from '@/lib/feature-gates'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 
@@ -10,6 +11,11 @@ export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
+  const hasAccess = await checkHrisProAccess(ctx.companyId)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Disbursement requires the Pro plan.' }, { status: 403 })
+  }
+
   const company = await prisma.company.findUnique({
     where: { id: ctx.companyId },
     select: { disbursementBalance: true },
@@ -17,9 +23,9 @@ export async function GET() {
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
 
   const topUps = await prisma.disbursementTopUp.findMany({
-    where: { companyId: ctx.companyId },
+    where: { companyId: ctx.companyId, status: { in: ['PAID', 'CONFIRMED'] } },
     orderBy: { createdAt: 'desc' },
-    take: 10,
+    take: 20,
     select: {
       id: true, amountPeso: true, status: true,
       confirmedAt: true, createdAt: true,
@@ -46,6 +52,11 @@ const topUpSchema = z.object({
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+
+  const hasAccess = await checkHrisProAccess(ctx.companyId)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Disbursement requires the Pro plan.' }, { status: 403 })
+  }
 
   const body   = await req.json().catch(() => ({}))
   const parsed = topUpSchema.safeParse(body)

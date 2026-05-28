@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPaymentIntentStatus } from '@/lib/payments/paymongo'
+import { checkHrisProAccess } from '@/lib/feature-gates'
 
 /**
  * GET /api/disbursement/wallet/status?topUpId=xxx
@@ -10,6 +11,11 @@ import { getPaymentIntentStatus } from '@/lib/payments/paymongo'
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+
+  const hasAccess = await checkHrisProAccess(ctx.companyId)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Disbursement requires the Pro plan.' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(req.url)
   const topUpId = searchParams.get('topUpId')
@@ -23,6 +29,9 @@ export async function GET(req: NextRequest) {
   // Already settled
   if (topUp.status === 'CONFIRMED') {
     return NextResponse.json({ status: 'CONFIRMED', amountPeso: topUp.amountPeso.toNumber() })
+  }
+  if (topUp.status === 'PAID') {
+    return NextResponse.json({ status: 'PAID', amountPeso: topUp.amountPeso.toNumber() })
   }
   if (topUp.status === 'FAILED') {
     return NextResponse.json({ status: 'FAILED' })
@@ -45,20 +54,12 @@ export async function GET(req: NextRequest) {
   const { status: pmStatus } = await getPaymentIntentStatus(topUp.paymentIntentId)
 
   if (pmStatus === 'succeeded') {
-    // Confirm top-up and credit disbursement balance atomically
-    await prisma.$transaction([
-      prisma.disbursementTopUp.update({
-        where: { id: topUpId },
-        data: { status: 'CONFIRMED', confirmedAt: new Date() },
-      }),
-      prisma.company.update({
-        where: { id: ctx.companyId },
-        data: {
-          disbursementBalance: { increment: topUp.amountPeso },
-        },
-      }),
-    ])
-    return NextResponse.json({ status: 'CONFIRMED', amountPeso: topUp.amountPeso.toNumber() })
+    // Payment received — mark as PAID (awaiting Super Admin approval before crediting balance)
+    await prisma.disbursementTopUp.update({
+      where: { id: topUpId },
+      data: { status: 'PAID', confirmedAt: new Date() },
+    })
+    return NextResponse.json({ status: 'PAID', amountPeso: topUp.amountPeso.toNumber() })
   }
 
   if (pmStatus === 'failed' || pmStatus === 'cancelled') {

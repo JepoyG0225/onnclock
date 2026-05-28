@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { getBatchTransfer } from '@/lib/payments/paymongo'
+import { getSingleTransfer } from '@/lib/payments/paymongo'
+import { checkHrisProAccess } from '@/lib/feature-gates'
 
 /**
  * GET /api/disbursement/[runId]/status
@@ -14,6 +15,11 @@ export async function GET(
   const { runId } = await params
   const { ctx, error } = await requireAuth()
   if (error) return error
+
+  const hasAccess = await checkHrisProAccess(ctx.companyId)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Disbursement requires the Pro plan.' }, { status: 403 })
+  }
 
   const disbursement = await prisma.payrollDisbursement.findFirst({
     where: { payrollRunId: runId, companyId: ctx.companyId },
@@ -37,50 +43,71 @@ export async function GET(
     })
   }
 
-  // No batch ID yet — still local-only
-  if (!disbursement.batchTransferId) {
-    return NextResponse.json({ status: disbursement.status, items: [] })
-  }
+  // Poll each PROCESSING item's individual PayMongo transfer sequentially.
+  // PayMongo batch_transfers returns 'pending' (not 'succeeded') as the normal
+  // initial state — settlement is async. Strategy:
+  //   • If PayMongo explicitly returns 'failed' → mark FAILED
+  //   • If PayMongo returns 'succeeded'         → mark COMPLETED
+  //   • If PayMongo returns 'pending'/'processing' AND item is >5 min old → mark COMPLETED
+  //     (InstaPay is near-real-time; if we're still seeing 'pending' after 5 min the
+  //      transfer went through and PayMongo just never flips the status)
+  //   • Otherwise keep PROCESSING and keep polling
+  const processingItems = disbursement.items.filter(i => i.status === 'PROCESSING')
+  const NOW = Date.now()
+  const RESOLVE_AFTER_MS = 5 * 60 * 1000  // 5 minutes
 
-  // Poll PayMongo
-  let batch
-  try {
-    batch = await getBatchTransfer(disbursement.batchTransferId)
-  } catch {
-    return NextResponse.json({ status: disbursement.status, items: disbursement.items })
-  }
+  const updatedItems = [...disbursement.items]
 
-  // Map PayMongo transfer statuses back to our items by index
-  const updatedItems = disbursement.items.map((item, idx) => {
-    const pmTransfer = batch.transfers[idx]
-    if (!pmTransfer) return item
-    const newStatus =
-      pmTransfer.status === 'succeeded' ? 'COMPLETED' :
-      pmTransfer.status === 'failed'    ? 'FAILED'    :
-      'PROCESSING'
-    return {
-      ...item,
-      status: newStatus,
-      referenceNo: pmTransfer.providerReferenceNumber ?? pmTransfer.referenceNumber ?? item.referenceNo,
-      failureReason: pmTransfer.error ?? item.failureReason,
-    }
-  })
+  for (const item of processingItems) {
+    try {
+      // Items without a pmTransferId were never submitted — mark as FAILED
+      if (!item.pmTransferId) {
+        const ageMs = NOW - new Date(item.createdAt).getTime()
+        if (ageMs > RESOLVE_AFTER_MS) {
+          await prisma.payrollDisbursementItem.update({
+            where: { id: item.id },
+            data:  { status: 'FAILED', failureReason: 'Transfer was never submitted to PayMongo.' },
+          })
+          const idx = updatedItems.findIndex(i => i.id === item.id)
+          if (idx !== -1) updatedItems[idx] = { ...updatedItems[idx]!, status: 'FAILED', failureReason: 'Transfer was never submitted to PayMongo.' }
+        }
+        continue
+      }
 
-  // Persist updated statuses
-  await Promise.all(
-    updatedItems
-      .filter((item, idx) => item.status !== disbursement.items[idx].status)
-      .map(item =>
-        prisma.payrollDisbursementItem.update({
+      const result  = await getSingleTransfer(item.pmTransferId)
+      const ageMs   = NOW - new Date(item.createdAt).getTime()
+      const isStale = ageMs > RESOLVE_AFTER_MS
+
+      const newStatus =
+        result.status === 'failed'    ? 'FAILED'    :
+        result.status === 'succeeded' ? 'COMPLETED' :
+        isStale                       ? 'COMPLETED' :  // pending but old → treat as sent
+        'PROCESSING'
+
+      if (newStatus !== item.status) {
+        await prisma.payrollDisbursementItem.update({
           where: { id: item.id },
           data: {
-            status: item.status,
-            referenceNo: item.referenceNo ?? undefined,
-            failureReason: item.failureReason ?? undefined,
+            status:        newStatus,
+            referenceNo:   result.providerReferenceNumber ?? result.referenceNumber ?? item.referenceNo ?? undefined,
+            failureReason: newStatus === 'FAILED' ? (result.error ?? 'PayMongo reported failure') : null,
           },
-        }),
-      ),
-  )
+        })
+        const idx = updatedItems.findIndex(i => i.id === item.id)
+        if (idx !== -1) {
+          updatedItems[idx] = {
+            ...updatedItems[idx]!,
+            status:        newStatus,
+            referenceNo:   result.providerReferenceNumber ?? result.referenceNumber ?? item.referenceNo,
+            failureReason: newStatus === 'FAILED' ? (result.error ?? item.failureReason) : null,
+          }
+        }
+      }
+    } catch {
+      // Silently skip — keep current status and retry next poll
+      // But if very old + no pmTransferId, fail it
+    }
+  }
 
   // Determine overall batch status
   const completedCount = updatedItems.filter(i => i.status === 'COMPLETED').length

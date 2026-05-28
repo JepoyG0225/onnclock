@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -16,6 +16,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Bell, LogOut, Settings, User, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSidebar } from './SidebarContext'
+import { NexaChat } from './NexaChat'
+import { DesktopAppPopup } from './DesktopAppPopup'
 
 interface AppHeaderProps {
   user?: {
@@ -136,6 +138,12 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Nexa AI Assistant */}
+        <NexaChat />
+
+        {/* Download desktop app */}
+        <DesktopAppPopup />
+
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -239,7 +247,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2">
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="text-white text-sm" style={{ background: '#2E4156' }}>
+                <AvatarFallback className="text-white text-sm" style={{ background: '#0055d4' }}>
                   {initials}
                 </AvatarFallback>
               </Avatar>

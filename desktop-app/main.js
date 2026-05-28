@@ -12,7 +12,9 @@ const {
   net,
   shell,
   session,
+  safeStorage,
 } = require('electron')
+const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 const Store = require('electron-store')
@@ -30,6 +32,11 @@ const store = new Store({
     userRole: '',
     screenCaptureEnabled: false,
     frequencyMinutes: 5,
+    // PIN lock
+    pinHash: null,
+    pinSalt: null,
+    pinEmail: null,
+    pinPasswordEnc: null,   // base64 safeStorage-encrypted password
   },
 })
 // ----
@@ -1069,6 +1076,10 @@ async function handleLogout() {
   store.set('userId', '')
   store.set('companyName', '')
   store.set('userRole', '')
+  store.set('pinHash', null)
+  store.set('pinSalt', null)
+  store.set('pinEmail', null)
+  store.set('pinPasswordEnc', null)
   isClockedIn = false
   currentDtrRecordId = null
   captureCount = 0
@@ -1092,6 +1103,64 @@ async function handleLogout() {
 
 ipcMain.handle('auth:login', (_e, args) => handleLogin(args))
 ipcMain.handle('auth:logout', () => handleLogout())
+
+// ---- PIN lock ----
+ipcMain.handle('auth:hasPinLock', () => {
+  return {
+    hasPin: !!store.get('pinHash'),
+    email: store.get('pinEmail', ''),
+    companyName: store.get('companyName', ''),
+  }
+})
+
+ipcMain.handle('auth:setupPin', (_e, { pin, email, password }) => {
+  try {
+    const salt = crypto.randomBytes(16).toString('hex')
+    const hash = crypto.createHash('sha256').update(pin + salt).digest('hex')
+    let encPw = null
+    if (safeStorage.isEncryptionAvailable()) {
+      encPw = safeStorage.encryptString(password).toString('base64')
+    }
+    store.set('pinHash', hash)
+    store.set('pinSalt', salt)
+    store.set('pinEmail', email)
+    store.set('pinPasswordEnc', encPw)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('auth:verifyPin', async (_e, { pin }) => {
+  try {
+    const hash = store.get('pinHash')
+    const salt = store.get('pinSalt')
+    const email = store.get('pinEmail')
+    const encPw = store.get('pinPasswordEnc')
+    if (!hash || !salt || !email) return { ok: false, error: 'No PIN saved' }
+    const inputHash = crypto.createHash('sha256').update(pin + salt).digest('hex')
+    if (inputHash !== hash) return { ok: false, error: 'Incorrect PIN' }
+    // PIN correct — re-authenticate with server
+    let password
+    try {
+      password = safeStorage.decryptString(Buffer.from(encPw, 'base64'))
+    } catch {
+      return { ok: false, error: 'Stored credentials unavailable. Please use password.' }
+    }
+    const result = await handleLogin({ email, password })
+    return result
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('auth:clearPin', () => {
+  store.set('pinHash', null)
+  store.set('pinSalt', null)
+  store.set('pinEmail', null)
+  store.set('pinPasswordEnc', null)
+  return { ok: true }
+})
 ipcMain.handle('app:getVersion', () => app.getVersion())
 ipcMain.handle('app:getServerUrl', () => getServerUrl())
 ipcMain.handle('app:getPortalUrl', () => getPortalUrl())

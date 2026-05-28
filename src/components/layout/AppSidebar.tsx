@@ -41,7 +41,7 @@ import { useSidebar } from './SidebarContext'
 import { isFeatureNew } from '@/components/ui/NewFeatureBadge'
 import { TrialCountdownBanner } from './TrialCountdownBanner'
 
-const BRAND = '#1A2D42'
+const BRAND = '#021e47'
 
 interface NavItem {
   label: string
@@ -54,7 +54,6 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'AI HR Assistant', href: '/ai-assistant', icon: Sparkles, releasedAt: '2026-05-13T00:00:00+08:00' },
   { label: 'HR Analytics', href: '/analytics', icon: BarChart3, releasedAt: '2026-05-13T00:00:00+08:00' },
   {
     label: 'Employment',
@@ -154,6 +153,7 @@ interface AppSidebarProps {
   initialTrialEndsAt?: string | null
   isLocal?: boolean
   hrisProEnabled?: boolean
+  disbursementEnabled?: boolean
 }
 
 export function AppSidebar({
@@ -163,6 +163,7 @@ export function AppSidebar({
   initialTrialEndsAt = null,
   isLocal = false,
   hrisProEnabled = true,
+  disbursementEnabled = false,
 }: AppSidebarProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -238,15 +239,33 @@ export function AppSidebar({
   }
 
   const isSystemAdmin = userRole === 'SUPER_ADMIN'
+
+  // Apply runtime overrides on top of static NAV_ITEMS:
+  // • In local dev, unlock Recruitment comingSoon
+  // • When disbursementEnabled=false, mark Disbursement as comingSoon (replaces releasedAt "NEW" badge)
+  function applyNavOverrides(items: NavItem[]): NavItem[] {
+    return items.map(item => {
+      let children = item.children
+      if (children) {
+        children = children.map(child => {
+          if (child.label === 'Recruitment' && isLocal) {
+            return { ...child, comingSoon: undefined }
+          }
+          if (child.label === 'Disbursement') {
+            return disbursementEnabled
+              ? { ...child, comingSoon: undefined }
+              : { ...child, releasedAt: undefined, comingSoon: true }
+          }
+          return child
+        })
+      }
+      return { ...item, children }
+    })
+  }
+
   const navItems = isSystemAdmin
     ? SYSTEM_ADMIN_NAV_ITEMS
-    : isLocal
-      ? NAV_ITEMS.map(item =>
-          item.label === 'Recruitment'
-            ? { ...item, comingSoon: undefined, children: item.children?.map(c => ({ ...c, comingSoon: undefined })) }
-            : item
-        )
-      : NAV_ITEMS
+    : applyNavOverrides(NAV_ITEMS)
 
   return (
     <aside
@@ -369,7 +388,7 @@ const PRO_LABELS = new Set([
   'Team Calendar',
   'Assets & Equipment',
   // Phase 2 (May 2026)
-  'AI HR Assistant',
+  'Disbursement',
 ])
 
 function CollapsedFlyout({
@@ -555,7 +574,7 @@ function NavItemComponent({
   const isExpanded = expanded.includes(item.label)
   const hasChildren = item.children && item.children.length > 0
 
-  const activeStyle   = { background: '#2E4156' }
+  const activeStyle   = { background: '#0055d4' }
   const baseItemClass = cn(
     'flex items-center rounded-xl text-sm font-medium transition-all duration-150 relative',
     isActive ? 'text-white' : 'text-white/70 hover:bg-white/15 hover:text-white',

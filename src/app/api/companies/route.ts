@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
       console.log('[companies] DATABASE_URL is missing')
     }
 
-    const { name, adminEmail, adminPassword, firstName, lastName } = await req.json()
+    const { name, adminEmail: rawEmail, adminPassword, firstName, lastName } = await req.json()
+
+    // Normalise email the same way auth.ts does so login always matches
+    const adminEmail = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail
 
     if (!name || !adminEmail || !adminPassword) {
       return NextResponse.json(

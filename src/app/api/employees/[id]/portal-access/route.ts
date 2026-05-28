@@ -36,17 +36,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Use the employee's own companyId as fallback (covers SUPER_ADMIN without impersonation)
     const companyId = ctx.companyId || employee.companyId
 
+    const ADMIN_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']
+
     // If employee already linked to a user, update password and ensure active
     if (employee.userId) {
       await prisma.user.update({
         where: { id: employee.userId },
         data: { passwordHash, isActive: true },
       })
-      // Also ensure the UserCompany membership is active
+      // Preserve existing admin roles — only set EMPLOYEE if no higher role exists
+      const existing = await prisma.userCompany.findUnique({
+        where: { userId_companyId: { userId: employee.userId, companyId } },
+      })
+      const keepRole = existing && ADMIN_ROLES.includes(existing.role)
       await prisma.userCompany.upsert({
         where: { userId_companyId: { userId: employee.userId, companyId } },
         create: { userId: employee.userId, companyId, role: 'EMPLOYEE', isActive: true },
-        update: { role: 'EMPLOYEE', isActive: true },
+        update: { isActive: true, ...(keepRole ? {} : { role: 'EMPLOYEE' }) },
       })
       return NextResponse.json({ success: true, userId: employee.userId })
     }
@@ -65,12 +71,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })
     }
 
-    // Ensure membership in company as EMPLOYEE — always force isActive:true
-    // so that re-issuing portal access un-deactivates the account.
+    // Ensure membership in company — preserve admin roles, only set EMPLOYEE if no higher role exists
+    const existing = await prisma.userCompany.findUnique({
+      where: { userId_companyId: { userId: user.id, companyId } },
+    })
+    const keepRole = existing && ADMIN_ROLES.includes(existing.role)
     await prisma.userCompany.upsert({
       where: { userId_companyId: { userId: user.id, companyId } },
       create: { userId: user.id, companyId, role: 'EMPLOYEE', isActive: true },
-      update: { role: 'EMPLOYEE', isActive: true },
+      update: { isActive: true, ...(keepRole ? {} : { role: 'EMPLOYEE' }) },
     })
 
     // Link employee to user

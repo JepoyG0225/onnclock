@@ -11,6 +11,7 @@
     "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@fontsource/montserrat": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^5.22.0",

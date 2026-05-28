@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const payDateEnd   = new Date(year, month, 0, 23, 59, 59)
 
   const employees = await prisma.employee.findMany({
-    where: { companyId: ctx.companyId, isActive: true },
+    where: { companyId: ctx.companyId, isActive: true, philhealthEnabled: true },
     select: {
       id: true,
       firstName: true,
@@ -34,33 +34,45 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  // Only include employees who received a payslip with a pay date in this month
-  const paidIds = new Set(
+  // Only include employees who received a payslip with philhealth > 0 in this month
+  const paidMap = new Map<string, { employeeShare: number; employerShare: number }>(
     (await prisma.payslip.findMany({
       where: {
-        employee: { companyId: ctx.companyId },
-        payrollRun: {
-          payDate: { gte: payDateStart, lte: payDateEnd },
-        },
+        employee: { companyId: ctx.companyId, philhealthEnabled: true },
+        payrollRun: { payDate: { gte: payDateStart, lte: payDateEnd } },
       },
-      select: { employeeId: true },
-      distinct: ['employeeId'],
-    })).map(p => p.employeeId)
+      select: { employeeId: true, philhealthEmployee: true, philhealthEmployer: true },
+    })).reduce((acc, p) => {
+      const existing = acc.get(p.employeeId)
+      if (existing) {
+        existing.employeeShare += Number(p.philhealthEmployee)
+        existing.employerShare += Number(p.philhealthEmployer)
+      } else {
+        acc.set(p.employeeId, {
+          employeeShare: Number(p.philhealthEmployee),
+          employerShare: Number(p.philhealthEmployer),
+        })
+      }
+      return acc
+    }, new Map<string, { employeeShare: number; employerShare: number }>())
   )
 
   const rows = employees
-    .filter(e => paidIds.has(e.id))
+    .filter(e => {
+      const amounts = paidMap.get(e.id)
+      return amounts && (amounts.employeeShare > 0 || amounts.employerShare > 0)
+    })
     .map(e => {
-      const ph = computePhilHealth(e.basicSalary.toNumber())
+      const amounts = paidMap.get(e.id)!
       return {
         pin:            e.philhealthNo || '',
         lastName:       e.lastName,
         firstName:      e.firstName,
         middleName:     e.middleName || '',
         basicSalary:    e.basicSalary.toNumber(),
-        premiumTotal:   ph.total,
-        employeeShare:  ph.employeeShare,
-        employerShare:  ph.employerShare,
+        premiumTotal:   amounts.employeeShare + amounts.employerShare,
+        employeeShare:  amounts.employeeShare,
+        employerShare:  amounts.employerShare,
       }
     })
 

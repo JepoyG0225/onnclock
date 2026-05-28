@@ -83,6 +83,31 @@
     /* ---- */
     #login-view  { display: flex; flex-direction: column; gap: 14px; }
     #status-view { display: none; flex-direction: column; gap: 10px; }
+    /* ── PIN lock ──────────────────────────────────────── */
+    #pin-view, #pin-setup-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      padding: 24px 16px 16px;
+    }
+    .pin-hero { display:flex;flex-direction:column;align-items:center;gap:6px; }
+    .pin-company { font-size:12px;color:var(--text-muted);text-align:center;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .pin-email { font-size:11px;color:var(--text-subtle);text-align:center; }
+    .pin-title { font-size:15px;font-weight:700;color:var(--text);text-align:center; }
+    .pin-sub { font-size:11px;color:var(--text-muted);text-align:center; }
+    .pin-dots { display:flex;gap:12px;justify-content:center;margin:4px 0; }
+    .pin-dot { width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:background .15s,border-color .15s; }
+    .pin-dot.filled { background:var(--orange);border-color:var(--orange); }
+    .pin-error { font-size:11px;color:#ef4444;text-align:center;min-height:16px; }
+    .pin-keypad { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:200px; }
+    .pin-key { height:48px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;font-weight:600;cursor:pointer;transition:background .12s; }
+    .pin-key:hover { background:var(--bg); }
+    .pin-key:active { background:var(--orange);color:#fff;border-color:var(--orange); }
+    .pin-key.wide { grid-column:span 2;font-size:13px; }
+    .pin-key.del { font-size:18px; }
+    .pin-switch { font-size:10px;color:var(--text-subtle);cursor:pointer;text-decoration:underline;text-underline-offset:2px; }
+    .pin-switch:hover { color:var(--text-muted); }
     /* ---- */
     .login-hero { display: flex; flex-direction: column; align-items: center; padding: 20px 0 10px; gap: 8px; }
     .login-icon {
@@ -559,6 +584,73 @@
     </p>
   </div>
 <!-- ---- -->
+<!-- ── PIN entry (subsequent launches) ── -->
+<div id="pin-view">
+  <div class="pin-hero">
+    <div class="login-icon">
+      <img src="../assets/icon.png" alt="OnClock" onerror="this.style.display='none'" />
+    </div>
+    <div class="pin-title">Enter your PIN</div>
+    <div class="pin-company" id="pin-view-company"></div>
+    <div class="pin-email" id="pin-view-email"></div>
+  </div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+  <div class="pin-keypad" id="pin-keypad">
+    <button class="pin-key" data-k="1">1</button>
+    <button class="pin-key" data-k="2">2</button>
+    <button class="pin-key" data-k="3">3</button>
+    <button class="pin-key" data-k="4">4</button>
+    <button class="pin-key" data-k="5">5</button>
+    <button class="pin-key" data-k="6">6</button>
+    <button class="pin-key" data-k="7">7</button>
+    <button class="pin-key" data-k="8">8</button>
+    <button class="pin-key" data-k="9">9</button>
+    <button class="pin-key del" data-k="del">&#9003;</button>
+    <button class="pin-key" data-k="0">0</button>
+    <button class="pin-key" data-k="ok" id="pin-ok-btn">OK</button>
+  </div>
+  <span class="pin-switch" id="use-password-btn">Use password instead</span>
+</div>
+
+<!-- ── PIN setup (after first login) ── -->
+<div id="pin-setup-view">
+  <div class="pin-hero">
+    <div class="login-icon">
+      <img src="../assets/icon.png" alt="OnClock" onerror="this.style.display='none'" />
+    </div>
+    <div class="pin-title" id="pin-setup-title">Set a PIN for quick access</div>
+    <div class="pin-sub" id="pin-setup-sub">Enter a 4-digit PIN to unlock this app next time</div>
+  </div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="spd0"></div>
+    <div class="pin-dot" id="spd1"></div>
+    <div class="pin-dot" id="spd2"></div>
+    <div class="pin-dot" id="spd3"></div>
+  </div>
+  <div class="pin-error" id="pin-setup-error"></div>
+  <div class="pin-keypad">
+    <button class="pin-key" data-sk="1">1</button>
+    <button class="pin-key" data-sk="2">2</button>
+    <button class="pin-key" data-sk="3">3</button>
+    <button class="pin-key" data-sk="4">4</button>
+    <button class="pin-key" data-sk="5">5</button>
+    <button class="pin-key" data-sk="6">6</button>
+    <button class="pin-key" data-sk="7">7</button>
+    <button class="pin-key" data-sk="8">8</button>
+    <button class="pin-key" data-sk="9">9</button>
+    <button class="pin-key del" data-sk="del">&#9003;</button>
+    <button class="pin-key" data-sk="0">0</button>
+    <button class="pin-key" data-sk="ok">OK</button>
+  </div>
+  <span class="pin-switch" id="skip-pin-btn">Skip for now</span>
+</div>
+<!-- ---- -->
   <div id="status-view">
 
     <!-- Profile -->
@@ -841,6 +933,8 @@
 const api = window.onclock
 // ----
 const loginView       = document.getElementById('login-view')
+const pinView         = document.getElementById('pin-view')
+const pinSetupView    = document.getElementById('pin-setup-view')
 const statusView      = document.getElementById('status-view')
 const loginBtn        = document.getElementById('login-btn')
 const loginError      = document.getElementById('login-error')
@@ -932,6 +1026,13 @@ let currentActionPhase = 'clockin'
 let currentUpdateInfo = null
 let attendanceLoadInFlight = false
 let isAdminSession = false
+// ── PIN lock state ──
+let pinBuffer = ''
+let pinSetupBuffer = ''
+let pinSetupStep = 'enter'  // 'enter' | 'confirm'
+let pinSetupFirst = ''
+let pinLoginEmail = ''
+let pinLoginPass = ''
 // ----
 const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD'])
 // ----
@@ -1228,10 +1329,57 @@ function getInitials(email) {
 }
 
 function showLoginView() {
-  loginView.style.display='flex'; statusView.style.display='none'
+  loginView.style.display='flex'
+  if(pinView) pinView.style.display='none'
+  if(pinSetupView) pinSetupView.style.display='none'
+  statusView.style.display='none'
   bottomNav.style.display='none'
   if (attendanceHistoryList) attendanceHistoryList.innerHTML = '<div class="history-empty">Loading attendance history...</div>'
   stopSessionTimer(); stopBreakTimer(); stopCapturePoller(); startClockTick()
+}
+
+function showPinView(info) {
+  loginView.style.display='none'
+  pinView.style.display='flex'
+  pinSetupView.style.display='none'
+  statusView.style.display='none'
+  bottomNav.style.display='none'
+  document.getElementById('pin-view-company').textContent = info.companyName || ''
+  document.getElementById('pin-view-email').textContent = info.email || ''
+  pinBuffer = ''
+  updatePinDots()
+  document.getElementById('pin-error').textContent = ''
+}
+
+function showPinSetupView(email, password) {
+  pinLoginEmail = email
+  pinLoginPass = password
+  loginView.style.display='none'
+  pinView.style.display='none'
+  pinSetupView.style.display='flex'
+  statusView.style.display='none'
+  bottomNav.style.display='none'
+  pinSetupStep = 'enter'
+  pinSetupFirst = ''
+  pinSetupBuffer = ''
+  updateSetupDots()
+  document.getElementById('pin-setup-title').textContent = 'Set a PIN for quick access'
+  document.getElementById('pin-setup-sub').textContent = 'Enter a 4-digit PIN to unlock this app next time'
+  document.getElementById('pin-setup-error').textContent = ''
+}
+
+function updatePinDots() {
+  for(let i=0;i<4;i++) {
+    const d=document.getElementById(`pd${i}`)
+    d.classList.toggle('filled', i < pinBuffer.length)
+  }
+}
+
+function updateSetupDots() {
+  for(let i=0;i<4;i++) {
+    const d=document.getElementById(`spd${i}`)
+    d.classList.toggle('filled', i < pinSetupBuffer.length)
+  }
 }
 
 function showStatusView(data) {
@@ -1327,9 +1475,14 @@ function hideLoadingScreen() {
 async function init() {
   try { const v=await api.getVersion(); if(v)appVersionEl.textContent=`v${v}` } catch{}
   try { const u=await api.getPortalUrl(); if(u)portalUrl=u } catch{}
-  const session = await api.getSession()
   try { renderUpdateBanner(await api.getUpdateInfo()) } catch {}
-  if (session.loggedIn) { showStatusView(await api.getStatus()) } else { showLoginView() }
+  const pinInfo = await api.hasPinLock()
+  if (pinInfo.hasPin) {
+    showPinView(pinInfo)
+  } else {
+    const session = await api.getSession()
+    if (session.loggedIn) { showStatusView(await api.getStatus()) } else { showLoginView() }
+  }
   hideLoadingScreen()
 }
 // ----
@@ -1340,8 +1493,16 @@ async function doLogin() {
   try {
     const result=await api.login(email,pass)
     loginBtn.disabled=false; loginBtn.innerHTML='Sign In'
-    if(result.ok){passInput.value='';showStatusView(await api.getStatus())}
-    else showLoginError(result.error??'Login failed.')
+    if(result.ok){
+      passInput.value=''
+      // Check if PIN already set; if not, prompt to set one
+      const pinInfo = await api.hasPinLock()
+      if (!pinInfo.hasPin) {
+        showPinSetupView(email, pass)
+      } else {
+        showStatusView(await api.getStatus())
+      }
+    } else showLoginError(result.error??'Login failed.')
   } catch(err){loginBtn.disabled=false;loginBtn.innerHTML='Sign In';showLoginError(err?.message??'Connection failed.')}
 }
 loginBtn.addEventListener('click',doLogin)
@@ -1405,8 +1566,125 @@ primaryActionBtn.addEventListener('click', async()=>{
 // ----
 signoutBtn.addEventListener('click',async()=>{
   currentLocation=null; stopCapturePoller(); stopSessionTimer(); stopBreakTimer()
+  await api.clearPin()
   await api.logout(); showLoginView()
 })
+// ── PIN entry ──
+document.getElementById('pin-keypad').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-k]')
+  if (!btn) return
+  const k = btn.dataset.k
+  if (k === 'del') {
+    pinBuffer = pinBuffer.slice(0, -1)
+    updatePinDots()
+    document.getElementById('pin-error').textContent = ''
+  } else if (k === 'ok') {
+    if (pinBuffer.length === 4) {
+      const pinOkBtn = document.getElementById('pin-ok-btn')
+      pinOkBtn.disabled = true
+      pinOkBtn.textContent = '...'
+      document.getElementById('pin-error').textContent = ''
+      const result = await api.verifyPin(pinBuffer)
+      pinOkBtn.disabled = false
+      pinOkBtn.textContent = 'OK'
+      if (result.ok) {
+        pinBuffer = ''
+        updatePinDots()
+        showStatusView(await api.getStatus())
+      } else {
+        pinBuffer = ''
+        updatePinDots()
+        document.getElementById('pin-error').textContent = result.error || 'Incorrect PIN'
+      }
+    }
+  } else if (pinBuffer.length < 4) {
+    pinBuffer += k
+    updatePinDots()
+    if (pinBuffer.length === 4) {
+      // Auto-submit on 4th digit
+      const pinOkBtn = document.getElementById('pin-ok-btn')
+      pinOkBtn.disabled = true
+      pinOkBtn.textContent = '...'
+      document.getElementById('pin-error').textContent = ''
+      const result = await api.verifyPin(pinBuffer)
+      pinOkBtn.disabled = false
+      pinOkBtn.textContent = 'OK'
+      if (result.ok) {
+        pinBuffer = ''
+        updatePinDots()
+        showStatusView(await api.getStatus())
+      } else {
+        pinBuffer = ''
+        updatePinDots()
+        document.getElementById('pin-error').textContent = result.error || 'Incorrect PIN'
+      }
+    }
+  }
+})
+
+document.getElementById('use-password-btn').addEventListener('click', () => {
+  pinBuffer = ''
+  showLoginView()
+})
+
+// ── PIN setup ──
+document.querySelector('#pin-setup-view .pin-keypad').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-sk]')
+  if (!btn) return
+  const k = btn.dataset.sk
+  if (k === 'del') {
+    pinSetupBuffer = pinSetupBuffer.slice(0, -1)
+    updateSetupDots()
+    document.getElementById('pin-setup-error').textContent = ''
+  } else if (k === 'ok') {
+    if (pinSetupBuffer.length < 4) {
+      document.getElementById('pin-setup-error').textContent = 'Enter 4 digits'
+      return
+    }
+    await handleSetupKey()
+  } else if (pinSetupBuffer.length < 4) {
+    pinSetupBuffer += k
+    updateSetupDots()
+    if (pinSetupBuffer.length === 4) await handleSetupKey()
+  }
+})
+
+async function handleSetupKey() {
+  if (pinSetupStep === 'enter') {
+    pinSetupFirst = pinSetupBuffer
+    pinSetupBuffer = ''
+    updateSetupDots()
+    pinSetupStep = 'confirm'
+    document.getElementById('pin-setup-title').textContent = 'Confirm your PIN'
+    document.getElementById('pin-setup-sub').textContent = 'Enter the same PIN again'
+    document.getElementById('pin-setup-error').textContent = ''
+  } else {
+    if (pinSetupBuffer !== pinSetupFirst) {
+      document.getElementById('pin-setup-error').textContent = 'PINs do not match. Try again.'
+      pinSetupBuffer = ''
+      pinSetupFirst = ''
+      pinSetupStep = 'enter'
+      updateSetupDots()
+      document.getElementById('pin-setup-title').textContent = 'Set a PIN for quick access'
+      document.getElementById('pin-setup-sub').textContent = 'Enter a 4-digit PIN to unlock this app next time'
+      return
+    }
+    // Save PIN
+    const result = await api.setupPin(pinSetupBuffer, pinLoginEmail, pinLoginPass)
+    if (result.ok) {
+      pinLoginEmail = ''; pinLoginPass = ''
+      showStatusView(await api.getStatus())
+    } else {
+      document.getElementById('pin-setup-error').textContent = result.error || 'Failed to save PIN'
+    }
+  }
+}
+
+document.getElementById('skip-pin-btn').addEventListener('click', async () => {
+  pinLoginEmail = ''; pinLoginPass = ''
+  showStatusView(await api.getStatus())
+})
+// ----
 updateCheckBtn.addEventListener('click', async () => {
   updateCheckBtn.disabled = true
   updateCheckBtn.textContent = 'Checking...'

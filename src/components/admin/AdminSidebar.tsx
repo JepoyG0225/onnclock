@@ -1,16 +1,16 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { Building2, CreditCard, Receipt, Wallet, LogOut, ShieldCheck } from 'lucide-react'
+import { Building2, CreditCard, Receipt, Wallet, LogOut, ShieldCheck, ArrowDownToLine } from 'lucide-react'
 
 const THEME = {
-  deep: '#1A2D42',
-  base: '#2E4156',
+  deep: '#021e47',
+  base: '#032b63',
   mid: '#AAB7B7',
-  soft: '#C0C8CA',
-  light: '#D4D8DD',
+  soft: '#c4d9ff',
+  light: '#dce5f7',
 } as const
 
 const NAV_ITEMS = [
@@ -34,6 +34,11 @@ const NAV_ITEMS = [
     icon: Wallet,
     label: 'Payment Methods',
   },
+  {
+    href: '/admin/disbursement-topups',
+    icon: ArrowDownToLine,
+    label: 'Wallet Top-Ups',
+  },
 ]
 
 export function AdminSidebar() {
@@ -50,7 +55,7 @@ export function AdminSidebar() {
         style={{ borderColor: THEME.base, background: '#22374f' }}
         title="Admin Console"
       >
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#2E4156' }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#0055d4' }}>
           <ShieldCheck className="w-4.5 h-4.5" style={{ color: THEME.light }} />
         </div>
         <div>
@@ -69,7 +74,7 @@ export function AdminSidebar() {
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
               style={
                 isActive
-                  ? { background: '#2E4156', color: '#F8FAFC' }
+                  ? { background: '#0055d4', color: '#F8FAFC' }
                   : { color: THEME.mid }
               }
             >

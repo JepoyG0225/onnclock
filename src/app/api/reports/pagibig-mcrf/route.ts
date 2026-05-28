@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const payDateEnd   = new Date(year, month, 0, 23, 59, 59)
 
   const employees = await prisma.employee.findMany({
-    where: { companyId: ctx.companyId, isActive: true },
+    where: { companyId: ctx.companyId, isActive: true, pagibigEnabled: true },
     select: {
       id: true,
       firstName: true,
@@ -34,33 +34,45 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  // Only include employees who received a payslip with a pay date in this month
-  const paidIds = new Set(
+  // Only include employees who received a payslip with pagibig > 0 in this month
+  const paidMap = new Map<string, { employeeShare: number; employerShare: number }>(
     (await prisma.payslip.findMany({
       where: {
-        employee: { companyId: ctx.companyId },
-        payrollRun: {
-          payDate: { gte: payDateStart, lte: payDateEnd },
-        },
+        employee: { companyId: ctx.companyId, pagibigEnabled: true },
+        payrollRun: { payDate: { gte: payDateStart, lte: payDateEnd } },
       },
-      select: { employeeId: true },
-      distinct: ['employeeId'],
-    })).map(p => p.employeeId)
+      select: { employeeId: true, pagibigEmployee: true, pagibigEmployer: true },
+    })).reduce((acc, p) => {
+      const existing = acc.get(p.employeeId)
+      if (existing) {
+        existing.employeeShare += Number(p.pagibigEmployee)
+        existing.employerShare += Number(p.pagibigEmployer)
+      } else {
+        acc.set(p.employeeId, {
+          employeeShare: Number(p.pagibigEmployee),
+          employerShare: Number(p.pagibigEmployer),
+        })
+      }
+      return acc
+    }, new Map<string, { employeeShare: number; employerShare: number }>())
   )
 
   const rows = employees
-    .filter(e => paidIds.has(e.id))
+    .filter(e => {
+      const amounts = paidMap.get(e.id)
+      return amounts && (amounts.employeeShare > 0 || amounts.employerShare > 0)
+    })
     .map(e => {
-      const pg = computePagIBIG(e.basicSalary.toNumber())
+      const amounts = paidMap.get(e.id)!
       return {
         memberId:          e.pagibigNo || '',
         lastName:          e.lastName,
         firstName:         e.firstName,
         middleName:        e.middleName || '',
         basicSalary:       e.basicSalary.toNumber(),
-        employeeShare:     pg.employeeShare,
-        employerShare:     pg.employerShare,
-        totalContribution: pg.total,
+        employeeShare:     amounts.employeeShare,
+        employerShare:     amounts.employerShare,
+        totalContribution: amounts.employeeShare + amounts.employerShare,
       }
     })
 
