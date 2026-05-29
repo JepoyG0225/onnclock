@@ -232,7 +232,16 @@ export default function DTRPage() {
     | null
   >(null)
   const [editRecord, setEditRecord] = useState<DTRRecord | null>(null)
-  const [editForm, setEditForm] = useState({ timeIn: '', timeOut: '', breakIn: '', breakOut: '', remarks: '' })
+  const [editForm, setEditForm] = useState({
+    timeIn: '', timeOut: '', breakIn: '', breakOut: '', remarks: '',
+    // Optional manual overrides — when "manualHours" is true these get sent
+    // instead of being recomputed from the timestamps.
+    manualHours: false,
+    regularHours: 0,
+    overtimeHours: 0,
+    lateMinutes: 0,
+    undertimeMinutes: 0,
+  })
   const [editSaving, setEditSaving] = useState(false)
   const portalTarget = typeof document !== 'undefined' ? document.body : null
   const companyQuery = useMemo(
@@ -642,6 +651,11 @@ export default function DTRPage() {
       breakIn: toLocal(r.breakIn),
       breakOut: toLocal(r.breakOut),
       remarks: r.remarks ?? '',
+      manualHours: false,
+      regularHours: Number(r.regularHours ?? 0),
+      overtimeHours: Number((r as { overtimeHours?: number | null }).overtimeHours ?? 0),
+      lateMinutes: Number(r.lateMinutes ?? 0),
+      undertimeMinutes: Number(r.undertimeMinutes ?? 0),
     })
   }
 
@@ -659,6 +673,13 @@ export default function DTRPage() {
           breakIn: toISO(editForm.breakIn),
           breakOut: toISO(editForm.breakOut),
           remarks: editForm.remarks || null,
+          // Send manual overrides only when the admin explicitly enabled them.
+          ...(editForm.manualHours ? {
+            regularHours: Number(editForm.regularHours) || 0,
+            overtimeHours: Number(editForm.overtimeHours) || 0,
+            lateMinutes: Math.round(Number(editForm.lateMinutes) || 0),
+            undertimeMinutes: Math.round(Number(editForm.undertimeMinutes) || 0),
+          } : {}),
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -857,7 +878,54 @@ export default function DTRPage() {
                 <label className="text-xs font-semibold text-gray-600 block mb-1">Remarks</label>
                 <input type="text" value={editForm.remarks} onChange={e => setEditForm(f => ({ ...f, remarks: e.target.value }))} placeholder="Optional note..." className="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
-              <p className="text-[11px] text-gray-400">Hours, late, and undertime will be automatically recomputed upon saving.</p>
+
+              {/* Manual hours override */}
+              <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.manualHours}
+                    onChange={e => setEditForm(f => ({ ...f, manualHours: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-xs font-semibold text-gray-700">Override hours manually</span>
+                </label>
+                {editForm.manualHours ? (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Regular hours</label>
+                      <input type="number" min={0} max={24} step={0.01} value={editForm.regularHours}
+                        onChange={e => setEditForm(f => ({ ...f, regularHours: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Overtime hours</label>
+                      <input type="number" min={0} max={24} step={0.01} value={editForm.overtimeHours}
+                        onChange={e => setEditForm(f => ({ ...f, overtimeHours: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Late (minutes)</label>
+                      <input type="number" min={0} max={1440} step={1} value={editForm.lateMinutes}
+                        onChange={e => setEditForm(f => ({ ...f, lateMinutes: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Undertime (minutes)</label>
+                      <input type="number" min={0} max={1440} step={1} value={editForm.undertimeMinutes}
+                        onChange={e => setEditForm(f => ({ ...f, undertimeMinutes: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <p className="col-span-2 text-[11px] text-amber-700">
+                      ⚠️ Manual values will be saved as-is and an audit note will be appended to remarks.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Hours, late, and undertime will be automatically recomputed from the timestamps above.
+                  </p>
+                )}
+              </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setEditRecord(null)}>Cancel</Button>
                 <Button disabled={editSaving} onClick={saveEdit} style={{ background: '#fa5e01' }} className="text-white">
