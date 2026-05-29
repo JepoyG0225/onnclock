@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001",
-    "build": "prisma migrate deploy && prisma generate && next build",
+    "build": "(prisma migrate deploy || echo 'WARN: prisma migrate deploy failed — continuing build. Apply migrations manually.') && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
