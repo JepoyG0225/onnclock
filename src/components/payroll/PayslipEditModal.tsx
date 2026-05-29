@@ -158,55 +158,60 @@ export function PayslipEditModal({ payslip, onClose, onSaved, currencySymbol = '
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl my-8">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-8">
         {/* Header */}
-        <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <h2 className="font-bold text-gray-900">Edit Payslip</h2>
             <p className="text-sm text-gray-500 mt-0.5">{payslip.employeeName} · {payslip.employeeNo}</p>
+            <p className="text-[11px] text-amber-700 mt-1">
+              ⓘ Manual changes persist across recomputes — until you reset them by editing each field back to its computed value.
+            </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 mt-0.5">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-5">
-          {/* Earnings */}
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Earnings</p>
-            <div className="bg-gray-50 rounded-xl px-4 py-1">
-              <NumberField label="Basic Pay" value={form.basicSalary} onChange={v => set('basicSalary', v)} currencySymbol={currencySymbol} />
-              <NumberField label="Regular OT" value={form.regularOtAmount} onChange={v => set('regularOtAmount', v)} currencySymbol={currencySymbol} />
-              <NumberField label="Rest Day OT" value={form.restDayOtAmount} onChange={v => set('restDayOtAmount', v)} currencySymbol={currencySymbol} />
-              <NumberField label="Holiday OT" value={form.holidayOtAmount} onChange={v => set('holidayOtAmount', v)} currencySymbol={currencySymbol} />
-              <NumberField label="Night Differential" value={form.nightDiffAmount} onChange={v => set('nightDiffAmount', v)} currencySymbol={currencySymbol} />
-              <NumberField label="Holiday Pay" value={form.holidayPayAmount} onChange={v => set('holidayPayAmount', v)} currencySymbol={currencySymbol} />
-              <NumberField label="Other Earnings" value={form.otherEarnings} onChange={v => set('otherEarnings', v)} currencySymbol={currencySymbol} />
+        <div className="px-6 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* ── Earnings (left) ───────────────────────────────────────── */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Earnings</p>
+              <div className="bg-gray-50 rounded-xl px-4 py-1">
+                <NumberField label="Basic Pay" value={form.basicSalary} onChange={v => set('basicSalary', v)} currencySymbol={currencySymbol} />
+                <NumberField label="Regular OT" value={form.regularOtAmount} onChange={v => set('regularOtAmount', v)} currencySymbol={currencySymbol} />
+                <NumberField label="Rest Day OT" value={form.restDayOtAmount} onChange={v => set('restDayOtAmount', v)} currencySymbol={currencySymbol} />
+                <NumberField label="Holiday OT" value={form.holidayOtAmount} onChange={v => set('holidayOtAmount', v)} currencySymbol={currencySymbol} />
+                <NumberField label="Night Differential" value={form.nightDiffAmount} onChange={v => set('nightDiffAmount', v)} currencySymbol={currencySymbol} />
+                <NumberField label="Holiday Pay" value={form.holidayPayAmount} onChange={v => set('holidayPayAmount', v)} currencySymbol={currencySymbol} />
+                <NumberField label="Other Earnings" value={form.otherEarnings} onChange={v => set('otherEarnings', v)} currencySymbol={currencySymbol} />
+              </div>
             </div>
-          </div>
 
-          {/* Deductions */}
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Deductions</p>
-            <div className="bg-gray-50 rounded-xl px-4 py-1">
-              <NumberField label="SSS" value={form.sssEmployee} onChange={v => set('sssEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
-              <NumberField label="PhilHealth" value={form.philhealthEmployee} onChange={v => set('philhealthEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
-              <NumberField label="Pag-IBIG" value={form.pagibigEmployee} onChange={v => set('pagibigEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
-              <NumberField label="Withholding Tax" value={form.withholdingTax} onChange={v => set('withholdingTax', v)} highlight="red" currencySymbol={currencySymbol} />
-              <NumberField label="Late Deduction" value={form.lateDeduction} onChange={v => set('lateDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
-              <NumberField label="Undertime Deduction" value={form.undertimeDeduction} onChange={v => set('undertimeDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
-              <NumberField label="Absence Deduction" value={form.absenceDeduction} onChange={v => set('absenceDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
-              <NumberField label="Other Deductions" value={form.otherDeductions} onChange={v => set('otherDeductions', v)} highlight="red" currencySymbol={currencySymbol} />
+            {/* ── Deductions (right) ──────────────────────────────────── */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Deductions</p>
+              <div className="bg-gray-50 rounded-xl px-4 py-1">
+                <NumberField label="SSS" value={form.sssEmployee} onChange={v => set('sssEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
+                <NumberField label="PhilHealth" value={form.philhealthEmployee} onChange={v => set('philhealthEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
+                <NumberField label="Pag-IBIG" value={form.pagibigEmployee} onChange={v => set('pagibigEmployee', v)} highlight="red" currencySymbol={currencySymbol} />
+                <NumberField label="Withholding Tax" value={form.withholdingTax} onChange={v => set('withholdingTax', v)} highlight="red" currencySymbol={currencySymbol} />
+                <NumberField label="Late Deduction" value={form.lateDeduction} onChange={v => set('lateDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
+                <NumberField label="Undertime Deduction" value={form.undertimeDeduction} onChange={v => set('undertimeDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
+                <NumberField label="Absence Deduction" value={form.absenceDeduction} onChange={v => set('absenceDeduction', v)} highlight="red" currencySymbol={currencySymbol} />
+                <NumberField label="Other Deductions" value={form.otherDeductions} onChange={v => set('otherDeductions', v)} highlight="red" currencySymbol={currencySymbol} />
+              </div>
+              {(form.sssLoanDeduction > 0 || form.pagibigLoan > 0 || form.companyLoan > 0) && (
+                <p className="text-xs text-gray-400 mt-2 px-1">
+                  Loan deductions (SSS {peso(form.sssLoanDeduction)}, Pag-IBIG {peso(form.pagibigLoan)}, Company {peso(form.companyLoan)}) are managed via the Loans module.
+                </p>
+              )}
             </div>
-            {(form.sssLoanDeduction > 0 || form.pagibigLoan > 0 || form.companyLoan > 0) && (
-              <p className="text-xs text-gray-400 mt-2 px-1">
-                Loan deductions (SSS {peso(form.sssLoanDeduction)}, Pag-IBIG {peso(form.pagibigLoan)}, Company {peso(form.companyLoan)}) are managed via the Loans module.
-              </p>
-            )}
           </div>
 
           {/* Live Summary */}
-          <div className="rounded-xl border border-gray-200 overflow-hidden">
+          <div className="rounded-xl border border-gray-200 overflow-hidden mt-5">
             <div className="grid grid-cols-3 divide-x divide-gray-200">
               <div className="px-4 py-3 text-center">
                 <p className="text-[11px] text-gray-400 uppercase tracking-wide">Gross Pay</p>

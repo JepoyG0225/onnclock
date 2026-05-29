@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 // PATCH /api/payroll/payslip/[payslipId]
 // Allows HR/admin to manually adjust earnings and deductions on a computed payslip.
@@ -141,10 +142,26 @@ export async function PATCH(
 
   const netPay = parseFloat((grossPay - totalDeductions).toFixed(2))
 
+  // Persist the manual override per field so future recomputes keep these
+  // values. The compute route merges manualEdits back in after rebuilding
+  // the payslip from the engine.
+  const existing = await prisma.payslip.findUnique({
+    where: { id: payslipId },
+    select: { manualEdits: true },
+  })
+  const prevEdits = (existing?.manualEdits as Record<string, number> | null) ?? {}
+  const nextManualEdits = { ...prevEdits, ...data }
+
   // Update the payslip
   await prisma.payslip.update({
     where: { id: payslipId },
-    data: { ...data, grossPay, totalDeductions, netPay },
+    data: {
+      ...data,
+      grossPay,
+      totalDeductions,
+      netPay,
+      manualEdits: nextManualEdits as Prisma.InputJsonValue,
+    },
   })
 
   // Recalculate run-level totals from all payslips

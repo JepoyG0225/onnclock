@@ -980,6 +980,20 @@ export async function POST(
     priorByLoan.set(d.loanId, (priorByLoan.get(d.loanId) ?? 0) + Number(d.amount))
   }
 
+  // Snapshot manual edits BEFORE deleting payslips so we can re-apply them
+  // to the freshly-built payslips below. Key by employeeId — that's stable
+  // across recomputes (payslip IDs are not).
+  const priorManualEdits = await prisma.payslip.findMany({
+    where: { payrollRunId: runId, manualEdits: { not: null as never } },
+    select: { employeeId: true, manualEdits: true },
+  })
+  const manualEditsByEmployee = new Map<string, Record<string, number>>()
+  for (const p of priorManualEdits) {
+    if (p.manualEdits && typeof p.manualEdits === 'object') {
+      manualEditsByEmployee.set(p.employeeId, p.manualEdits as Record<string, number>)
+    }
+  }
+
   await prisma.$transaction([
     prisma.payslipLoanDeduction.deleteMany({
       where: { payslip: { payrollRunId: runId } },
@@ -1004,6 +1018,75 @@ export async function POST(
 
   for (const build of builds) {
     const payslip = await prisma.payslip.create({ data: build.data })
+
+    // Re-apply any prior manual overrides for this employee on top of the
+    // freshly-computed payslip. Recompute grossPay / totalDeductions / netPay
+    // to reflect the overrides.
+    const manual = manualEditsByEmployee.get(build.employeeId)
+    if (manual && Object.keys(manual).length > 0) {
+      const cur = await prisma.payslip.findUniqueOrThrow({
+        where: { id: payslip.id },
+        select: {
+          basicSalary: true, regularOtAmount: true, restDayOtAmount: true,
+          holidayOtAmount: true, nightDiffAmount: true, holidayPayAmount: true,
+          riceAllowance: true, clothingAllowance: true, medicalAllowance: true,
+          otherAllowances: true, otherEarnings: true,
+          sssEmployee: true, sssEc: true, philhealthEmployee: true,
+          pagibigEmployee: true, withholdingTax: true,
+          sssLoanDeduction: true, pagibigLoan: true, companyLoan: true,
+          lateDeduction: true, undertimeDeduction: true, absenceDeduction: true,
+          otherDeductions: true,
+        },
+      })
+      const merged = {
+        basicSalary:        manual.basicSalary        ?? cur.basicSalary.toNumber(),
+        regularOtAmount:    manual.regularOtAmount    ?? cur.regularOtAmount.toNumber(),
+        restDayOtAmount:    manual.restDayOtAmount    ?? cur.restDayOtAmount.toNumber(),
+        holidayOtAmount:    manual.holidayOtAmount    ?? cur.holidayOtAmount.toNumber(),
+        nightDiffAmount:    manual.nightDiffAmount    ?? cur.nightDiffAmount.toNumber(),
+        holidayPayAmount:   manual.holidayPayAmount   ?? cur.holidayPayAmount.toNumber(),
+        riceAllowance:      cur.riceAllowance.toNumber(),
+        clothingAllowance:  cur.clothingAllowance.toNumber(),
+        medicalAllowance:   cur.medicalAllowance.toNumber(),
+        otherAllowances:    cur.otherAllowances.toNumber(),
+        otherEarnings:      manual.otherEarnings      ?? cur.otherEarnings.toNumber(),
+        sssEmployee:        manual.sssEmployee        ?? cur.sssEmployee.toNumber(),
+        sssEc:              cur.sssEc.toNumber(),
+        philhealthEmployee: manual.philhealthEmployee ?? cur.philhealthEmployee.toNumber(),
+        pagibigEmployee:    manual.pagibigEmployee    ?? cur.pagibigEmployee.toNumber(),
+        withholdingTax:     manual.withholdingTax     ?? cur.withholdingTax.toNumber(),
+        sssLoanDeduction:   cur.sssLoanDeduction.toNumber(),
+        pagibigLoan:        cur.pagibigLoan.toNumber(),
+        companyLoan:        cur.companyLoan.toNumber(),
+        lateDeduction:      manual.lateDeduction      ?? cur.lateDeduction.toNumber(),
+        undertimeDeduction: manual.undertimeDeduction ?? cur.undertimeDeduction.toNumber(),
+        absenceDeduction:   manual.absenceDeduction   ?? cur.absenceDeduction.toNumber(),
+        otherDeductions:    manual.otherDeductions    ?? cur.otherDeductions.toNumber(),
+      }
+      const grossPayManual = parseFloat((
+        merged.basicSalary + merged.regularOtAmount + merged.restDayOtAmount
+        + merged.holidayOtAmount + merged.nightDiffAmount + merged.holidayPayAmount
+        + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance
+        + merged.otherAllowances + merged.otherEarnings
+      ).toFixed(2))
+      const totalDeductionsManual = parseFloat((
+        merged.sssEmployee + merged.sssEc + merged.philhealthEmployee + merged.pagibigEmployee
+        + merged.withholdingTax + merged.sssLoanDeduction + merged.pagibigLoan + merged.companyLoan
+        + merged.lateDeduction + merged.undertimeDeduction + merged.absenceDeduction
+        + merged.otherDeductions
+      ).toFixed(2))
+      const netPayManual = parseFloat((grossPayManual - totalDeductionsManual).toFixed(2))
+      await prisma.payslip.update({
+        where: { id: payslip.id },
+        data: {
+          ...manual,
+          grossPay: grossPayManual,
+          totalDeductions: totalDeductionsManual,
+          netPay: netPayManual,
+          manualEdits: manual as never,
+        },
+      })
+    }
 
     if (build.loanDeductions.length > 0) {
       await prisma.payslipLoanDeduction.createMany({
@@ -1047,18 +1130,27 @@ export async function POST(
     })
   }
 
-  // Step 4: update payroll run totals
+  // Step 4: update payroll run totals.
+  // Re-aggregate from the actual stored payslips so any manual edits we
+  // re-applied above are reflected in the run-level totals.
+  const aggregated = await prisma.payslip.aggregate({
+    where: { payrollRunId: runId },
+    _sum: {
+      basicSalary: true, grossPay: true, totalDeductions: true, netPay: true,
+      sssEmployer: true, philhealthEmployer: true, pagibigEmployer: true,
+    },
+  })
   await prisma.payrollRun.update({
     where: { id: runId },
     data: {
       status: 'COMPUTED',
-      totalBasic,
-      totalGross,
-      totalDeductions,
-      totalNetPay,
-      totalSssEr,
-      totalPhEr,
-      totalPagibigEr,
+      totalBasic:      aggregated._sum.basicSalary?.toNumber()       ?? totalBasic,
+      totalGross:      aggregated._sum.grossPay?.toNumber()          ?? totalGross,
+      totalDeductions: aggregated._sum.totalDeductions?.toNumber()   ?? totalDeductions,
+      totalNetPay:     aggregated._sum.netPay?.toNumber()            ?? totalNetPay,
+      totalSssEr:      aggregated._sum.sssEmployer?.toNumber()       ?? totalSssEr,
+      totalPhEr:       aggregated._sum.philhealthEmployer?.toNumber() ?? totalPhEr,
+      totalPagibigEr:  aggregated._sum.pagibigEmployer?.toNumber()   ?? totalPagibigEr,
     },
   })
 

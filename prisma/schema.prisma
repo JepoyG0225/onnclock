@@ -1031,6 +1031,12 @@ model Payslip {
   ytdTaxableIncome            Decimal  @default(0) @db.Decimal(14, 2)
   ytdWithholdingTax           Decimal  @default(0) @db.Decimal(14, 2)
   pdfUrl                      String?
+  /// JSON map of field-name → number for any payslip fields that the admin
+  /// overrode in the Edit Payslip modal. These overrides survive recompute:
+  /// the compute route re-applies them after rebuilding the payslip from the
+  /// engine, so manual adjustments don't get silently wiped when DTR data
+  /// changes or someone clicks "Recompute Payroll".
+  manualEdits                 Json?
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
 
