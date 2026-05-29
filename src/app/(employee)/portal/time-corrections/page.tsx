@@ -180,19 +180,19 @@ export default function TimeCorrectionPortalPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardEdit className="w-5 h-5 text-[#2E4156]" />
-            Time Entry Corrections
+    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
+      {/* Header — stacks on mobile so the action button gets full width */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+            <ClipboardEdit className="w-5 h-5 text-[#2E4156] shrink-0" />
+            <span className="truncate">Time Entry Corrections</span>
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Request corrections to your attendance records</p>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Request corrections to your attendance records</p>
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[#2E4156] text-white rounded-lg text-sm font-medium hover:bg-[#1A2D42] transition"
+          className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-3 py-2 bg-[#2E4156] text-white rounded-lg text-sm font-medium hover:bg-[#1A2D42] transition shrink-0"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           {showForm ? 'Cancel' : 'New Request'}
@@ -201,7 +201,7 @@ export default function TimeCorrectionPortalPage() {
 
       {/* New Request Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4">
           <h2 className="text-sm font-semibold text-gray-700">New Correction Request</h2>
 
           {/* Mode toggle: pick an existing entry, or do a free-form manual entry */}
@@ -209,16 +209,17 @@ export default function TimeCorrectionPortalPage() {
             <button
               type="button"
               onClick={() => { setEntryMode('pick'); setForm(p => ({ ...p, dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '' })) }}
-              className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+              className={`flex-1 px-2 sm:px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition leading-tight ${
                 entryMode === 'pick' ? 'bg-white text-[#2E4156] shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Pick from my time entries
+              <span className="hidden sm:inline">Pick from my time entries</span>
+              <span className="sm:hidden">Pick existing</span>
             </button>
             <button
               type="button"
               onClick={() => { setEntryMode('manual'); setForm(p => ({ ...p, dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '' })) }}
-              className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+              className={`flex-1 px-2 sm:px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition leading-tight ${
                 entryMode === 'manual' ? 'bg-white text-[#2E4156] shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -311,11 +312,11 @@ export default function TimeCorrectionPortalPage() {
               />
             </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-stretch sm:justify-end">
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 bg-[#2E4156] text-white rounded-lg text-sm font-medium hover:bg-[#1A2D42] transition disabled:opacity-50"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 bg-[#2E4156] text-white rounded-lg text-sm font-medium hover:bg-[#1A2D42] transition disabled:opacity-50"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting ? 'Submitting...' : 'Submit Request'}
@@ -337,35 +338,36 @@ export default function TimeCorrectionPortalPage() {
       ) : (
         <div className="space-y-3">
           {corrections.map(c => (
-            <div key={c.id} className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <p className="font-semibold text-gray-900 text-sm">
-                      {format(new Date(c.date), 'MMMM d, yyyy')}
+            <div key={c.id} className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4">
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <p className="font-semibold text-gray-900 text-sm truncate">
+                      {format(new Date(c.date), 'MMM d, yyyy')}
                     </p>
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status]}`}>
+                    <span className={`inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status]}`}>
                       {STATUS_ICONS[c.status]} {c.status}
                     </span>
                     {!c.dtrRecordId && (
-                      <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
-                        MANUAL ENTRY
+                      <span className="inline-flex items-center text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
+                        MANUAL
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-500 mb-2">
-                    {c.timeIn  && <span>Time In: <strong>{c.timeIn}</strong></span>}
-                    {c.timeOut && <span>Time Out: <strong>{c.timeOut}</strong></span>}
-                    {c.breakIn && <span>Break Start: <strong>{c.breakIn}</strong></span>}
-                    {c.breakOut && <span>Break End: <strong>{c.breakOut}</strong></span>}
+                  {/* Times: stack on phones, 2-col on sm+, never overflow */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] sm:text-xs text-gray-500 mb-2">
+                    {c.timeIn  && <span className="truncate">Time In: <strong>{c.timeIn}</strong></span>}
+                    {c.timeOut && <span className="truncate">Time Out: <strong>{c.timeOut}</strong></span>}
+                    {c.breakIn && <span className="truncate">Break Start: <strong>{c.breakIn}</strong></span>}
+                    {c.breakOut && <span className="truncate">Break End: <strong>{c.breakOut}</strong></span>}
                   </div>
-                  <p className="text-xs text-gray-500 italic">&ldquo;{c.reason}&rdquo;</p>
+                  <p className="text-[11px] sm:text-xs text-gray-500 italic break-words">&ldquo;{c.reason}&rdquo;</p>
                   {c.adminNotes && (
-                    <p className="text-xs text-gray-600 mt-1.5 bg-gray-50 rounded px-2 py-1">
+                    <p className="text-[11px] sm:text-xs text-gray-600 mt-1.5 bg-gray-50 rounded px-2 py-1 break-words">
                       <span className="font-medium">Admin note:</span> {c.adminNotes}
                     </p>
                   )}
-                  <p className="text-[11px] text-gray-400 mt-1.5">
+                  <p className="text-[10px] sm:text-[11px] text-gray-400 mt-1.5">
                     Submitted {format(new Date(c.createdAt), 'MMM d, yyyy h:mm a')}
                   </p>
                 </div>
@@ -373,7 +375,7 @@ export default function TimeCorrectionPortalPage() {
                   <button
                     onClick={() => handleCancel(c.id)}
                     disabled={cancelling === c.id}
-                    className="flex-shrink-0 text-[11px] font-medium text-red-500 hover:text-red-700 transition disabled:opacity-50"
+                    className="flex-shrink-0 text-[11px] font-medium text-red-500 hover:text-red-700 transition disabled:opacity-50 px-2 py-1"
                   >
                     {cancelling === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Cancel'}
                   </button>
