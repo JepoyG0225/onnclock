@@ -525,12 +525,12 @@ function FlexibleScheduleTab({
   const [dragOverCell, setDragOverCell] = useState<string | null>(null) // "empId|dateStr"
   const dragScheduleId = useRef<string | null>(null)
   const restDayDragId = '__REST_DAY__'
-  // In FLEXIBLE mode show all schedules — a company may have created templates
-  // as any type and still want to drag them onto the flexible grid.
-  // In FIXED mode restrict to FIXED-type templates for consistency.
-  const templateSchedules = variant === 'FLEXIBLE'
-    ? schedules
-    : schedules.filter(s => s.scheduleType === 'FIXED')
+  // Show ALL active templates regardless of the current FIXED/FLEXIBLE tab.
+  // Templates are reusable across both modes — companies often create a
+  // schedule like "AM Shift" (FIXED) but want to drop it onto a flexible
+  // employee's grid too. Previously the FIXED tab hid FLEXITIME templates,
+  // which silently dropped legitimate work-hour cards from the panel.
+  const templateSchedules = schedules
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const startStr = toDateStr(weekStart)
