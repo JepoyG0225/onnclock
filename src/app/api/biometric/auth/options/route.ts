@@ -27,10 +27,17 @@ export async function POST() {
   const cred = employee.biometricCredential as { id: string; transports?: string[] }
   const rpID = getRpID()
 
+  // Force on-device (platform) authenticator only. Without this, iOS shows
+  // a passkey picker that includes "Use phone via QR" / iCloud Keychain —
+  // tapping out of it surfaces as NotAllowedError, which our UI displays
+  // as "Fingerprint authentication was cancelled." Restricting transports
+  // to "internal" sends the user straight to Face ID / Touch ID.
+  const transportsToSend = ['internal']
+
   const options = await generateAuthenticationOptions({
     rpID,
     userVerification: 'preferred',
-    allowCredentials: [{ id: cred.id, transports: cred.transports as never[] | undefined }],
+    allowCredentials: [{ id: cred.id, transports: transportsToSend as never[] }],
   })
 
   await prisma.employee.update({

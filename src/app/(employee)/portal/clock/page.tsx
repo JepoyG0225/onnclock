@@ -493,7 +493,19 @@ export default function ClockPage() {
       return true
     } catch (e: unknown) {
       if (e instanceof Error && e.name === 'NotAllowedError') {
-        toast.error('Fingerprint authentication was cancelled.')
+        // iOS PWA gotcha: NotAllowedError fires for BOTH user-cancel AND
+        // "credential not visible to this PWA install" (when enrolled in
+        // Safari but auth attempted from a homescreen-installed PWA, or
+        // vice-versa). Surface a hint so they know what to try.
+        const isPwa = typeof window !== 'undefined' &&
+          (window.matchMedia('(display-mode: standalone)').matches ||
+           (window.navigator as { standalone?: boolean }).standalone === true)
+        toast.error(
+          isPwa
+            ? 'Face ID / fingerprint cancelled. If this keeps happening, re-enroll your fingerprint from Profile → Portal Access while using this installed app (not Safari).'
+            : 'Fingerprint authentication was cancelled. Make sure Face ID / Touch ID is enabled in your iPhone settings.',
+          { duration: 8000 },
+        )
         return false
       }
       toast.error(e instanceof Error ? e.message : 'Authentication failed')
