@@ -375,19 +375,36 @@ export default function OffboardingPage() {
   }
 
   async function handleCreate() {
-    if (!form.employeeId || !form.lastWorkingDate) {
-      toast.error('Please fill in all required fields')
+    // Pull live values from the form DOM as a safety net. Browsers don't
+    // fire onChange for <input type="date"> until blur — so if the user
+    // clicks "Start Offboarding" with the date input still focused, our
+    // React state can be stale even though the date is visible on screen.
+    const dateEl = document.querySelector<HTMLInputElement>('input[name="offboarding-last-working-date"]')
+    const liveLastWorkingDate = dateEl?.value || form.lastWorkingDate
+    const liveEmployeeId = form.employeeId.trim()
+
+    if (!liveEmployeeId && !liveLastWorkingDate) {
+      toast.error('Please select an employee and enter the last working date.')
       return
     }
+    if (!liveEmployeeId) {
+      toast.error('Please select an employee from the dropdown.')
+      return
+    }
+    if (!liveLastWorkingDate) {
+      toast.error('Please enter the last working date.')
+      return
+    }
+
     setSaving(true)
     try {
       const res = await fetch('/api/offboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employeeId: form.employeeId,
+          employeeId: liveEmployeeId,
           reason: form.reason,
-          lastWorkingDate: form.lastWorkingDate,
+          lastWorkingDate: liveLastWorkingDate,
           notes: form.notes || null,
         }),
       })
@@ -674,8 +691,10 @@ export default function OffboardingPage() {
               </label>
               <Input
                 type="date"
+                name="offboarding-last-working-date"
                 value={form.lastWorkingDate}
                 onChange={e => setForm(f => ({ ...f, lastWorkingDate: e.target.value }))}
+                onBlur={e => setForm(f => ({ ...f, lastWorkingDate: e.target.value }))}
               />
             </div>
 
