@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       firstName: true,
       lastName: true,
       workScheduleId: true,
-      workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true, breakMinutes: true, workDays: true } },
+      workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true, breakMinutes: true, breakEnabled: true, workDays: true } },
     },
   }) : null
   if (!employee) return NextResponse.json({ record: null })
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       timeIn: true,
       timeOut: true,
       isRestDay: true,
-      schedule: { select: { breakMinutes: true } },
+      schedule: { select: { breakMinutes: true, breakEnabled: true } },
     },
   })
 
@@ -110,7 +110,12 @@ export async function GET(req: NextRequest) {
 
   // breakMinutes: 0 = break disabled, >0 = allowed break duration in minutes
   // Priority: explicit assignment schedule override > fixed employee schedule > company default.
-  const breakMinutes = normalizeBreakMinutes(
+  // If either source's schedule has breakEnabled=false, return 0 — the portal
+  // uses this value to hide the Start/End Break buttons entirely.
+  const breakDisabled =
+    workAssignment?.schedule?.breakEnabled === false ||
+    (!workAssignment && employee.workSchedule?.breakEnabled === false)
+  const breakMinutes = breakDisabled ? 0 : normalizeBreakMinutes(
     workAssignment?.schedule?.breakMinutes ??
       employee.workSchedule?.breakMinutes ??
       companyDefaultBreakMinutes
