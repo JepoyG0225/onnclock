@@ -108,7 +108,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Loans',          href: '/loans',            icon: CreditCard },
       { label: 'Cash Advance',   href: '/cash-advance',     icon: CreditCard, releasedAt: '2026-05-13T00:00:00+08:00' },
       { label: 'Final Pay',      href: '/final-pay',        icon: Receipt,    releasedAt: '2026-05-13T00:00:00+08:00' },
-      { label: 'Disbursement',   href: '/disbursement',     icon: Send,       releasedAt: '2026-05-22T00:00:00+08:00' },
+      { label: 'Disbursement',   href: '/disbursement',     icon: Send,       releasedAt: '2026-05-29T00:00:00+08:00' },
     ],
   },
   { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },

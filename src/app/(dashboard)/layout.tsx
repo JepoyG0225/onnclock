@@ -120,6 +120,7 @@ export default async function DashboardLayout({
           initialTrialEndsAt={trialEndsAt}
           isLocal={process.env.NODE_ENV === 'development'}
           hrisProEnabled={hrisProEnabled}
+          disbursementEnabled={hrisProEnabled}
         />
         <AppHeader
           user={{ email: session.user.email, name: session.user.name }}
