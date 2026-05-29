@@ -66,17 +66,29 @@ const c = await prisma.company.findFirst({
 if (!c) { console.error('No Loyola company'); process.exit(1) }
 console.log(`\nCompany: ${c.name}  (defaultBreakMinutes=${c.defaultBreakMinutes ?? 60})\n`)
 
+// Optional --month=YYYY-MM filter; defaults to "all closed".
+const monthArg = process.argv.find(a => a.startsWith('--month='))?.slice('--month='.length)
+let dateFilter = {}
+if (monthArg) {
+  const [yr, mo] = monthArg.split('-').map(Number)
+  const start = new Date(Date.UTC(yr, mo - 1, 1))
+  const end = new Date(Date.UTC(yr, mo, 1))
+  dateFilter = { date: { gte: start, lt: end } }
+  console.log(`Restricting to month ${monthArg} (${start.toISOString().slice(0,10)} – ${end.toISOString().slice(0,10)} exclusive)\n`)
+}
+
 const rows = await prisma.dTRRecord.findMany({
   where: {
     employee: { companyId: c.id },
     timeIn: { not: null },
     timeOut: { not: null },
+    ...dateFilter,
   },
   include: {
     employee: {
       select: {
         id: true, firstName: true, lastName: true, workScheduleId: true,
-        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
       },
     },
   },
@@ -92,12 +104,18 @@ for (const r of rows) {
     where: { employeeId: r.employee.id, date: r.date },
     select: {
       timeIn: true, timeOut: true,
-      schedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+      schedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
     },
   })
   const schedTimeIn  = assignment?.timeIn  ?? assignment?.schedule?.timeIn  ?? r.employee.workSchedule?.timeIn  ?? null
   const schedTimeOut = assignment?.timeOut ?? assignment?.schedule?.timeOut ?? r.employee.workSchedule?.timeOut ?? null
-  const allowed = assignment?.schedule?.breakMinutes ?? r.employee.workSchedule?.breakMinutes ?? c.defaultBreakMinutes ?? 60
+  // breakEnabled=false → no deduction at all. Otherwise use the configured minutes.
+  const breakDisabled =
+    assignment?.schedule?.breakEnabled === false ||
+    (!assignment?.schedule && r.employee.workSchedule?.breakEnabled === false)
+  const allowed = breakDisabled
+    ? 0
+    : (assignment?.schedule?.breakMinutes ?? r.employee.workSchedule?.breakMinutes ?? c.defaultBreakMinutes ?? 60)
 
   if (!schedTimeIn || !schedTimeOut) continue // skip if no schedule
 

@@ -1345,9 +1345,6 @@ export default function SchedulesPage() {
   const [mode, setMode] = useState<ScheduleMode>('FIXED')
   const [schedules, setSchedules] = useState<WorkSchedule[]>([])
   const [loadingSchedules, setLoadingSchedules] = useState(false)
-  const [companyBreakHours, setCompanyBreakHours] = useState(1)
-  const [companyBreakMins, setCompanyBreakMins] = useState(0)
-  const [savingCompanyBreak, setSavingCompanyBreak] = useState(false)
 
   const loadSchedules = useCallback(async () => {
     setLoadingSchedules(true)
@@ -1361,59 +1358,6 @@ export default function SchedulesPage() {
   }, [companyId])
 
   useEffect(() => { loadSchedules() }, [loadSchedules])
-
-  useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(data => {
-        const fallback = schedules.length > 0 ? Number(schedules[0]?.breakMinutes ?? 60) : 60
-        const minutes = Number(data?.defaultBreakMinutes ?? fallback)
-        const next = splitBreakMinutes(minutes)
-        setCompanyBreakHours(next.hours)
-        setCompanyBreakMins(next.minutes)
-      })
-      .catch(() => {
-        const fallback = schedules.length > 0 ? Number(schedules[0]?.breakMinutes ?? 60) : 60
-        const next = splitBreakMinutes(fallback)
-        setCompanyBreakHours(next.hours)
-        setCompanyBreakMins(next.minutes)
-      })
-  }, [schedules])
-
-  async function applyCompanyBreakSetup() {
-    const nextBreakMinutes = combineBreakMinutes(companyBreakHours, companyBreakMins)
-    setSavingCompanyBreak(true)
-    try {
-      const settingsRes = await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultBreakMinutes: nextBreakMinutes }),
-      })
-      if (!settingsRes.ok) {
-        const data = await settingsRes.json().catch(() => ({}))
-        toast.error(data?.error ?? 'Failed to save company break setup')
-        return
-      }
-
-      const jobs = schedules.map(s => fetch(withCompanyId(`/api/schedules/${s.id}`, companyId), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ breakMinutes: nextBreakMinutes }),
-      }))
-      const results = await Promise.all(jobs)
-      const failed = results.filter(r => !r.ok).length
-      if (failed > 0) {
-        toast.warning(`Break setup saved, but ${failed} schedule${failed > 1 ? 's' : ''} failed to update.`)
-      } else {
-        toast.success('Company break setup applied to all schedules')
-      }
-      await loadSchedules()
-    } catch {
-      toast.error('Failed to apply company break setup')
-    } finally {
-      setSavingCompanyBreak(false)
-    }
-  }
 
   useEffect(() => {
     const requestedMode = searchParams.get('mode')
@@ -1436,56 +1380,6 @@ export default function SchedulesPage() {
         </div>
         <div />
       </div>
-
-      {/* â”€â”€ Mode toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Company Break Setup</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-xs text-gray-500">
-            Set your company standard break duration in hours and minutes. This updates all work-hour templates and overbreak tardy tracking.
-          </p>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-[120px]">
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Hours</label>
-              <select
-                value={companyBreakHours}
-                onChange={e => setCompanyBreakHours(Number(e.target.value))}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              >
-                {Array.from({ length: 13 }, (_, h) => h).map(h => (
-                  <option key={h} value={h}>{h}h</option>
-                ))}
-              </select>
-            </div>
-            <div className="w-[140px]">
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Minutes</label>
-              <select
-                value={companyBreakMins}
-                onChange={e => setCompanyBreakMins(Number(e.target.value))}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              >
-                {Array.from({ length: 60 }, (_, m) => m).map(m => (
-                  <option key={m} value={m}>{m}m</option>
-                ))}
-              </select>
-            </div>
-            <Button
-              type="button"
-              disabled={savingCompanyBreak}
-              onClick={applyCompanyBreakSetup}
-              className="text-white min-w-[180px] w-auto px-5"
-              style={{ background: '#fa5e01' }}
-            >
-              {savingCompanyBreak ? 'Saving...' : 'Save Break Setup'}
-            </Button>
-          </div>
-          <p className="text-[11px] text-gray-500">
-            Current setup: {combineBreakMinutes(companyBreakHours, companyBreakMins)} minute{combineBreakMinutes(companyBreakHours, companyBreakMins) === 1 ? '' : 's'}.
-          </p>
-        </CardContent>
-      </Card>
 
       <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 w-fit">
         <button
@@ -1539,7 +1433,7 @@ export default function SchedulesPage() {
           loadingSchedules={loadingSchedules}
           onRefreshSchedules={loadSchedules}
           variant="FIXED"
-          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
+          companyBreakMinutes={Number(schedules[0]?.breakMinutes ?? 60)}
           companyId={companyId}
           focusEmployeeId={focusEmployeeId}
         />
@@ -1549,7 +1443,7 @@ export default function SchedulesPage() {
           loadingSchedules={loadingSchedules}
           onRefreshSchedules={loadSchedules}
           variant="FLEXIBLE"
-          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
+          companyBreakMinutes={Number(schedules[0]?.breakMinutes ?? 60)}
           companyId={companyId}
           focusEmployeeId={focusEmployeeId}
         />
