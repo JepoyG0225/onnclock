@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 interface Correction {
   id: string
   date: string
+  dtrRecordId: string | null
   timeIn: string | null
   timeOut: string | null
   breakIn: string | null
@@ -47,6 +48,10 @@ export default function TimeCorrectionPortalPage() {
   const [cancelling, setCancelling] = useState<string | null>(null)
   const [timeEntries, setTimeEntries] = useState<TimeEntryRecord[]>([])
 
+  // mode = 'pick' → admin chooses an existing DTR row to correct
+  // mode = 'manual' → free-form entry; no DTR is referenced and the admin
+  //                   sees a "Manual entry" tag on the request
+  const [entryMode, setEntryMode] = useState<'pick' | 'manual'>('pick')
   const [form, setForm] = useState({
     dtrRecordId: '',
     date: '',
@@ -124,7 +129,10 @@ export default function TimeCorrectionPortalPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.date) { toast.error('Date is required'); return }
-    if (!form.dtrRecordId) { toast.error('Please select a time entry record'); return }
+    if (entryMode === 'pick' && !form.dtrRecordId) {
+      toast.error('Please select a time entry record')
+      return
+    }
     if (!form.reason.trim()) { toast.error('Reason is required'); return }
     if (!form.timeIn && !form.timeOut) { toast.error('Enter at least one time to correct'); return }
 
@@ -134,7 +142,10 @@ export default function TimeCorrectionPortalPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dtrRecordId: form.dtrRecordId,
+          // Only send dtrRecordId in "pick" mode. In "manual" mode the
+          // server will leave it null and the admin sees a "Manual entry"
+          // tag in the dashboard.
+          ...(entryMode === 'pick' ? { dtrRecordId: form.dtrRecordId } : {}),
           date: form.date,
           timeIn:  form.timeIn  || null,
           timeOut: form.timeOut || null,
@@ -147,6 +158,7 @@ export default function TimeCorrectionPortalPage() {
       if (!res.ok) { toast.error(data?.error ?? 'Failed to submit'); return }
       toast.success('Correction request submitted')
       setForm({ dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '', reason: '' })
+      setEntryMode('pick')
       setShowForm(false)
       fetchCorrections()
     } finally {
@@ -191,23 +203,54 @@ export default function TimeCorrectionPortalPage() {
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
           <h2 className="text-sm font-semibold text-gray-700">New Correction Request</h2>
+
+          {/* Mode toggle: pick an existing entry, or do a free-form manual entry */}
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-full">
+            <button
+              type="button"
+              onClick={() => { setEntryMode('pick'); setForm(p => ({ ...p, dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '' })) }}
+              className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                entryMode === 'pick' ? 'bg-white text-[#2E4156] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Pick from my time entries
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEntryMode('manual'); setForm(p => ({ ...p, dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '' })) }}
+              className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                entryMode === 'manual' ? 'bg-white text-[#2E4156] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Manual entry
+            </button>
+          </div>
+
+          {entryMode === 'manual' && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <strong>Manual entry:</strong> use this when you have no existing time entry for the day (e.g. you forgot to clock in entirely). The admin will see a &ldquo;Manual entry&rdquo; tag on this request.
+            </p>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Time Entry Record *</label>
-              <select
-                value={form.dtrRecordId}
-                onChange={e => handleSelectTimeEntry(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
-                required
-              >
-                <option value="">Select a time entry</option>
-                {timeEntries.map((record) => (
-                  <option key={record.id} value={record.id}>
-                    {format(new Date(record.date), 'MMM d, yyyy')} • In {formatTimeValue(record.timeIn)} • Out {formatTimeValue(record.timeOut)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {entryMode === 'pick' && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Time Entry Record *</label>
+                <select
+                  value={form.dtrRecordId}
+                  onChange={e => handleSelectTimeEntry(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
+                  required
+                >
+                  <option value="">Select a time entry</option>
+                  {timeEntries.map((record) => (
+                    <option key={record.id} value={record.id}>
+                      {format(new Date(record.date), 'MMM d, yyyy')} • In {formatTimeValue(record.timeIn)} • Out {formatTimeValue(record.timeOut)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
               <input
@@ -217,7 +260,7 @@ export default function TimeCorrectionPortalPage() {
                 onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
                 required
-                readOnly
+                readOnly={entryMode === 'pick'}
               />
             </div>
             <div>
@@ -297,13 +340,18 @@ export default function TimeCorrectionPortalPage() {
             <div key={c.id} className="bg-white rounded-xl border border-gray-200 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <p className="font-semibold text-gray-900 text-sm">
                       {format(new Date(c.date), 'MMMM d, yyyy')}
                     </p>
                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status]}`}>
                       {STATUS_ICONS[c.status]} {c.status}
                     </span>
+                    {!c.dtrRecordId && (
+                      <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
+                        MANUAL ENTRY
+                      </span>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-500 mb-2">
                     {c.timeIn  && <span>Time In: <strong>{c.timeIn}</strong></span>}

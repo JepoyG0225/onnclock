@@ -160,15 +160,24 @@ export default function TimeCorrectionAdminPage() {
                       {c.status === 'REJECTED' && <XCircle className="w-3 h-3" />}
                       {c.status}
                     </span>
+                    {!c.dtrRecordId && (
+                      <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200">
+                        MANUAL ENTRY
+                      </span>
+                    )}
                   </div>
 
                   {/* Date + requested times */}
                   <p className="text-sm text-gray-700 font-medium mb-1.5">
                     {format(new Date(c.date), 'EEEE, MMMM d, yyyy')}
                   </p>
-                  {c.dtrRecordId && (
+                  {c.dtrRecordId ? (
                     <p className="text-[11px] text-gray-500 mb-1.5">
                       Record ID: <span className="font-mono text-gray-700">{c.dtrRecordId}</span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-violet-600 mb-1.5">
+                      No existing DTR — approving this will create a new DTR row for this date.
                     </p>
                   )}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-0.5 text-xs text-gray-500 mb-2">

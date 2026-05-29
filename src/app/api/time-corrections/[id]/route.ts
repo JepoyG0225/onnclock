@@ -41,7 +41,8 @@ export async function PATCH(
   const { action, adminNotes } = parsed.data
   const newStatus = action === 'approve' ? 'APPROVED' : 'REJECTED'
 
-  // If approving, apply the correction to the DTR record
+  // If approving, apply the correction to the DTR record (or create one
+  // when this is a "manual entry" request with no existing DTR row).
   if (action === 'approve') {
     const targetDtr = correction.dtrRecordId
       ? await prisma.dTRRecord.findFirst({
@@ -51,34 +52,50 @@ export async function PATCH(
           where: { employeeId: correction.employee.id, date: correction.date },
           orderBy: { createdAt: 'desc' },
         })
-    const dtr = targetDtr
-    if (dtr) {
-      // Use the Manila date string from the correction (stored as @db.Date, always midnight UTC).
-      // Appending +08:00 ensures the time is interpreted as Philippines time (UTC+8)
-      // so a value like "22:45" is stored as 14:45 UTC, not 22:45 UTC (which would
-      // display as 06:45 AM Manila time — the original 8-hour shift bug).
-      const corrDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Manila',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(correction.date)
 
-      function toDateTime(timeStr: string | null): Date | null {
-        if (!timeStr) return null
-        return new Date(`${corrDate}T${timeStr}:00+08:00`)
-      }
+    // Manila-date string so "HH:MM" times are stored at +08:00.
+    const corrDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(correction.date)
+    function toDateTime(timeStr: string | null): Date | null {
+      if (!timeStr) return null
+      return new Date(`${corrDate}T${timeStr}:00+08:00`)
+    }
+    const reqTimeIn   = toDateTime(correction.timeIn)
+    const reqTimeOut  = toDateTime(correction.timeOut)
+    const reqBreakIn  = toDateTime(correction.breakIn)
+    const reqBreakOut = toDateTime(correction.breakOut)
 
-      const newTimeIn  = correction.timeIn  ? toDateTime(correction.timeIn)  : dtr.timeIn
-      const newTimeOut = correction.timeOut ? toDateTime(correction.timeOut) : dtr.timeOut
-      const newBreakIn  = correction.breakIn  ? toDateTime(correction.breakIn)  : dtr.breakIn
-      const newBreakOut = correction.breakOut ? toDateTime(correction.breakOut) : dtr.breakOut
+    if (targetDtr) {
+      // Update existing DTR — only overwrite the fields the request includes.
+      const newTimeIn  = reqTimeIn  ?? targetDtr.timeIn
+      const newTimeOut = reqTimeOut ?? targetDtr.timeOut
+      const newBreakIn  = reqBreakIn  ?? targetDtr.breakIn
+      const newBreakOut = reqBreakOut ?? targetDtr.breakOut
 
       await prisma.dTRRecord.update({
-        where: { id: dtr.id },
+        where: { id: targetDtr.id },
         data: {
           ...(newTimeIn  ? { timeIn:  newTimeIn  } : {}),
           ...(newTimeOut !== undefined ? { timeOut: newTimeOut } : {}),
           ...(newBreakIn  !== undefined ? { breakIn:  newBreakIn  } : {}),
           ...(newBreakOut !== undefined ? { breakOut: newBreakOut } : {}),
+        },
+      })
+    } else {
+      // Manual entry — no DTR exists yet. Create a fresh row so the
+      // employee's day actually shows the worked time.
+      await prisma.dTRRecord.create({
+        data: {
+          employeeId: correction.employee.id,
+          date: correction.date,
+          timeIn:  reqTimeIn  ?? undefined,
+          timeOut: reqTimeOut ?? undefined,
+          breakIn:  reqBreakIn  ?? undefined,
+          breakOut: reqBreakOut ?? undefined,
+          source: 'MANUAL_CORRECTION',
+          remarks: `Created from manual time correction request (${correction.id}). Employee reason: ${correction.reason}`,
         },
       })
     }
