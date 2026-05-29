@@ -220,6 +220,9 @@ interface ModalState {
   prefilledScheduleId?: string | null
   /** When opened by dragging the "Rest Day" tile, default to rest-day. */
   prefilledIsRestDay?: boolean
+  /** When opened by dragging an ad-hoc shift card, pre-fill the times. */
+  prefilledTimeIn?: string
+  prefilledTimeOut?: string
 }
 
 // â”€â”€â”€ Shift template mini-modal (used in Flexible mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -524,7 +527,24 @@ function FlexibleScheduleTab({
   const [shiftModal, setShiftModal] = useState<{ mode: 'create' } | { mode: 'edit'; schedule: WorkSchedule } | null>(null)
   const [dragOverCell, setDragOverCell] = useState<string | null>(null) // "empId|dateStr"
   const dragScheduleId = useRef<string | null>(null)
+  const dragAdhocTimes = useRef<{ timeIn: string; timeOut: string } | null>(null)
   const restDayDragId = '__REST_DAY__'
+  const adhocDragId = '__ADHOC__'
+
+  // Ad-hoc shifts = (timeIn, timeOut) combos used in past assignments that
+  // don't have a matching WorkSchedule template. Shown alongside templates
+  // so the admin can drag/promote them.
+  type AdhocShift = { timeIn: string; timeOut: string; usageCount: number; lastUsed: string }
+  const [adhocShifts, setAdhocShifts] = useState<AdhocShift[]>([])
+  const [promotingAdhoc, setPromotingAdhoc] = useState<string | null>(null)
+  const loadAdhoc = useCallback(async () => {
+    try {
+      const res = await fetch(withCompanyId('/api/schedules/adhoc-shifts', companyId))
+      const data = await res.json().catch(() => ({}))
+      setAdhocShifts(data.shifts ?? [])
+    } catch { /* ignore */ }
+  }, [companyId])
+  useEffect(() => { loadAdhoc() }, [loadAdhoc, schedules])  // re-fetch when templates change
   // Show ALL active templates regardless of the current FIXED/FLEXIBLE tab.
   // Templates are reusable across both modes — companies often create a
   // schedule like "AM Shift" (FIXED) but want to drop it onto a flexible
@@ -584,12 +604,11 @@ function FlexibleScheduleTab({
 
   async function onDrop(empId: string, dateStr: string) {
     const schedId = dragScheduleId.current
+    const adhocTimes = dragAdhocTimes.current
     setDragOverCell(null)
     dragScheduleId.current = null
-    if (!schedId) return
-    // Open the assignment modal pre-populated with what was dragged. The modal
-    // shows the "Apply to days" picker so admins can fan the same shift out
-    // across multiple days in the visible week.
+    dragAdhocTimes.current = null
+    if (!schedId && !adhocTimes) return
     const employee = employees.find((e) => e.id === empId)
     setModal({
       employeeId: empId,
@@ -597,9 +616,38 @@ function FlexibleScheduleTab({
       fixedScheduleId: employee?.workScheduleId ?? null,
       date: dateStr,
       existing: null,
-      prefilledScheduleId: schedId === restDayDragId ? null : schedId,
+      prefilledScheduleId: schedId && schedId !== restDayDragId && schedId !== adhocDragId ? schedId : null,
       prefilledIsRestDay: schedId === restDayDragId,
+      prefilledTimeIn:  adhocTimes?.timeIn,
+      prefilledTimeOut: adhocTimes?.timeOut,
     })
+  }
+
+  async function promoteAdhocToTemplate(shift: { timeIn: string; timeOut: string }) {
+    const key = `${shift.timeIn}-${shift.timeOut}`
+    setPromotingAdhoc(key)
+    try {
+      const res = await fetch(withCompanyId('/api/schedules', companyId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${fmt12(shift.timeIn)} - ${fmt12(shift.timeOut)}`,
+          scheduleType: 'FLEXITIME',
+          timeIn: shift.timeIn,
+          timeOut: shift.timeOut,
+          workDays: [0, 1, 2, 3, 4, 5, 6],
+          workHoursPerDay: 8,
+          workDaysPerWeek: 5,
+          breakEnabled: false,  // ad-hoc shifts are typically short — no break
+          breakMinutes: 0,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data?.error ?? 'Failed to save template'); return }
+      toast.success('Template saved')
+      onRefreshSchedules()
+      void loadAdhoc()
+    } finally { setPromotingAdhoc(null) }
   }
 
   async function upsertAssignment(payload: {
@@ -770,6 +818,41 @@ function FlexibleScheduleTab({
                     className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1"
                   >
                     <Pencil className="w-3 h-3" /> Edit Work Hours
+                  </button>
+                </div>
+              )
+            })}
+            {/* Ad-hoc shifts — distinct times used in past assignments that
+                don't have a backing template. Dashed border + ghost styling
+                so they read as "draft". */}
+            {adhocShifts.map((sh) => {
+              const key = `${sh.timeIn}-${sh.timeOut}`
+              return (
+                <div key={key} className="flex flex-col gap-1.5">
+                  <div
+                    draggable
+                    onDragStart={() => {
+                      dragAdhocTimes.current = { timeIn: sh.timeIn, timeOut: sh.timeOut }
+                      dragScheduleId.current = adhocDragId
+                    }}
+                    className="cursor-grab active:cursor-grabbing select-none rounded-xl border-2 border-dashed px-4 py-2.5 transition hover:shadow-md text-center"
+                    style={{ background: '#fafafa', borderColor: '#cbd5e1', color: '#475569' }}
+                  >
+                    <p className="font-bold text-sm leading-tight">
+                      {fmt12(sh.timeIn)} - {fmt12(sh.timeOut)}
+                    </p>
+                    <p className="text-[10px] opacity-60 mt-0.5">
+                      Ad-hoc · {sh.usageCount} use{sh.usageCount === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => promoteAdhocToTemplate(sh)}
+                    disabled={promotingAdhoc === key}
+                    className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-1"
+                  >
+                    {promotingAdhoc === key
+                      ? 'Saving...'
+                      : (<><Plus className="w-3 h-3" /> Save as template</>)}
                   </button>
                 </div>
               )
@@ -1090,8 +1173,12 @@ function AssignmentModal({
     : null
   const initialRestDay = existing?.isRestDay ?? modal.prefilledIsRestDay ?? false
   const [isRestDay, setIsRestDay] = useState(variant === 'FIXED' ? false : initialRestDay)
-  const [timeIn, setTimeIn] = useState(existing?.timeIn ?? prefilledTemplate?.timeIn ?? '08:00')
-  const [timeOut, setTimeOut] = useState(existing?.timeOut ?? prefilledTemplate?.timeOut ?? '17:00')
+  const [timeIn, setTimeIn] = useState(
+    existing?.timeIn ?? modal.prefilledTimeIn ?? prefilledTemplate?.timeIn ?? '08:00'
+  )
+  const [timeOut, setTimeOut] = useState(
+    existing?.timeOut ?? modal.prefilledTimeOut ?? prefilledTemplate?.timeOut ?? '17:00'
+  )
   const [scheduleId, setScheduleId] = useState(
     existing?.scheduleId ?? modal.prefilledScheduleId ?? modal.fixedScheduleId ?? '',
   )
