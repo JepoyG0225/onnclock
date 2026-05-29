@@ -138,12 +138,13 @@ for (const r of rows) {
     scheduleTimeOut: schedTimeOut,
     allowedBreakMinutes: allowed,
   })
-  // OT-disabled policy: fold any computed OT back into regular hours so
-  // no DTR row carries an OT value the company won't pay anyway.
+  // OT-disabled policy: cap regular at the scheduled paid hours and
+  // DROP any excess (don't roll into reg — the company explicitly said
+  // they don't pay for hours beyond the scheduled shift).
   const next = overtimeEnabled
     ? raw
     : {
-        regularHours: Math.round((raw.regularHours + raw.overtimeHours) * 100) / 100,
+        regularHours: raw.regularHours,  // already capped by computeHours
         overtimeHours: 0,
       }
 
