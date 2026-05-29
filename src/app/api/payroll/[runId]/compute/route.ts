@@ -495,11 +495,16 @@ export async function POST(
     return d !== 0 && d !== 6
   }).length
   const workingDays = Math.max(1, rawWorkingDays - weekdayHolidayCount)
-  const approvedOtMap = await getApprovedOtHoursMap({
-    companyId: scopedCompanyId,
-    dateFrom: run.periodStart,
-    dateTo: run.periodEnd,
-  })
+  // When overtime is disabled for the company, ignore any APPROVED OT
+  // requests for this period — they shouldn't pay out and shouldn't appear
+  // as overtime hours on the enhanced DTR rows either.
+  const approvedOtMap = overtimeEnabled
+    ? await getApprovedOtHoursMap({
+        companyId: scopedCompanyId,
+        dateFrom: run.periodStart,
+        dateTo: run.periodEnd,
+      })
+    : new Map<string, number>()
 
   // ── Build payslip input data for each employee ─────────────────────────────
   type PayslipBuildItem = {

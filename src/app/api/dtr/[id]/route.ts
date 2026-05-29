@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
+import { syncAutoOvertimeRequest, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
@@ -92,6 +92,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     })
+    // Suppress OT for companies that disabled overtime in payroll settings.
+    const overtimeEnabled = await isOvertimeEnabledForCompany(companyId)
+    if (!overtimeEnabled) computed = { ...computed, overtimeHours: 0 }
     lateUt = computeLateAndUndertime(newTimeIn, newTimeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
   }
 

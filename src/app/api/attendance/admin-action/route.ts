@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
+import { syncAutoOvertimeRequest, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     const plannedRegularMins = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
     const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
-    const { regularHours, overtimeHours, nightDiffHours } = computeHours(
+    const computed = computeHours(
       existing.timeIn!,
       now,
       effectiveBreakIn,
@@ -109,6 +109,11 @@ export async function POST(req: NextRequest) {
         scheduledTimeOut: resolved.scheduleTimeOut,
       },
     )
+    // Suppress OT when the company has it disabled in payroll settings.
+    const overtimeEnabled = await isOvertimeEnabledForCompany(ctx.companyId)
+    const regularHours = computed.regularHours
+    const overtimeHours = overtimeEnabled ? computed.overtimeHours : 0
+    const nightDiffHours = computed.nightDiffHours
 
     const { lateMinutes, undertimeMinutes } = computeLateAndUndertime(
       existing.timeIn!,

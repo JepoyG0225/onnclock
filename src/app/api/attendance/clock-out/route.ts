@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasScreenCaptureFeature, isDesktopApp } from '@/lib/feature-gates'
 import { resolvePortalEmployeeId } from '@/lib/portal-employee'
-import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
+import { syncAutoOvertimeRequest, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
   const plannedRegularMins = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
   const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
-  const { regularHours, overtimeHours, nightDiffHours } = computeHours(
+  const computed = computeHours(
     existing.timeIn,
     now,
     effectiveBreakIn,
@@ -196,6 +196,12 @@ export async function POST(req: NextRequest) {
       scheduledTimeOut: resolved.scheduleTimeOut,
     },
   )
+  // If the company has overtime disabled in payroll settings, never store OT
+  // hours on the DTR row — even if the math came out > cap.
+  const overtimeEnabled = await isOvertimeEnabledForCompany(ctx.companyId)
+  const regularHours = computed.regularHours
+  const overtimeHours = overtimeEnabled ? computed.overtimeHours : 0
+  const nightDiffHours = computed.nightDiffHours
 
   const { lateMinutes: baseLateMinutes, undertimeMinutes } = computeLateAndUndertime(
     existing.timeIn,
