@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         employee: {
           select: {
             workScheduleId: true,
-            workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+            workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
           },
         },
       },

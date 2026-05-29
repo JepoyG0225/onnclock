@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         workScheduleId: true,
-        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
       },
     }),
     prisma.company.findUnique({

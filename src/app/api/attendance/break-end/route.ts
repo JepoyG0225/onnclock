@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     select: {
       id: true,
       workScheduleId: true,
-      workSchedule: { select: { breakMinutes: true } },
+      workSchedule: { select: { breakMinutes: true, breakEnabled: true } },
     },
   }) : null
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })

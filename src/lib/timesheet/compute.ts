@@ -351,7 +351,7 @@ export async function resolveShiftForDtr(params: {
   actualTimeIn: Date | null
   employee: {
     workScheduleId: string | null
-    workSchedule: { timeIn: string | null; timeOut: string | null; breakMinutes: number | null } | null
+    workSchedule: { timeIn: string | null; timeOut: string | null; breakMinutes: number | null; breakEnabled?: boolean | null } | null
   }
   defaultBreakMinutes?: number
 }): Promise<ResolvedShift> {
@@ -359,9 +359,12 @@ export async function resolveShiftForDtr(params: {
 
   let scheduleTimeIn: string | null = employee.workSchedule?.timeIn ?? null
   let scheduleTimeOut: string | null = employee.workSchedule?.timeOut ?? null
-  let allowedBreakMinutes = normalizeBreakMinutes(
-    employee.workSchedule?.breakMinutes ?? defaultBreakMinutes ?? 60,
-  )
+  // If the schedule explicitly disables breaks (breakEnabled === false), the
+  // whole shift counts as paid time — no break is deducted from worked hours
+  // and the regular-hour cap stays at the full scheduled span.
+  let allowedBreakMinutes = employee.workSchedule?.breakEnabled === false
+    ? 0
+    : normalizeBreakMinutes(employee.workSchedule?.breakMinutes ?? defaultBreakMinutes ?? 60)
   let matchedAssignment = false
 
   // Look up per-date assignments (works for both fixed and flex employees:
@@ -371,7 +374,7 @@ export async function resolveShiftForDtr(params: {
     select: {
       timeIn: true,
       timeOut: true,
-      schedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+      schedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
     },
   })
 
@@ -394,8 +397,14 @@ export async function resolveShiftForDtr(params: {
     }
     scheduleTimeIn = chosen.timeIn ?? chosen.schedule?.timeIn ?? scheduleTimeIn
     scheduleTimeOut = chosen.timeOut ?? chosen.schedule?.timeOut ?? scheduleTimeOut
-    if (chosen.schedule?.breakMinutes != null) {
-      allowedBreakMinutes = normalizeBreakMinutes(chosen.schedule.breakMinutes)
+    // Honour the assignment's schedule break policy (same rule: breakEnabled
+    // false → no deduction, otherwise use breakMinutes).
+    if (chosen.schedule) {
+      if (chosen.schedule.breakEnabled === false) {
+        allowedBreakMinutes = 0
+      } else if (chosen.schedule.breakMinutes != null) {
+        allowedBreakMinutes = normalizeBreakMinutes(chosen.schedule.breakMinutes)
+      }
     }
     matchedAssignment = true
   }

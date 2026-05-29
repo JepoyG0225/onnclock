@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       photoUrl: true,
       geofenceExempt: true,
       workScheduleId: true,
-      workSchedule: { select: { workDays: true, timeIn: true, timeOut: true, breakMinutes: true } },
+      workSchedule: { select: { workDays: true, timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
       department: { select: { name: true } },
       position: { select: { title: true } },
     },

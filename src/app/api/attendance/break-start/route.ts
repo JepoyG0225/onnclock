@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     where: { id: employeeId },
     select: {
       id: true,
-      workSchedule: { select: { breakMinutes: true } },
+      workSchedule: { select: { breakMinutes: true, breakEnabled: true } },
     },
   }) : null
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
@@ -54,8 +54,17 @@ export async function POST(req: NextRequest) {
   const companyDefaultBreakMinutes = await getCompanyDefaultBreakMinutes(ctx.companyId)
   const assignment = await prisma.employeeShiftAssignment.findFirst({
     where: { employeeId: employee.id, date: getManilaDateOnly() },
-    select: { schedule: { select: { breakMinutes: true } } },
+    select: { schedule: { select: { breakMinutes: true, breakEnabled: true } } },
   })
+
+  // breakEnabled === false on either the assignment's schedule or the
+  // employee's fixed schedule disables break entirely.
+  const breakDisabled =
+    assignment?.schedule?.breakEnabled === false ||
+    (assignment === null && employee.workSchedule?.breakEnabled === false)
+  if (breakDisabled) {
+    return NextResponse.json({ error: 'Break is disabled for your schedule.' }, { status: 409 })
+  }
 
   const allowedBreakMinutes = normalizeBreakMinutes(
     assignment?.schedule?.breakMinutes ??
