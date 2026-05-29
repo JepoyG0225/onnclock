@@ -844,7 +844,7 @@ export default function ClockPage() {
 
       <div className="text-center">
         <div className="font-black tabular-nums leading-none" style={{ fontSize: '2.75rem', color: '#2E4156' }}>
-          {currentTime ? format(currentTime, 'HH:mm:ss') : '--:--:--'}
+          {currentTime ? format(currentTime, 'h:mm:ss a') : '--:--:--'}
         </div>
         <div className="text-xs text-slate-400 font-semibold mt-1">
           {currentTime ? format(currentTime, 'MMM dd yyyy EEEE') : '--'}
