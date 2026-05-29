@@ -209,9 +209,14 @@ export function computeHours(
   // 30-min visit shouldn't go negative because the policy break is 60.
   const workedMinutes = Math.max(0, totalMinutes - Math.min(effectiveBreak, totalMinutes))
 
+  // The regular-hours cap should be the PAID portion of the planned shift —
+  // the wall-clock span minus the unpaid break. Otherwise a 09:00–18:00
+  // schedule with a 1-hour lunch break would allow 9 paid hours instead of 8.
+  // For shifts with no break (`allowed === 0`) the cap stays at the full span.
+  const rawCap = opts.plannedRegularMinutes ?? DEFAULT_REGULAR_CAP_MINUTES
   const cap = Math.max(
     1,
-    Math.min(opts.plannedRegularMinutes ?? DEFAULT_REGULAR_CAP_MINUTES, MAX_SHIFT_MINUTES),
+    Math.min(Math.max(1, rawCap - allowed), MAX_SHIFT_MINUTES),
   )
   const regularMinutes = Math.min(workedMinutes, cap)
   const overtimeMinutes = Math.max(0, workedMinutes - cap)
