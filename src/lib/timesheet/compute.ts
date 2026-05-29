@@ -178,20 +178,23 @@ export function computeHours(
   const totalMinutes = Math.min(Math.max(0, rawTotalMinutes), MAX_SHIFT_MINUTES)
   const effectiveTimeOut = new Date(timeIn.getTime() + totalMinutes * 60_000)
 
-  const allowed = opts.allowedBreakMinutes ?? 60
-  // Break-deduction policy:
+  const allowedRaw = opts.allowedBreakMinutes ?? 60
+  // DOLE rule: the mandatory unpaid meal break only applies to shifts of
+  // 5 hours or longer. Shifts shorter than that get no break deduction
+  // (it's a continuous block of work). This prevents a 4-hour shift with
+  // a 60-min break configured on the template from being charged as 3h.
+  const MIN_SHIFT_FOR_BREAK = 5 * 60
+  const allowed = totalMinutes < MIN_SHIFT_FOR_BREAK ? 0 : allowedRaw
+  // Break-deduction policy (when allowed > 0):
   //   - Both breakIn and breakOut clocked → use the actual measured break
   //   - Otherwise → ASSUME the standard `allowed` break was taken
   //
   // The "assume" branch matches DOLE Handbook practice: every employee on
-  // an 8h+ shift is entitled to a 60-min unpaid meal break, and the
+  // a 5h+ shift is entitled to a 60-min unpaid meal break, and the
   // default is that they take it. Manual DTR entries (no clock events)
   // therefore get the scheduled break deducted just like GPS-clocked
   // entries. To explicitly credit a "worked through break" case (no
   // deduction), callers can pass allowedBreakMinutes: 0.
-  //
-  // Previously the missing-timestamps branch returned 0, which silently
-  // over-credited 1 hour on every MANUAL DTR — see commit message.
   const actualBreakMins =
     breakIn && breakOut
       ? Math.max(

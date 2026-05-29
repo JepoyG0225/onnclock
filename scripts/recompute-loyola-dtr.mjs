@@ -35,10 +35,13 @@ function diffMin(a, b) {
 }
 
 function recompute({ timeIn, timeOut, breakIn, breakOut, scheduleTimeIn, scheduleTimeOut, allowedBreakMinutes }) {
-  // Mirror src/lib/timesheet/compute.ts (after cap fix)
+  // Mirror src/lib/timesheet/compute.ts (kept in sync — same rules).
   const effOut = timeOut.getTime() > timeIn.getTime() ? timeOut : new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
   const total = Math.min(diffMin(effOut, timeIn), MAX_SHIFT_MINUTES)
-  const allowed = Math.max(0, Math.min(720, Math.round(allowedBreakMinutes ?? 60)))
+  const allowedRaw = Math.max(0, Math.min(720, Math.round(allowedBreakMinutes ?? 60)))
+  // DOLE: no mandatory break for shifts shorter than 5 hours
+  const MIN_SHIFT_FOR_BREAK = 5 * 60
+  const allowed = total < MIN_SHIFT_FOR_BREAK ? 0 : allowedRaw
 
   const actualBreak = (breakIn && breakOut)
     ? Math.max(0, diffMin(
