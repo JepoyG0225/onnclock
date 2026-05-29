@@ -64,7 +64,17 @@ const c = await prisma.company.findFirst({
   select: { id: true, name: true, defaultBreakMinutes: true },
 })
 if (!c) { console.error('No Loyola company'); process.exit(1) }
-console.log(`\nCompany: ${c.name}  (defaultBreakMinutes=${c.defaultBreakMinutes ?? 60})\n`)
+
+// Honour the company's payroll-settings OT toggle. When OT is disabled,
+// all computed OT minutes are folded back into regular hours so the DTR
+// rows + payslips stay in sync with the policy.
+const cfg = await prisma.payrollCycleConfig.findUnique({
+  where: { companyId: c.id },
+  select: { enableOvertime: true },
+})
+const overtimeEnabled = cfg?.enableOvertime ?? true
+
+console.log(`\nCompany: ${c.name}  (defaultBreakMinutes=${c.defaultBreakMinutes ?? 60}, overtimeEnabled=${overtimeEnabled})\n`)
 
 // Optional --month=YYYY-MM filter; defaults to "all closed".
 const monthArg = process.argv.find(a => a.startsWith('--month='))?.slice('--month='.length)
@@ -119,7 +129,7 @@ for (const r of rows) {
 
   if (!schedTimeIn || !schedTimeOut) continue // skip if no schedule
 
-  const next = recompute({
+  const raw = recompute({
     timeIn: r.timeIn,
     timeOut: r.timeOut,
     breakIn: r.breakIn,
@@ -128,6 +138,14 @@ for (const r of rows) {
     scheduleTimeOut: schedTimeOut,
     allowedBreakMinutes: allowed,
   })
+  // OT-disabled policy: fold any computed OT back into regular hours so
+  // no DTR row carries an OT value the company won't pay anyway.
+  const next = overtimeEnabled
+    ? raw
+    : {
+        regularHours: Math.round((raw.regularHours + raw.overtimeHours) * 100) / 100,
+        overtimeHours: 0,
+      }
 
   const oldReg = Number(r.regularHours ?? 0)
   const oldOt  = Number(r.overtimeHours ?? 0)
