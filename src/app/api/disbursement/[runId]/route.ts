@@ -114,6 +114,9 @@ export async function GET(
       netPayTotal,
       totalFees,
       totalCost,
+      // `totalAmount` mirrors `netPayTotal` for the disbursement panel UI,
+      // which reads `summary.totalAmount` in confirm/disburse buttons.
+      totalAmount:        netPayTotal,
       instapayCount: items.filter(i => i.hasBankDetails && i.channel === 'instapay').length,
       pesonetCount:  items.filter(i => i.hasBankDetails && i.channel === 'pesonet').length,
     },
