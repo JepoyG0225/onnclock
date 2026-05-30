@@ -5,7 +5,11 @@ import { Prisma } from '@prisma/client'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
-  const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER'])
+  // PAYROLL_OFFICER is included because they're the natural designee for
+  // an approver slot. The per-level configured-approver check below still
+  // gates who can approve which level — this just lets the role pass the
+  // outer auth wall.
+  const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'])
   if (error) return error
 
   const run = await prisma.payrollRun.findFirst({ where: { id: runId, companyId: ctx.companyId } })
