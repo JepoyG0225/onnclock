@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
 
 function activePin() {
   return L.divIcon({
-    html: `<div style="background:#fa5e01;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);"></div>`,
+    html: `<div style="background:#ff5900;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);"></div>`,
     className: '',
     iconSize: [30, 30],
     iconAnchor: [15, 30],

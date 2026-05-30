@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -310,7 +310,7 @@ export default function SettingsPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="space-y-2">
-                  <p className="font-semibold text-[#1A2D42]">SSS 2025</p>
+                  <p className="font-semibold text-[#021e47]">SSS 2025</p>
                   <div className="space-y-1 text-gray-600">
                     <p>Employee: 5% of MSC</p>
                     <p>Employer: 10% of MSC</p>
@@ -520,7 +520,7 @@ function StorageTab() {
   const barColor =
     data.usedPct >= 90 ? 'bg-red-500' :
     data.usedPct >= 70 ? 'bg-amber-500' :
-    'bg-[#1A2D42]'
+    'bg-[#021e47]'
   const barBg =
     data.usedPct >= 90 ? 'bg-red-100' :
     data.usedPct >= 70 ? 'bg-amber-100' : 'bg-slate-100'
@@ -656,7 +656,7 @@ function StorageTab() {
                     : 'border-slate-200 bg-white'
                 }`}>
                   {isCurrent && (
-                    <span className="absolute -top-2.5 left-3 px-2 py-0.5 rounded text-[10px] font-bold bg-[#1A2D42] text-white">Current</span>
+                    <span className="absolute -top-2.5 left-3 px-2 py-0.5 rounded text-[10px] font-bold bg-[#021e47] text-white">Current</span>
                   )}
                   {tier.name === 'Pro' && !isCurrent && (
                     <span className="absolute -top-2.5 right-3 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white">

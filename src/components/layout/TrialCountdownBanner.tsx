@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * Tiny self-contained component that owns the per-second trial countdown
@@ -124,7 +124,7 @@ export function TrialCountdownBanner({ trialEndsAtMs, collapsed }: Props) {
         <Link
           href="/settings/billing"
           className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, #fa5e01, #e04e00)' }}
+          style={{ background: 'linear-gradient(135deg, #ff5900, #e04e00)' }}
         >
           <Zap className="w-3 h-3" />
           Upgrade Now

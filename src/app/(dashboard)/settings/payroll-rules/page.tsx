@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
@@ -102,7 +102,7 @@ export default function PayrollRulesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <LineChart className="h-4 w-4 text-[#2E4156]" />
+            <LineChart className="h-4 w-4 text-[#032b63]" />
             Differential Rate Rules
           </CardTitle>
         </CardHeader>

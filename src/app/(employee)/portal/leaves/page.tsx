@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -40,7 +40,7 @@ function statusBadge(status: string) {
   return (
     <Badge
       className={map[status] ?? ''}
-      style={status === 'APPROVED' ? { background: 'rgba(46,65,86,0.12)', color: '#2E4156', borderColor: 'rgba(170,183,183,0.45)' } : undefined}
+      style={status === 'APPROVED' ? { background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' } : undefined}
     >
       {status}
     </Badge>
@@ -84,7 +84,7 @@ export default function LeavesPage() {
         <Link
           href="/portal/leaves/new"
           className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          style={{ background: '#fa5e01' }}
+          style={{ background: '#ff5900' }}
         >
           <Plus className="w-4 h-4" /> File Leave
         </Link>
@@ -153,7 +153,7 @@ export default function LeavesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-400">Remaining</p>
-                      <p className="text-xl font-black" style={{ color: '#2E4156' }}>
+                      <p className="text-xl font-black" style={{ color: '#032b63' }}>
                         {remaining.toFixed(1)}
                       </p>
                     </div>
@@ -163,7 +163,7 @@ export default function LeavesPage() {
                     <div className="w-full bg-gray-100 rounded-full h-1.5">
                       <div
                         className="h-1.5 rounded-full transition-all"
-                        style={{ width: `${pct}%`, background: '#fa5e01' }}
+                        style={{ width: `${pct}%`, background: '#ff5900' }}
                       />
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 mt-1.5">

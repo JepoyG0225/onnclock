@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useCallback, type ComponentType } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -223,7 +223,7 @@ export default function ApprovalWorkflowsPage() {
       <Card className="border-0 shadow-md bg-white/95">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
-            <Icon className="w-4 h-4 text-[#2E4156]" />
+            <Icon className="w-4 h-4 text-[#032b63]" />
             {meta.title}
             <span className="ml-auto text-xs font-normal text-gray-400">
               {entries.filter(e => e.userId).length} approver{entries.filter(e => e.userId).length !== 1 ? 's' : ''} configured
@@ -281,8 +281,8 @@ export default function ApprovalWorkflowsPage() {
 
       <Card>
         <CardContent className="p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[#D4D8DD]">
-            <Users className="w-5 h-5 text-[#2E4156]" />
+          <div className="p-2 rounded-lg bg-[#dce5f7]">
+            <Users className="w-5 h-5 text-[#032b63]" />
           </div>
           <p className="text-sm text-gray-600">
             Approvals are processed in order — the <strong>1st Approver</strong> must approve before the 2nd, and so on.

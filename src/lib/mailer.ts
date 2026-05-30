@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer'
+﻿import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
 
 const smtpHost = process.env.SMTP_HOST || 'smtp.hostinger.com'
@@ -141,7 +141,7 @@ export async function sendSubscriptionExpiryNotice({
         </p>
 
         <a href="${billingUrl}"
-           style="display:inline-block;padding:14px 32px;background:#fa5e01;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 32px;background:#ff5900;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Renew Now →
         </a>
 
@@ -177,7 +177,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
           Click the button below to set a new password. This link expires in <strong>1 hour</strong>.
         </p>
         <a href="${resetUrl}"
-           style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#2E4156,#1A2D42);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#032b63,#021e47);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Reset Password
         </a>
         <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
@@ -238,7 +238,7 @@ export async function sendExpiredTrialNotice({
           Once your subscription is active, full dashboard access will resume.
         </p>
         <a href="${billingUrl}"
-           style="display:inline-block;padding:14px 32px;background:#fa5e01;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 32px;background:#ff5900;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Activate Subscription →
         </a>
         <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
@@ -300,7 +300,7 @@ export async function sendDemoOutreachEmail({
 
         <div style="text-align:center;margin-bottom:28px">
           <a href="${bookingLink}"
-             style="display:inline-block;background:#2E4156;color:#ffffff;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none">
+             style="display:inline-block;background:#032b63;color:#ffffff;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none">
             Book a Free Demo →
           </a>
         </div>
@@ -309,7 +309,7 @@ export async function sendDemoOutreachEmail({
           Or log in anytime and explore at your own pace.
         </p>
         <div style="text-align:center;margin-bottom:24px">
-          <a href="${loginUrl}" style="font-size:13px;color:#2E4156;text-decoration:underline">
+          <a href="${loginUrl}" style="font-size:13px;color:#032b63;text-decoration:underline">
             Go to my Onclock account
           </a>
         </div>
@@ -404,7 +404,7 @@ export async function sendNoEmployeeSetupEmail({
         </ol>
 
         <a href="${setupUrl}"
-           style="display:inline-block;padding:14px 32px;background:#fa5e01;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 32px;background:#ff5900;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Add Your First Employee →
         </a>
 

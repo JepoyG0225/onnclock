@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
@@ -17,11 +17,11 @@ L.Icon.Default.mergeOptions({
 function clockedInIcon(photoUrl?: string | null, initials?: string) {
   const avatar = photoUrl
     ? `<img src="${photoUrl}" alt="profile" style="width:100%;height:100%;object-fit:cover;" />`
-    : `<span style="color:#1A2D42;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
+    : `<span style="color:#021e47;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
   const content = `
     <div style="position:relative;width:40px;height:50px;">
       <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.25));">
-        <path d="M20 1C10.6 1 3 8.6 3 18c0 12.7 15.3 29.3 16 30 .6.7 1.6.7 2.2 0 .7-.7 16-17.3 16-30C37 8.6 29.4 1 20 1z" fill="#fa5e01"/>
+        <path d="M20 1C10.6 1 3 8.6 3 18c0 12.7 15.3 29.3 16 30 .6.7 1.6.7 2.2 0 .7-.7 16-17.3 16-30C37 8.6 29.4 1 20 1z" fill="#ff5900"/>
       </svg>
       <div style="position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:50%;overflow:hidden;border:2px solid white;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
         ${avatar}
@@ -39,11 +39,11 @@ function clockedInIcon(photoUrl?: string | null, initials?: string) {
 function clockedOutIcon(photoUrl?: string | null, initials?: string) {
   const avatar = photoUrl
     ? `<img src="${photoUrl}" alt="profile" style="width:100%;height:100%;object-fit:cover;filter:grayscale(100%);" />`
-    : `<span style="color:#1A2D42;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
+    : `<span style="color:#021e47;font-weight:700;font-size:10px;">${(initials ?? '').toUpperCase()}</span>`
   const content = `
     <div style="position:relative;width:40px;height:50px;">
       <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.2));">
-        <path d="M20 1C10.6 1 3 8.6 3 18c0 12.7 15.3 29.3 16 30 .6.7 1.6.7 2.2 0 .7-.7 16-17.3 16-30C37 8.6 29.4 1 20 1z" fill="#fa5e01"/>
+        <path d="M20 1C10.6 1 3 8.6 3 18c0 12.7 15.3 29.3 16 30 .6.7 1.6.7 2.2 0 .7-.7 16-17.3 16-30C37 8.6 29.4 1 20 1z" fill="#ff5900"/>
       </svg>
       <div style="position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:50%;overflow:hidden;border:2px solid white;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
         ${avatar}
@@ -242,7 +242,7 @@ export default function LiveMapInner({
 
                 {/* Status details */}
                 <div style={{ paddingTop: 6, paddingBottom: capture ? 6 : 0 }}>
-                  <p style={{ fontSize: 11, margin: '2px 0', color: loc.isClockedIn ? '#1A2D42' : '#6b7280', fontWeight: loc.isClockedIn ? 600 : 400 }}>
+                  <p style={{ fontSize: 11, margin: '2px 0', color: loc.isClockedIn ? '#021e47' : '#6b7280', fontWeight: loc.isClockedIn ? 600 : 400 }}>
                     {loc.isClockedIn ? '🟢 Clocked In' : '⚪ Clocked Out'}
                     {loc.isClockedIn && loc.clockInTime && ` · ${formatDuration(loc.clockInTime)}`}
                   </p>

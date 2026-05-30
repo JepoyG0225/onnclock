@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
@@ -10,7 +10,7 @@ const LiveMapInner = dynamic(() => import('@/components/map/LiveMapInner'), {
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-gray-100 rounded-xl">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-[#2E4156] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+        <div className="w-8 h-8 border-2 border-[#032b63] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
         <p className="text-sm text-gray-500">Loading map...</p>
       </div>
     </div>
@@ -180,7 +180,7 @@ export default function AttendanceMapPage() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[#2E4156]" /> Live Attendance Map
+            <MapPin className="w-5 h-5 text-[#032b63]" /> Live Attendance Map
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Real-time GPS tracking — <span suppressHydrationWarning>{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>
@@ -188,8 +188,8 @@ export default function AttendanceMapPage() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 text-sm">
-            <span className="flex items-center gap-1.5 text-[#2E4156] font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#2E4156] animate-pulse" />
+            <span className="flex items-center gap-1.5 text-[#032b63] font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#032b63] animate-pulse" />
               {clockedIn.length} clocked in
             </span>
           </div>
@@ -230,7 +230,7 @@ export default function AttendanceMapPage() {
               <div className="space-y-1.5">
                 {clockedIn.length > 0 && (
                   <>
-                    <p className="text-xs font-medium text-[#2E4156] px-1 mt-3 mb-1">Clocked In ({clockedIn.length})</p>
+                    <p className="text-xs font-medium text-[#032b63] px-1 mt-3 mb-1">Clocked In ({clockedIn.length})</p>
                     {clockedIn.map(loc => (
                       <EmployeeCard
                         key={loc.employeeId}
@@ -316,7 +316,7 @@ function EmployeeCard({
   return (
     <div
       className={`rounded-lg border text-sm transition-shadow ${
-        loc.isClockedIn ? 'bg-[#D4D8DD] border-[#C0C8CA]' : 'bg-gray-50 border-gray-100'
+        loc.isClockedIn ? 'bg-[#dce5f7] border-[#c4d9ff]' : 'bg-gray-50 border-gray-100'
       }`}
     >
       <div className="p-3 cursor-pointer hover:opacity-90" onClick={() => onSelect(loc.employeeId)}>
@@ -334,7 +334,7 @@ function EmployeeCard({
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {capture && (
-              <Monitor className="w-3.5 h-3.5 text-[#2E4156] opacity-70" aria-label="Screenshot available" />
+              <Monitor className="w-3.5 h-3.5 text-[#032b63] opacity-70" aria-label="Screenshot available" />
             )}
             {loc.isOnBreak && (
               <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">BREAK</span>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -148,7 +148,7 @@ export default function FinalPayPage() {
 
       <div className="flex items-center justify-between print:hidden">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Final Pay Calculator</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Final Pay Calculator</h1>
           <p className="text-slate-500 text-sm mt-1">
             Compute every component owed to an employee on separation (DOLE Labor Advisory 06-20). Auto-loads YTD payslips, leave balance, and active loans.
           </p>
@@ -238,7 +238,7 @@ export default function FinalPayPage() {
                 </div>
               </details>
 
-              <Button onClick={compute} disabled={!employeeId || computing} style={{ background: '#fa5e01' }}>
+              <Button onClick={compute} disabled={!employeeId || computing} style={{ background: '#ff5900' }}>
                 <Calculator className="w-4 h-4 mr-2" />
                 {computing ? 'Computing…' : 'Compute Final Pay'}
               </Button>
@@ -269,7 +269,7 @@ export default function FinalPayPage() {
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide">Final Pay Statement</p>
-                  <h2 className="text-xl font-bold mt-1" style={{ color: '#2E4156' }}>{data.employee.name}</h2>
+                  <h2 className="text-xl font-bold mt-1" style={{ color: '#032b63' }}>{data.employee.name}</h2>
                   <p className="text-sm text-gray-500">
                     {data.employee.employeeNo} · {data.employee.department ?? '—'} · {data.employee.position ?? '—'}
                   </p>
@@ -330,7 +330,7 @@ export default function FinalPayPage() {
                   ))}
                   <tr className="bg-gray-50">
                     <td className="p-3 font-semibold text-gray-700">Gross Final Pay</td>
-                    <td className="p-3 text-right font-bold text-lg" style={{ color: '#2E4156' }}>{peso(data.result.grossPay)}</td>
+                    <td className="p-3 text-right font-bold text-lg" style={{ color: '#032b63' }}>{peso(data.result.grossPay)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -375,7 +375,7 @@ export default function FinalPayPage() {
             <CardContent className="p-5 flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Net Final Pay</p>
-                <p className="text-3xl font-bold" style={{ color: '#fa5e01' }}>{peso(data.result.netFinalPay)}</p>
+                <p className="text-3xl font-bold" style={{ color: '#ff5900' }}>{peso(data.result.netFinalPay)}</p>
               </div>
               <div className="text-right text-xs text-gray-500">
                 <p>Taxable: {peso(data.result.taxableEarnings)}</p>

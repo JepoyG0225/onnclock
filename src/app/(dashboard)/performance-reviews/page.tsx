@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -193,7 +193,7 @@ function CreateCycleModal({
               <select
                 value={reviewerId}
                 onChange={e => setReviewerId(e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1A2D42]/30"
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#021e47]/30"
               >
                 <option value="">Use each employee&apos;s direct manager (default)</option>
                 {managers.map(m => (
@@ -214,7 +214,7 @@ function CreateCycleModal({
               <label className="text-xs font-medium text-slate-600">
                 Select Employees * <span className="text-slate-400">({selectedIds.size} selected)</span>
               </label>
-              <button onClick={toggleAll} className="text-xs text-[#1A2D42] font-semibold hover:underline">
+              <button onClick={toggleAll} className="text-xs text-[#021e47] font-semibold hover:underline">
                 {selectAll ? 'Deselect All' : 'Select All'}
               </button>
             </div>
@@ -255,7 +255,7 @@ function CreateCycleModal({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={submit} disabled={saving || selectedIds.size === 0} className="bg-[#1A2D42] hover:bg-[#1A2D42]/90 text-white">
+          <Button onClick={submit} disabled={saving || selectedIds.size === 0} className="bg-[#021e47] hover:bg-[#021e47]/90 text-white">
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
             Create {selectedIds.size > 0 ? `${selectedIds.size} Review${selectedIds.size !== 1 ? 's' : ''}` : 'Reviews'}
           </Button>
@@ -327,14 +327,14 @@ export default function PerformanceReviewsPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-[#1A2D42]" />
+            <BarChart3 className="w-6 h-6 text-[#021e47]" />
             Performance Reviews
           </h1>
           <p className="text-gray-500 text-sm mt-1">Manage review cycles, scorecards, and employee feedback</p>
         </div>
         <Button
           onClick={() => setShowCreate(true)}
-          className="bg-[#1A2D42] hover:bg-[#1A2D42]/90 text-white"
+          className="bg-[#021e47] hover:bg-[#021e47]/90 text-white"
         >
           <Plus className="w-4 h-4 mr-2" /> New Review Cycle
         </Button>
@@ -351,7 +351,7 @@ export default function PerformanceReviewsPage() {
           <button
             key={key}
             onClick={() => { setActiveStatus(key); setPage(1) }}
-            className={`${bg} rounded-xl p-4 text-left border-2 transition-all ${activeStatus === key ? 'border-[#1A2D42]' : 'border-transparent hover:border-slate-200'}`}
+            className={`${bg} rounded-xl p-4 text-left border-2 transition-all ${activeStatus === key ? 'border-[#021e47]' : 'border-transparent hover:border-slate-200'}`}
           >
             <Icon className={`w-5 h-5 ${color} mb-2`} />
             <p className="text-2xl font-black text-slate-900">{statusCounts[key] ?? 0}</p>
@@ -372,7 +372,7 @@ export default function PerformanceReviewsPage() {
                   onClick={() => { setActiveStatus(tab.key); setPage(1) }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                     activeStatus === tab.key
-                      ? 'bg-[#1A2D42] text-white'
+                      ? 'bg-[#021e47] text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >

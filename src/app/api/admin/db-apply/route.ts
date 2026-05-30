@@ -114,6 +114,10 @@ export async function POST(req: NextRequest) {
     `ALTER TABLE "payroll_cycle_configs"
        ADD COLUMN IF NOT EXISTS "nightDifferentialIncludesBreak" BOOLEAN NOT NULL DEFAULT false;`,
 
+    // ── 2026-05-23: Add pm_transfer_id to disbursement items ────────────────
+    `ALTER TABLE "payroll_disbursement_items"
+       ADD COLUMN IF NOT EXISTS "pm_transfer_id" TEXT;`,
+
     // ── 2026-05-13: Cash Advance feature ────────────────────────────────────
     // New CASH_ADVANCE value on the existing LoanType enum
     `ALTER TYPE "LoanType" ADD VALUE IF NOT EXISTS 'CASH_ADVANCE';`,

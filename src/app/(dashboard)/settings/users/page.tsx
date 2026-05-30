@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -211,7 +211,7 @@ export default function UsersPage() {
         </div>
         <Button
           onClick={() => setShowForm(v => !v)}
-          style={{ background: '#fa5e01' }}
+          style={{ background: '#ff5900' }}
           className="text-white"
         >
           {showForm ? <><X className="w-4 h-4 mr-2" />Cancel</> : <><UserPlus className="w-4 h-4 mr-2" />Add User</>}
@@ -345,7 +345,7 @@ export default function UsersPage() {
                 </select>
               </div>
               <div className="md:col-span-2 flex justify-end">
-                <Button type="submit" disabled={saving} style={{ background: '#fa5e01' }} className="text-white">
+                <Button type="submit" disabled={saving} style={{ background: '#ff5900' }} className="text-white">
                   {saving ? 'Adding...' : 'Add User'}
                 </Button>
               </div>
@@ -355,10 +355,10 @@ export default function UsersPage() {
       )}
 
       {/* Role reference */}
-      <Card className="bg-[#D4D8DD] border-[#AAB7B7]">
+      <Card className="bg-[#dce5f7] border-[#AAB7B7]">
         <CardContent className="p-4">
-          <p className="text-sm font-medium text-[#1A2D42] mb-2">Role Permissions</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-[#1A2D42]">
+          <p className="text-sm font-medium text-[#021e47] mb-2">Role Permissions</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-[#021e47]">
             <div><strong>Company Admin</strong> — Full access</div>
             <div><strong>HR Manager</strong> — Employees, leaves, DTR, reports</div>
             <div><strong>Payroll Officer</strong> — Payroll, reports, loans</div>
@@ -527,7 +527,7 @@ export default function UsersPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={editing} style={{ background: '#fa5e01' }} className="text-white">
+                <Button type="submit" disabled={editing} style={{ background: '#ff5900' }} className="text-white">
                   {editing ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
@@ -566,7 +566,7 @@ export default function UsersPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={resetting} style={{ background: '#fa5e01' }} className="text-white">
+                <Button type="submit" disabled={resetting} style={{ background: '#ff5900' }} className="text-white">
                   {resetting ? 'Resetting...' : 'Reset Password'}
                 </Button>
               </div>

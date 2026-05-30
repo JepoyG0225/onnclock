@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Loader2, ShieldOff, Trash2, Fingerprint } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface BiometricStatus {
   enrolled: boolean
@@ -30,6 +31,7 @@ export function EmployeePortalAccess({
   const [biometricStatus, setBiometricStatus] = useState<BiometricStatus | null>(null)
   const [biometricLoading, setBiometricLoading] = useState(true)
   const [biometricResetting, setBiometricResetting] = useState(false)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   const loginEmail = workEmail || personalEmail || ''
 
@@ -80,7 +82,11 @@ export function EmployeePortalAccess({
 
   async function resetBiometric() {
     if (!editable) return
-    if (!window.confirm(`Reset fingerprint credential for this employee? They will need to re-enroll.`)) return
+    setShowResetConfirm(true)
+  }
+
+  async function confirmResetBiometric() {
+    setShowResetConfirm(false)
     setBiometricResetting(true)
     try {
       const res = await fetch(`/api/employees/${employeeId}/biometric`, { method: 'DELETE' })
@@ -97,12 +103,21 @@ export function EmployeePortalAccess({
 
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        open={showResetConfirm}
+        title="Reset Fingerprint Credential?"
+        description="The employee's fingerprint data will be cleared. They will need to re-enroll their fingerprint from the Employee Portal."
+        confirmLabel="Reset"
+        variant="danger"
+        onConfirm={confirmResetBiometric}
+        onCancel={() => setShowResetConfirm(false)}
+      />
       {/* Fingerprint / Biometric Card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             {biometricStatus?.enrolled
-              ? <Fingerprint className="w-4 h-4 text-[#2E4156]" />
+              ? <Fingerprint className="w-4 h-4 text-[#032b63]" />
               : <Fingerprint className="w-4 h-4 text-gray-400" />}
             Fingerprint Authentication
           </CardTitle>
@@ -115,7 +130,7 @@ export function EmployeePortalAccess({
           ) : biometricStatus?.enrolled ? (
             <div className="flex items-start gap-4">
               <div className="flex-1 space-y-1">
-                <p className="text-sm font-medium text-[#1A2D42]">Fingerprint enrolled</p>
+                <p className="text-sm font-medium text-[#021e47]">Fingerprint enrolled</p>
                 <p className="text-xs text-gray-400 mt-1">
                   Employee can use their device&apos;s fingerprint sensor or PIN to clock in and out.
                 </p>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Trash2, Upload } from 'lucide-react'
@@ -118,7 +118,7 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
           </p>
         </div>
         <div className="h-2 rounded-full bg-slate-200 mt-3 overflow-hidden">
-          <div className="h-2 rounded-full bg-[#2E4156]" style={{ width: `${usagePct}%` }} />
+          <div className="h-2 rounded-full bg-[#032b63]" style={{ width: `${usagePct}%` }} />
         </div>
       </div>
 
@@ -153,7 +153,7 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
         <button
           disabled={saving}
           onClick={upload}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-[#1A2D42] disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-[#021e47] disabled:opacity-60"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
           Upload
@@ -181,7 +181,7 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
                 <tr key={doc.id} className="border-b">
                   <td className="px-3 py-2">{doc.documentType}</td>
                   <td className="px-3 py-2">
-                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-[#2E4156] hover:underline">
+                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-[#032b63] hover:underline">
                       {doc.fileName}
                     </a>
                   </td>

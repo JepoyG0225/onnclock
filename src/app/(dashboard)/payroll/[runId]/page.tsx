@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ComputePayrollButton } from '@/components/payroll/ComputePayrollButton'
 import PayrollActionButtons from '@/components/payroll/PayrollActionButtons'
 import { PayrollRunPayslips } from '@/components/payroll/PayrollRunPayslips'
-import PayrollDisbursementPanel from '@/components/payroll/PayrollDisbursementPanel'
+import { PayrollPayslipsLoader } from '@/components/payroll/PayrollPayslipsLoader'
 import { formatDate, getStatusColor, formatCurrency } from '@/lib/utils'
 import {Users, TrendingDown} from 'lucide-react'
 import { PesoIcon } from '@/components/ui/PesoIcon'
@@ -204,6 +204,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
       )}
 
       {/* Payslip Table */}
+      <PayrollPayslipsLoader>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Individual Payslips ({payslips.length})</CardTitle>
@@ -291,11 +292,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
           />
         </CardContent>
       </Card>
-
-      {/* Disbursement — shown once run is APPROVED or LOCKED */}
-      {(run.status === 'APPROVED' || run.status === 'LOCKED') && (
-        <PayrollDisbursementPanel runId={run.id} />
-      )}
+      </PayrollPayslipsLoader>
 
       {/* Pay Details */}
       {(() => {

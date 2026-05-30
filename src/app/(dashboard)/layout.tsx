@@ -104,6 +104,9 @@ export default async function DashboardLayout({
   }
   if (session.user.role === 'SUPER_ADMIN') hrisProEnabled = true
 
+  // Disbursement is unlocked for all Pro (and trial) subscribers.
+  const disbursementEnabled = hrisProEnabled
+
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gray-50">
@@ -120,7 +123,7 @@ export default async function DashboardLayout({
           initialTrialEndsAt={trialEndsAt}
           isLocal={process.env.NODE_ENV === 'development'}
           hrisProEnabled={hrisProEnabled}
-          disbursementEnabled={hrisProEnabled}
+          disbursementEnabled={disbursementEnabled}
         />
         <AppHeader
           user={{ email: session.user.email, name: session.user.name }}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { Search, ShieldCheck } from 'lucide-react'
@@ -90,7 +90,7 @@ export default function AuditSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#2E4156]" />
+            <ShieldCheck className="h-4 w-4 text-[#032b63]" />
             Activity Feed
           </CardTitle>
         </CardHeader>

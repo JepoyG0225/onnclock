@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -236,7 +236,7 @@ function FormDialog({ open, editing, onClose, onSaved }: FormDialogProps) {
             <Button
               type="submit"
               disabled={saving}
-              style={{ background: '#1A2D42' }}
+              style={{ background: '#021e47' }}
             >
               {saving ? 'Saving...' : editing ? 'Save Changes' : 'Publish'}
             </Button>
@@ -324,7 +324,7 @@ export default function AnnouncementsPage() {
         {isHR && (
           <Button
             onClick={() => { setEditing(null); setShowForm(true) }}
-            style={{ background: '#1A2D42' }}
+            style={{ background: '#021e47' }}
           >
             <Plus className="mr-2 w-4 h-4" />
             New Announcement
@@ -338,7 +338,7 @@ export default function AnnouncementsPage() {
           size="sm"
           variant={tab === 'active' ? 'default' : 'outline'}
           onClick={() => setTab('active')}
-          style={tab === 'active' ? { background: '#1A2D42' } : {}}
+          style={tab === 'active' ? { background: '#021e47' } : {}}
         >
           Active
         </Button>
@@ -346,7 +346,7 @@ export default function AnnouncementsPage() {
           size="sm"
           variant={tab === 'all' ? 'default' : 'outline'}
           onClick={() => setTab('all')}
-          style={tab === 'all' ? { background: '#1A2D42' } : {}}
+          style={tab === 'all' ? { background: '#021e47' } : {}}
         >
           All
         </Button>

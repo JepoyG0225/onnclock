@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+﻿import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -92,7 +92,7 @@ export default async function BudgetRequisitionsAdminPage({
               variant={(status === s.value || (!status && !s.value)) ? 'default' : 'outline'}
               size="sm"
               style={status === s.value || (!status && !s.value)
-                ? { background: '#fa5e01', color: '#fff', borderColor: '#fa5e01' }
+                ? { background: '#ff5900', color: '#fff', borderColor: '#ff5900' }
                 : {}}
             >
               {s.label}

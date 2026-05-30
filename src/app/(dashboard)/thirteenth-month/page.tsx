@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -194,7 +194,7 @@ export default function ThirteenthMonthPage() {
           <button
             onClick={saveCoverageSettings}
             disabled={savingSettings || !coverageStart || !coverageEnd}
-            className="bg-[#2E4156] hover:bg-[#1A2D42] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="bg-[#032b63] hover:bg-[#021e47] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             {savingSettings ? 'Saving...' : 'Save Coverage'}
           </button>
@@ -212,7 +212,7 @@ export default function ThirteenthMonthPage() {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 uppercase">Paid</p>
-          <p className="text-2xl font-bold text-[#2E4156] mt-1">{paidCount} / {entries.length}</p>
+          <p className="text-2xl font-bold text-[#032b63] mt-1">{paidCount} / {entries.length}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 uppercase">Deadline</p>
@@ -300,7 +300,7 @@ export default function ThirteenthMonthPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setSelectedEntry(entry)} className="text-xs text-[#2E4156] hover:text-[#1A2D42]">
+                      <button onClick={() => setSelectedEntry(entry)} className="text-xs text-[#032b63] hover:text-[#021e47]">
                         View breakdown
                       </button>
                     </td>

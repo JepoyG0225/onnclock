@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { toast } from 'sonner'
 import { Calculator, Loader2, RefreshCw } from 'lucide-react'
 
@@ -35,8 +36,10 @@ export function ComputePayrollButton({
   const [computing, setComputing] = useState(false)
   const [loadingRequirements, setLoadingRequirements] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
+  const [showRecomputeConfirm, setShowRecomputeConfirm] = useState(false)
   const [requirements, setRequirements] = useState<VariableIncomeRequirement[]>([])
   const [entryValues, setEntryValues] = useState<Record<string, string>>({})
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
   // "Recompute" framing whenever payslips already exist (i.e. the run has
@@ -87,7 +90,10 @@ export function ComputePayrollButton({
           : `Payroll computed for ${result.employeeCount} employees!`
       )
       setShowDialog(false)
-      router.refresh()
+      // Dispatch event so payslips section shows loading overlay immediately
+      window.dispatchEvent(new CustomEvent('payroll-computed', { detail: { runId } }))
+      // useTransition keeps isPending=true until the server re-render is done
+      startTransition(() => { router.refresh() })
     } catch {
       toast.error('An error occurred during computation')
     } finally {
@@ -95,17 +101,8 @@ export function ComputePayrollButton({
     }
   }
 
-  async function handleCompute() {
-    if (isRecompute) {
-      const confirmed = window.confirm(
-        'Recompute this payroll run?\n\n' +
-        'All payslips will be regenerated from current DTR / loan / income data. ' +
-        'The run status will reset to COMPUTED, so it must be resubmitted for ' +
-        'approval afterward.'
-      )
-      if (!confirmed) return
-    }
-
+  async function proceedCompute() {
+    setShowRecomputeConfirm(false)
     setLoadingRequirements(true)
     try {
       const res = await fetch(`/api/payroll/${runId}/compute`)
@@ -140,22 +137,40 @@ export function ComputePayrollButton({
     }
   }
 
+  function handleCompute() {
+    if (isRecompute) {
+      setShowRecomputeConfirm(true)
+      return
+    }
+    void proceedCompute()
+  }
+
   return (
     <>
       <Button
         onClick={handleCompute}
-        disabled={computing || loadingRequirements}
+        disabled={computing || loadingRequirements || isPending}
         variant={isRecompute ? 'outline' : 'default'}
         title={isRecompute ? 'Regenerate payslips from current DTR/loan/income data' : undefined}
       >
-        {computing || loadingRequirements ? (
-          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {loadingRequirements ? 'Preparing...' : (isRecompute ? 'Recomputing...' : 'Computing...')}</>
+        {computing || loadingRequirements || isPending ? (
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {loadingRequirements ? 'Preparing...' : isPending ? 'Updating...' : (isRecompute ? 'Recomputing...' : 'Computing...')}</>
         ) : isRecompute ? (
           <><RefreshCw className="mr-2 h-4 w-4" /> Recompute Payroll</>
         ) : (
           <><Calculator className="mr-2 h-4 w-4" /> Compute Payroll</>
         )}
       </Button>
+
+      <ConfirmDialog
+        open={showRecomputeConfirm}
+        title="Recompute Payroll?"
+        description={`All payslips will be regenerated from current DTR / loan / income data. The run status will reset to COMPUTED, so it must be resubmitted for approval afterward.`}
+        confirmLabel="Recompute"
+        variant="warning"
+        onConfirm={() => { void proceedCompute() }}
+        onCancel={() => setShowRecomputeConfirm(false)}
+      />
 
       {showDialog && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

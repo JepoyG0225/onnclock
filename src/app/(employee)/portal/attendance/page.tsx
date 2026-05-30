@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
@@ -31,7 +31,7 @@ function statusBadge(record: DTRRecord) {
     return (
       <Badge
         className="border"
-        style={{ background: 'rgba(170,183,183,0.28)', color: '#1A2D42', borderColor: 'rgba(170,183,183,0.5)' }}
+        style={{ background: 'rgba(170,183,183,0.28)', color: '#021e47', borderColor: 'rgba(170,183,183,0.5)' }}
       >
         On Leave
       </Badge>
@@ -43,7 +43,7 @@ function statusBadge(record: DTRRecord) {
     return (
       <Badge
         className="border"
-        style={{ background: 'rgba(46,65,86,0.12)', color: '#2E4156', borderColor: 'rgba(170,183,183,0.45)' }}
+        style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' }}
       >
         Clocked In
       </Badge>
@@ -53,7 +53,7 @@ function statusBadge(record: DTRRecord) {
     return (
       <Badge
         className="border"
-        style={{ background: 'rgba(46,65,86,0.12)', color: '#2E4156', borderColor: 'rgba(170,183,183,0.45)' }}
+        style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' }}
       >
         Present
       </Badge>
@@ -125,14 +125,14 @@ export default function AttendancePage() {
 
       <div className="grid grid-cols-5 gap-3">
         {[
-          { label: 'Days Present', value: totals.present, color: 'text-[#2E4156]' },
+          { label: 'Days Present', value: totals.present, color: 'text-[#032b63]' },
           { label: 'Days Absent', value: totals.absent, color: 'text-red-600' },
           { label: 'Days Late', value: totals.late, color: 'text-amber-600' },
           { label: 'Total Hours', value: `${totals.hours.toFixed(1)}h`, color: '' },
-          { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-[#1A2D42]' },
+          { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-[#021e47]' },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-            <p className={`text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#2E4156' } : undefined}>
+            <p className={`text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#032b63' } : undefined}>
               {s.value}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
@@ -184,7 +184,7 @@ export default function AttendancePage() {
                         <span className="flex items-center gap-1">
                           {format(new Date(record.timeIn), 'hh:mm a')}
                           {record.clockInAddress && (
-                            <MapPin className="w-3 h-3" style={{ color: '#2E4156' }} aria-label={record.clockInAddress} />
+                            <MapPin className="w-3 h-3" style={{ color: '#032b63' }} aria-label={record.clockInAddress} />
                           )}
                         </span>
                       ) : '-'}
@@ -194,7 +194,7 @@ export default function AttendancePage() {
                         <span className="flex items-center gap-1">
                           {format(new Date(record.timeOut), 'hh:mm a')}
                           {record.clockOutAddress && (
-                            <MapPin className="w-3 h-3" style={{ color: '#2E4156' }} aria-label={record.clockOutAddress} />
+                            <MapPin className="w-3 h-3" style={{ color: '#032b63' }} aria-label={record.clockOutAddress} />
                           )}
                         </span>
                       ) : '-'}
@@ -203,7 +203,7 @@ export default function AttendancePage() {
                       <span className="flex items-center gap-1">
                         {record.regularHours ? `${record.regularHours}h` : '-'}
                         {Number(record.overtimeHours) > 0 && (
-                          <span className="text-xs" style={{ color: '#1A2D42' }}>+{record.overtimeHours}h OT</span>
+                          <span className="text-xs" style={{ color: '#021e47' }}>+{record.overtimeHours}h OT</span>
                         )}
                       </span>
                     </td>
@@ -219,7 +219,7 @@ export default function AttendancePage() {
                         className="text-xs px-2 py-0.5 rounded-full"
                         style={
                           record.source === 'GPS'
-                            ? { background: 'rgba(46,65,86,0.12)', color: '#2E4156' }
+                            ? { background: 'rgba(46,65,86,0.12)', color: '#032b63' }
                             : { background: '#f9fafb', color: '#6b7280' }
                         }
                       >

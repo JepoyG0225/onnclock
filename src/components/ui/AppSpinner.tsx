@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Modern dot-ring activity spinner: 12 brand-orange dots arranged in a circle
  * with a staggered fade so 2–3 leading dots stay bright and the rest fade
  * clockwise. The app icon sits transparently in the centre and stays
@@ -72,7 +72,7 @@ export function AppSpinner({
               left: '50%',
               marginLeft: -s.dot / 2,
               borderRadius: '50%',
-              backgroundColor: '#fa5e01',
+              backgroundColor: '#ff5900',
               transformOrigin: `50% ${originY + s.dot / 2}px`,
               transform: `rotate(${(i * 360) / DOT_COUNT}deg)`,
               animation: `app-spinner-tick ${DOT_DURATION_S}s linear infinite`,

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,7 +31,7 @@ const TYPE_CONFIG = {
     label: 'Special Working',
     bg: '#dbeafe',
     text: '#1e40af',
-    dot: '#2E4156',
+    dot: '#032b63',
     border: '#93c5fd',
   },
 }
@@ -153,7 +153,7 @@ export default function HolidaysPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Holiday Calendar</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Holiday Calendar</h1>
           <p className="text-sm text-slate-500 mt-0.5">Philippine public holidays and special non-working days</p>
         </div>
         <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export default function HolidaysPage() {
             onClick={syncFromGoogle}
             disabled={syncing}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-            style={{ color: '#2E4156', border: '1.5px solid rgba(34,127,132,0.22)', background: '#fff' }}
+            style={{ color: '#032b63', border: '1.5px solid rgba(34,127,132,0.22)', background: '#fff' }}
             title={`Sync ${year} holidays`}
           >
             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
@@ -170,7 +170,7 @@ export default function HolidaysPage() {
           <button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-            style={{ background: '#fa5e01', boxShadow: '0 2px 8px rgba(250,94,1,0.3)' }}
+            style={{ background: '#ff5900', boxShadow: '0 2px 8px rgba(250,94,1,0.3)' }}
           >
             <Plus className="w-4 h-4" />
             Add Holiday
@@ -184,7 +184,7 @@ export default function HolidaysPage() {
           className="rounded-2xl p-5"
           style={{ background: '#fff', border: '1px solid rgba(250,94,1,0.25)', boxShadow: '0 2px 12px rgba(250,94,1,0.08)' }}
         >
-          <p className="text-sm font-bold mb-4" style={{ color: '#2E4156' }}>Add New Holiday</p>
+          <p className="text-sm font-bold mb-4" style={{ color: '#032b63' }}>Add New Holiday</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {[
               { label: 'Holiday Name *', field: 'name', type: 'text', placeholder: 'e.g. Independence Day' },
@@ -198,8 +198,8 @@ export default function HolidaysPage() {
                   onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
                   placeholder={placeholder}
                   className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-                  style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#2E4156' }}
-                  onFocus={e => (e.target.style.borderColor = '#fa5e01')}
+                  style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#032b63' }}
+                  onFocus={e => (e.target.style.borderColor = '#ff5900')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(10,53,59,0.15)')}
                 />
               </div>
@@ -210,8 +210,8 @@ export default function HolidaysPage() {
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value as Holiday['type'] }))}
                 className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-                style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#2E4156' }}
-                onFocus={e => (e.target.style.borderColor = '#fa5e01')}
+                style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#032b63' }}
+                onFocus={e => (e.target.style.borderColor = '#ff5900')}
                 onBlur={e => (e.target.style.borderColor = 'rgba(10,53,59,0.15)')}
               >
                 <option value="REGULAR">Regular Holiday (200%)</option>
@@ -225,7 +225,7 @@ export default function HolidaysPage() {
               onClick={addHoliday}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              style={{ background: '#fa5e01' }}
+              style={{ background: '#ff5900' }}
             >
               {saving ? 'Saving…' : 'Add Holiday'}
             </button>
@@ -248,7 +248,7 @@ export default function HolidaysPage() {
         {/* Month Navigation */}
         <div
           className="flex items-center justify-between px-6 py-4"
-          style={{ background: '#2E4156' }}
+          style={{ background: '#0055d4' }}
         >
           <button
             onClick={prevMonth}
@@ -325,7 +325,7 @@ export default function HolidaysPage() {
                 <span
                   className="w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold self-start"
                   style={{
-                    background: isTodayCell ? '#fa5e01' : 'transparent',
+                    background: isTodayCell ? '#ff5900' : 'transparent',
                     color: isTodayCell ? '#fff' : cfg ? cfg.text : isSun ? '#ef4444' : '#374151',
                     fontWeight: isTodayCell ? 700 : 500,
                     boxShadow: isTodayCell ? '0 2px 6px rgba(250,94,1,0.35)' : 'none',

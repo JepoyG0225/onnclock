@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const systemPrompt = await buildSystemPromptForCompany(ctx.companyId)
-    const reply = await askAnthropic({ systemPrompt, messages })
+    const reply = await askAnthropic({ systemPrompt, messages, companyId: ctx.companyId })
     return NextResponse.json({
       reply: reply.text,
       model: reply.model,

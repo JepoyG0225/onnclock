@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -59,7 +59,7 @@ export function EmployeeScheduleSetup({
           <option value="FLEXIBLE">Flexible Work Hours</option>
         </select>
       </div>
-      <Button className="text-white" style={{ background: '#fa5e01' }} onClick={goToScheduleSetup} disabled={loading}>
+      <Button className="text-white" style={{ background: '#ff5900' }} onClick={goToScheduleSetup} disabled={loading}>
         {loading ? 'Switching...' : 'Setup Work Schedule'}
       </Button>
     </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -291,7 +291,7 @@ function ProcessCard({
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-bold text-slate-900 group-hover:text-[#1A2D42]">
+              <p className="font-bold text-slate-900 group-hover:text-[#021e47]">
                 {emp.lastName}, {emp.firstName}
               </p>
               {overdue > 0 && (
@@ -338,7 +338,7 @@ function ProcessCard({
         {/* Mini progress bar */}
         <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div
-            className={`h-1.5 rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-[#1A2D42]'}`}
+            className={`h-1.5 rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-[#021e47]'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -621,7 +621,7 @@ function ProcessDrawer({
           <div className="mt-3">
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-[#1A2D42]'}`}
+                className={`h-2 rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-[#021e47]'}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -678,7 +678,7 @@ function ProcessDrawer({
                   <div className="flex items-center gap-2">
                     <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div
-                        className={`h-1.5 rounded-full ${done === total ? 'bg-emerald-500' : 'bg-[#1A2D42]'}`}
+                        className={`h-1.5 rounded-full ${done === total ? 'bg-emerald-500' : 'bg-[#021e47]'}`}
                         style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }}
                       />
                     </div>
@@ -899,7 +899,7 @@ function TemplateBuilder({ onSave, onClose }: { onSave: () => void; onClose: () 
               <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Tasks ({tasks.length})</p>
               <button
                 onClick={addTask}
-                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#1A2D42] text-white hover:bg-[#1A2D42]/90"
+                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#021e47] text-white hover:bg-[#021e47]/90"
               >
                 <PlusCircle className="w-3.5 h-3.5" /> Add Task
               </button>
@@ -988,7 +988,7 @@ function TemplateBuilder({ onSave, onClose }: { onSave: () => void; onClose: () 
           <button
             onClick={save}
             disabled={saving}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 disabled:opacity-60 flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#021e47] hover:bg-[#021e47]/90 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : 'Save Template'}
           </button>
@@ -1103,7 +1103,7 @@ function NewProcessModal({
           <button
             onClick={save}
             disabled={saving}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 disabled:opacity-60 flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#021e47] hover:bg-[#021e47]/90 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</> : <><UserPlus className="w-4 h-4" /> Start Onboarding</>}
           </button>
@@ -1229,7 +1229,7 @@ export function OnboardingManager() {
         </div>
         <button
           onClick={() => setShowNewProcess(true)}
-          className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 transition-colors"
+          className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#021e47] hover:bg-[#021e47]/90 transition-colors"
         >
           <UserPlus className="w-4 h-4" /> Start Onboarding
         </button>
@@ -1267,7 +1267,7 @@ export function OnboardingManager() {
           >
             {label}
             {key === 'active' && active.length > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#1A2D42] text-white">{active.length}</span>
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#021e47] text-white">{active.length}</span>
             )}
           </button>
         ))}
@@ -1330,7 +1330,7 @@ export function OnboardingManager() {
           <div className="flex justify-end">
             <button
               onClick={() => setShowBuilder(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#021e47] hover:bg-[#021e47]/90 transition-colors"
             >
               <PlusCircle className="w-4 h-4" /> New Template
             </button>
@@ -1347,7 +1347,7 @@ export function OnboardingManager() {
               <p className="text-xs text-slate-400 mt-1">Create a template or load the Philippines compliance preset.</p>
               <button
                 onClick={() => setShowBuilder(true)}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#021e47] hover:bg-[#021e47]/90"
               >
                 <Sparkles className="w-4 h-4" /> Create Template
               </button>
@@ -1367,7 +1367,7 @@ export function OnboardingManager() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-slate-900">{t.name}</p>
                           {t.isDefault && (
-                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#1A2D42] text-white">Default</span>
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#021e47] text-white">Default</span>
                           )}
                         </div>
                         {t.description && <p className="text-xs text-slate-500 mt-1">{t.description}</p>}

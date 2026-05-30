@@ -17,6 +17,13 @@ export async function POST() {
 
   const migrations = [
     {
+      name: 'add_pm_transfer_id_to_disbursement_items',
+      sql: `
+        ALTER TABLE "payroll_disbursement_items"
+          ADD COLUMN IF NOT EXISTS "pm_transfer_id" TEXT;
+      `,
+    },
+    {
       name: 'add_schedule_repeat_cycle',
       sql: `
         ALTER TABLE "work_schedules"

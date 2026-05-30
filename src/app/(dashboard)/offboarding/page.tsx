@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -202,7 +202,7 @@ function ConfirmDialog({ state, onClose }: { state: ConfirmState; onClose: () =>
                 ? 'bg-red-600 hover:bg-red-700 text-white'
                 : state.variant === 'success'
                 ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-[#1A2D42] hover:bg-[#243d57] text-white'
+                : 'bg-[#021e47] hover:bg-[#243d57] text-white'
             }
           >
             {state.confirmLabel}
@@ -448,7 +448,7 @@ export default function OffboardingPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="bg-gradient-to-br from-[#1A2D42] to-[#2E4156] px-8 py-10 text-center">
+          <div className="bg-gradient-to-br from-[#021e47] to-[#032b63] px-8 py-10 text-center">
             <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-white" />
             </div>
@@ -465,7 +465,7 @@ export default function OffboardingPage() {
                 'Also includes: Screen capture, Recruitment, Performance Reviews, and more',
               ].map(f => (
                 <div key={f} className="flex items-start gap-2.5">
-                  <Star className="w-4 h-4 text-[#fa5e01] flex-shrink-0 mt-0.5" />
+                  <Star className="w-4 h-4 text-[#ff5900] flex-shrink-0 mt-0.5" />
                   <span className="text-sm text-slate-600">{f}</span>
                 </div>
               ))}
@@ -473,7 +473,7 @@ export default function OffboardingPage() {
             <Link
               href="/settings/billing"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #1A2D42, #2E4156)' }}
+              style={{ background: 'linear-gradient(135deg, #021e47, #032b63)' }}
             >
               Upgrade to Pro
             </Link>
@@ -490,7 +490,7 @@ export default function OffboardingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <UserMinus className="w-6 h-6 text-[#fa5e01]" />
+            <UserMinus className="w-6 h-6 text-[#ff5900]" />
             Offboarding
           </h1>
           <p className="text-gray-500 mt-0.5 text-sm">Manage employee exit processes and clearance checklists</p>
@@ -505,7 +505,7 @@ export default function OffboardingPage() {
             <Settings className="w-4 h-4 mr-1.5" />
             Checklist Template
           </Button>
-          <Button onClick={handleOpenCreate} className="bg-[#1A2D42] hover:bg-[#243d57] text-white">
+          <Button onClick={handleOpenCreate} className="bg-[#021e47] hover:bg-[#243d57] text-white">
             <Plus className="w-4 h-4 mr-2" />
             Start Offboarding
           </Button>
@@ -520,7 +520,7 @@ export default function OffboardingPage() {
             onClick={() => { setActiveTab(tab.key); setSelected(null) }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === tab.key
-                ? 'border-[#fa5e01] text-[#fa5e01]'
+                ? 'border-[#ff5900] text-[#ff5900]'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -560,7 +560,7 @@ export default function OffboardingPage() {
                   onClick={() => handleSelectProcess(p)}
                   className={`w-full text-left p-4 rounded-xl border transition-all ${
                     isSelected
-                      ? 'border-[#fa5e01] bg-orange-50 shadow-sm'
+                      ? 'border-[#ff5900] bg-orange-50 shadow-sm'
                       : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                   }`}
                 >
@@ -598,7 +598,7 @@ export default function OffboardingPage() {
                         className="h-full rounded-full transition-all"
                         style={{
                           width: `${pct}%`,
-                          background: pct === 100 ? '#22c55e' : '#fa5e01',
+                          background: pct === 100 ? '#22c55e' : '#ff5900',
                         }}
                       />
                     </div>
@@ -606,7 +606,7 @@ export default function OffboardingPage() {
 
                   {isSelected && (
                     <div className="flex items-center justify-end mt-1">
-                      <ChevronRight className="w-3.5 h-3.5 text-[#fa5e01]" />
+                      <ChevronRight className="w-3.5 h-3.5 text-[#ff5900]" />
                     </div>
                   )}
                 </button>
@@ -620,7 +620,7 @@ export default function OffboardingPage() {
           {detailLoading ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <div className="w-8 h-8 border-2 border-[#fa5e01] border-t-transparent rounded-full animate-spin mx-auto" />
+                <div className="w-8 h-8 border-2 border-[#ff5900] border-t-transparent rounded-full animate-spin mx-auto" />
               </CardContent>
             </Card>
           ) : selected ? (
@@ -647,7 +647,7 @@ export default function OffboardingPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserMinus className="w-5 h-5 text-[#fa5e01]" />
+              <UserMinus className="w-5 h-5 text-[#ff5900]" />
               Start Offboarding
             </DialogTitle>
           </DialogHeader>
@@ -713,7 +713,7 @@ export default function OffboardingPage() {
             <Button
               onClick={handleCreate}
               disabled={saving}
-              className="bg-[#1A2D42] hover:bg-[#243d57] text-white"
+              className="bg-[#021e47] hover:bg-[#243d57] text-white"
             >
               {saving ? 'Starting…' : 'Start Offboarding'}
             </Button>
@@ -930,7 +930,7 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-[#fa5e01]" />
+              <Settings className="w-5 h-5 text-[#ff5900]" />
               Checklist Template
             </DialogTitle>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -1058,10 +1058,10 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
 
             {/* Add Category */}
             {showAddCategory ? (
-              <Card className="border-2 border-dashed border-[#fa5e01]/40 bg-orange-50/30">
+              <Card className="border-2 border-dashed border-[#ff5900]/40 bg-orange-50/30">
                 <CardContent className="p-4 space-y-3">
                   <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <FolderPlus className="w-4 h-4 text-[#fa5e01]" />
+                    <FolderPlus className="w-4 h-4 text-[#ff5900]" />
                     New Category
                   </p>
                   <div>
@@ -1089,7 +1089,7 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
                       size="sm"
                       onClick={handleAddCategory}
                       disabled={saving}
-                      className="bg-[#1A2D42] hover:bg-[#243d57] text-white"
+                      className="bg-[#021e47] hover:bg-[#243d57] text-white"
                     >
                       {saving ? 'Adding…' : 'Add Category'}
                     </Button>
@@ -1102,7 +1102,7 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
             ) : (
               <button
                 onClick={() => { setShowAddCategory(true); setTimeout(() => addCategoryRef.current?.focus(), 100) }}
-                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:border-[#fa5e01]/40 hover:bg-orange-50/20 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:border-[#ff5900]/40 hover:bg-orange-50/20 transition-colors"
               >
                 <FolderPlus className="w-4 h-4" />
                 Add Category
@@ -1112,7 +1112,7 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
 
           <DialogFooter className="border-t pt-3">
             <p className="text-xs text-gray-400 flex-1 text-left">Changes apply to new offboarding processes only.</p>
-            <Button onClick={onClose} className="bg-[#1A2D42] hover:bg-[#243d57] text-white">
+            <Button onClick={onClose} className="bg-[#021e47] hover:bg-[#243d57] text-white">
               Done
             </Button>
           </DialogFooter>
@@ -1169,7 +1169,7 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
             <Button
               onClick={handleSaveItem}
               disabled={saving}
-              className="bg-[#1A2D42] hover:bg-[#243d57] text-white"
+              className="bg-[#021e47] hover:bg-[#243d57] text-white"
             >
               {saving ? 'Saving…' : itemDialog.mode === 'add' ? 'Add Item' : 'Save Changes'}
             </Button>
@@ -1377,7 +1377,7 @@ function DetailPanel({
                   width: `${pct}%`,
                   background: pct === 100
                     ? 'linear-gradient(90deg, #16a34a, #22c55e)'
-                    : 'linear-gradient(90deg, #fa5e01, #fb923c)',
+                    : 'linear-gradient(90deg, #ff5900, #fb923c)',
                 }}
               />
             </div>
@@ -1532,7 +1532,7 @@ function DetailPanel({
             <Button
               onClick={handleSaveItem}
               disabled={itemSaving}
-              className="bg-[#1A2D42] hover:bg-[#243d57] text-white"
+              className="bg-[#021e47] hover:bg-[#243d57] text-white"
             >
               {itemSaving ? 'Saving…' : itemDialog.mode === 'add' ? 'Add Item' : 'Save Changes'}
             </Button>

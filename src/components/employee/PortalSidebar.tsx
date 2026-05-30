@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -116,7 +116,7 @@ export function PortalSidebar({
     <aside
       className="hidden lg:flex fixed left-0 top-0 h-screen w-60 flex-col z-30 select-none"
       style={{
-        background: '#1A2D42',
+        background: '#021e47',
         borderRight: '1px solid rgba(255,255,255,0.07)',
       }}
     >
@@ -257,7 +257,7 @@ export function PortalSidebar({
             {/* Avatar */}
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0"
-              style={{ background: '#fa5e01' }}
+              style={{ background: '#ff5900' }}
             >
               {employeeInitials ?? 'E'}
             </div>
@@ -287,7 +287,7 @@ export function PortalSidebar({
               <div
                 className="absolute bottom-full left-0 mb-2 z-20 w-full rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150"
                 style={{
-                  background: '#2E4156',
+                  background: '#0055d4',
                   border: '1px solid rgba(255,255,255,0.12)',
                 }}
               >

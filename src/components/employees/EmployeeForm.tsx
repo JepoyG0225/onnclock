@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -755,7 +755,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                     type="button"
                     onClick={openScheduleSetup}
                     className="text-white w-full md:w-auto"
-                    style={{ background: '#fa5e01' }}
+                    style={{ background: '#ff5900' }}
                   >
                     Setup Schedule
                   </Button>
@@ -1132,7 +1132,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(14,166,240,0.1)', color: '#0ea6f0' }}>{lt.code}</span>
                             <span className="text-sm font-medium text-gray-800">{lt.name}</span>
-                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(250,94,1,0.1)', color: '#fa5e01' }}>Dole-Mandated</span>}
+                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(250,94,1,0.1)', color: '#ff5900' }}>Dole-Mandated</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -1284,7 +1284,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 onClick={() => setScheduleSetupMode('FIXED')}
                 className={`text-left rounded-xl border p-4 transition ${
                   scheduleSetupMode === 'FIXED'
-                    ? 'border-[#fa5e01] bg-orange-50'
+                    ? 'border-[#ff5900] bg-orange-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -1296,7 +1296,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 onClick={() => setScheduleSetupMode('FLEXIBLE')}
                 className={`text-left rounded-xl border p-4 transition ${
                   scheduleSetupMode === 'FLEXIBLE'
-                    ? 'border-[#fa5e01] bg-orange-50'
+                    ? 'border-[#ff5900] bg-orange-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -1305,7 +1305,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </button>
             </div>
 
-            <div className="rounded-lg border border-[#fa5e01]/30 bg-[#fff3ec] px-3 py-2 text-xs text-[#c44d00]">
+            <div className="rounded-lg border border-[#ff5900]/30 bg-[#fff3ec] px-3 py-2 text-xs text-[#c44d00]">
               Manage employee schedules at Work Schedule page.
               {' '}
               <Link href="/schedules" className="font-semibold underline underline-offset-2">
@@ -1318,7 +1318,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
             <Button type="button" variant="outline" onClick={goToEmployeeProfile}>
               Skip for now
             </Button>
-            <Button type="button" className="text-white" style={{ background: '#fa5e01' }} onClick={openWeeklyGrid}>
+            <Button type="button" className="text-white" style={{ background: '#ff5900' }} onClick={openWeeklyGrid}>
               Continue to Weekly Grid
             </Button>
           </DialogFooter>

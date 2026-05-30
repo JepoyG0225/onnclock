@@ -1,16 +1,19 @@
-import { auth } from '@/lib/auth'
+﻿import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { EmployeeDeleteButton } from '@/components/employees/EmployeeDeleteButton'
+import { EmployeeViewButton } from '@/components/employees/EmployeeViewButton'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Users, Search, AlertCircle } from 'lucide-react'
+import { Users, Search } from 'lucide-react'
 import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
 import { EmploymentStatus } from '@prisma/client'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
+import { EmployeeImportButton } from '@/components/employees/EmployeeImportButton'
+import { AddEmployeeButton } from '@/components/employees/AddEmployeeButton'
 
 export default async function EmployeesPage({
   searchParams,
@@ -81,26 +84,14 @@ export default async function EmployeesPage({
           <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
           <p className="text-gray-500 mt-1">{total} total employees</p>
         </div>
-        {atSeatCap ? (
-          <div className="flex flex-col items-end gap-1">
-            <Link href="/settings/billing">
-              <Button variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-50">
-                <AlertCircle className="mr-2 w-4 h-4" />
-                Seats full — upgrade
-              </Button>
-            </Link>
-            <p className="text-[11px] text-amber-700">
-              {seat.activeCount} of {seat.paidSeats} paid seats in use
-            </p>
-          </div>
-        ) : (
-          <Link href="/employees/new">
-            <Button>
-              <Plus className="mr-2 w-4 h-4" />
-              Add Employee
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <EmployeeImportButton />
+          <AddEmployeeButton
+            atSeatCap={atSeatCap}
+            activeCount={seat.activeCount}
+            paidSeats={seat.paidSeats}
+          />
+        </div>
       </div>
 
       {/* Filters */}
@@ -114,13 +105,13 @@ export default async function EmployeesPage({
                 name="search"
                 placeholder="Search by name or employee no..."
                 defaultValue={search}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
               />
             </div>
             <select
               name="department"
               defaultValue={departmentId}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
             >
               <option value="">All Departments</option>
               {departments.map(d => (
@@ -130,7 +121,7 @@ export default async function EmployeesPage({
             <select
               name="status"
               defaultValue={status}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2E4156]"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
             >
               <option value="">All Status</option>
               <option value="PROBATIONARY">Probationary</option>
@@ -181,7 +172,7 @@ export default async function EmployeesPage({
                               className="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0"
                             />
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-[#C0C8CA] flex items-center justify-center text-xs font-bold text-[#1A2D42] flex-shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-[#c4d9ff] flex items-center justify-center text-xs font-bold text-[#021e47] flex-shrink-0">
                               {emp.firstName[0]}{emp.lastName[0]}
                             </div>
                           )}
@@ -209,15 +200,7 @@ export default async function EmployeesPage({
                       <td className="p-4 text-gray-600">{formatDate(emp.hireDate)}</td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <Link href={`/employees/${emp.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-[#2E4156] hover:text-white focus-visible:text-white active:text-white"
-                            >
-                              View
-                            </Button>
-                          </Link>
+                          <EmployeeViewButton employeeId={emp.id} />
                           <EmployeeDeleteButton employeeId={emp.id} />
                         </div>
                       </td>

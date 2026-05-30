@@ -1,4 +1,4 @@
-import { Metadata } from 'next'
+﻿import { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -16,8 +16,8 @@ export default function DesktopDownloadPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden">
 
         {/* Header band */}
-        <div className="bg-gradient-to-r from-[#0d1b2a] to-[#1a2d42] px-8 py-7 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-[#fa5e01] flex items-center justify-center flex-shrink-0 shadow-lg">
+        <div className="bg-gradient-to-r from-[#0d1b2a] to-[#021e47] px-8 py-7 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-[#ff5900] flex items-center justify-center flex-shrink-0 shadow-lg">
             {/* Monitor icon */}
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -62,7 +62,7 @@ export default function DesktopDownloadPage() {
           {hasInstaller ? (
             <a
               href="/api/desktop-app/download"
-              className="flex items-center justify-center gap-2.5 w-full bg-[#fa5e01] hover:bg-[#c44d00] text-white font-bold text-sm py-3.5 rounded-xl transition-colors shadow-md"
+              className="flex items-center justify-center gap-2.5 w-full bg-[#ff5900] hover:bg-[#c44d00] text-white font-bold text-sm py-3.5 rounded-xl transition-colors shadow-md"
             >
               {/* Download icon */}
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -83,10 +83,10 @@ export default function DesktopDownloadPage() {
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">How to install</p>
             <ol className="space-y-1.5 text-xs text-gray-600">
-              <li className="flex gap-2"><span className="font-bold text-[#fa5e01] flex-shrink-0">1.</span> Download and run the installer above</li>
-              <li className="flex gap-2"><span className="font-bold text-[#fa5e01] flex-shrink-0">2.</span> OnClock Desktop installs silently and opens automatically</li>
-              <li className="flex gap-2"><span className="font-bold text-[#fa5e01] flex-shrink-0">3.</span> Sign in with your OnClock email &amp; password</li>
-              <li className="flex gap-2"><span className="font-bold text-[#fa5e01] flex-shrink-0">4.</span> Clock in from the app — monitoring starts automatically</li>
+              <li className="flex gap-2"><span className="font-bold text-[#ff5900] flex-shrink-0">1.</span> Download and run the installer above</li>
+              <li className="flex gap-2"><span className="font-bold text-[#ff5900] flex-shrink-0">2.</span> OnClock Desktop installs silently and opens automatically</li>
+              <li className="flex gap-2"><span className="font-bold text-[#ff5900] flex-shrink-0">3.</span> Sign in with your OnClock email &amp; password</li>
+              <li className="flex gap-2"><span className="font-bold text-[#ff5900] flex-shrink-0">4.</span> Clock in from the app — monitoring starts automatically</li>
             </ol>
           </div>
 
@@ -95,7 +95,7 @@ export default function DesktopDownloadPage() {
         {/* Footer */}
         <div className="border-t border-gray-100 px-8 py-4 flex items-center justify-between">
           <span className="text-xs text-gray-400">© {new Date().getFullYear()} OnClock PH</span>
-          <Link href="/portal/login" className="text-xs font-semibold text-[#fa5e01] hover:underline">
+          <Link href="/portal/login" className="text-xs font-semibold text-[#ff5900] hover:underline">
             Open Portal →
           </Link>
         </div>

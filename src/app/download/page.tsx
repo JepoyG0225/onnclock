@@ -1,4 +1,4 @@
-import { Metadata } from 'next'
+﻿import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { CheckCircle, Download } from 'lucide-react'
@@ -36,7 +36,7 @@ export default function DownloadPage() {
 
       <main className="pt-28 pb-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <section className="rounded-3xl bg-gradient-to-r from-[#1A2D42] to-[#2E4156] px-6 py-10 sm:px-10 text-white shadow-xl">
+          <section className="rounded-3xl bg-gradient-to-r from-[#021e47] to-[#032b63] px-6 py-10 sm:px-10 text-white shadow-xl">
             <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wide">
               <Download className="w-3.5 h-3.5" />
               Desktop Installer Hub
@@ -77,7 +77,7 @@ export default function DownloadPage() {
                       <a
                         key={platform.key}
                         href={`/api/desktop-app/download/${section.role}/${platform.key}`}
-                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-[#2E4156] hover:bg-white transition-all"
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-[#032b63] hover:bg-white transition-all"
                       >
                         <span className="inline-flex items-center gap-2">
                           <Image src={platform.icon} alt={platform.label} width={18} height={18} />
@@ -95,7 +95,7 @@ export default function DownloadPage() {
           <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500" />Separate links per app type</span>
             <span className="inline-flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500" />Windows and macOS installers</span>
-            <Link href="/login" className="font-semibold text-[#2E4156] hover:underline">
+            <Link href="/login" className="font-semibold text-[#032b63] hover:underline">
               Back to Sign In
             </Link>
           </div>

@@ -1,4 +1,4 @@
-import { cache } from 'react'
+﻿import { cache } from 'react'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -161,28 +161,27 @@ export default async function DashboardPage() {
     : 0
 
   const todayLabel = new Date().toLocaleDateString('en-PH', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    timeZone: 'Asia/Manila', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening'
+  // Use Philippine timezone (UTC+8) for greeting
+  const phHour = parseInt(new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false }).format(new Date()), 10)
+  const greeting = phHour < 12 ? 'Good Morning' : phHour < 18 ? 'Good Afternoon' : 'Good Evening'
   const userName = session.user.name?.split(' ')[0] ?? session.user.email?.split('@')[0] ?? ''
 
   return (
     <div className="space-y-6">
 
       {/* ── Welcome Banner ── */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#1A2D42] via-[#2E4156] to-[#1A2D42] p-6 text-white relative overflow-hidden">
-        {/* decorative circles */}
-        <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/5" />
-        <div className="absolute right-8 top-12 w-24 h-24 rounded-full bg-white/5" />
-        <div className="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-white/5" />
-
+      <div className="rounded-2xl p-6 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #ff5900 0%, #ff7a2e 100%)', boxShadow: '0 4px 20px rgba(255,89,0,0.3)' }}>
+        <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+        <div className="absolute right-24 bottom-0 w-32 h-32 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <div className="absolute -left-6 -bottom-6 w-36 h-36 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
         <div className="relative">
-          <p className="text-[#C0C8CA] text-sm">{todayLabel}</p>
-          <h1 className="text-2xl font-bold mt-0.5">{greeting}{userName ? `, ${userName}!` : '!'}</h1>
-          <p className="text-[#D4D8DD] text-sm mt-0.5">{company.name}</p>
-
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1 text-white/70">{todayLabel}</p>
+          <h1 className="text-2xl font-bold text-white">{greeting}{userName ? `, ${userName}!` : '!'}</h1>
+          <p className="text-sm mt-0.5 text-white/60">{company.name}</p>
         </div>
       </div>
 
@@ -190,103 +189,141 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
         {/* Total Employees */}
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-medium text-gray-500">Total Employees</p>
-              <div className="bg-[#D4D8DD] p-2 rounded-lg">
-                <Users className="w-4 h-4 text-[#2E4156]" />
-              </div>
+        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
+          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)' }}>
+              <Users className="w-4 h-4" style={{ color: '#ff5900' }} />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{totalEmployees}</p>
-            <p className="text-xs text-gray-400 mt-1.5">
-              <span className="text-[#2E4156] font-semibold">{activeEmployees}</span> active
-            </p>
-            <div className="absolute bottom-0 right-0 w-20 h-20 bg-[#D4D8DD] rounded-tl-full opacity-60" />
-          </CardContent>
-        </Card>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,89,0,0.08)', color: '#ff5900' }}>
+              {activeEmployees} active
+            </span>
+          </div>
+          <p className="text-3xl font-bold" style={{ color: '#162d54' }}>{totalEmployees}</p>
+          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Total Employees</p>
+        </div>
 
         {/* Last Payroll */}
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-medium text-gray-500">Last Payroll</p>
-              <div className="bg-green-50 p-2 rounded-lg">
-                <PesoIcon className="w-4 h-4 text-green-600" />
-              </div>
+        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
+          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)', color: '#ff5900' }}>
+              <PesoIcon className="w-4 h-4" />
             </div>
-            <p className="text-3xl font-bold text-gray-900">
-              {lastPayrollRun ? peso(Number(lastPayrollRun.totalNetPay)) : '—'}
-            </p>
-            <p className="text-xs text-gray-400 mt-1.5">
-              {lastPayrollRun ? lastPayrollRun.periodLabel : 'No payroll run yet'}
-            </p>
-            <div className="absolute bottom-0 right-0 w-20 h-20 bg-green-50 rounded-tl-full opacity-60" />
-          </CardContent>
-        </Card>
+          </div>
+          <p className="text-2xl font-bold leading-tight truncate" style={{ color: '#162d54' }}>
+            {lastPayrollRun ? peso(Number(lastPayrollRun.totalNetPay)) : '—'}
+          </p>
+          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Last Payroll</p>
+          {lastPayrollRun && (
+            <p className="text-xs mt-0.5 truncate" style={{ color: '#cbd5e1' }}>{lastPayrollRun.periodLabel}</p>
+          )}
+        </div>
 
         {/* Pending Leaves */}
-        <Card className={`border-0 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden ${pendingLeaves > 0 ? 'ring-1 ring-yellow-200' : ''}`}>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-medium text-gray-500">Pending Leaves</p>
-              <div className={`p-2 rounded-lg ${pendingLeaves > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}>
-                <CalendarDays className={`w-4 h-4 ${pendingLeaves > 0 ? 'text-yellow-500' : 'text-gray-400'}`} />
-              </div>
+        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
+          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)' }}>
+              <CalendarDays className="w-4 h-4" style={{ color: '#ff5900' }} />
             </div>
-            <p className={`text-3xl font-bold ${pendingLeaves > 0 ? 'text-yellow-600' : 'text-gray-900'}`}>
-              {pendingLeaves}
-            </p>
-            <p className="text-xs text-gray-400 mt-1.5">
-              {pendingLeaves > 0 ? 'Awaiting your approval' : 'All leaves reviewed'}
-            </p>
-            <div className={`absolute bottom-0 right-0 w-20 h-20 rounded-tl-full opacity-60 ${pendingLeaves > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} />
-          </CardContent>
-        </Card>
+            {pendingLeaves > 0 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#ff5900' }}>
+                Action needed
+              </span>
+            )}
+          </div>
+          <p className="text-3xl font-bold" style={{ color: '#162d54' }}>{pendingLeaves}</p>
+          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Pending Leaves</p>
+        </div>
 
         {/* Clocked In Today */}
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-medium text-gray-500">Clocked In Today</p>
-              <div className="bg-purple-50 p-2 rounded-lg">
-                <UserCheck className="w-4 h-4 text-purple-600" />
-              </div>
+        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
+          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)' }}>
+              <UserCheck className="w-4 h-4" style={{ color: '#ff5900' }} />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{clockedInToday}</p>
-            <div className="mt-2.5">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs text-gray-400">of {activeEmployees} active</p>
-                <p className="text-xs font-semibold text-purple-600">{clockInPct}%</p>
-              </div>
-              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-400 rounded-full"
-                  style={{ width: `${clockInPct}%` }}
-                />
-              </div>
-            </div>
-            <div className="absolute bottom-0 right-0 w-20 h-20 bg-purple-50 rounded-tl-full opacity-60" />
-          </CardContent>
-        </Card>
+            <span className="text-xs font-semibold" style={{ color: '#ff5900' }}>{clockInPct}%</span>
+          </div>
+          <p className="text-3xl font-bold" style={{ color: '#162d54' }}>{clockedInToday}</p>
+          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Clocked In Today</p>
+          <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: '#f1f5f9' }}>
+            <div className="h-full rounded-full transition-all" style={{ width: `${clockInPct}%`, background: '#ff5900' }} />
+          </div>
+        </div>
       </div>
+
+      {/* ── Remittance Schedules ── */}
+      {(() => {
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))
+        const y = now.getFullYear()
+        const m = now.getMonth()
+        const todayMs = new Date(y, now.getMonth(), now.getDate()).getTime()
+
+        function daysLeft(date: Date) {
+          return Math.ceil((date.getTime() - todayMs) / 86400000)
+        }
+        function fmt(date: Date) {
+          return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+        }
+        function chip(diff: number) {
+          if (diff <= 0)  return { color: '#ef4444', label: 'Due today' }
+          if (diff <= 5)  return { color: '#f97316', label: `${diff}d left` }
+          return           { color: '#22c55e',  label: `${diff}d left` }
+        }
+
+        const schedules = [
+          { name: 'SSS',        sub: 'Contribution',    date: new Date(y, m + 1,  0) },
+          { name: 'PhilHealth', sub: 'Contribution',    date: new Date(y, m + 1, 10) },
+          { name: 'Pag-IBIG',   sub: 'Contribution',    date: new Date(y, m + 2,  0) },
+          { name: 'BIR 1601-C', sub: 'Withholding Tax', date: new Date(y, m + 1, 15) },
+        ]
+
+        return (
+          <div>
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+              Remittance Schedules
+            </h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {schedules.map(s => {
+                const diff = daysLeft(s.date)
+                const { color, label } = chip(diff)
+                return (
+                  <div key={s.name} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3"
+                    style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold" style={{ color: '#162d54' }}>{s.name}</p>
+                      <p className="text-[11px] text-gray-400">{s.sub}</p>
+                      <p className="text-[11px] font-semibold mt-0.5" style={{ color }}>
+                        {fmt(s.date)} · {label}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Today's Highlights ── */}
       <div>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
           Today&apos;s Highlights
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Upcoming Birthdays */}
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
-                <div className="bg-pink-50 p-1.5 rounded-lg">
-                  <Cake className="w-3.5 h-3.5 text-pink-500" />
+                <div className="bg-pink-100 p-1.5 rounded-lg">
+                  <Cake className="w-3.5 h-3.5 text-pink-600" />
                 </div>
                 Upcoming Birthdays
-                <Badge className="ml-auto bg-pink-50 text-pink-600 border-0 text-xs font-semibold">
+                <Badge className="ml-auto bg-pink-100 text-pink-700 border-0 text-xs font-bold">
                   {upcomingBirthdays.length}
                 </Badge>
               </CardTitle>
@@ -306,11 +343,11 @@ export default async function DashboardPage() {
                     )
                     return (
                       <div key={emp.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-pink-50 transition-colors">
-                        <div className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center text-xs font-bold text-pink-700 shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm">
                           {emp.firstName[0]}{emp.lastName[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
                             {emp.firstName} {emp.lastName}
                           </p>
                           <p className="text-xs text-gray-400 truncate">{emp.position?.title || '—'}</p>
@@ -318,7 +355,7 @@ export default async function DashboardPage() {
                         {isToday ? (
                           <Badge className="bg-pink-500 text-white border-0 text-xs shrink-0">Today!</Badge>
                         ) : (
-                          <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                          <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap bg-gray-50 px-2 py-0.5 rounded-full">
                             {daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil}d`}
                           </span>
                         )}
@@ -331,14 +368,14 @@ export default async function DashboardPage() {
           </Card>
 
           {/* Upcoming Holidays */}
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
-                <div className="bg-[#D4D8DD] p-1.5 rounded-lg">
-                  <CalendarDays className="w-3.5 h-3.5 text-[#2E4156]" />
+                <div className="bg-blue-50 p-1.5 rounded-lg">
+                  <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
                 </div>
                 Upcoming Holidays
-                <Badge className="ml-auto bg-[#D4D8DD] text-[#2E4156] border-0 text-xs font-semibold">
+                <Badge className="ml-auto bg-blue-50 text-blue-700 border-0 text-xs font-bold">
                   {upcomingHolidays.length}
                 </Badge>
               </CardTitle>
@@ -357,26 +394,26 @@ export default async function DashboardPage() {
                       (hDate.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
                     )
                     return (
-                      <div key={holiday.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#D4D8DD] transition-colors">
-                        <div className="w-9 h-9 rounded-xl bg-[#D4D8DD] flex flex-col items-center justify-center shrink-0">
-                          <span className="text-[9px] font-bold text-[#2E4156] uppercase leading-none">
+                      <div key={holiday.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-blue-50 transition-colors">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#032b63] to-[#021e47] flex flex-col items-center justify-center shrink-0 shadow-sm">
+                          <span className="text-[9px] font-bold text-white/70 uppercase leading-none">
                             {hDate.toLocaleDateString('en-PH', { month: 'short' })}
                           </span>
-                          <span className="text-sm font-bold text-[#1A2D42] leading-tight">{hDate.getDate()}</span>
+                          <span className="text-sm font-bold text-white leading-tight">{hDate.getDate()}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{holiday.name}</p>
+                          <p className="text-sm font-semibold text-gray-900 truncate">{holiday.name}</p>
                           <Badge
                             className={`mt-0.5 text-[10px] border-0 px-1.5 py-0 h-4 ${
                               holiday.type === 'REGULAR'
                                 ? 'bg-red-100 text-red-600'
-                                : 'bg-[#C0C8CA] text-[#2E4156]'
+                                : 'bg-blue-100 text-blue-600'
                             }`}
                           >
                             {holiday.type === 'REGULAR' ? 'Regular' : 'Special'}
                           </Badge>
                         </div>
-                        <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                        <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap bg-gray-50 px-2 py-0.5 rounded-full">
                           {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil}d`}
                         </span>
                       </div>
@@ -388,14 +425,14 @@ export default async function DashboardPage() {
           </Card>
 
           {/* On Leave Today */}
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
                 <div className="bg-orange-50 p-1.5 rounded-lg">
                   <PlaneTakeoff className="w-3.5 h-3.5 text-orange-500" />
                 </div>
                 On Leave Today
-                <Badge className="ml-auto bg-orange-50 text-orange-600 border-0 text-xs font-semibold">
+                <Badge className="ml-auto bg-orange-100 text-orange-700 border-0 text-xs font-bold">
                   {onLeaveToday.length}
                 </Badge>
               </CardTitle>
@@ -410,11 +447,11 @@ export default async function DashboardPage() {
                 <div className="space-y-1">
                   {onLeaveToday.map((leave) => (
                     <div key={leave.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-orange-50 transition-colors">
-                      <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center text-xs font-bold text-orange-700 shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm">
                         {leave.employee.firstName[0]}{leave.employee.lastName[0]}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
                           {leave.employee.firstName} {leave.employee.lastName}
                         </p>
                         <p className="text-xs text-gray-400 truncate">{leave.employee.position?.title || '—'}</p>
@@ -431,45 +468,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Government Remittance ── */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3 pt-4 px-5">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
-            <div className="bg-gray-100 p-1.5 rounded-lg">
-              <TrendingUp className="w-3.5 h-3.5 text-gray-600" />
-            </div>
-            Government Remittance Schedule
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="flex gap-3 p-4 rounded-xl bg-[#D4D8DD] border border-[#C0C8CA]">
-              <div className="w-1 rounded-full bg-[#2E4156] shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-[#1A2D42]">SSS</p>
-                <p className="text-xs text-[#2E4156] mt-0.5 font-medium">Due: Last day of following month</p>
-                <p className="text-xs text-gray-500 mt-2">R3 Form — Monthly contribution collection list</p>
-              </div>
-            </div>
-            <div className="flex gap-3 p-4 rounded-xl bg-green-50 border border-green-100">
-              <div className="w-1 rounded-full bg-green-400 shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-green-800">PhilHealth</p>
-                <p className="text-xs text-green-600 mt-0.5 font-medium">Due: Last day of following month</p>
-                <p className="text-xs text-gray-500 mt-2">RF-1 Form — Premium Remittance Return</p>
-              </div>
-            </div>
-            <div className="flex gap-3 p-4 rounded-xl bg-yellow-50 border border-yellow-100">
-              <div className="w-1 rounded-full bg-yellow-400 shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-yellow-800">Pag-IBIG / BIR</p>
-                <p className="text-xs text-yellow-600 mt-0.5 font-medium">Due: 10th of following month</p>
-                <p className="text-xs text-gray-500 mt-2">MCRF / 1601C — Monthly contributions & withholding tax</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

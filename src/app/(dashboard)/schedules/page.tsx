@@ -34,8 +34,8 @@ const SCHEDULE_TYPE_LABELS: Record<string, string> = {
 }
 
 const CARD_COLORS = [
-  { bg: '#fff3ec', border: '#fa5e01', text: '#c44d00' },
-  { bg: '#eef2f7', border: '#2E4156', text: '#1A2D42' },
+  { bg: '#fff3ec', border: '#ff5900', text: '#c44d00' },
+  { bg: '#eef2f7', border: '#032b63', text: '#021e47' },
   { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' },
   { bg: '#fdf4ff', border: '#9333ea', text: '#7e22ce' },
   { bg: '#fffbeb', border: '#d97706', text: '#b45309' },
@@ -220,9 +220,6 @@ interface ModalState {
   prefilledScheduleId?: string | null
   /** When opened by dragging the "Rest Day" tile, default to rest-day. */
   prefilledIsRestDay?: boolean
-  /** When opened by dragging an ad-hoc shift card, pre-fill the times. */
-  prefilledTimeIn?: string
-  prefilledTimeOut?: string
 }
 
 // â”€â”€â”€ Shift template mini-modal (used in Flexible mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -354,7 +351,7 @@ function ShiftTemplateModal({
               value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
               placeholder="e.g. Morning Shift, Night Shift"
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
             />
           </div>
 
@@ -366,7 +363,7 @@ function ShiftTemplateModal({
                 type="time"
                 value={form.timeIn}
                 onChange={e => setForm(p => ({ ...p, timeIn: e.target.value }))}
-                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
               />
             </div>
             <div>
@@ -375,7 +372,7 @@ function ShiftTemplateModal({
                 type="time"
                 value={form.timeOut}
                 onChange={e => setForm(p => ({ ...p, timeOut: e.target.value }))}
-                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
               />
             </div>
           </div>
@@ -389,7 +386,7 @@ function ShiftTemplateModal({
               step={0.5}
               value={form.workHoursPerDay}
               onChange={e => setForm(p => ({ ...p, workHoursPerDay: Math.max(1, Number(e.target.value) || 8) }))}
-              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
             />
           </div>
 
@@ -400,7 +397,7 @@ function ShiftTemplateModal({
               <button
                 type="button"
                 onClick={() => setForm(p => ({ ...p, breakEnabled: !p.breakEnabled }))}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.breakEnabled ? 'bg-[#fa5e01]' : 'bg-gray-300'}`}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.breakEnabled ? 'bg-[#ff5900]' : 'bg-gray-300'}`}
               >
                 <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
               </button>
@@ -417,7 +414,7 @@ function ShiftTemplateModal({
                         const nextMinutes = splitBreakMinutes(form.breakMinutes).minutes
                         setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
                       }}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
                     >
                       {Array.from({ length: 13 }, (_, h) => h).map(h => (
                         <option key={h} value={h}>{h}h</option>
@@ -433,7 +430,7 @@ function ShiftTemplateModal({
                         const nextHours = splitBreakMinutes(form.breakMinutes).hours
                         setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
                       }}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#fa5e01]/30 focus:border-[#fa5e01] outline-none"
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
                     >
                       {Array.from({ length: 60 }, (_, m) => m).map(m => (
                         <option key={m} value={m}>{m}m</option>
@@ -453,7 +450,7 @@ function ShiftTemplateModal({
 
           {/* Live preview */}
           {form.timeIn && form.timeOut && (
-            <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#fff3ec', borderColor: '#fa5e01', color: '#c44d00' }}>
+            <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#fff3ec', borderColor: '#ff5900', color: '#c44d00' }}>
               <p className="font-bold">{fmt12(form.timeIn)} - {fmt12(form.timeOut)}</p>
               <p className="text-[11px] opacity-70 mt-0.5">{form.timeIn} - {form.timeOut}{form.breakMinutes ? ` - ${form.breakMinutes}m break` : ''}</p>
             </div>
@@ -487,7 +484,7 @@ function ShiftTemplateModal({
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-bold text-white"
-              style={{ background: '#fa5e01' }}
+              style={{ background: '#ff5900' }}
             >
               {saving ? 'Saving...' : initial ? 'Update' : 'Add Shift'}
             </button>
@@ -527,30 +524,13 @@ function FlexibleScheduleTab({
   const [shiftModal, setShiftModal] = useState<{ mode: 'create' } | { mode: 'edit'; schedule: WorkSchedule } | null>(null)
   const [dragOverCell, setDragOverCell] = useState<string | null>(null) // "empId|dateStr"
   const dragScheduleId = useRef<string | null>(null)
-  const dragAdhocTimes = useRef<{ timeIn: string; timeOut: string } | null>(null)
   const restDayDragId = '__REST_DAY__'
-  const adhocDragId = '__ADHOC__'
-
-  // Ad-hoc shifts = (timeIn, timeOut) combos used in past assignments that
-  // don't have a matching WorkSchedule template. Shown alongside templates
-  // so the admin can drag/promote them.
-  type AdhocShift = { timeIn: string; timeOut: string; usageCount: number; lastUsed: string }
-  const [adhocShifts, setAdhocShifts] = useState<AdhocShift[]>([])
-  const [promotingAdhoc, setPromotingAdhoc] = useState<string | null>(null)
-  const loadAdhoc = useCallback(async () => {
-    try {
-      const res = await fetch(withCompanyId('/api/schedules/adhoc-shifts', companyId))
-      const data = await res.json().catch(() => ({}))
-      setAdhocShifts(data.shifts ?? [])
-    } catch { /* ignore */ }
-  }, [companyId])
-  useEffect(() => { loadAdhoc() }, [loadAdhoc, schedules])  // re-fetch when templates change
-  // Show ALL active templates regardless of the current FIXED/FLEXIBLE tab.
-  // Templates are reusable across both modes — companies often create a
-  // schedule like "AM Shift" (FIXED) but want to drop it onto a flexible
-  // employee's grid too. Previously the FIXED tab hid FLEXITIME templates,
-  // which silently dropped legitimate work-hour cards from the panel.
-  const templateSchedules = schedules
+  // In FLEXIBLE mode show all schedules — a company may have created templates
+  // as any type and still want to drag them onto the flexible grid.
+  // In FIXED mode restrict to FIXED-type templates for consistency.
+  const templateSchedules = variant === 'FLEXIBLE'
+    ? schedules
+    : schedules.filter(s => s.scheduleType === 'FIXED')
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const startStr = toDateStr(weekStart)
@@ -604,11 +584,12 @@ function FlexibleScheduleTab({
 
   async function onDrop(empId: string, dateStr: string) {
     const schedId = dragScheduleId.current
-    const adhocTimes = dragAdhocTimes.current
     setDragOverCell(null)
     dragScheduleId.current = null
-    dragAdhocTimes.current = null
-    if (!schedId && !adhocTimes) return
+    if (!schedId) return
+    // Open the assignment modal pre-populated with what was dragged. The modal
+    // shows the "Apply to days" picker so admins can fan the same shift out
+    // across multiple days in the visible week.
     const employee = employees.find((e) => e.id === empId)
     setModal({
       employeeId: empId,
@@ -616,38 +597,9 @@ function FlexibleScheduleTab({
       fixedScheduleId: employee?.workScheduleId ?? null,
       date: dateStr,
       existing: null,
-      prefilledScheduleId: schedId && schedId !== restDayDragId && schedId !== adhocDragId ? schedId : null,
+      prefilledScheduleId: schedId === restDayDragId ? null : schedId,
       prefilledIsRestDay: schedId === restDayDragId,
-      prefilledTimeIn:  adhocTimes?.timeIn,
-      prefilledTimeOut: adhocTimes?.timeOut,
     })
-  }
-
-  async function promoteAdhocToTemplate(shift: { timeIn: string; timeOut: string }) {
-    const key = `${shift.timeIn}-${shift.timeOut}`
-    setPromotingAdhoc(key)
-    try {
-      const res = await fetch(withCompanyId('/api/schedules', companyId), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `${fmt12(shift.timeIn)} - ${fmt12(shift.timeOut)}`,
-          scheduleType: 'FLEXITIME',
-          timeIn: shift.timeIn,
-          timeOut: shift.timeOut,
-          workDays: [0, 1, 2, 3, 4, 5, 6],
-          workHoursPerDay: 8,
-          workDaysPerWeek: 5,
-          breakEnabled: false,  // ad-hoc shifts are typically short — no break
-          breakMinutes: 0,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(data?.error ?? 'Failed to save template'); return }
-      toast.success('Template saved')
-      onRefreshSchedules()
-      void loadAdhoc()
-    } finally { setPromotingAdhoc(null) }
   }
 
   async function upsertAssignment(payload: {
@@ -755,7 +707,7 @@ function FlexibleScheduleTab({
           <button
             onClick={() => setShiftModal({ mode: 'create' })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-            style={{ background: '#fa5e01' }}
+            style={{ background: '#ff5900' }}
           >
             <Plus className="w-3.5 h-3.5" /> Add Work Hours
           </button>
@@ -772,7 +724,7 @@ function FlexibleScheduleTab({
             <p className="text-sm">No work hours defined yet.</p>
             <button
               onClick={() => setShiftModal({ mode: 'create' })}
-              className="mt-1 text-xs font-semibold underline text-[#fa5e01]"
+              className="mt-1 text-xs font-semibold underline text-[#ff5900]"
             >
               Add your first shift -&gt;
             </button>
@@ -818,41 +770,6 @@ function FlexibleScheduleTab({
                     className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1"
                   >
                     <Pencil className="w-3 h-3" /> Edit Work Hours
-                  </button>
-                </div>
-              )
-            })}
-            {/* Ad-hoc shifts — distinct times used in past assignments that
-                don't have a backing template. Dashed border + ghost styling
-                so they read as "draft". */}
-            {adhocShifts.map((sh) => {
-              const key = `${sh.timeIn}-${sh.timeOut}`
-              return (
-                <div key={key} className="flex flex-col gap-1.5">
-                  <div
-                    draggable
-                    onDragStart={() => {
-                      dragAdhocTimes.current = { timeIn: sh.timeIn, timeOut: sh.timeOut }
-                      dragScheduleId.current = adhocDragId
-                    }}
-                    className="cursor-grab active:cursor-grabbing select-none rounded-xl border-2 border-dashed px-4 py-2.5 transition hover:shadow-md text-center"
-                    style={{ background: '#fafafa', borderColor: '#cbd5e1', color: '#475569' }}
-                  >
-                    <p className="font-bold text-sm leading-tight">
-                      {fmt12(sh.timeIn)} - {fmt12(sh.timeOut)}
-                    </p>
-                    <p className="text-[10px] opacity-60 mt-0.5">
-                      Ad-hoc · {sh.usageCount} use{sh.usageCount === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => promoteAdhocToTemplate(sh)}
-                    disabled={promotingAdhoc === key}
-                    className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-1"
-                  >
-                    {promotingAdhoc === key
-                      ? 'Saving...'
-                      : (<><Plus className="w-3 h-3" /> Save as template</>)}
                   </button>
                 </div>
               )
@@ -919,12 +836,12 @@ function FlexibleScheduleTab({
                     return (
                       <th
                         key={ds}
-                        className={`text-center px-2 py-3 font-semibold text-xs border-l border-white/10 ${isToday ? 'text-[#fa5e01]' : 'text-white/80'}`}
+                        className={`text-center px-2 py-3 font-semibold text-xs border-l border-white/10 ${isToday ? 'text-[#ff5900]' : 'text-white/80'}`}
                         style={{ minWidth: 110 }}
                       >
                         <div>{DAYS[d.getDay()]}</div>
                         {variant === 'FLEXIBLE' && (
-                          <div className={`text-lg font-extrabold ${isToday ? 'text-[#fa5e01]' : ''}`}>
+                          <div className={`text-lg font-extrabold ${isToday ? 'text-[#ff5900]' : ''}`}>
                             {d.getDate()}
                           </div>
                         )}
@@ -969,7 +886,7 @@ function FlexibleScheduleTab({
                       return (
                         <td
                           key={ds}
-                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-orange-50/40' : ''} ${isDragOver ? 'bg-orange-100/60 ring-2 ring-[#fa5e01] ring-inset rounded-lg' : ''}`}
+                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-orange-50/40' : ''} ${isDragOver ? 'bg-orange-100/60 ring-2 ring-[#ff5900] ring-inset rounded-lg' : ''}`}
                           onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
                           onDragLeave={() => setDragOverCell(null)}
                           onDrop={() => onDrop(emp.id, ds)}
@@ -987,7 +904,7 @@ function FlexibleScheduleTab({
                                       ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
                                       : col
                                       ? { background: col.bg, border: `1px solid ${col.border}` }
-                                      : { background: '#fff3ec', border: '1px solid #fa5e01' }
+                                      : { background: '#fff3ec', border: '1px solid #ff5900' }
                                   }
                                   onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: asgn })}
                                 >
@@ -1030,8 +947,8 @@ function FlexibleScheduleTab({
                                   !templateIsWorkDay
                                     ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
                                     : fixedTemplate?.id
-                                      ? { background: colorMap.get(fixedTemplate.id)?.bg ?? '#fff3ec', border: `1px solid ${colorMap.get(fixedTemplate.id)?.border ?? '#fa5e01'}` }
-                                      : { background: '#fff3ec', border: '1px solid #fa5e01' }
+                                      ? { background: colorMap.get(fixedTemplate.id)?.bg ?? '#fff3ec', border: `1px solid ${colorMap.get(fixedTemplate.id)?.border ?? '#ff5900'}` }
+                                      : { background: '#fff3ec', border: '1px solid #ff5900' }
                                 }
                                 onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
                               >
@@ -1070,7 +987,7 @@ function FlexibleScheduleTab({
                             {/* Add shift button (always shown for FLEXIBLE, or when cell is empty for FIXED) */}
                             {variant === 'FLEXIBLE' ? (
                               <button
-                                className="w-full h-7 flex items-center justify-center rounded-lg border border-dashed border-gray-200 text-gray-300 hover:border-[#fa5e01] hover:text-[#fa5e01] transition"
+                                className="w-full h-7 flex items-center justify-center rounded-lg border border-dashed border-gray-200 text-gray-300 hover:border-[#ff5900] hover:text-[#ff5900] transition"
                                 title="Add shift"
                                 onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
                               >
@@ -1078,7 +995,7 @@ function FlexibleScheduleTab({
                               </button>
                             ) : asgns.length === 0 && !showTemplateFallback ? (
                               <button
-                                className="w-full h-10 flex items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-300 hover:border-[#fa5e01] hover:text-[#fa5e01] transition"
+                                className="w-full h-10 flex items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-300 hover:border-[#ff5900] hover:text-[#ff5900] transition"
                                 onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
                               >
                                 <Plus className="w-4 h-4" />
@@ -1173,12 +1090,8 @@ function AssignmentModal({
     : null
   const initialRestDay = existing?.isRestDay ?? modal.prefilledIsRestDay ?? false
   const [isRestDay, setIsRestDay] = useState(variant === 'FIXED' ? false : initialRestDay)
-  const [timeIn, setTimeIn] = useState(
-    existing?.timeIn ?? modal.prefilledTimeIn ?? prefilledTemplate?.timeIn ?? '08:00'
-  )
-  const [timeOut, setTimeOut] = useState(
-    existing?.timeOut ?? modal.prefilledTimeOut ?? prefilledTemplate?.timeOut ?? '17:00'
-  )
+  const [timeIn, setTimeIn] = useState(existing?.timeIn ?? prefilledTemplate?.timeIn ?? '08:00')
+  const [timeOut, setTimeOut] = useState(existing?.timeOut ?? prefilledTemplate?.timeOut ?? '17:00')
   const [scheduleId, setScheduleId] = useState(
     existing?.scheduleId ?? modal.prefilledScheduleId ?? modal.fixedScheduleId ?? '',
   )
@@ -1265,7 +1178,7 @@ function AssignmentModal({
               <button
                 type="button"
                 onClick={() => setIsRestDay(v => !v)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRestDay ? 'bg-[#fa5e01]' : 'bg-gray-300'}`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRestDay ? 'bg-[#ff5900]' : 'bg-gray-300'}`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isRestDay ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
@@ -1287,8 +1200,8 @@ function AssignmentModal({
                           key={s.id}
                           type="button"
                           onClick={() => applyTemplate(s.id)}
-                          className={`rounded-lg border px-2 py-1 text-left text-[10px] transition ${isSelected ? 'ring-2 ring-[#fa5e01]' : 'hover:shadow-sm'}`}
-                          style={{ borderColor: isSelected ? '#fa5e01' : col.border, background: col.bg, color: col.text }}
+                          className={`rounded-lg border px-2 py-1 text-left text-[10px] transition ${isSelected ? 'ring-2 ring-[#ff5900]' : 'hover:shadow-sm'}`}
+                          style={{ borderColor: isSelected ? '#ff5900' : col.border, background: col.bg, color: col.text }}
                         >
                           <p className="text-center font-bold text-xs leading-tight">
                             {fmt12(s.timeIn ?? null)} - {fmt12(s.timeOut ?? null)}
@@ -1334,7 +1247,7 @@ function AssignmentModal({
                   <button
                     type="button"
                     onClick={() => setApplyToDates(new Set(weekDays.map(toDateStr)))}
-                    className="text-[10px] font-semibold text-[#fa5e01] hover:underline"
+                    className="text-[10px] font-semibold text-[#ff5900] hover:underline"
                   >
                     All
                   </button>
@@ -1349,7 +1262,7 @@ function AssignmentModal({
                       next.add(modal.date) // always include the day they clicked
                       setApplyToDates(next)
                     }}
-                    className="text-[10px] font-semibold text-[#fa5e01] hover:underline"
+                    className="text-[10px] font-semibold text-[#ff5900] hover:underline"
                   >
                     Mon–Fri
                   </button>
@@ -1374,7 +1287,7 @@ function AssignmentModal({
                       type="button"
                       onClick={() => toggleApplyDate(ds)}
                       disabled={isClickedDay}
-                      className={`rounded-lg border px-1.5 py-2 text-center transition ${checked ? 'bg-[#fa5e01] text-white border-[#fa5e01]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#fa5e01]'} ${isClickedDay ? 'opacity-90 cursor-not-allowed' : ''}`}
+                      className={`rounded-lg border px-1.5 py-2 text-center transition ${checked ? 'bg-[#ff5900] text-white border-[#ff5900]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#ff5900]'} ${isClickedDay ? 'opacity-90 cursor-not-allowed' : ''}`}
                       title={isClickedDay ? 'This is the day you clicked' : ''}
                     >
                       <p className="text-[10px] font-bold leading-none">{ALL_DAYS[d.getDay()]}</p>
@@ -1412,7 +1325,7 @@ function AssignmentModal({
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-bold text-white"
-              style={{ background: '#fa5e01' }}
+              style={{ background: '#ff5900' }}
             >
               {saving ? 'Saving...' : 'Save Schedule'}
             </button>
@@ -1432,6 +1345,9 @@ export default function SchedulesPage() {
   const [mode, setMode] = useState<ScheduleMode>('FIXED')
   const [schedules, setSchedules] = useState<WorkSchedule[]>([])
   const [loadingSchedules, setLoadingSchedules] = useState(false)
+  const [companyBreakHours, setCompanyBreakHours] = useState(1)
+  const [companyBreakMins, setCompanyBreakMins] = useState(0)
+  const [savingCompanyBreak, setSavingCompanyBreak] = useState(false)
 
   const loadSchedules = useCallback(async () => {
     setLoadingSchedules(true)
@@ -1445,6 +1361,59 @@ export default function SchedulesPage() {
   }, [companyId])
 
   useEffect(() => { loadSchedules() }, [loadSchedules])
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => {
+        const fallback = schedules.length > 0 ? Number(schedules[0]?.breakMinutes ?? 60) : 60
+        const minutes = Number(data?.defaultBreakMinutes ?? fallback)
+        const next = splitBreakMinutes(minutes)
+        setCompanyBreakHours(next.hours)
+        setCompanyBreakMins(next.minutes)
+      })
+      .catch(() => {
+        const fallback = schedules.length > 0 ? Number(schedules[0]?.breakMinutes ?? 60) : 60
+        const next = splitBreakMinutes(fallback)
+        setCompanyBreakHours(next.hours)
+        setCompanyBreakMins(next.minutes)
+      })
+  }, [schedules])
+
+  async function applyCompanyBreakSetup() {
+    const nextBreakMinutes = combineBreakMinutes(companyBreakHours, companyBreakMins)
+    setSavingCompanyBreak(true)
+    try {
+      const settingsRes = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultBreakMinutes: nextBreakMinutes }),
+      })
+      if (!settingsRes.ok) {
+        const data = await settingsRes.json().catch(() => ({}))
+        toast.error(data?.error ?? 'Failed to save company break setup')
+        return
+      }
+
+      const jobs = schedules.map(s => fetch(withCompanyId(`/api/schedules/${s.id}`, companyId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ breakMinutes: nextBreakMinutes }),
+      }))
+      const results = await Promise.all(jobs)
+      const failed = results.filter(r => !r.ok).length
+      if (failed > 0) {
+        toast.warning(`Break setup saved, but ${failed} schedule${failed > 1 ? 's' : ''} failed to update.`)
+      } else {
+        toast.success('Company break setup applied to all schedules')
+      }
+      await loadSchedules()
+    } catch {
+      toast.error('Failed to apply company break setup')
+    } finally {
+      setSavingCompanyBreak(false)
+    }
+  }
 
   useEffect(() => {
     const requestedMode = searchParams.get('mode')
@@ -1467,6 +1436,56 @@ export default function SchedulesPage() {
         </div>
         <div />
       </div>
+
+      {/* â”€â”€ Mode toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Company Break Setup</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-gray-500">
+            Set your company standard break duration in hours and minutes. This updates all work-hour templates and overbreak tardy tracking.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="w-[120px]">
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Hours</label>
+              <select
+                value={companyBreakHours}
+                onChange={e => setCompanyBreakHours(Number(e.target.value))}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                {Array.from({ length: 13 }, (_, h) => h).map(h => (
+                  <option key={h} value={h}>{h}h</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-[140px]">
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Minutes</label>
+              <select
+                value={companyBreakMins}
+                onChange={e => setCompanyBreakMins(Number(e.target.value))}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                {Array.from({ length: 60 }, (_, m) => m).map(m => (
+                  <option key={m} value={m}>{m}m</option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="button"
+              disabled={savingCompanyBreak}
+              onClick={applyCompanyBreakSetup}
+              className="text-white min-w-[180px] w-auto px-5"
+              style={{ background: '#ff5900' }}
+            >
+              {savingCompanyBreak ? 'Saving...' : 'Save Break Setup'}
+            </Button>
+          </div>
+          <p className="text-[11px] text-gray-500">
+            Current setup: {combineBreakMinutes(companyBreakHours, companyBreakMins)} minute{combineBreakMinutes(companyBreakHours, companyBreakMins) === 1 ? '' : 's'}.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 w-fit">
         <button
@@ -1495,7 +1514,7 @@ export default function SchedulesPage() {
 
       {/* â”€â”€ Mode hint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {mode === 'FIXED' && (
-        <div className="flex items-start gap-3 rounded-xl bg-[#fff3ec] border border-[#fa5e01]/30 px-4 py-3 text-sm text-[#c44d00]">
+        <div className="flex items-start gap-3 rounded-xl bg-[#fff3ec] border border-[#ff5900]/30 px-4 py-3 text-sm text-[#c44d00]">
           <Clock className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Fixed mode</strong> - Assign work hours and weekly day offs per employee.
@@ -1504,7 +1523,7 @@ export default function SchedulesPage() {
         </div>
       )}
       {mode === 'FLEXIBLE' && (
-        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[#2E4156]/30 px-4 py-3 text-sm text-[#1A2D42]">
+        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[#032b63]/30 px-4 py-3 text-sm text-[#021e47]">
           <LayoutGrid className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Flexible mode</strong> - Assign specific shifts per employee per day.
@@ -1520,7 +1539,7 @@ export default function SchedulesPage() {
           loadingSchedules={loadingSchedules}
           onRefreshSchedules={loadSchedules}
           variant="FIXED"
-          companyBreakMinutes={Number(schedules[0]?.breakMinutes ?? 60)}
+          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
           companyId={companyId}
           focusEmployeeId={focusEmployeeId}
         />
@@ -1530,7 +1549,7 @@ export default function SchedulesPage() {
           loadingSchedules={loadingSchedules}
           onRefreshSchedules={loadSchedules}
           variant="FLEXIBLE"
-          companyBreakMinutes={Number(schedules[0]?.breakMinutes ?? 60)}
+          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
           companyId={companyId}
           focusEmployeeId={focusEmployeeId}
         />
@@ -1710,7 +1729,7 @@ function FixedScheduleTabInner({
         <div className="flex flex-wrap gap-2">
           {DAYS.map((label, idx) => (
             <button key={label} type="button" onClick={() => onToggle(idx)}
-              className={`px-2.5 py-1 rounded-full text-xs border transition ${workDays.includes(idx) ? 'bg-[#2E4156] text-white border-[#2E4156]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#fa5e01]'}`}>
+              className={`px-2.5 py-1 rounded-full text-xs border transition ${workDays.includes(idx) ? 'bg-[#032b63] text-white border-[#032b63]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#ff5900]'}`}>
               {label}
             </button>
           ))}
@@ -1748,7 +1767,7 @@ function FixedScheduleTabInner({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-gray-600">Break</label>
-            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[#2E4156]' : 'bg-slate-300'}`}>
+            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[#032b63]' : 'bg-slate-300'}`}>
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${f.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
             </button>
           </div>
@@ -1812,7 +1831,7 @@ function FixedScheduleTabInner({
             <Button
               size="sm"
               className="text-white"
-              style={{ background: '#fa5e01' }}
+              style={{ background: '#ff5900' }}
               onClick={() => {
                 setShowForm(v => !v)
                 if (!showForm) onFormClose()
@@ -1879,7 +1898,7 @@ function FixedScheduleTabInner({
                         />
                         <div className="flex justify-end gap-2">
                           <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditForm(null) }}>Cancel</Button>
-                          <Button size="sm" className="text-white" style={{ background: '#fa5e01' }} onClick={() => saveEdit(s.id)} disabled={savingEditId === s.id}>
+                          <Button size="sm" className="text-white" style={{ background: '#ff5900' }} onClick={() => saveEdit(s.id)} disabled={savingEditId === s.id}>
                             {savingEditId === s.id ? 'Saving...' : 'Save'}
                           </Button>
                         </div>
@@ -1948,7 +1967,7 @@ function FixedScheduleTabInner({
                       onClick={() => saveFixedEmployee(emp.id)}
                       disabled={savingFixedEmployeeId === emp.id}
                       className="text-white"
-                      style={{ background: '#fa5e01' }}
+                      style={{ background: '#ff5900' }}
                     >
                       {savingFixedEmployeeId === emp.id ? 'Saving...' : 'Save'}
                     </Button>
@@ -1968,17 +1987,17 @@ function FixedScheduleTabInner({
               <FormFields f={form} onChange={patch => setForm(prev => ({ ...prev, ...patch }))} onToggleDay={d => toggleDay(d, false)} />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); onFormClose() }}>Cancel</Button>
-                <Button type="submit" disabled={saving} className="text-white" style={{ background: '#fa5e01' }}>{saving ? 'Adding...' : 'Add Schedule'}</Button>
+                <Button type="submit" disabled={saving} className="text-white" style={{ background: '#ff5900' }}>{saving ? 'Adding...' : 'Add Schedule'}</Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      <Card className="bg-[#D4D8DD] border-[#AAB7B7]">
-        <CardContent className="p-4 text-sm text-[#1A2D42] space-y-1">
+      <Card className="bg-[#dce5f7] border-[#AAB7B7]">
+        <CardContent className="p-4 text-sm text-[#021e47] space-y-1">
           <p className="font-semibold">DOLE Compressed Work Week Requirements</p>
-          <ul className="list-disc list-inside space-y-0.5 text-xs text-[#1A2D42]">
+          <ul className="list-disc list-inside space-y-0.5 text-xs text-[#021e47]">
             <li>Maximum 12 hours per day for compressed work week</li>
             <li>OT starts after 8 hours for regular employees (unless CWW is approved)</li>
             <li>Night differential applies for hours worked 10:00 PM - 6:00 AM</li>

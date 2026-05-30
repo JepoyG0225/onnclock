@@ -46,14 +46,14 @@ export function LeaveApprovalButtons({
   return (
     <>
       <div className="flex gap-2 justify-center">
-        <Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50"
+        <Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-600"
           onClick={() => handle('approve')}
           disabled={loading !== null || !canApprove}
           title={!canApprove ? (disabledReason ?? 'Approval not available yet') : undefined}
         >
           {loading === 'approve' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
         </Button>
-        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50"
+        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-600"
           onClick={() => setShowRejectModal(true)}
           disabled={loading !== null || !canApprove}
           title={!canApprove ? (disabledReason ?? 'Approval not available yet') : undefined}

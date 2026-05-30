@@ -435,14 +435,23 @@ export async function resolveShiftForDtr(params: {
     matchedAssignment = true
   }
 
-  // Resolve plannedRegularMinutes:
-  //   1. Shift span from timeIn/timeOut strings (most accurate for fixed shifts)
-  //   2. workHoursPerDay × 60 (explicit schedule setting — covers flex/no-time schedules)
-  //   3. DEFAULT_REGULAR_CAP_MINUTES (8 h) — last resort
+  // Resolve plannedRegularMinutes — the cap for regular (non-OT) hours:
+  //
+  //   1. workHoursPerDay × 60  — explicit NET hours setting on the schedule.
+  //      This is authoritative because it represents the agreed working hours
+  //      AFTER break, regardless of what the timeIn/timeOut span computes to.
+  //      E.g. a 9h net shift with a 1h break has timeOut 10h after timeIn, but
+  //      the cap must be 9h, not 10h.
+  //
+  //   2. Shift span (timeIn → timeOut) — fallback for legacy schedules that
+  //      don't have workHoursPerDay set. Note: this span includes break time,
+  //      so computeHours will still deduct break before comparing.
+  //
+  //   3. DEFAULT_REGULAR_CAP_MINUTES (8 h) — last resort.
   const spanMinutes = plannedShiftMinutes(scheduleTimeIn, scheduleTimeOut)
   const plannedRegularMinutes =
-    spanMinutes ??
     (workHoursPerDay != null && workHoursPerDay > 0 ? Math.round(workHoursPerDay * 60) : null) ??
+    spanMinutes ??
     DEFAULT_REGULAR_CAP_MINUTES
 
   return { scheduleTimeIn, scheduleTimeOut, allowedBreakMinutes, plannedRegularMinutes, matchedAssignment }

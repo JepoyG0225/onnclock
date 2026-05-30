@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -8,7 +8,6 @@ import { toast } from 'sonner'
 interface Correction {
   id: string
   date: string
-  dtrRecordId: string | null
   timeIn: string | null
   timeOut: string | null
   breakIn: string | null
@@ -48,10 +47,6 @@ export default function TimeCorrectionPortalPage() {
   const [cancelling, setCancelling] = useState<string | null>(null)
   const [timeEntries, setTimeEntries] = useState<TimeEntryRecord[]>([])
 
-  // mode = 'pick' → admin chooses an existing DTR row to correct
-  // mode = 'manual' → free-form entry; no DTR is referenced and the admin
-  //                   sees a "Manual entry" tag on the request
-  const [entryMode, setEntryMode] = useState<'pick' | 'manual'>('pick')
   const [form, setForm] = useState({
     dtrRecordId: '',
     date: '',
@@ -129,10 +124,7 @@ export default function TimeCorrectionPortalPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.date) { toast.error('Date is required'); return }
-    if (entryMode === 'pick' && !form.dtrRecordId) {
-      toast.error('Please select a time entry record')
-      return
-    }
+    if (!form.dtrRecordId) { toast.error('Please select a time entry record'); return }
     if (!form.reason.trim()) { toast.error('Reason is required'); return }
     if (!form.timeIn && !form.timeOut) { toast.error('Enter at least one time to correct'); return }
 
@@ -142,10 +134,7 @@ export default function TimeCorrectionPortalPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // Only send dtrRecordId in "pick" mode. In "manual" mode the
-          // server will leave it null and the admin sees a "Manual entry"
-          // tag in the dashboard.
-          ...(entryMode === 'pick' ? { dtrRecordId: form.dtrRecordId } : {}),
+          dtrRecordId: form.dtrRecordId,
           date: form.date,
           timeIn:  form.timeIn  || null,
           timeOut: form.timeOut || null,
@@ -158,7 +147,6 @@ export default function TimeCorrectionPortalPage() {
       if (!res.ok) { toast.error(data?.error ?? 'Failed to submit'); return }
       toast.success('Correction request submitted')
       setForm({ dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '', reason: '' })
-      setEntryMode('pick')
       setShowForm(false)
       fetchCorrections()
     } finally {
@@ -180,19 +168,19 @@ export default function TimeCorrectionPortalPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
-      {/* Header — stacks on mobile so the action button gets full width */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardEdit className="w-5 h-5 text-[#2E4156] shrink-0" />
-            <span className="truncate">Time Entry Corrections</span>
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <ClipboardEdit className="w-5 h-5 text-[#032b63]" />
+            Time Entry Corrections
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Request corrections to your attendance records</p>
+          <p className="text-sm text-gray-500 mt-0.5">Request corrections to your attendance records</p>
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-3 py-2 bg-[#2E4156] text-white rounded-lg text-sm font-medium hover:bg-[#1A2D42] transition shrink-0"
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-[#021e47] transition"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           {showForm ? 'Cancel' : 'New Request'}
@@ -201,57 +189,25 @@ export default function TimeCorrectionPortalPage() {
 
       {/* New Request Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
           <h2 className="text-sm font-semibold text-gray-700">New Correction Request</h2>
-
-          {/* Mode toggle: pick an existing entry, or do a free-form manual entry */}
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-full">
-            <button
-              type="button"
-              onClick={() => { setEntryMode('pick'); setForm(p => ({ ...p, dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '' })) }}
-              className={`flex-1 px-2 sm:px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition leading-tight ${
-                entryMode === 'pick' ? 'bg-white text-[#2E4156] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <span className="hidden sm:inline">Pick from my time entries</span>
-              <span className="sm:hidden">Pick existing</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setEntryMode('manual'); setForm(p => ({ ...p, dtrRecordId: '', date: '', timeIn: '', timeOut: '', breakIn: '', breakOut: '' })) }}
-              className={`flex-1 px-2 sm:px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition leading-tight ${
-                entryMode === 'manual' ? 'bg-white text-[#2E4156] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Manual entry
-            </button>
-          </div>
-
-          {entryMode === 'manual' && (
-            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              <strong>Manual entry:</strong> use this when you have no existing time entry for the day (e.g. you forgot to clock in entirely). The admin will see a &ldquo;Manual entry&rdquo; tag on this request.
-            </p>
-          )}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {entryMode === 'pick' && (
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Time Entry Record *</label>
-                <select
-                  value={form.dtrRecordId}
-                  onChange={e => handleSelectTimeEntry(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
-                  required
-                >
-                  <option value="">Select a time entry</option>
-                  {timeEntries.map((record) => (
-                    <option key={record.id} value={record.id}>
-                      {format(new Date(record.date), 'MMM d, yyyy')} • In {formatTimeValue(record.timeIn)} • Out {formatTimeValue(record.timeOut)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Time Entry Record *</label>
+              <select
+                value={form.dtrRecordId}
+                onChange={e => handleSelectTimeEntry(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
+                required
+              >
+                <option value="">Select a time entry</option>
+                {timeEntries.map((record) => (
+                  <option key={record.id} value={record.id}>
+                    {format(new Date(record.date), 'MMM d, yyyy')} • In {formatTimeValue(record.timeIn)} • Out {formatTimeValue(record.timeOut)}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
               <input
@@ -259,9 +215,9 @@ export default function TimeCorrectionPortalPage() {
                 value={form.date}
                 max={new Date().toISOString().slice(0, 10)}
                 onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
                 required
-                readOnly={entryMode === 'pick'}
+                readOnly
               />
             </div>
             <div>
@@ -270,7 +226,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.timeIn}
                 onChange={e => setForm(p => ({ ...p, timeIn: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
               />
             </div>
             <div>
@@ -279,7 +235,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.timeOut}
                 onChange={e => setForm(p => ({ ...p, timeOut: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
               />
             </div>
             <div>
@@ -288,7 +244,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.breakIn}
                 onChange={e => setForm(p => ({ ...p, breakIn: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
               />
             </div>
             <div>
@@ -297,7 +253,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.breakOut}
                 onChange={e => setForm(p => ({ ...p, breakOut: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
               />
             </div>
             <div className="sm:col-span-2">
@@ -307,16 +263,16 @@ export default function TimeCorrectionPortalPage() {
                 onChange={e => setForm(p => ({ ...p, reason: e.target.value }))}
                 rows={3}
                 placeholder="Explain why you need this correction..."
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2E4156]/30 focus:border-[#2E4156] outline-none resize-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none resize-none"
                 required
               />
             </div>
           </div>
-          <div className="flex justify-stretch sm:justify-end">
+          <div className="flex justify-end">
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 bg-[#2E4156] text-white rounded-lg text-sm font-medium hover:bg-[#1A2D42] transition disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-[#021e47] transition disabled:opacity-50"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting ? 'Submitting...' : 'Submit Request'}
@@ -338,36 +294,30 @@ export default function TimeCorrectionPortalPage() {
       ) : (
         <div className="space-y-3">
           {corrections.map(c => (
-            <div key={c.id} className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4">
-              <div className="flex items-start justify-between gap-2 sm:gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                    <p className="font-semibold text-gray-900 text-sm truncate">
-                      {format(new Date(c.date), 'MMM d, yyyy')}
+            <div key={c.id} className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-semibold text-gray-900 text-sm">
+                      {format(new Date(c.date), 'MMMM d, yyyy')}
                     </p>
-                    <span className={`inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status]}`}>
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status]}`}>
                       {STATUS_ICONS[c.status]} {c.status}
                     </span>
-                    {!c.dtrRecordId && (
-                      <span className="inline-flex items-center text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
-                        MANUAL
-                      </span>
-                    )}
                   </div>
-                  {/* Times: stack on phones, 2-col on sm+, never overflow */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] sm:text-xs text-gray-500 mb-2">
-                    {c.timeIn  && <span className="truncate">Time In: <strong>{c.timeIn}</strong></span>}
-                    {c.timeOut && <span className="truncate">Time Out: <strong>{c.timeOut}</strong></span>}
-                    {c.breakIn && <span className="truncate">Break Start: <strong>{c.breakIn}</strong></span>}
-                    {c.breakOut && <span className="truncate">Break End: <strong>{c.breakOut}</strong></span>}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-500 mb-2">
+                    {c.timeIn  && <span>Time In: <strong>{c.timeIn}</strong></span>}
+                    {c.timeOut && <span>Time Out: <strong>{c.timeOut}</strong></span>}
+                    {c.breakIn && <span>Break Start: <strong>{c.breakIn}</strong></span>}
+                    {c.breakOut && <span>Break End: <strong>{c.breakOut}</strong></span>}
                   </div>
-                  <p className="text-[11px] sm:text-xs text-gray-500 italic break-words">&ldquo;{c.reason}&rdquo;</p>
+                  <p className="text-xs text-gray-500 italic">&ldquo;{c.reason}&rdquo;</p>
                   {c.adminNotes && (
-                    <p className="text-[11px] sm:text-xs text-gray-600 mt-1.5 bg-gray-50 rounded px-2 py-1 break-words">
+                    <p className="text-xs text-gray-600 mt-1.5 bg-gray-50 rounded px-2 py-1">
                       <span className="font-medium">Admin note:</span> {c.adminNotes}
                     </p>
                   )}
-                  <p className="text-[10px] sm:text-[11px] text-gray-400 mt-1.5">
+                  <p className="text-[11px] text-gray-400 mt-1.5">
                     Submitted {format(new Date(c.createdAt), 'MMM d, yyyy h:mm a')}
                   </p>
                 </div>
@@ -375,7 +325,7 @@ export default function TimeCorrectionPortalPage() {
                   <button
                     onClick={() => handleCancel(c.id)}
                     disabled={cancelling === c.id}
-                    className="flex-shrink-0 text-[11px] font-medium text-red-500 hover:text-red-700 transition disabled:opacity-50 px-2 py-1"
+                    className="flex-shrink-0 text-[11px] font-medium text-red-500 hover:text-red-700 transition disabled:opacity-50"
                   >
                     {cancelling === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Cancel'}
                   </button>

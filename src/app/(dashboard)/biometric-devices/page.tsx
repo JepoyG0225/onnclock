@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -126,18 +126,18 @@ export default function BiometricDevicesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Biometric Terminals</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Biometric Terminals</h1>
           <p className="text-slate-500 text-sm mt-1">
             Manage Raspberry-Pi-based fingerprint clock-in/out kiosks. Generate a 6-digit pair code, type it on the kiosk once, and the device is permanently bonded to your company.
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)} style={{ background: '#fa5e01' }}>
+        <Button onClick={() => setShowCreate(true)} style={{ background: '#ff5900' }}>
           <Plus className="w-4 h-4 mr-2" /> Add Device
         </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Total devices</p><p className="text-2xl font-bold" style={{ color: '#2E4156' }}>{summary.total}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Total devices</p><p className="text-2xl font-bold" style={{ color: '#032b63' }}>{summary.total}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Active</p><p className="text-2xl font-bold text-green-700">{summary.active}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Online now</p><p className="text-2xl font-bold text-blue-700">{summary.online}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Awaiting pair</p><p className="text-2xl font-bold text-amber-700">{summary.pending}</p></CardContent></Card>
@@ -160,7 +160,7 @@ export default function BiometricDevicesPage() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={createDevice} disabled={creating} style={{ background: '#fa5e01' }}>
+              <Button onClick={createDevice} disabled={creating} style={{ background: '#ff5900' }}>
                 {creating ? 'Generating…' : 'Generate Pair Code'}
               </Button>
               <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>

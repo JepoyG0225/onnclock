@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { PDFDocument, PDFFont, StandardFonts, rgb } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
@@ -7,10 +7,10 @@ const MONTHLY_PRICE = 50
 const ANNUAL_PRICE_PER_MONTH = 40
 
 const THEME = {
-  deep: rgb(0.10, 0.18, 0.26), // #1A2D42
-  base: rgb(0.18, 0.25, 0.34), // #2E4156
+  deep: rgb(0.10, 0.18, 0.26), // #021e47
+  base: rgb(0.18, 0.25, 0.34), // #032b63
   mid: rgb(0.67, 0.72, 0.72),  // #AAB7B7
-  light: rgb(0.83, 0.85, 0.87), // #D4D8DD
+  light: rgb(0.83, 0.85, 0.87), // #dce5f7
   white: rgb(1, 1, 1),
   text: rgb(0.14, 0.16, 0.20),
   muted: rgb(0.38, 0.43, 0.49),

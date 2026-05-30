@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -145,7 +145,7 @@ export function PortalBottomNav({
                     'flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200',
                     isActive ? 'scale-110' : 'scale-100'
                   )}
-                  style={isActive ? { background: '#fa5e01' } : undefined}
+                  style={isActive ? { background: '#ff5900' } : undefined}
                 >
                   <tab.icon
                     className={cn('w-4 h-4 transition-colors', isActive ? 'text-white' : 'text-white/50')}
@@ -175,7 +175,7 @@ export function PortalBottomNav({
                 'flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200',
                 (showMore || moreActive) ? 'scale-110' : 'scale-100'
               )}
-              style={showMore || moreActive ? { background: '#fa5e01' } : undefined}
+              style={showMore || moreActive ? { background: '#ff5900' } : undefined}
             >
               <MoreHorizontal
                 className={cn('w-4 h-4 transition-colors', (showMore || moreActive) ? 'text-white' : 'text-white/50')}

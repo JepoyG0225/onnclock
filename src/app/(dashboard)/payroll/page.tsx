@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+﻿import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { resolveEffectiveCompanyId } from '@/lib/effective-company'
@@ -123,7 +123,7 @@ export default async function PayrollPage() {
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Link href={`/payroll/${run.id}`}>
-                            <Button variant="ghost" size="sm" className="text-[#2E4156] hover:text-white">View</Button>
+                            <Button variant="ghost" size="sm" className="text-[#032b63] hover:text-white">View</Button>
                           </Link>
                           <PayrollRunRowActions runId={run.id} status={run.status} />
                         </div>

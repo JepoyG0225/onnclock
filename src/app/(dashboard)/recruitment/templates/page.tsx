@@ -1,10 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Mail, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AppSpinner } from '@/components/ui/AppSpinner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 type TemplateItem = {
   id: string
@@ -31,6 +32,7 @@ export default function RecruitmentTemplatesPage() {
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
   async function loadTemplates() {
     setLoading(true)
@@ -102,9 +104,14 @@ export default function RecruitmentTemplatesPage() {
     }
   }
 
-  async function remove(id: string) {
-    const ok = window.confirm('Delete this template?')
-    if (!ok) return
+  function remove(id: string) {
+    setDeleteTargetId(id)
+  }
+
+  async function confirmDelete() {
+    const id = deleteTargetId
+    setDeleteTargetId(null)
+    if (!id) return
     try {
       const res = await fetch(`/api/recruitment/templates?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       const data = await res.json().catch(() => ({}))
@@ -118,6 +125,15 @@ export default function RecruitmentTemplatesPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        title="Delete Template?"
+        description="This email template will be permanently deleted. This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTargetId(null)}
+      />
       <div className="flex items-start justify-between gap-3">
         <div>
           <Link href="/recruitment" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-3 font-medium">
@@ -128,7 +144,7 @@ export default function RecruitmentTemplatesPage() {
         </div>
         <button
           onClick={startCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#2E4156]"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#021e47] hover:bg-[#032b63]"
         >
           <Plus className="w-4 h-4" /> Add Template
         </button>
@@ -191,7 +207,7 @@ export default function RecruitmentTemplatesPage() {
             </div>
             <div className="px-5 py-4 border-t flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
-              <button onClick={submit} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A2D42] text-white text-sm font-semibold hover:bg-[#2E4156] disabled:opacity-60">
+              <button onClick={submit} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#021e47] text-white text-sm font-semibold hover:bg-[#032b63] disabled:opacity-60">
                 <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Template'}
               </button>
             </div>

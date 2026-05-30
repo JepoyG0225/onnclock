@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -95,12 +95,12 @@ export default function AiAssistantPage() {
     <div className="space-y-4 max-w-3xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: '#2E4156' }}>
-            <Sparkles className="w-6 h-6" style={{ color: '#fa5e01' }} />
-            AI HR Assistant
+          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: '#162d54' }}>
+            <Sparkles className="w-6 h-6" style={{ color: '#ff5900' }} />
+            Nexa
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            Ask anything about Philippine HR, payroll, leave benefits, or your company&apos;s policies.
+            Hi, I&apos;m Nexa! Ask me anything about Philippine HR, payroll, leave benefits, or your company&apos;s policies.
           </p>
         </div>
         {messages.length > 0 && (
@@ -120,10 +120,10 @@ export default function AiAssistantPage() {
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-12">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'rgba(250,94,1,0.12)' }}>
-                <Bot className="w-7 h-7" style={{ color: '#fa5e01' }} />
+                <Bot className="w-7 h-7" style={{ color: '#ff5900' }} />
               </div>
-              <h2 className="text-base font-semibold text-gray-800">How can I help?</h2>
-              <p className="text-sm text-gray-500 mt-1 mb-6">Try one of these starters:</p>
+              <h2 className="text-base font-semibold text-gray-800">Hi, I&apos;m Nexa! 👋</h2>
+              <p className="text-sm text-gray-500 mt-1 mb-6">Try one of these starters or ask your own question:</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-xl w-full">
                 {SUGGESTIONS.map(s => (
                   <button
@@ -142,7 +142,7 @@ export default function AiAssistantPage() {
               <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role === 'assistant' && (
                   <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(250,94,1,0.12)' }}>
-                    <Bot className="w-4 h-4" style={{ color: '#fa5e01' }} />
+                    <Bot className="w-4 h-4" style={{ color: '#ff5900' }} />
                   </div>
                 )}
                 <div
@@ -151,7 +151,7 @@ export default function AiAssistantPage() {
                       ? 'text-white'
                       : 'bg-gray-100 text-gray-800'
                   }`}
-                  style={m.role === 'user' ? { background: '#2E4156' } : undefined}
+                  style={m.role === 'user' ? { background: '#0055d4' } : undefined}
                 >
                   {m.content}
                 </div>
@@ -166,7 +166,7 @@ export default function AiAssistantPage() {
           {sending && (
             <div className="flex gap-3 justify-start">
               <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(250,94,1,0.12)' }}>
-                <Bot className="w-4 h-4" style={{ color: '#fa5e01' }} />
+                <Bot className="w-4 h-4" style={{ color: '#ff5900' }} />
               </div>
               <div className="bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -197,14 +197,14 @@ export default function AiAssistantPage() {
               rows={1}
               placeholder="Ask anything about HR, payroll, leaves, BIR rules…"
               className="flex-1 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 max-h-32"
-              style={{ '--tw-ring-color': '#fa5e01' } as React.CSSProperties}
+              style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
               disabled={sending}
             />
             <Button
               type="submit"
               disabled={sending || !input.trim()}
               className="h-10 w-10 p-0 shrink-0"
-              style={{ background: '#fa5e01' }}
+              style={{ background: '#ff5900' }}
               title="Send"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -210,7 +210,7 @@ export default function NewPayrollRunPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">New Payroll Run</h1>
         <p className="text-gray-500 mt-1">Set up the payroll period, scope, and pay date</p>
@@ -325,7 +325,7 @@ export default function NewPayrollRunPage() {
                   onClick={() => setScopeMode(opt.value)}
                   className={`text-left rounded-xl border p-3 transition ${
                     scopeMode === opt.value
-                      ? 'border-[#fa5e01] bg-orange-50'
+                      ? 'border-[#ff5900] bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -348,7 +348,7 @@ export default function NewPayrollRunPage() {
                         onClick={() => toggleEmploymentType(t.value)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
                           active
-                            ? 'border-[#fa5e01] bg-orange-50 text-[#c44d00]'
+                            ? 'border-[#ff5900] bg-orange-50 text-[#c44d00]'
                             : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                         }`}
                       >

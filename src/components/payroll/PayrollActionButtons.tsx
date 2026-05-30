@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
@@ -93,7 +93,7 @@ export default function PayrollActionButtons({
             disabled={!!loading}
             variant="outline"
             size="sm"
-            className="border-[#AAB7B7] text-[#1A2D42] hover:bg-[#D4D8DD]"
+            className="border-[#AAB7B7] text-[#021e47] hover:bg-[#dce5f7]"
           >
             <Send className="w-4 h-4 mr-1" />
             {loading === 'submit' ? 'Submitting...' : 'Submit for Approval'}

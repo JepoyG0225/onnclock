@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
@@ -126,7 +126,7 @@ export default function PortalLoginPage() {
       className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
       style={{
         background:
-          'radial-gradient(1200px 700px at -10% -15%, rgba(250,94,1,0.24), transparent 55%), radial-gradient(900px 600px at 110% 115%, rgba(59,130,246,0.18), transparent 60%), linear-gradient(155deg, #0f1a2b 0%, #1A2D42 45%, #223a56 100%)',
+          'radial-gradient(1200px 700px at -10% -15%, rgba(250,94,1,0.24), transparent 55%), radial-gradient(900px 600px at 110% 115%, rgba(59,130,246,0.18), transparent 60%), linear-gradient(155deg, #0f1a2b 0%, #021e47 45%, #223a56 100%)',
       }}
     >
       <div className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px)', backgroundSize: '34px 34px' }} />
@@ -162,12 +162,12 @@ export default function PortalLoginPage() {
         >
           <form onSubmit={handleLogin} className="px-8 py-8 space-y-5">
             <div>
-              <h2 className="text-xl font-black" style={{ color: '#2E4156' }}>Sign In</h2>
+              <h2 className="text-xl font-black" style={{ color: '#032b63' }}>Sign In</h2>
               <p className="text-sm text-slate-400 mt-0.5">Use your employee email and password</p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#2E4156' }}>
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#032b63' }}>
                 Email Address
               </label>
               <div className="relative">
@@ -180,15 +180,15 @@ export default function PortalLoginPage() {
                   required
                   autoComplete="email"
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all border-2"
-                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#2E4156' }}
-                  onFocus={e => { e.target.style.borderColor = '#2E4156'; e.target.style.boxShadow = '0 0 0 4px rgba(46,65,86,0.12)' }}
+                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#032b63' }}
+                  onFocus={e => { e.target.style.borderColor = '#032b63'; e.target.style.boxShadow = '0 0 0 4px rgba(46,65,86,0.12)' }}
                   onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#2E4156' }}>
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: '#032b63' }}>
                 Password
               </label>
               <div className="relative">
@@ -201,8 +201,8 @@ export default function PortalLoginPage() {
                   required
                   autoComplete="current-password"
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all border-2"
-                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#2E4156' }}
-                  onFocus={e => { e.target.style.borderColor = '#2E4156'; e.target.style.boxShadow = '0 0 0 4px rgba(46,65,86,0.12)' }}
+                  style={{ background: '#f8fafc', border: '2px solid #e2e8f0', color: '#032b63' }}
+                  onFocus={e => { e.target.style.borderColor = '#032b63'; e.target.style.boxShadow = '0 0 0 4px rgba(46,65,86,0.12)' }}
                   onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
                 />
               </div>
@@ -213,7 +213,7 @@ export default function PortalLoginPage() {
               disabled={loading}
               className="w-full py-3.5 rounded-xl text-sm font-black tracking-wide text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
               style={{
-                background: loading ? '#2E4156' : 'linear-gradient(135deg, #2E4156, #1b6a6e)',
+                background: loading ? '#032b63' : 'linear-gradient(135deg, #032b63, #1b6a6e)',
                 boxShadow: '0 6px 20px rgba(34,127,132,0.35)',
               }}
             >
@@ -228,7 +228,7 @@ export default function PortalLoginPage() {
                 </p>
                 <a
                   href="/download#employee"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#2E4156] hover:text-[#1A2D42] transition-colors"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#032b63] hover:text-[#021e47] transition-colors"
                 >
                   <Image src="/platform-icons/windows.svg" alt="Windows" width={14} height={14} />
                   <Image src="/platform-icons/mac-21.png" alt="macOS" width={14} height={14} />
@@ -244,8 +244,8 @@ export default function PortalLoginPage() {
                 disabled={!installReady}
                 className="w-full py-3 rounded-xl text-sm font-bold border-2 transition-all disabled:cursor-not-allowed"
                 style={{
-                  borderColor: '#2E4156',
-                  color: installReady ? '#2E4156' : '#6b7280',
+                  borderColor: '#032b63',
+                  color: installReady ? '#032b63' : '#6b7280',
                   background: installReady ? '#eef6f7' : '#f3f4f6',
                 }}
               >

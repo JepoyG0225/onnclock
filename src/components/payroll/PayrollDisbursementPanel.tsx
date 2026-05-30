@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
   AlertCircle, BadgeCheck, CheckCircle2, ChevronDown,
-  ChevronUp, Clock, Loader2, RefreshCw, Send, Wallet, X,
+  ChevronUp, Clock, Loader2, RefreshCw, RotateCcw, Send, Wallet, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
@@ -31,11 +31,14 @@ interface DisbursementItem {
 interface DisbursementPreview {
   run: { id: string; periodLabel: string; status: string; totalNetPay: number }
   wallet: { balance: number; sufficient: boolean; needed: number; shortfall: number }
+  fees: { perTransfer: number; count: number; total: number }
   summary: {
     totalEmployees: number
     readyCount: number
     missingBankDetails: number
-    totalAmount: number
+    netPayTotal: number
+    totalFees: number
+    totalCost: number
     instapayCount: number
     pesonetCount: number
   }
@@ -166,7 +169,7 @@ function TopUpModal({ onClose, onConfirmed }: { onClose: () => void; onConfirmed
 
         {phase === 'loading' && (
           <div className="flex flex-col items-center gap-3 py-6">
-            <Loader2 className="w-10 h-10 animate-spin text-[#2E4156]" />
+            <Loader2 className="w-10 h-10 animate-spin text-[#032b63]" />
             <p className="text-sm text-gray-500">Generating QR code…</p>
           </div>
         )}
@@ -231,9 +234,12 @@ export default function PayrollDisbursementPanel({
   const [statusItems, setStatusItems] = useState<StatusItem[]>([])
   const [loading,     setLoading]     = useState(true)
   const [disbursing,  setDisbursing]  = useState(false)
+  const [retrying,    setRetrying]    = useState(false)
   const [polling,     setPolling]     = useState(false)
-  const [showTopUp,   setShowTopUp]   = useState(false)
-  const [showMissing, setShowMissing] = useState(false)
+  const [showTopUp,          setShowTopUp]          = useState(false)
+  const [showMissing,        setShowMissing]        = useState(false)
+  const [showRetryConfirm,   setShowRetryConfirm]   = useState(false)
+  const [showDisburseConfirm, setShowDisburseConfirm] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadPreview = useCallback(async () => {
@@ -282,24 +288,33 @@ export default function PayrollDisbursementPanel({
   async function initiateDisbursement() {
     if (!preview) return
     if (!preview.wallet.sufficient) { toast.error('Insufficient wallet balance. Please top up first.'); return }
-
-    const confirmed = window.confirm(
-      `Disburse ${fmtPHP(preview.summary.totalAmount)} to ${preview.summary.readyCount} employees?\n\n` +
-      `• InstaPay (≤₱50k): ${preview.summary.instapayCount} employees — real-time\n` +
-      `• PesoNet (>₱50k): ${preview.summary.pesonetCount} employees — up to 3 banking days\n`,
-    )
-    if (!confirmed) return
-
+    setShowDisburseConfirm(false)
     setDisbursing(true)
     try {
       const res  = await fetch(`/api/disbursement/${runId}`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Failed to initiate disbursement'); return }
       toast.success('Disbursement initiated!')
+      onDisbursed?.()
       await loadPreview()
       onDisbursed?.()
     } finally {
       setDisbursing(false)
+    }
+  }
+
+  async function retryFailed() {
+    if (!preview?.disbursement) return
+    setRetrying(true)
+    setShowRetryConfirm(false)
+    try {
+      const res  = await fetch(`/api/disbursement/${runId}/retry`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Retry failed'); return }
+      toast.success(`Retry submitted for ${data.retried} transfer${data.retried > 1 ? 's' : ''}`)
+      await loadPreview()
+    } finally {
+      setRetrying(false)
     }
   }
 
@@ -316,7 +331,7 @@ export default function PayrollDisbursementPanel({
 
   if (!preview) return null
 
-  const { wallet, summary, items, disbursement } = preview
+  const { wallet, fees, summary, items, disbursement } = preview
   const missingItems = items.filter(i => !i.hasBankDetails)
   const readyItems   = items.filter(i => i.hasBankDetails)
 
@@ -329,11 +344,110 @@ export default function PayrollDisbursementPanel({
         />
       )}
 
+      {/* Disburse confirmation modal */}
+      {showDisburseConfirm && preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Send className="w-5 h-5 text-[#032b63]" />
+              </div>
+              <h2 className="text-base font-semibold text-gray-900">Confirm Disbursement</h2>
+            </div>
+
+            <div className="rounded-lg bg-gray-50 border divide-y text-sm">
+              <div className="flex justify-between px-3 py-2 text-gray-600">
+                <span>Net pay ({preview.summary.readyCount} employees)</span>
+                <span>{fmtPHP(preview.summary.netPayTotal)}</span>
+              </div>
+              <div className="flex justify-between px-3 py-2 text-gray-600">
+                <span>Processing fees ({preview.fees.count} × ₱{preview.fees.perTransfer})</span>
+                <span>{fmtPHP(preview.fees.total)}</span>
+              </div>
+              <div className="flex justify-between px-3 py-2 font-semibold text-[#032b63]">
+                <span>Total to deduct</span>
+                <span>{fmtPHP(preview.summary.totalCost)}</span>
+              </div>
+            </div>
+
+            {(preview.summary.instapayCount > 0 || preview.summary.pesonetCount > 0) && (
+              <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                {preview.summary.instapayCount > 0 && (
+                  <span><span className="inline-block w-2 h-2 rounded-full bg-blue-400 mr-1" />InstaPay {preview.summary.instapayCount} emp. (real-time)</span>
+                )}
+                {preview.summary.pesonetCount > 0 && (
+                  <span><span className="inline-block w-2 h-2 rounded-full bg-purple-400 mr-1" />PesoNet {preview.summary.pesonetCount} emp. (≤3 days)</span>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDisburseConfirm(false)}
+                disabled={disbursing}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={initiateDisbursement}
+                disabled={disbursing}
+              >
+                {disbursing
+                  ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Processing…</>
+                  : <><Send className="mr-1.5 h-3.5 w-3.5" />Confirm &amp; Disburse</>
+                }
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Retry confirmation modal */}
+      {showRetryConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-full">
+                <RotateCcw className="w-5 h-5 text-red-600" />
+              </div>
+              <h2 className="text-base font-semibold text-gray-900">Retry Failed Transfers?</h2>
+            </div>
+            <p className="text-sm text-gray-600">
+              Only the failed employee transfers will be re-submitted. No additional wallet deduction will be made.
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRetryConfirm(false)}
+                disabled={retrying}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white border-0"
+                onClick={retryFailed}
+                disabled={retrying}
+              >
+                {retrying
+                  ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Retrying…</>
+                  : 'Yes, Retry'
+                }
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Send className="w-4 h-4 text-[#2E4156]" />
+              <Send className="w-4 h-4 text-[#032b63]" />
               <CardTitle className="text-base">Payroll Disbursement</CardTitle>
               {disbursement && (
                 <Badge className={`text-[11px] border-0 ${
@@ -365,45 +479,54 @@ export default function PayrollDisbursementPanel({
             </p>
           </div>
 
-          {/* Wallet balance */}
-          <div className="flex items-center justify-between rounded-xl border px-4 py-3 bg-gray-50">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-[#2E4156]" />
-              <div>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wide">Wallet Balance</p>
-                <p className={`text-lg font-bold ${wallet.sufficient ? 'text-green-700' : 'text-red-600'}`}>
-                  {fmtPHP(wallet.balance)}
-                </p>
-                {!wallet.sufficient && (
-                  <p className="text-[11px] text-red-500">Shortfall: {fmtPHP(wallet.shortfall)}</p>
-                )}
+          {/* Insufficient balance warning — only show when wallet can't cover the cost */}
+          {!disbursement && !wallet.sufficient && (
+            <div className="flex items-center justify-between rounded-xl border border-red-200 px-4 py-3 bg-red-50">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-red-500" />
+                <div>
+                  <p className="text-sm font-medium text-red-700">Insufficient wallet balance</p>
+                  <p className="text-xs text-red-500">Balance: {fmtPHP(wallet.balance)} · Shortfall: {fmtPHP(wallet.shortfall)}</p>
+                </div>
               </div>
+              <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100 hover:text-red-700" onClick={() => setShowTopUp(true)}>Top Up</Button>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setShowTopUp(true)}>Top Up</Button>
-          </div>
+          )}
 
           {/* Summary + disburse button */}
           {!disbursement && (
             <div className="rounded-xl border bg-[#f8f9fb] p-4 space-y-3">
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500">Total: </span>
-                  <span className="font-semibold">{fmtPHP(summary.totalAmount)}</span>
+              {/* Fee breakdown */}
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center justify-between text-gray-600">
+                  <span>Net pay ({summary.readyCount} employees)</span>
+                  <span>{fmtPHP(summary.netPayTotal)}</span>
                 </div>
-                <div>
-                  <span className="text-gray-500">Employees ready: </span>
-                  <span className="font-semibold">{summary.readyCount} / {summary.totalEmployees}</span>
+                <div className="flex items-center justify-between text-gray-600">
+                  <span>
+                    Processing fee
+                    <span className="ml-1 text-xs text-gray-400">
+                      ({fees.count} × ₱{fees.perTransfer})
+                    </span>
+                  </span>
+                  <span>{fmtPHP(fees.total)}</span>
                 </div>
-                <div>
-                  <span className="text-gray-500">InstaPay: </span>
-                  <span className="font-semibold">{summary.instapayCount}</span>
-                  <span className="text-gray-400 text-xs ml-1">(≤₱50k)</span>
+                <div className="flex items-center justify-between font-semibold border-t pt-1 mt-1 text-[#032b63]">
+                  <span>Total to deduct</span>
+                  <span>{fmtPHP(summary.totalCost)}</span>
                 </div>
-                <div>
-                  <span className="text-gray-500">PesoNet: </span>
-                  <span className="font-semibold">{summary.pesonetCount}</span>
-                  <span className="text-gray-400 text-xs ml-1">(&gt;₱50k)</span>
-                </div>
+              </div>
+
+              {/* Routing breakdown */}
+              <div className="flex flex-wrap gap-3 text-xs text-gray-500 pt-1">
+                <span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-blue-400 mr-1" />
+                  InstaPay {summary.instapayCount} emp. <span className="text-gray-400">(≤₱50k, real-time)</span>
+                </span>
+                <span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-purple-400 mr-1" />
+                  PesoNet {summary.pesonetCount} emp. <span className="text-gray-400">(&gt;₱50k, ≤3 days)</span>
+                </span>
               </div>
 
               {summary.missingBankDetails > 0 && (
@@ -427,7 +550,7 @@ export default function PayrollDisbursementPanel({
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                       <span>{item.employeeName}</span>
                       <span className="text-gray-400">—</span>
-                      <span className="text-gray-400">{!item.bankAccountNo ? 'no account number' : 'no BIC code'}</span>
+                      <span className="text-gray-400">{!item.bankAccountNo ? 'no account number' : 'no bank / BIC'}</span>
                     </div>
                   ))}
                 </div>
@@ -435,12 +558,12 @@ export default function PayrollDisbursementPanel({
 
               <div className="flex justify-end">
                 <Button
-                  onClick={initiateDisbursement}
+                  onClick={() => setShowDisburseConfirm(true)}
                   disabled={disbursing || summary.readyCount === 0 || !wallet.sufficient}
                 >
                   {disbursing
                     ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</>
-                    : <><Send className="mr-2 h-4 w-4" />Disburse {fmtPHP(summary.totalAmount)}</>
+                    : <><Send className="mr-2 h-4 w-4" />Disburse {fmtPHP(summary.totalCost)}</>
                   }
                 </Button>
               </div>
@@ -469,7 +592,7 @@ export default function PayrollDisbursementPanel({
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${item.channel === 'instapay' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
                       {item.channel === 'instapay' ? 'InstaPay' : 'PesoNet'}
                     </span>
-                    <span className="font-semibold text-[#2E4156]">{fmtPHP(item.amount)}</span>
+                    <span className="font-semibold text-[#032b63]">{fmtPHP(item.amount)}</span>
                     {disbursement  ? statusBadge(displayStatus)                       : null}
                     {!disbursement ? <BadgeCheck className="w-4 h-4 text-green-500" /> : null}
                   </div>
@@ -491,13 +614,33 @@ export default function PayrollDisbursementPanel({
             </div>
           )}
 
-          {disbursement?.status === 'PARTIAL' && (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-amber-800">Partially Completed</p>
-                <p className="text-xs text-amber-700">Some transfers failed. Check failed items above.</p>
+          {(disbursement?.status === 'FAILED' || disbursement?.status === 'PARTIAL') && (
+            <div className="flex items-start justify-between gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800">
+                    {disbursement.status === 'FAILED' ? 'Disbursement Failed' : 'Partially Completed'}
+                  </p>
+                  <p className="text-xs text-red-700 mt-0.5">
+                    {disbursement.status === 'FAILED'
+                      ? 'All transfers failed. No additional wallet deduction will be made on retry.'
+                      : 'Some transfers failed. Only failed transfers will be re-submitted on retry.'}
+                  </p>
+                </div>
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-red-300 text-red-700 hover:bg-red-600 hover:text-white hover:border-red-600"
+                onClick={() => setShowRetryConfirm(true)}
+                disabled={retrying}
+              >
+                {retrying
+                  ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Retrying…</>
+                  : <><RotateCcw className="mr-1.5 h-3.5 w-3.5" />Retry Failed</>
+                }
+              </Button>
             </div>
           )}
         </CardContent>

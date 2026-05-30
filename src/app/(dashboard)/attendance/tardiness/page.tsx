@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'
@@ -286,7 +286,7 @@ export default function TardinessReportPage() {
       {/* Page header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#1A2D42]">Tardiness Report</h1>
+          <h1 className="text-2xl font-bold text-[#021e47]">Tardiness Report</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Late arrivals, absences & undertime analytics
           </p>
@@ -313,7 +313,7 @@ export default function TardinessReportPage() {
                 <select
                   value={selectedCompanyId}
                   onChange={e => setSelectedCompanyId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#fa5e01]/40"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#ff5900]/40"
                 >
                   <option value="">— All Companies —</option>
                   {companies.map(c => (
@@ -347,7 +347,7 @@ export default function TardinessReportPage() {
               <select
                 value={deptFilter}
                 onChange={e => setDeptFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#fa5e01]/40"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#ff5900]/40"
               >
                 <option value="">All Departments</option>
                 {departments.map(d => (
@@ -399,7 +399,7 @@ export default function TardinessReportPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Tardy Incidents</p>
-                <p className="text-2xl font-bold text-[#1A2D42]">{stats.totalTardy}</p>
+                <p className="text-2xl font-bold text-[#021e47]">{stats.totalTardy}</p>
               </div>
             </div>
           </CardContent>
@@ -413,7 +413,7 @@ export default function TardinessReportPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Absent Days</p>
-                <p className="text-2xl font-bold text-[#1A2D42]">{stats.totalAbsent}</p>
+                <p className="text-2xl font-bold text-[#021e47]">{stats.totalAbsent}</p>
               </div>
             </div>
           </CardContent>
@@ -427,7 +427,7 @@ export default function TardinessReportPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Avg Late / Tardy Day</p>
-                <p className="text-2xl font-bold text-[#1A2D42]">
+                <p className="text-2xl font-bold text-[#021e47]">
                   {stats.avgLate > 0 ? formatMinutes(stats.avgLate) : '—'}
                 </p>
               </div>
@@ -443,7 +443,7 @@ export default function TardinessReportPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Employees w/ Tardiness</p>
-                <p className="text-2xl font-bold text-[#1A2D42]">{stats.employeesWithTardiness}</p>
+                <p className="text-2xl font-bold text-[#021e47]">{stats.employeesWithTardiness}</p>
               </div>
             </div>
           </CardContent>
@@ -453,7 +453,7 @@ export default function TardinessReportPage() {
       {/* ── Main Table ───────────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base text-[#1A2D42]">
+          <CardTitle className="text-base text-[#021e47]">
             Tardiness Summary
             {filteredRows.length > 0 && (
               <span className="ml-2 text-sm font-normal text-gray-500">
@@ -465,7 +465,7 @@ export default function TardinessReportPage() {
         <CardContent className="p-0">
           {loading && (
             <div className="flex items-center justify-center py-16 text-gray-400 gap-2">
-              <div className="w-5 h-5 border-2 border-[#1A2D42] border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-[#021e47] border-t-transparent rounded-full animate-spin" />
               <span className="text-sm">Loading records…</span>
             </div>
           )}
@@ -521,7 +521,7 @@ export default function TardinessReportPage() {
                           </button>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-medium text-[#1A2D42]">{row.name}</div>
+                          <div className="font-medium text-[#021e47]">{row.name}</div>
                           <div className="text-xs text-gray-400">{row.employeeNo}</div>
                         </td>
                         <td className="px-4 py-3 text-gray-600">{row.department}</td>
@@ -567,7 +567,7 @@ export default function TardinessReportPage() {
                         <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => toggleExpand(row.employeeId)}
-                            className="text-xs text-[#fa5e01] hover:underline font-medium"
+                            className="text-xs text-[#ff5900] hover:underline font-medium"
                           >
                             {expanded[row.employeeId] ? 'Hide' : 'View'}
                           </button>

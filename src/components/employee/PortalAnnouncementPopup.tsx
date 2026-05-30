@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 
@@ -92,7 +92,7 @@ export function PortalAnnouncementPopup({ userId, companyId }: PortalAnnouncemen
     <div className="fixed inset-0 z-[70] bg-slate-950/45 backdrop-blur-[1px] flex items-center justify-center p-4">
       <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#fa5e01]">Company Announcement</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#ff5900]">Company Announcement</p>
           <h2 className="mt-1 text-xl font-black text-slate-900">{current.title}</h2>
           <p className="text-xs text-slate-400 mt-1">
             Posted {new Date(current.publishedAt).toLocaleString()}
@@ -106,7 +106,7 @@ export function PortalAnnouncementPopup({ userId, companyId }: PortalAnnouncemen
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
           <button
             onClick={handleMarkAsRead}
-            className="rounded-xl bg-[#2E4156] hover:bg-[#1A2D42] text-white text-sm font-bold px-5 py-2.5 transition-colors"
+            className="rounded-xl bg-[#032b63] hover:bg-[#021e47] text-white text-sm font-bold px-5 py-2.5 transition-colors"
           >
             Mark as Read
           </button>

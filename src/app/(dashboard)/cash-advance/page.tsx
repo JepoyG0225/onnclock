@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -110,7 +110,7 @@ export default function CashAdvancePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Cash Advance Requests</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Cash Advance Requests</h1>
           <p className="text-slate-500 text-sm mt-1">
             Review employee cash advance requests. Approving creates a loan that gets deducted automatically from payroll.
           </p>
@@ -153,7 +153,7 @@ export default function CashAdvancePage() {
             variant={statusFilter === val ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(val)}
-            style={statusFilter === val ? { background: '#2E4156' } : {}}
+            style={statusFilter === val ? { background: '#0055d4' } : {}}
           >
             {label}
           </Button>
@@ -207,7 +207,7 @@ export default function CashAdvancePage() {
                           </td>
                           <td className="p-3 text-right text-gray-600">{peso(monthlyBasic)}</td>
                           <td className="p-3 text-right">
-                            <div className="font-semibold text-[#1A2D42]">{peso(amt)}</div>
+                            <div className="font-semibold text-[#021e47]">{peso(amt)}</div>
                             <div className="text-xs text-gray-400">{pctOfSalary.toFixed(1)}% of basic</div>
                           </td>
                           <td className="p-3 text-center">

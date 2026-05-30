@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -265,7 +265,7 @@ function IssueDialog({ open, onClose, onCreated }: IssueDialogProps) {
             <Button
               type="submit"
               disabled={saving}
-              style={{ background: '#1A2D42' }}
+              style={{ background: '#021e47' }}
             >
               {saving ? 'Issuing...' : 'Issue Action'}
             </Button>
@@ -468,7 +468,7 @@ export default function DisciplinaryPage() {
         {isHR && (
           <Button
             onClick={() => setShowIssue(true)}
-            style={{ background: '#1A2D42' }}
+            style={{ background: '#021e47' }}
           >
             <Plus className="mr-2 w-4 h-4" />
             Issue Disciplinary Action
@@ -486,7 +486,7 @@ export default function DisciplinaryPage() {
               size="sm"
               variant={statusTab === tab.value ? 'default' : 'outline'}
               onClick={() => { setStatusTab(tab.value); setExpandedId(null) }}
-              style={statusTab === tab.value ? { background: '#1A2D42' } : {}}
+              style={statusTab === tab.value ? { background: '#021e47' } : {}}
             >
               {tab.label}
             </Button>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Bell } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -149,7 +149,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
                       <p className="text-sm text-gray-900 font-medium">{item.title}</p>
                       <p
                         className="text-xs mt-0.5"
-                        style={{ color: item.status === 'APPROVED' ? '#2E4156' : '#ef4444' }}
+                        style={{ color: item.status === 'APPROVED' ? '#032b63' : '#ef4444' }}
                       >
                         {item.status}
                       </p>
@@ -167,7 +167,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
           <button
             onClick={() => setShowMenu(v => !v)}
             className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-lg transition-transform hover:scale-105 active:scale-95"
-            style={{ background: '#fa5e01' }}
+            style={{ background: '#ff5900' }}
           >
             {employeeInitials ?? 'E'}
           </button>
@@ -178,7 +178,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
               <div
                 className="absolute right-0 top-10 z-20 rounded-2xl shadow-2xl overflow-hidden min-w-[180px]"
                 style={{
-                  background: '#2E4156',
+                  background: '#0055d4',
                   border: '1px solid rgba(255,255,255,0.12)',
                 }}
               >

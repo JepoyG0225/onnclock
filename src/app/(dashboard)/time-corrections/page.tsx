@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
@@ -92,7 +92,7 @@ export default function TimeCorrectionAdminPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardEdit className="w-6 h-6 text-[#2E4156]" />
+            <ClipboardEdit className="w-6 h-6 text-[#032b63]" />
             Time Entry Corrections
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Review and approve employee correction requests</p>
@@ -115,7 +115,7 @@ export default function TimeCorrectionAdminPage() {
             onClick={() => setStatusFilter(opt.value)}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
               statusFilter === opt.value
-                ? 'bg-white text-[#2E4156] shadow-sm'
+                ? 'bg-white text-[#032b63] shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -240,7 +240,7 @@ export default function TimeCorrectionAdminPage() {
                 onChange={e => setAdminNotes(e.target.value)}
                 rows={2}
                 placeholder="Add a note for the employee..."
-                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2E4156]/30 resize-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#032b63]/30 resize-none"
               />
             </div>
             <div className="flex gap-3">

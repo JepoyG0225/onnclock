@@ -25,6 +25,12 @@ export const PH_BANK_BICS: Record<string, string> = {
   'SeaBank':               'SEABPHM2XXX',
   'OwnBank':               'OWNBPHMM',
   'ShopeePay':             'AIRAPH22XXX',
+  'Maribank':              'MARBPHMM',
+  'Maya Bank':             'PAEYPHM2XXX',
+  'Seabank':               'SEABPHM2XXX',
+  'Netbank':               'NETBPHMM',
+  'UNO Digital Bank':      'UNODPHMM',
+  'Overseas Filipino Bank': 'OFBKPHMM',
 }
 
 /** Bank name options for the employee bank form dropdown. */

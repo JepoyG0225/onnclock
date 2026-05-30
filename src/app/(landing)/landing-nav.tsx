@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Image from 'next/image'
@@ -19,10 +19,10 @@ export function LandingNav() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-            <a href="#features" className="hover:text-[#1A2D42] transition-colors">Features</a>
-            <a href="#compliance" className="hover:text-[#1A2D42] transition-colors">Compliance</a>
-            <a href="#how-it-works" className="hover:text-[#1A2D42] transition-colors">How It Works</a>
-            <a href="#testimonials" className="hover:text-[#1A2D42] transition-colors">Testimonials</a>
+            <a href="#features" className="hover:text-[#021e47] transition-colors">Features</a>
+            <a href="#compliance" className="hover:text-[#021e47] transition-colors">Compliance</a>
+            <a href="#how-it-works" className="hover:text-[#021e47] transition-colors">How It Works</a>
+            <a href="#testimonials" className="hover:text-[#021e47] transition-colors">Testimonials</a>
           </nav>
 
           {/* Desktop CTA */}
@@ -36,7 +36,7 @@ export function LandingNav() {
             <Link
               href="/register"
               className="text-sm font-bold text-white px-5 py-2.5 rounded-full transition-all hover:shadow-lg hover:scale-105"
-              style={{ background: 'linear-gradient(135deg, #fa5e01, #ea580c)' }}
+              style={{ background: 'linear-gradient(135deg, #ff5900, #ea580c)' }}
             >
               Get Started Free
             </Link>
@@ -61,7 +61,7 @@ export function LandingNav() {
           <a href="#testimonials" onClick={() => setOpen(false)} className="block text-sm font-medium text-slate-700 py-2">Testimonials</a>
           <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
             <Link href="/login" className="text-sm font-semibold text-slate-700 py-2 text-center border border-slate-200 rounded-xl">Sign In</Link>
-            <Link href="/register" className="text-sm font-bold text-white py-2.5 rounded-xl text-center" style={{ background: 'linear-gradient(135deg, #fa5e01, #ea580c)' }}>Get Started Free</Link>
+            <Link href="/register" className="text-sm font-bold text-white py-2.5 rounded-xl text-center" style={{ background: 'linear-gradient(135deg, #ff5900, #ea580c)' }}>Get Started Free</Link>
           </div>
         </div>
       )}

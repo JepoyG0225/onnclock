@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -42,8 +42,8 @@ const LOAN_TYPE_OPTIONS = [
 ]
 
 const TYPE_COLORS: Record<string, string> = {
-  SSS_SALARY_LOAN:       'bg-[#C0C8CA] text-[#1A2D42]',
-  SSS_CALAMITY_LOAN:     'bg-[#C0C8CA] text-[#1A2D42]',
+  SSS_SALARY_LOAN:       'bg-[#c4d9ff] text-[#021e47]',
+  SSS_CALAMITY_LOAN:     'bg-[#c4d9ff] text-[#021e47]',
   PAGIBIG_MULTI_PURPOSE: 'bg-yellow-100 text-yellow-800',
   PAGIBIG_CALAMITY:      'bg-yellow-100 text-yellow-800',
   COMPANY_LOAN:          'bg-purple-100 text-purple-800',
@@ -157,12 +157,12 @@ export default function LoansPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Loans</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Loans</h1>
           <p className="text-slate-500 text-sm mt-1">
             SSS, Pag-IBIG, and company loans — deductions applied automatically each payroll run
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} style={{ background: '#fa5e01' }}>
+        <Button onClick={() => setShowForm(!showForm)} style={{ background: '#ff5900' }}>
           <Plus className="w-4 h-4 mr-2" />New Loan
         </Button>
       </div>
@@ -172,7 +172,7 @@ export default function LoansPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Active Loans</p>
-            <p className="text-2xl font-bold" style={{ color: '#2E4156' }}>{activeLoans.length}</p>
+            <p className="text-2xl font-bold" style={{ color: '#032b63' }}>{activeLoans.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -190,7 +190,7 @@ export default function LoansPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Semi-Monthly / Payslip</p>
-            <p className="text-xl font-bold text-[#1A2D42]">{peso(totalMonthly / 2)}</p>
+            <p className="text-xl font-bold text-[#021e47]">{peso(totalMonthly / 2)}</p>
           </CardContent>
         </Card>
       </div>
@@ -199,7 +199,7 @@ export default function LoansPage() {
       {showForm && (
         <Card className="border-orange-200">
           <CardHeader>
-            <CardTitle className="text-base" style={{ color: '#2E4156' }}>New Loan</CardTitle>
+            <CardTitle className="text-base" style={{ color: '#032b63' }}>New Loan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -209,7 +209,7 @@ export default function LoansPage() {
                   value={form.employeeId}
                   onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
                   className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': '#fa5e01' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
                 >
                   <option value="">Select employee...</option>
                   {employees.map(e => (
@@ -273,7 +273,7 @@ export default function LoansPage() {
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={createLoan} style={{ background: '#fa5e01' }}>Create Loan</Button>
+              <Button onClick={createLoan} style={{ background: '#ff5900' }}>Create Loan</Button>
               <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
             </div>
           </CardContent>
@@ -293,7 +293,7 @@ export default function LoansPage() {
             variant={statusFilter === val ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(val)}
-            style={statusFilter === val ? { background: '#2E4156' } : {}}
+            style={statusFilter === val ? { background: '#0055d4' } : {}}
           >
             {label}
           </Button>
@@ -363,15 +363,15 @@ export default function LoansPage() {
                             <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                               <div
                                 className="h-1.5 rounded-full transition-all"
-                                style={{ width: `${progress}%`, background: progress >= 100 ? '#16a34a' : '#fa5e01' }}
+                                style={{ width: `${progress}%`, background: progress >= 100 ? '#16a34a' : '#ff5900' }}
                               />
                             </div>
                             <div className="text-xs text-gray-400 mt-0.5">{progress.toFixed(0)}% paid</div>
                           </td>
-                          <td className="p-3 text-right font-medium" style={{ color: '#fa5e01' }}>
+                          <td className="p-3 text-right font-medium" style={{ color: '#ff5900' }}>
                             {peso(Number(l.monthlyAmortization))}
                           </td>
-                          <td className="p-3 text-right text-[#1A2D42]">
+                          <td className="p-3 text-right text-[#021e47]">
                             {peso(Number(l.monthlyAmortization) / 2)}
                           </td>
                           <td className="p-3 text-xs text-gray-600">
@@ -422,11 +422,11 @@ export default function LoansPage() {
 
                         {/* Deduction history row */}
                         {isExpanded && (
-                          <tr key={`${l.id}-history`} className="bg-[#D4D8DD] border-b">
+                          <tr key={`${l.id}-history`} className="bg-[#dce5f7] border-b">
                             <td colSpan={9} className="px-6 py-3">
                               <div className="flex items-center gap-2 mb-2">
-                                <History className="w-3.5 h-3.5 text-[#2E4156]" />
-                                <span className="text-xs font-semibold text-[#1A2D42]">Deduction History</span>
+                                <History className="w-3.5 h-3.5 text-[#032b63]" />
+                                <span className="text-xs font-semibold text-[#021e47]">Deduction History</span>
                               </div>
                               {!loanDetail || loanDetail.id !== l.id ? (
                                 <p className="text-xs text-gray-400">Loading...</p>

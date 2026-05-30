@@ -62,6 +62,11 @@ export async function DELETE(
       where: { payslip: { payrollRunId: runId } },
     }),
     prisma.payslip.deleteMany({ where: { payrollRunId: runId } }),
+    // Delete disbursement items first (no cascade from run → disbursement in schema)
+    prisma.payrollDisbursementItem.deleteMany({
+      where: { disbursement: { payrollRunId: runId } },
+    }),
+    prisma.payrollDisbursement.deleteMany({ where: { payrollRunId: runId } }),
     prisma.payrollRun.delete({ where: { id: runId } }),
   ])
 

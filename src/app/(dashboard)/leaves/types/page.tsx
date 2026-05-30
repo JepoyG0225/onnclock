@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, X, Save, Loader2, Check } from 'lucide-react'
@@ -31,7 +31,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
       <div
         onClick={() => onChange(!checked)}
         className="relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
-        style={{ background: checked ? '#fa5e01' : '#e2e8f0' }}
+        style={{ background: checked ? '#ff5900' : '#e2e8f0' }}
       >
         <div
           className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
@@ -59,20 +59,20 @@ function FormSection({
   isEdit: boolean
 }) {
   const inputClass = "w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none transition-all border-2"
-  const inputStyle = { background: '#f8fafc', border: '2px solid #e2e8f0', color: '#2E4156' }
+  const inputStyle = { background: '#f8fafc', border: '2px solid #e2e8f0', color: '#032b63' }
 
   return (
     <div
       className="rounded-2xl overflow-hidden shadow-sm"
-      style={{ border: '2px solid #fa5e01', background: '#fff' }}
+      style={{ border: '2px solid #ff5900', background: '#fff' }}
     >
       {/* Form header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: '#fa5e01' }}>
+          <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: '#ff5900' }}>
             {isEdit ? <Edit2 className="w-3.5 h-3.5 text-white" /> : <Plus className="w-3.5 h-3.5 text-white" />}
           </div>
-          <h3 className="text-sm font-bold" style={{ color: '#2E4156' }}>
+          <h3 className="text-sm font-bold" style={{ color: '#032b63' }}>
             {isEdit ? 'Edit Leave Type' : 'New Leave Type'}
           </h3>
         </div>
@@ -92,7 +92,7 @@ function FormSection({
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Service Incentive Leave"
-              onFocus={e => { e.target.style.borderColor = '#fa5e01'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = '#ff5900'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
             />
           </div>
@@ -105,7 +105,7 @@ function FormSection({
               onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
               placeholder="e.g. SIL"
               maxLength={10}
-              onFocus={e => { e.target.style.borderColor = '#fa5e01'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = '#ff5900'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
             />
           </div>
@@ -118,7 +118,7 @@ function FormSection({
               style={inputStyle}
               value={form.daysEntitled}
               onChange={e => setForm(f => ({ ...f, daysEntitled: Number(e.target.value) }))}
-              onFocus={e => { e.target.style.borderColor = '#fa5e01'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = '#ff5900'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
             />
           </div>
@@ -144,7 +144,7 @@ function FormSection({
                 style={inputStyle}
                 value={form.maxCarryOver}
                 onChange={e => setForm(f => ({ ...f, maxCarryOver: e.target.value }))}
-                onFocus={e => { e.target.style.borderColor = '#fa5e01'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
+                onFocus={e => { e.target.style.borderColor = '#ff5900'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
                 onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
               />
             </div>
@@ -170,7 +170,7 @@ function FormSection({
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="Brief description of this leave type..."
-              onFocus={e => { e.target.style.borderColor = '#fa5e01'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = '#ff5900'; e.target.style.boxShadow = '0 0 0 3px rgba(250,94,1,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none' }}
             />
           </div>
@@ -182,7 +182,7 @@ function FormSection({
             onClick={onSave}
             disabled={saving}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95 disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, #fa5e01, #e54f00)', boxShadow: '0 4px 12px rgba(250,94,1,0.3)' }}
+            style={{ background: 'linear-gradient(135deg, #ff5900, #e54f00)', boxShadow: '0 4px 12px rgba(250,94,1,0.3)' }}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Saving...' : isEdit ? 'Update Leave Type' : 'Add Leave Type'}
@@ -317,7 +317,7 @@ export default function LeaveTypesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Leave Types</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Leave Types</h1>
           <p className="text-sm text-slate-400 mt-0.5 font-medium">
             Configure DOLE-mandated and company leave policies
           </p>
@@ -326,7 +326,7 @@ export default function LeaveTypesPage() {
           <button
             onClick={() => { setShowAddForm(true); setEditingId(null) }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95 shadow-md"
-            style={{ background: 'linear-gradient(135deg, #fa5e01, #e54f00)', boxShadow: '0 4px 12px rgba(250,94,1,0.3)' }}
+            style={{ background: 'linear-gradient(135deg, #ff5900, #e54f00)', boxShadow: '0 4px 12px rgba(250,94,1,0.3)' }}
           >
             <Plus className="w-4 h-4" />
             Add Leave Type
@@ -376,7 +376,7 @@ export default function LeaveTypesPage() {
       ) : types.length === 0 ? (
         <div className="text-center py-16 rounded-2xl" style={{ background: '#f8fafc' }}>
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(250,94,1,0.1)' }}>
-            <Plus className="w-6 h-6" style={{ color: '#fa5e01' }} />
+            <Plus className="w-6 h-6" style={{ color: '#ff5900' }} />
           </div>
           <p className="text-slate-400 font-semibold">No leave types configured</p>
           <p className="text-sm text-slate-300 mt-1">Click &quot;Add Leave Type&quot; to get started</p>
@@ -396,12 +396,12 @@ export default function LeaveTypesPage() {
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span
                           className="text-xs font-black tracking-wider px-2.5 py-1 rounded-lg"
-                          style={{ background: 'rgba(67,168,218,0.1)', color: '#2E4156' }}
+                          style={{ background: 'rgba(67,168,218,0.1)', color: '#032b63' }}
                         >
                           {t.code}
                         </span>
                         {t.isMandatory && (
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(250,94,1,0.1)', color: '#fa5e01' }}>
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(250,94,1,0.1)', color: '#ff5900' }}>
                             DOLE
                           </span>
                         )}
@@ -410,7 +410,7 @@ export default function LeaveTypesPage() {
                             className="text-xs font-bold px-2.5 py-1 rounded-lg"
                             style={{
                               background: t.genderRestriction === 'FEMALE' ? 'rgba(236,72,153,0.1)' : 'rgba(67,168,218,0.1)',
-                              color: t.genderRestriction === 'FEMALE' ? '#db2777' : '#2E4156',
+                              color: t.genderRestriction === 'FEMALE' ? '#db2777' : '#032b63',
                             }}
                           >
                             {GENDER_LABELS[t.genderRestriction]}
@@ -418,13 +418,13 @@ export default function LeaveTypesPage() {
                         )}
                       </div>
 
-                      <h3 className="font-bold text-sm" style={{ color: '#2E4156' }}>{t.name}</h3>
+                      <h3 className="font-bold text-sm" style={{ color: '#032b63' }}>{t.name}</h3>
 
                       {/* Stats row */}
                       <div className="flex flex-wrap gap-3 mt-2">
                         <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2E4156' }} />
-                          <span className="text-xs font-bold" style={{ color: '#2E4156' }}>{t.daysEntitled} days/yr</span>
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#0055d4' }} />
+                          <span className="text-xs font-bold" style={{ color: '#032b63' }}>{t.daysEntitled} days/yr</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className="w-1.5 h-1.5 rounded-full" style={{ background: t.isWithPay ? '#10b981' : '#ef4444' }} />
@@ -434,8 +434,8 @@ export default function LeaveTypesPage() {
                         </div>
                         {t.carryOver && (
                           <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2E4156' }} />
-                            <span className="text-xs font-semibold" style={{ color: '#2E4156' }}>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#0055d4' }} />
+                            <span className="text-xs font-semibold" style={{ color: '#032b63' }}>
                               Carry Over{t.maxCarryOver ? ` (max ${t.maxCarryOver}d)` : ''}
                             </span>
                           </div>
@@ -458,7 +458,7 @@ export default function LeaveTypesPage() {
                       <button
                         onClick={() => startEdit(t)}
                         className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-                        style={{ background: 'rgba(67,168,218,0.1)', color: '#2E4156' }}
+                        style={{ background: 'rgba(67,168,218,0.1)', color: '#032b63' }}
                         title="Edit leave type"
                       >
                         <Edit2 className="w-3.5 h-3.5" />

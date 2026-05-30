@@ -180,7 +180,8 @@
       "Bash(brew list *)",
       "Bash(findstr /i \"PAYMONGO\" .env)",
       "Bash(findstr /i \"PAYMONGO MAYA PAYMENT\")",
-      "PowerShell(Stop-Process -Name node -Force -ErrorAction SilentlyContinue)"
+      "PowerShell(Stop-Process -Name node -Force -ErrorAction SilentlyContinue)",
+      "Bash(findstr /s /i \"income.*type\\\\|commission\" src\\\\lib\\\\payroll\\\\*.ts src\\\\app\\\\api\\\\payroll\\\\*.ts src\\\\app\\\\api\\\\income-types\\\\*.ts)"
     ]
   },
   "disableAllHooks": true

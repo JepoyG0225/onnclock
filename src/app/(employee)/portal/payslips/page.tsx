@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -96,7 +96,7 @@ export default function PayslipsPage() {
           <button
             onClick={() => setSelected(null)}
             className="text-sm flex items-center gap-1"
-            style={{ color: '#2E4156' }}
+            style={{ color: '#032b63' }}
           >
             Back to list
           </button>
@@ -115,11 +115,11 @@ export default function PayslipsPage() {
               <div className="rounded-xl p-4 flex items-center justify-between" style={{ background: 'rgba(46,65,86,0.12)' }}>
                 <div>
                   <p className="text-xs text-gray-500">Net Pay</p>
-                  <p className="text-2xl font-black" style={{ color: '#2E4156' }}>{peso(selected.netPay)}</p>
+                  <p className="text-2xl font-black" style={{ color: '#032b63' }}>{peso(selected.netPay)}</p>
                 </div>
                 <Badge
                   className="border text-xs"
-                  style={{ background: 'rgba(46,65,86,0.12)', color: '#2E4156', borderColor: 'rgba(170,183,183,0.45)' }}
+                  style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' }}
                 >
                   Released
                 </Badge>
@@ -174,7 +174,7 @@ export default function PayslipsPage() {
                     )}
                     <div className="flex justify-between border-t border-gray-100 pt-1.5 font-semibold">
                       <span>Gross</span>
-                      <span style={{ color: '#2E4156' }}>{peso(selected.grossPay)}</span>
+                      <span style={{ color: '#032b63' }}>{peso(selected.grossPay)}</span>
                     </div>
                   </div>
                 </div>
@@ -243,7 +243,7 @@ export default function PayslipsPage() {
                   onClick={() => downloadPayslip(selected.id, selected.payrollRun.periodLabel)}
                   disabled={downloadingId === selected.id}
                   className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #1A2D42, #2E4156)' }}
+                  style={{ background: 'linear-gradient(135deg, #021e47, #032b63)' }}
                 >
                   {downloadingId === selected.id ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Preparing PDF...</>
@@ -278,7 +278,7 @@ export default function PayslipsPage() {
                   </div>
                   <Badge
                     className="border text-xs"
-                    style={{ background: 'rgba(46,65,86,0.12)', color: '#2E4156', borderColor: 'rgba(170,183,183,0.45)' }}
+                    style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' }}
                   >
                     Released
                   </Badge>
@@ -295,7 +295,7 @@ export default function PayslipsPage() {
                   </div>
                   <div className="rounded-lg px-2 py-2" style={{ background: 'rgba(46,65,86,0.12)' }}>
                     <p className="text-[10px] text-gray-500">Net Pay</p>
-                    <p className="text-sm font-black" style={{ color: '#2E4156' }}>{peso(ps.netPay)}</p>
+                    <p className="text-sm font-black" style={{ color: '#032b63' }}>{peso(ps.netPay)}</p>
                   </div>
                 </div>
 

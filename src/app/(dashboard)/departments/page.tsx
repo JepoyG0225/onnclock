@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Users, Plus, Pencil, Trash2, Search, Building2, ChevronDown, ChevronUp } from 'lucide-react'
@@ -25,7 +25,7 @@ interface Department {
 }
 
 const COLORS = [
-  { hex: '#14b8a6', iconBg: 'bg-[#D4D8DD]',   iconText: 'text-[#2E4156]',   avatarBg: 'bg-[#C0C8CA]',   avatarText: 'text-[#1A2D42]',   badge: 'bg-[#C0C8CA] text-[#1A2D42]'   },
+  { hex: '#14b8a6', iconBg: 'bg-[#dce5f7]',   iconText: 'text-[#032b63]',   avatarBg: 'bg-[#c4d9ff]',   avatarText: 'text-[#021e47]',   badge: 'bg-[#c4d9ff] text-[#021e47]'   },
   { hex: '#3b82f6', iconBg: 'bg-blue-50',   iconText: 'text-blue-600',   avatarBg: 'bg-blue-100',   avatarText: 'text-blue-700',   badge: 'bg-blue-100 text-blue-700'   },
   { hex: '#a855f7', iconBg: 'bg-purple-50', iconText: 'text-purple-600', avatarBg: 'bg-purple-100', avatarText: 'text-purple-700', badge: 'bg-purple-100 text-purple-700' },
   { hex: '#f97316', iconBg: 'bg-orange-50', iconText: 'text-orange-600', avatarBg: 'bg-orange-100', avatarText: 'text-orange-700', badge: 'bg-orange-100 text-orange-700' },
@@ -162,7 +162,7 @@ export default function DepartmentsPage() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <Button onClick={() => setOpen(true)} style={{ background: '#fa5e01' }} className="text-white h-9">
+          <Button onClick={() => setOpen(true)} style={{ background: '#ff5900' }} className="text-white h-9">
             <Plus className="w-4 h-4 mr-1.5" /> Add Department
           </Button>
         </div>
@@ -185,7 +185,7 @@ export default function DepartmentsPage() {
             {search ? 'Try a different search term' : 'Create your first department to get started'}
           </p>
           {!search && (
-            <Button className="mt-5 text-white" style={{ background: '#fa5e01' }} onClick={() => setOpen(true)}>
+            <Button className="mt-5 text-white" style={{ background: '#ff5900' }} onClick={() => setOpen(true)}>
               <Plus className="w-4 h-4 mr-1.5" /> Add your first department
             </Button>
           )}
@@ -382,7 +382,7 @@ export default function DepartmentsPage() {
             </div>
             <div className="px-6 py-4 border-t bg-gray-50 rounded-b-2xl flex items-center justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={createDepartment} style={{ background: '#fa5e01' }} className="text-white">
+              <Button onClick={createDepartment} style={{ background: '#ff5900' }} className="text-white">
                 Create Department
               </Button>
             </div>
@@ -421,7 +421,7 @@ export default function DepartmentsPage() {
             </div>
             <div className="px-6 py-4 border-t bg-gray-50 rounded-b-2xl flex items-center justify-end gap-2">
               <Button variant="outline" onClick={() => { setEditOpen(false); setEditing(null) }}>Cancel</Button>
-              <Button onClick={saveEditDepartment} style={{ background: '#fa5e01' }} className="text-white">
+              <Button onClick={saveEditDepartment} style={{ background: '#ff5900' }} className="text-white">
                 Save Changes
               </Button>
             </div>

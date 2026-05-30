@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Shield, RotateCcw, Save, Check, Info } from 'lucide-react'
@@ -23,7 +23,7 @@ type CustomRole = {
 const BUILT_IN_EDITABLE_ROLES: UserRole[] = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']
 
 const ROLE_THEME = {
-  COMPANY_ADMIN: { bg: 'bg-[#D4D8DD]', border: 'border-[#AAB7B7]', text: 'text-[#1A2D42]', badge: 'bg-[#C0C8CA] text-[#1A2D42]' },
+  COMPANY_ADMIN: { bg: 'bg-[#dce5f7]', border: 'border-[#AAB7B7]', text: 'text-[#021e47]', badge: 'bg-[#c4d9ff] text-[#021e47]' },
   HR_MANAGER: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100 text-green-800' },
   PAYROLL_OFFICER: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-800' },
   EMPLOYEE: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100 text-gray-700' },
@@ -174,13 +174,13 @@ export default function PermissionsPage() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Role Permissions</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Role Permissions</h1>
           <p className="text-slate-500 text-sm mt-1">Configure built-in and custom role permissions.</p>
         </div>
         <div className="flex items-center gap-2">
           {dirty.size > 0 && <span className="text-xs text-orange-600 font-medium">{dirty.size} role(s) with unsaved changes</span>}
           <Button variant="outline" size="sm" onClick={load}><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Reload</Button>
-          <Button size="sm" disabled={dirty.size === 0} onClick={saveAll} style={{ background: '#fa5e01' }}>
+          <Button size="sm" disabled={dirty.size === 0} onClick={saveAll} style={{ background: '#ff5900' }}>
             <Save className="w-3.5 h-3.5 mr-1.5" />Save All Changes
           </Button>
         </div>
@@ -195,7 +195,7 @@ export default function PermissionsPage() {
         <p className="text-xs text-slate-500 ml-1">New custom roles start with no permissions.</p>
       </div>
 
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-[#D4D8DD] border border-[#AAB7B7] text-sm text-[#1A2D42]">
+      <div className="flex items-start gap-3 p-3 rounded-xl bg-[#dce5f7] border border-[#AAB7B7] text-sm text-[#021e47]">
         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <div>Permissions marked with <span className="font-semibold">●</span> are active for that role. Changes take effect on next login.</div>
       </div>
@@ -245,7 +245,7 @@ export default function PermissionsPage() {
         {PAGE_PERMISSIONS.map((group, gi) => (
           <div key={group.group}>
             <div className="grid items-center" style={{ gridTemplateColumns: '220px 1fr', background: '#f8fafc' }}>
-              <div className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider border-b border-gray-100" style={{ borderLeft: '3px solid #fa5e01' }}>{group.group}</div>
+              <div className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider border-b border-gray-100" style={{ borderLeft: '3px solid #ff5900' }}>{group.group}</div>
               <div className="border-b border-gray-100 border-l border-l-gray-200 py-2" />
             </div>
 
@@ -255,7 +255,7 @@ export default function PermissionsPage() {
               const rowBorder = (!isLastInGroup || !isLastGroup) ? 'border-b border-gray-100' : ''
 
               return (
-                <div key={page.key} className={`grid hover:bg-[#D4D8DD]/40 transition-colors ${rowBorder}`} style={{ gridTemplateColumns: '220px 1fr' }}>
+                <div key={page.key} className={`grid hover:bg-[#dce5f7]/40 transition-colors ${rowBorder}`} style={{ gridTemplateColumns: '220px 1fr' }}>
                   <div className="px-4 py-2.5 flex flex-col justify-center">
                     <span className="text-sm text-gray-700 font-medium">{page.label}</span>
                     <code className="text-xs text-gray-400 font-mono">{page.permission}</code>
@@ -266,7 +266,7 @@ export default function PermissionsPage() {
                       <div className="flex items-center justify-center border-l border-gray-100 cursor-pointer" onClick={() => toggle(selected, page.permission)}>
                         <div
                           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${checked ? `${selectedTheme.border} border-opacity-0` : 'border-gray-300'}`}
-                          style={checked ? { background: '#fa5e01', borderColor: '#fa5e01' } : {}}
+                          style={checked ? { background: '#ff5900', borderColor: '#ff5900' } : {}}
                         >
                           {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                         </div>

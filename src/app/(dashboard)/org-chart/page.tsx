@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -87,7 +87,7 @@ export default function DepartmentsPage() {
       employeeNo: '',
       photoUrl: null,
       initials: '',
-      accent: '#2E4156',
+      accent: '#032b63',
       isDept: true,
       isRoot: true,
     }
@@ -194,7 +194,7 @@ export default function DepartmentsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-[#2E4156]" /> Company Org Chart
+              <Building2 className="w-4 h-4 text-[#032b63]" /> Company Org Chart
             </CardTitle>
           </CardHeader>
           <CardContent>

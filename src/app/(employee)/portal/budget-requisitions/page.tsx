@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -239,7 +239,7 @@ export default function BudgetRequisitionsPage() {
         <Button
           onClick={() => { setShowForm(true); setFormErr(''); setFormFiles([]) }}
           className="gap-1.5"
-          style={{ background: '#fa5e01', color: '#fff' }}
+          style={{ background: '#ff5900', color: '#fff' }}
         >
           <Plus className="w-4 h-4" />
           New Request
@@ -289,7 +289,7 @@ export default function BudgetRequisitionsPage() {
                   className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: '#fff3eb' }}
                 >
-                  <FileText className="w-4 h-4" style={{ color: '#fa5e01' }} />
+                  <FileText className="w-4 h-4" style={{ color: '#ff5900' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
@@ -300,7 +300,7 @@ export default function BudgetRequisitionsPage() {
                     Filed {fmtDate(req.createdAt)}
                     {req.neededBy && <span> · Needed by {fmtDate(req.neededBy)}</span>}
                   </p>
-                  <p className="text-base font-bold mt-1" style={{ color: '#1a2d42' }}>
+                  <p className="text-base font-bold mt-1" style={{ color: '#021e47' }}>
                     {fmtPeso(req.totalAmount)}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -352,7 +352,7 @@ export default function BudgetRequisitionsPage() {
                       <tfoot>
                         <tr className="border-t border-gray-200 bg-gray-50">
                           <td colSpan={3} className="px-3 py-2 text-right text-xs font-bold text-gray-600 uppercase tracking-wide">Total</td>
-                          <td className="px-3 py-2 text-right text-sm font-bold" style={{ color: '#1a2d42' }}>{fmtPeso(req.totalAmount)}</td>
+                          <td className="px-3 py-2 text-right text-sm font-bold" style={{ color: '#021e47' }}>{fmtPeso(req.totalAmount)}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -527,7 +527,7 @@ export default function BudgetRequisitionsPage() {
                   </div>
                 ))}
 
-                <div className="text-right text-sm font-bold mt-2 pt-2 border-t border-gray-100" style={{ color: '#1a2d42' }}>
+                <div className="text-right text-sm font-bold mt-2 pt-2 border-t border-gray-100" style={{ color: '#021e47' }}>
                   Total: {fmtPeso(grandTotal)}
                 </div>
               </div>
@@ -593,7 +593,7 @@ export default function BudgetRequisitionsPage() {
               </Button>
               <Button
                 className="flex-1 gap-2"
-                style={{ background: '#fa5e01', color: '#fff' }}
+                style={{ background: '#ff5900', color: '#fff' }}
                 onClick={handleSubmit}
                 disabled={submitting}
               >

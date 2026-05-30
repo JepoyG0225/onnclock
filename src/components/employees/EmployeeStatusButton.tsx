@@ -74,7 +74,7 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
         <Button
           size="sm"
           variant="outline"
-          className="border-orange-300 text-orange-700 hover:bg-orange-50"
+          className="border-orange-300 text-orange-700 hover:bg-orange-50 hover:text-orange-700"
           onClick={() => setOpen(true)}
         >
           <UserX className="w-3.5 h-3.5 mr-1" />
@@ -84,7 +84,7 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
         <Button
           size="sm"
           variant="outline"
-          className="border-green-300 text-green-700 hover:bg-green-50"
+          className="border-green-300 text-green-700 hover:bg-green-50 hover:text-green-700"
           onClick={() => setOpen(true)}
         >
           <UserCheck className="w-3.5 h-3.5 mr-1" />

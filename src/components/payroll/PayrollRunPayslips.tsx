@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Fragment, useState } from 'react'
 import { Pencil, ChevronRight, ChevronDown } from 'lucide-react'
@@ -279,7 +279,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
                           href={`/api/payroll/payslip/${ps.id}/pdf`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[#2E4156] hover:text-[#2E4156] text-xs underline"
+                          className="text-[#032b63] hover:text-[#032b63] text-xs underline"
                         >
                           PDF
                         </a>

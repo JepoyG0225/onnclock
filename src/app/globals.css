@@ -48,89 +48,49 @@
   --radius-4xl: calc(var(--radius) + 16px);
 
   /* Brand palette utilities */
-  --color-brand-orange: #fa5e01;
-  --color-brand-teal: #1A2D42;
-  --color-brand-blue: #2E4156;
+  --color-brand-orange: #ff5900;
+  --color-brand-navy: #162d54;
 }
 
 :root {
   --radius: 0.75rem;
 
-  /* Brand colors */
-  --brand-orange: #fa5e01;
-  --brand-teal: #1A2D42;
-  --brand-blue: #2E4156;
-
-  /* Semantic tokens */
-  --background: #f8fafc;
-  --foreground: #1A2D42;
+  /* Light theme */
+  --background: #f1f5f9;
+  --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #1A2D42;
+  --card-foreground: #0f172a;
   --popover: #ffffff;
-  --popover-foreground: #1A2D42;
-  --primary: #fa5e01;
+  --popover-foreground: #0f172a;
+  --primary: #ff5900;
   --primary-foreground: #ffffff;
-  --secondary: #D4D8DD;
-  --secondary-foreground: #1A2D42;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #2E4156;
+  --accent: #ff5900;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+  --destructive: #dc2626;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #fa5e01;
+  --ring: #ff5900;
 
   /* Charts */
-  --chart-1: #fa5e01;
-  --chart-2: #2E4156;
-  --chart-3: #1A2D42;
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-1: #ff5900;
+  --chart-2: #3b82f6;
+  --chart-3: #10B981;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
 
-  /* Sidebar (admin) */
-  --sidebar: #1A2D42;
+  /* Sidebar — stays navy */
+  --sidebar: #162d54;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #fa5e01;
+  --sidebar-primary: #ff5900;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(255, 255, 255, 0.08);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #fa5e01;
-}
-
-.dark {
-  --background: #1A2D42;
-  --foreground: #f0f9ff;
-  --card: #2E4156;
-  --card-foreground: #f0f9ff;
-  --popover: #2E4156;
-  --popover-foreground: #f0f9ff;
-  --primary: #fa5e01;
-  --primary-foreground: #ffffff;
-  --secondary: #2E4156;
-  --secondary-foreground: #f0f9ff;
-  --muted: #2E4156;
-  --muted-foreground: #94a3b8;
-  --accent: #C0C8CA;
-  --accent-foreground: #ffffff;
-  --destructive: #f87171;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.15);
-  --ring: #fa5e01;
-  --chart-1: #fa5e01;
-  --chart-2: #2E4156;
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #1A2D42;
-  --sidebar-foreground: #f0f9ff;
-  --sidebar-primary: #fa5e01;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
-  --sidebar-accent-foreground: #f0f9ff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #fa5e01;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #ff5900;
 }
 
 @layer base {
@@ -186,8 +146,7 @@ html {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* AppSpinner tick fade — used by 12 radially-positioned bars, each with a
-   staggered animation-delay to create the iOS-style rotating-pulse effect. */
+/* AppSpinner tick fade */
 @keyframes app-spinner-tick {
   0%   { opacity: 1; }
   100% { opacity: 0.15; }

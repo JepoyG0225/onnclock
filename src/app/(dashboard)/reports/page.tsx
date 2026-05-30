@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Download, Building, Receipt } from 'lucide-react'
@@ -6,7 +6,7 @@ import { FileText, Download, Building, Receipt } from 'lucide-react'
 const REPORTS = [
   {
     category: 'SSS',
-    color: 'bg-[#2E4156]',
+    color: 'bg-[#032b63]',
     reports: [
       {
         title: 'SSS R3 — Contribution Collection List',
@@ -141,7 +141,7 @@ export default function ReportsPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="space-y-1">
-              <p className="font-semibold text-[#1A2D42]">SSS</p>
+              <p className="font-semibold text-[#021e47]">SSS</p>
               <p className="text-gray-600">Last working day of the following month</p>
               <p className="text-xs text-gray-400">e.g., January contributions → Feb 28/29</p>
             </div>

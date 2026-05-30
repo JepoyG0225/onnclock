@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -116,7 +116,7 @@ export default function PortalCashAdvancePage() {
             type="button"
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            style={{ background: '#fa5e01' }}
+            style={{ background: '#ff5900' }}
           >
             <Plus className="w-4 h-4" /> Request
           </button>
@@ -137,7 +137,7 @@ export default function PortalCashAdvancePage() {
       {showForm && (
         <div className="border rounded-xl p-5 space-y-4 bg-white shadow-sm">
           <div className="flex items-center gap-2">
-            <Banknote className="w-4 h-4 text-[#fa5e01]" />
+            <Banknote className="w-4 h-4 text-[#ff5900]" />
             <h2 className="font-semibold text-gray-900">New Cash Advance Request</h2>
           </div>
 
@@ -168,7 +168,7 @@ export default function PortalCashAdvancePage() {
               value={form.amount}
               onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': '#fa5e01' } as React.CSSProperties}
+              style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
               placeholder="e.g. 5000"
             />
           </div>
@@ -180,7 +180,7 @@ export default function PortalCashAdvancePage() {
               onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
               rows={3}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': '#fa5e01' } as React.CSSProperties}
+              style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
               placeholder="Short explanation"
             />
           </div>
@@ -194,7 +194,7 @@ export default function PortalCashAdvancePage() {
                   key={m}
                   onClick={() => setForm(f => ({ ...f, repaymentMonths: m }))}
                   className={`px-4 py-1.5 text-sm transition-colors ${
-                    form.repaymentMonths === m ? 'bg-[#2E4156] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    form.repaymentMonths === m ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {m} {m === 1 ? 'month' : 'months'}
@@ -218,7 +218,7 @@ export default function PortalCashAdvancePage() {
               onClick={submit}
               disabled={submitting}
               className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-              style={{ background: '#fa5e01' }}
+              style={{ background: '#ff5900' }}
             >
               {submitting ? 'Submitting...' : 'Submit Request'}
             </button>

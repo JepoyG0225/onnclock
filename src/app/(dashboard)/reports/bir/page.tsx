@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -155,13 +155,13 @@ function AnnualizationPanel({ year }: { year: number }) {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Employees</p>
-            <p className="text-2xl font-bold" style={{ color: '#2E4156' }}>{data.employeeCount}</p>
+            <p className="text-2xl font-bold" style={{ color: '#032b63' }}>{data.employeeCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Total Gross Comp</p>
-            <p className="text-xl font-bold text-[#1A2D42]">{peso(data.totalGross)}</p>
+            <p className="text-xl font-bold text-[#021e47]">{peso(data.totalGross)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -207,7 +207,7 @@ function AnnualizationPanel({ year }: { year: number }) {
               variant={filter === val ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter(val)}
-              style={filter === val ? { background: '#2E4156' } : {}}
+              style={filter === val ? { background: '#0055d4' } : {}}
             >
               {label}
             </Button>
@@ -216,7 +216,7 @@ function AnnualizationPanel({ year }: { year: number }) {
         <Button
           onClick={downloadAll2316}
           disabled={data.rows.length === 0 || downloadingAll}
-          style={{ background: '#fa5e01' }}
+          style={{ background: '#ff5900' }}
         >
           <FileDown className="w-4 h-4 mr-2" />
           {downloadingAll ? 'Downloading…' : `Generate All BIR 2316 (${data.rows.length})`}
