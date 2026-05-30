@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       firstName: true,
       lastName: true,
       workScheduleId: true,
-      workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
+      workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
     },
   })
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       },
       defaultBreakMinutes: company?.defaultBreakMinutes ?? 60,
     })
-    const plannedRegularMins = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+    const plannedRegularMins = resolved.plannedRegularMinutes
     const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
     const computed = computeHours(

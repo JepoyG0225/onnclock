@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       photoUrl: true,
       geofenceExempt: true,
       workScheduleId: true,
-      workSchedule: { select: { workDays: true, timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
+      workSchedule: { select: { workDays: true, timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
       department: { select: { name: true } },
       position: { select: { title: true } },
     },
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     },
     defaultBreakMinutes: companyDefaultBreakMinutes,
   })
-  const plannedRegularMins = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+  const plannedRegularMins = resolved.plannedRegularMinutes
   const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
   const computed = computeHours(

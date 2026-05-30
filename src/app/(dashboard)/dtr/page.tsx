@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -289,6 +289,102 @@ export default function DTRPage() {
     const ot = calcOvertime(form.timeIn, form.timeOut, form.regularHours)
     setForm(prev => (prev.overtimeHours === ot ? prev : { ...prev, overtimeHours: ot }))
   }, [form.timeIn, form.timeOut, form.regularHours])
+
+  // Auto-fill Time In / Time Out / Regular Hours from the employee's work schedule
+  // when the employee or date changes. Checks per-date shift assignments first;
+  // falls back to the employee's default workSchedule. If neither is set, leave
+  // the fields as-is so the admin can enter whatever they want.
+  const [scheduleAutoFilling, setScheduleAutoFilling] = useState(false)
+  useEffect(() => {
+    if (!form.employeeId || !form.date) return
+    let cancelled = false
+    async function fillSchedule() {
+      setScheduleAutoFilling(true)
+      try {
+        // 1. Fetch employee + their default workSchedule (timeIn, timeOut, breakMinutes, workHoursPerDay)
+        const empUrl = withCompanyQuery(`/api/employees/${form.employeeId}`)
+        const empRes = await fetch(empUrl)
+        if (!empRes.ok || cancelled) return
+        const empData = await empRes.json().catch(() => ({}))
+        const ws = empData.employee?.workSchedule as {
+          timeIn?: string | null
+          timeOut?: string | null
+          breakMinutes?: number | null
+          workHoursPerDay?: number | null
+        } | undefined
+
+        let timeIn    = ws?.timeIn   ?? null
+        let timeOut   = ws?.timeOut  ?? null
+        let breakMins = ws?.breakMinutes ?? 60
+        const workHours = ws?.workHoursPerDay != null ? Number(ws.workHoursPerDay) : null
+
+        // 2. Check per-date shift assignment — overrides default schedule times if found
+        // API requires startDate + endDate; pass the same date for both to get that day only
+        const assignUrl = withCompanyQuery(
+          `/api/schedules/assignments?employeeId=${encodeURIComponent(form.employeeId)}&startDate=${form.date}&endDate=${form.date}`
+        )
+        const assignRes = await fetch(assignUrl).catch(() => null)
+        if (!cancelled && assignRes?.ok) {
+          const assignData = await assignRes.json().catch(() => ({}))
+          // Response: { employees, assignments: [{ employeeId, timeIn, timeOut, schedule: { timeIn, timeOut } }] }
+          const allAssignments: Array<{
+            employeeId: string
+            timeIn?: string | null
+            timeOut?: string | null
+            isRestDay?: boolean
+            schedule?: { timeIn?: string | null; timeOut?: string | null; breakMinutes?: number | null } | null
+          }> = assignData.assignments ?? []
+          const mine = allAssignments.filter(a => a.employeeId === form.employeeId)
+          if (mine.length > 0) {
+            const a = mine[0]
+            // If it's a rest-day assignment, clear times but keep the record
+            if (a.isRestDay) {
+              timeIn = null; timeOut = null
+            } else {
+              // Assignment-level times override schedule-level times
+              timeIn  = a.timeIn  ?? a.schedule?.timeIn  ?? timeIn
+              timeOut = a.timeOut ?? a.schedule?.timeOut ?? timeOut
+              if (a.schedule?.breakMinutes != null) breakMins = a.schedule.breakMinutes
+            }
+          }
+        }
+
+        if (cancelled) return
+
+        // 3. Compute regularHours:
+        //    Priority: workHoursPerDay > shift span (timeOut - timeIn - break) > 8h default
+        let regularHours = 8
+        if (workHours != null && workHours > 0) {
+          regularHours = workHours
+        } else if (timeIn && timeOut) {
+          const [inH, inM]   = timeIn.split(':').map(Number)
+          const [outH, outM] = timeOut.split(':').map(Number)
+          if (Number.isFinite(inH) && Number.isFinite(outH)) {
+            let spanMins = (outH * 60 + outM) - (inH * 60 + inM)
+            if (spanMins <= 0) spanMins += 24 * 60 // overnight shift
+            regularHours = Math.max(0, (spanMins - Math.max(0, breakMins)) / 60)
+          }
+        }
+
+        // Only autofill when we actually found schedule data — don't clobber
+        // an admin's manual entry if the employee has no schedule configured
+        if (timeIn || timeOut || workHours != null) {
+          setForm(f => ({
+            ...f,
+            ...(timeIn  != null ? { timeIn }  : {}),
+            ...(timeOut != null ? { timeOut } : {}),
+            regularHours: parseFloat(regularHours.toFixed(2)),
+          }))
+        }
+      } catch {
+        // silently ignore — admin can always fill manually
+      } finally {
+        if (!cancelled) setScheduleAutoFilling(false)
+      }
+    }
+    void fillSchedule()
+    return () => { cancelled = true }
+  }, [form.employeeId, form.date, withCompanyQuery])
 
   useEffect(() => {
     let active = true
@@ -761,7 +857,12 @@ export default function DTRPage() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)} />
           <Card className="relative w-full max-w-4xl border-[#AAB7B7] shadow-2xl">
             <CardHeader>
-              <CardTitle className="text-base">New DTR Entry</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                New DTR Entry
+                {scheduleAutoFilling && (
+                  <span className="text-xs font-normal text-blue-500 animate-pulse">Loading schedule…</span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -928,7 +1029,7 @@ export default function DTRPage() {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setEditRecord(null)}>Cancel</Button>
-                <Button disabled={editSaving} onClick={saveEdit} style={{ background: '#fa5e01' }} className="text-white">
+                <Button disabled={editSaving} onClick={saveEdit} style={{ background: '#ff5900' }} className="text-white">
                   {editSaving ? 'Saving…' : 'Save Changes'}
                 </Button>
               </div>
@@ -1364,16 +1465,16 @@ export default function DTRPage() {
                                             <td className="py-2 text-center">
                                               <div className="flex items-center justify-center gap-1">
                                                 {st !== 'APPROVED' && (
-                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-green-600 hover:bg-green-50" disabled={isApproving} onClick={() => approveRecord(r.id, 'APPROVED')}>
+                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-green-600 hover:bg-green-50 hover:text-green-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'APPROVED')}>
                                                     <Check className="w-3 h-3" />
                                                   </Button>
                                                 )}
                                                 {st !== 'REJECTED' && (
-                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50" disabled={isApproving} onClick={() => approveRecord(r.id, 'REJECTED')}>
+                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'REJECTED')}>
                                                     <X className="w-3 h-3" />
                                                   </Button>
                                                 )}
-                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-blue-500 hover:bg-blue-50" onClick={() => openEdit(r)}>
+                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-blue-500 hover:bg-blue-50 hover:text-blue-500" onClick={() => openEdit(r)}>
                                                   <Pencil className="w-3 h-3" />
                                                 </Button>
                                                 <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" onClick={() => requestDelete(r.id)}>

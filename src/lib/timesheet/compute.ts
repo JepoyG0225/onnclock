@@ -333,6 +333,16 @@ export interface ResolvedShift {
   scheduleTimeIn: string | null
   scheduleTimeOut: string | null
   allowedBreakMinutes: number
+  /**
+   * Regular-hour cap in minutes, computed from:
+   *   1. plannedShiftMinutes(timeIn, timeOut)  — shift span from schedule strings
+   *   2. workHoursPerDay × 60                 — explicit hours setting on the schedule
+   *   3. DEFAULT_REGULAR_CAP_MINUTES (480)     — last resort
+   *
+   * Use this instead of calling plannedShiftMinutes() separately; it already
+   * respects workHoursPerDay for flex/no-time schedules.
+   */
+  plannedRegularMinutes: number
   /** Whether a per-date assignment was found (vs. falling back to fixed schedule) */
   matchedAssignment: boolean
 }
@@ -354,7 +364,12 @@ export async function resolveShiftForDtr(params: {
   actualTimeIn: Date | null
   employee: {
     workScheduleId: string | null
-    workSchedule: { timeIn: string | null; timeOut: string | null; breakMinutes: number | null; breakEnabled?: boolean | null } | null
+    workSchedule: {
+      timeIn: string | null
+      timeOut: string | null
+      breakMinutes: number | null
+      workHoursPerDay?: number | { toNumber(): number } | null
+    } | null
   }
   defaultBreakMinutes?: number
 }): Promise<ResolvedShift> {
@@ -362,12 +377,16 @@ export async function resolveShiftForDtr(params: {
 
   let scheduleTimeIn: string | null = employee.workSchedule?.timeIn ?? null
   let scheduleTimeOut: string | null = employee.workSchedule?.timeOut ?? null
-  // If the schedule explicitly disables breaks (breakEnabled === false), the
-  // whole shift counts as paid time — no break is deducted from worked hours
-  // and the regular-hour cap stays at the full scheduled span.
-  let allowedBreakMinutes = employee.workSchedule?.breakEnabled === false
-    ? 0
-    : normalizeBreakMinutes(employee.workSchedule?.breakMinutes ?? defaultBreakMinutes ?? 60)
+  let allowedBreakMinutes = normalizeBreakMinutes(
+    employee.workSchedule?.breakMinutes ?? defaultBreakMinutes ?? 60,
+  )
+  // workHoursPerDay from the default schedule — used as the cap fallback
+  // when there are no timeIn/timeOut strings to derive the span from.
+  const rawWph = employee.workSchedule?.workHoursPerDay
+  let workHoursPerDay: number | null =
+    rawWph != null
+      ? (typeof rawWph === 'object' && 'toNumber' in rawWph ? rawWph.toNumber() : Number(rawWph))
+      : null
   let matchedAssignment = false
 
   // Look up per-date assignments (works for both fixed and flex employees:
@@ -377,7 +396,7 @@ export async function resolveShiftForDtr(params: {
     select: {
       timeIn: true,
       timeOut: true,
-      schedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
+      schedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true, breakEnabled: true } }, // Decimal
     },
   })
 
@@ -409,10 +428,24 @@ export async function resolveShiftForDtr(params: {
         allowedBreakMinutes = normalizeBreakMinutes(chosen.schedule.breakMinutes)
       }
     }
+    if (chosen.schedule?.workHoursPerDay != null) {
+      const v = chosen.schedule.workHoursPerDay
+      workHoursPerDay = typeof v === 'object' && 'toNumber' in v ? v.toNumber() : Number(v)
+    }
     matchedAssignment = true
   }
 
-  return { scheduleTimeIn, scheduleTimeOut, allowedBreakMinutes, matchedAssignment }
+  // Resolve plannedRegularMinutes:
+  //   1. Shift span from timeIn/timeOut strings (most accurate for fixed shifts)
+  //   2. workHoursPerDay × 60 (explicit schedule setting — covers flex/no-time schedules)
+  //   3. DEFAULT_REGULAR_CAP_MINUTES (8 h) — last resort
+  const spanMinutes = plannedShiftMinutes(scheduleTimeIn, scheduleTimeOut)
+  const plannedRegularMinutes =
+    spanMinutes ??
+    (workHoursPerDay != null && workHoursPerDay > 0 ? Math.round(workHoursPerDay * 60) : null) ??
+    DEFAULT_REGULAR_CAP_MINUTES
+
+  return { scheduleTimeIn, scheduleTimeOut, allowedBreakMinutes, plannedRegularMinutes, matchedAssignment }
 }
 
 // ─── Night-differential window ──────────────────────────────────────────────

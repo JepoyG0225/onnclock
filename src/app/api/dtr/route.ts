@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         workScheduleId: true,
-        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
+        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
       },
     }),
     prisma.company.findUnique({
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
       },
       defaultBreakMinutes: companyRow?.defaultBreakMinutes ?? 60,
     })
-    const planned = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+    const planned = resolved.plannedRegularMinutes
     const ndWindow = await getCompanyNightDiffWindow(companyId)
     computedHours = computeHours(timeIn, timeOut, null, null, {
       plannedRegularMinutes: planned,

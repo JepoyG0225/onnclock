@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         employee: {
           select: {
             workScheduleId: true,
-            workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, breakEnabled: true } },
+            workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
           },
         },
       },
@@ -96,7 +96,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     defaultBreakMinutes: company?.defaultBreakMinutes ?? 60,
   })
 
-  const plannedRegularMinutes = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+  const plannedRegularMinutes = resolved.plannedRegularMinutes
   const ndWindow = await getCompanyNightDiffWindow(companyId)
 
   let computed: ReturnType<typeof computeHours> | null = null
