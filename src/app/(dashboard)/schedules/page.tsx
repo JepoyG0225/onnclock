@@ -198,6 +198,35 @@ function formatWorkDaysCompact(workDays: number[] | null | undefined): string {
   return days.map(d => DAYS[d]).join(', ')
 }
 
+/**
+ * Given a timeIn string ("HH:mm"), net working hours, and break minutes,
+ * compute the corresponding timeOut string.
+ * Handles overnight shifts (result wraps past midnight).
+ */
+function computeTimeOut(timeIn: string, workHours: number, breakMins: number): string {
+  const [h, m] = timeIn.split(':').map(Number)
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return timeIn
+  const totalMins = (h * 60 + m) + Math.round(workHours * 60) + Math.max(0, breakMins)
+  const endMins   = totalMins % (24 * 60)
+  const endH = Math.floor(endMins / 60)
+  const endM = endMins % 60
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+}
+
+/**
+ * Given timeIn/timeOut strings and break minutes, derive net working hours.
+ * Returns the value rounded to the nearest 0.25 h.
+ */
+function computeWorkHours(timeIn: string, timeOut: string, breakMins: number): number {
+  const [inH, inM]   = timeIn.split(':').map(Number)
+  const [outH, outM] = timeOut.split(':').map(Number)
+  if (!Number.isFinite(inH) || !Number.isFinite(outH)) return 8
+  let spanMins = (outH * 60 + outM) - (inH * 60 + inM)
+  if (spanMins <= 0) spanMins += 24 * 60 // overnight
+  const netMins = Math.max(0, spanMins - Math.max(0, breakMins))
+  return Math.round((netMins / 60) * 4) / 4 // nearest 0.25 h
+}
+
 function withCompanyId(path: string, companyId?: string): string {
   const normalized = (companyId ?? '').trim()
   if (!normalized) return path
@@ -362,7 +391,14 @@ function ShiftTemplateModal({
               <input
                 type="time"
                 value={form.timeIn}
-                onChange={e => setForm(p => ({ ...p, timeIn: e.target.value }))}
+                onChange={e => {
+                  const newTimeIn = e.target.value
+                  // Keep workHoursPerDay constant, shift timeOut forward
+                  const newTimeOut = newTimeIn
+                    ? computeTimeOut(newTimeIn, form.workHoursPerDay, form.breakEnabled ? form.breakMinutes : 0)
+                    : form.timeOut
+                  setForm(p => ({ ...p, timeIn: newTimeIn, timeOut: newTimeOut }))
+                }}
                 className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
               />
             </div>
@@ -371,7 +407,14 @@ function ShiftTemplateModal({
               <input
                 type="time"
                 value={form.timeOut}
-                onChange={e => setForm(p => ({ ...p, timeOut: e.target.value }))}
+                onChange={e => {
+                  const newTimeOut = e.target.value
+                  // Derive workHoursPerDay from the new span
+                  const newHours = newTimeOut && form.timeIn
+                    ? computeWorkHours(form.timeIn, newTimeOut, form.breakEnabled ? form.breakMinutes : 0)
+                    : form.workHoursPerDay
+                  setForm(p => ({ ...p, timeOut: newTimeOut, workHoursPerDay: Math.max(0.5, newHours) }))
+                }}
                 className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
               />
             </div>
@@ -381,11 +424,18 @@ function ShiftTemplateModal({
             <label className="text-xs font-semibold text-gray-600 block mb-1">Working Hours / Day</label>
             <input
               type="number"
-              min={1}
+              min={0.5}
               max={24}
               step={0.5}
               value={form.workHoursPerDay}
-              onChange={e => setForm(p => ({ ...p, workHoursPerDay: Math.max(1, Number(e.target.value) || 8) }))}
+              onChange={e => {
+                const newHours = Math.min(24, Math.max(0.5, Number(e.target.value) || 8))
+                // Adjust timeOut to match the new working hours
+                const newTimeOut = form.timeIn
+                  ? computeTimeOut(form.timeIn, newHours, form.breakEnabled ? form.breakMinutes : 0)
+                  : form.timeOut
+                setForm(p => ({ ...p, workHoursPerDay: newHours, timeOut: newTimeOut }))
+              }}
               className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
             />
           </div>
@@ -396,7 +446,12 @@ function ShiftTemplateModal({
               <label className="text-xs font-semibold text-gray-600">Break</label>
               <button
                 type="button"
-                onClick={() => setForm(p => ({ ...p, breakEnabled: !p.breakEnabled }))}
+                onClick={() => setForm(p => {
+                  const newEnabled = !p.breakEnabled
+                  const effectiveBreak = newEnabled ? p.breakMinutes : 0
+                  const newTimeOut = p.timeIn ? computeTimeOut(p.timeIn, p.workHoursPerDay, effectiveBreak) : p.timeOut
+                  return { ...p, breakEnabled: newEnabled, timeOut: newTimeOut }
+                })}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.breakEnabled ? 'bg-[#ff5900]' : 'bg-gray-300'}`}
               >
                 <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
@@ -412,7 +467,9 @@ function ShiftTemplateModal({
                       onChange={e => {
                         const nextHours = Number(e.target.value)
                         const nextMinutes = splitBreakMinutes(form.breakMinutes).minutes
-                        setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
+                        const newBreakMins = combineBreakMinutes(nextHours, nextMinutes)
+                        const newTimeOut = form.timeIn ? computeTimeOut(form.timeIn, form.workHoursPerDay, newBreakMins) : form.timeOut
+                        setForm(p => ({ ...p, breakMinutes: newBreakMins, timeOut: newTimeOut }))
                       }}
                       className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
                     >
@@ -428,7 +485,9 @@ function ShiftTemplateModal({
                       onChange={e => {
                         const nextMinutes = Number(e.target.value)
                         const nextHours = splitBreakMinutes(form.breakMinutes).hours
-                        setForm(p => ({ ...p, breakMinutes: combineBreakMinutes(nextHours, nextMinutes) }))
+                        const newBreakMins = combineBreakMinutes(nextHours, nextMinutes)
+                        const newTimeOut = form.timeIn ? computeTimeOut(form.timeIn, form.workHoursPerDay, newBreakMins) : form.timeOut
+                        setForm(p => ({ ...p, breakMinutes: newBreakMins, timeOut: newTimeOut }))
                       }}
                       className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#ff5900]/30 focus:border-[#ff5900] outline-none"
                     >
