@@ -40,6 +40,8 @@ import { PesoIcon } from '@/components/ui/PesoIcon'
 import { useSidebar } from './SidebarContext'
 import { isFeatureNew } from '@/components/ui/NewFeatureBadge'
 import { TrialCountdownBanner } from './TrialCountdownBanner'
+import { canAccessPath } from '@/lib/auth/page-access'
+import type { Permission } from '@/lib/auth/permissions'
 
 const BRAND = '#021e47'
 
@@ -154,6 +156,12 @@ interface AppSidebarProps {
   isLocal?: boolean
   hrisProEnabled?: boolean
   disbursementEnabled?: boolean
+  /**
+   * Effective permissions for the current user (resolved server-side from
+   * Role Permissions matrix). When provided, the sidebar hides nav links
+   * the user can't access. Empty array = hide everything gated.
+   */
+  permissions?: Permission[]
 }
 
 export function AppSidebar({
@@ -164,6 +172,7 @@ export function AppSidebar({
   isLocal = false,
   hrisProEnabled = true,
   disbursementEnabled = false,
+  permissions = [],
 }: AppSidebarProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -263,9 +272,29 @@ export function AppSidebar({
     })
   }
 
+  // Filter nav items by the user's effective permissions. A parent with
+  // children is kept only if at least one child survives the filter. Top-
+  // level leaves with no children are kept iff the user can access them.
+  // SUPER_ADMIN's `permissions` set already contains every Permission via
+  // getEffectivePermissions, so this is a no-op for them.
+  function filterByPermissions(items: NavItem[]): NavItem[] {
+    return items
+      .map(item => {
+        if (item.children && item.children.length > 0) {
+          const allowedChildren = item.children.filter(c =>
+            canAccessPath(c.href, permissions),
+          )
+          if (allowedChildren.length === 0) return null
+          return { ...item, children: allowedChildren }
+        }
+        return canAccessPath(item.href, permissions) ? item : null
+      })
+      .filter((item): item is NavItem => item !== null)
+  }
+
   const navItems = isSystemAdmin
     ? SYSTEM_ADMIN_NAV_ITEMS
-    : applyNavOverrides(NAV_ITEMS)
+    : filterByPermissions(applyNavOverrides(NAV_ITEMS))
 
   return (
     <aside

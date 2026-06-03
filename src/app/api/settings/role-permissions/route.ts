@@ -45,6 +45,25 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
+  // Lockout protection: COMPANY_ADMIN must retain the permissions that
+  // unlock the Role Permissions matrix itself. Mirrors the safeguard in
+  // getEffectivePermissions() — the loader will re-add them at read time
+  // anyway, but rejecting the save here surfaces clearer feedback to the
+  // admin instead of silently undoing their toggle on next page load.
+  if (role === 'COMPANY_ADMIN') {
+    const required: Permission[] = ['users:manage', 'settings:write', 'settings:read']
+    const missing = required.filter(p => !permissions.includes(p))
+    if (missing.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            `Company Admin cannot have these permissions removed (would lock you out of the matrix): ${missing.join(', ')}`,
+        },
+        { status: 400 },
+      )
+    }
+  }
+
   if (role.startsWith('custom:')) {
     const customRoleId = role.replace('custom:', '')
     await ensureCustomRoleTables()

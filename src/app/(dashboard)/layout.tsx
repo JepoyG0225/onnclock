@@ -13,9 +13,11 @@ import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
 import { SubscriptionExpiryNotice } from '@/components/layout/SubscriptionExpiryNotice'
 import { AdminVirtualTour } from '@/components/onboarding/AdminVirtualTour'
 import { prisma } from '@/lib/prisma'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
+import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
+import { canAccessPath } from '@/lib/auth/page-access'
 
 export default async function DashboardLayout({
   children,
@@ -107,6 +109,18 @@ export default async function DashboardLayout({
   // Disbursement is unlocked for all Pro (and trial) subscribers.
   const disbursementEnabled = hrisProEnabled
 
+  // ── Role-permission enforcement ────────────────────────────────────
+  // Load the effective Permission[] for this user × company (honors the
+  // per-company override saved from the Role Permissions matrix). Then,
+  // if the user navigated directly to a page their role isn't ticked for,
+  // bounce them back to /dashboard. SUPER_ADMIN bypasses inside the
+  // loader, so impersonation is unaffected.
+  const permissions = await getEffectivePermissions(effectiveRole, companyId ?? null)
+  const pathname = (await headers()).get('x-pathname') ?? ''
+  if (pathname && !canAccessPath(pathname, permissions)) {
+    redirect('/dashboard')
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gray-50">
@@ -124,6 +138,7 @@ export default async function DashboardLayout({
           isLocal={process.env.NODE_ENV === 'development'}
           hrisProEnabled={hrisProEnabled}
           disbursementEnabled={disbursementEnabled}
+          permissions={permissions}
         />
         <AppHeader
           user={{ email: session.user.email, name: session.user.name }}
