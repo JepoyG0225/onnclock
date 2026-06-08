@@ -167,6 +167,7 @@ export default async function DashboardLayout({
           userId={session.user.id}
           role={effectiveRole}
           actorRole={session.user.role}
+          permissions={permissions}
         />
       </div>
     </SidebarProvider>

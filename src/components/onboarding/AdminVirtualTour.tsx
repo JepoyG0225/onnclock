@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { canAccessPath } from '@/lib/auth/page-access'
+import type { Permission } from '@/lib/auth/permissions'
 
 type TourStep = {
   title: string
@@ -195,13 +197,6 @@ const DEFAULT_STEPS: TourStep[] = [
   },
 ]
 
-const RESTRICTED_FOR_NON_COMPANY_ADMIN = new Set([
-  '/settings/billing',
-  '/settings/users',
-  '/settings/permissions',
-  '/settings/approvals',
-])
-
 function clickSidebarHref(href: string): boolean {
   const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-tour-item]'))
   const target = nodes.find((el) => el.dataset.tourItem === href)
@@ -223,10 +218,20 @@ export function AdminVirtualTour({
   userId,
   role,
   actorRole,
+  permissions = [],
 }: {
   userId: string
   role: string
   actorRole?: string
+  /**
+   * Effective Permission[] for this user, resolved server-side in the
+   * dashboard layout (honors built-in role override + custom-role
+   * assignment). When provided, the tour skips steps that point to pages
+   * the user can't actually open — so a Payroll Officer never sees the
+   * "All Employees" intro step, an Operations Lead custom role doesn't
+   * see "Reports", etc.
+   */
+  permissions?: Permission[]
 }) {
   const pathname = usePathname()
   const [active, setActive] = useState(false)
@@ -236,11 +241,21 @@ export function AdminVirtualTour({
   const cardRef = useRef<HTMLDivElement | null>(null)
 
   const steps = useMemo(() => {
-    if (role !== 'COMPANY_ADMIN') {
-      return DEFAULT_STEPS.filter((s) => !s.href || !RESTRICTED_FOR_NON_COMPANY_ADMIN.has(s.href))
-    }
-    return DEFAULT_STEPS
-  }, [role])
+    // Tailor the tour to the user's actual access:
+    //   • Keep steps that don't target a route (e.g. the Team Chat step).
+    //   • Drop any step whose href the user can't navigate to under the
+    //     current permission set. This uses the same canAccessPath() used
+    //     by the sidebar filter and the (dashboard) layout route guard,
+    //     so the tour stays consistent with what the user actually sees.
+    // SUPER_ADMIN gets every Permission via getEffectivePermissions, so
+    // they always see the full tour. COMPANY_ADMIN keeps every step
+    // because their permission set is force-granted users:manage /
+    // settings:write / settings:read at the loader layer.
+    return DEFAULT_STEPS.filter((s) => {
+      if (!s.href) return true
+      return canAccessPath(s.href, permissions)
+    })
+  }, [permissions])
 
   useEffect(() => {
     if (!userId) return
