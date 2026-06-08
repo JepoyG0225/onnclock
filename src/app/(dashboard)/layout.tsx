@@ -17,7 +17,7 @@ import { cookies, headers } from 'next/headers'
 import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
-import { canAccessPath } from '@/lib/auth/page-access'
+import { canAccessPath, findFirstAccessiblePath } from '@/lib/auth/page-access'
 import { PermissionsProvider } from '@/components/auth/PermissionsProvider'
 
 export default async function DashboardLayout({
@@ -128,7 +128,11 @@ export default async function DashboardLayout({
   )
   const pathname = (await headers()).get('x-pathname') ?? ''
   if (pathname && !canAccessPath(pathname, permissions)) {
-    redirect('/dashboard')
+    // /dashboard is itself now gated (so narrow custom roles like
+    // "Operations Lead" can hide it). If the redirect target is the
+    // dashboard but the user can't open it either, we'd loop. Pick the
+    // first nav path their permission set actually allows instead.
+    redirect(findFirstAccessiblePath(permissions))
   }
 
   return (

@@ -82,6 +82,15 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
 
   // ── Analytics ───────────────────────────────────────────────────────
   { prefix: '/analytics',           required: ['reports:generate', 'employees:read'] },
+
+  // ── Dashboard ───────────────────────────────────────────────────────
+  // Dashboard surfaces headcount, payroll status, pending approvals, etc.
+  // — all employee-oriented snapshots. A role with no employees:read (e.g.
+  // a narrow custom role like "Operations Lead") gets nothing useful from
+  // it, so we gate it. When a user lacks dashboard access, the layout
+  // redirects them to the first nav path they CAN access (see
+  // findFirstAccessiblePath below).
+  { prefix: '/dashboard',           required: ['employees:read'] },
 ]
 
 // Pre-sort by prefix length (descending) so longer/more-specific prefixes
@@ -107,19 +116,56 @@ export function getRequiredPermissionsForPath(pathname: string): Permission[] {
 
 /**
  * True iff the user (holding `userPermissions`) is allowed to access
- * `pathname`. Returns true for unlisted paths, /dashboard, /admin/*, etc.
+ * `pathname`. Returns true for unlisted paths, /admin/*, /api/*, etc.
+ *
+ * /dashboard is NO LONGER unconditionally allowed — it's gated through
+ * the table above so narrow custom roles can be tailored to only the
+ * pages they're meant to see. Callers that need a safe landing page
+ * when /dashboard is denied should use findFirstAccessiblePath.
  */
 export function canAccessPath(pathname: string, userPermissions: Permission[]): boolean {
   // Always-allow paths that aren't part of the matrix.
-  if (
-    pathname === '/dashboard' ||
-    pathname.startsWith('/dashboard/') ||
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/api')
-  ) {
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api')) {
     return true
   }
   const required = getRequiredPermissionsForPath(pathname)
   if (!required.length) return true
   return required.some(p => userPermissions.includes(p))
+}
+
+/**
+ * Ordered fallback list used to pick a safe landing path when the user
+ * tries to navigate to a page their permissions don't allow (including
+ * the post-login default of /dashboard).
+ *
+ * Order matters — pages are checked top-to-bottom and the first match
+ * wins. We prefer pages with broad visibility (dashboard, then read-only
+ * operational views) over deep settings panes. /settings/profile is the
+ * universal terminator: page-access lists it with no required
+ * permissions, so every authenticated user can reach it.
+ */
+const FALLBACK_LANDING_ORDER: string[] = [
+  '/dashboard',
+  '/leaves',
+  '/dtr',
+  '/payroll',
+  '/announcements',
+  '/employees',
+  '/reports',
+  '/settings',
+  '/settings/profile',
+]
+
+/**
+ * Return the first path in FALLBACK_LANDING_ORDER that the user can
+ * access. /settings/profile is always allowed, so this always returns a
+ * non-null string.
+ */
+export function findFirstAccessiblePath(userPermissions: Permission[]): string {
+  for (const path of FALLBACK_LANDING_ORDER) {
+    if (canAccessPath(path, userPermissions)) return path
+  }
+  // Defensive — should be unreachable because /settings/profile has
+  // empty required permissions, but return it explicitly anyway.
+  return '/settings/profile'
 }
