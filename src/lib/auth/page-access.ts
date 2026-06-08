@@ -29,12 +29,12 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   { prefix: '/departments',         required: ['departments:write', 'employees:read'] },
   { prefix: '/positions',           required: ['departments:write', 'employees:read'] },
   { prefix: '/org-chart',           required: ['employees:read'] },
-  { prefix: '/recruitment',         required: ['employees:write'] },
-  { prefix: '/onboarding',          required: ['employees:write'] },
-  { prefix: '/performance-reviews', required: ['employees:read'] },
-  { prefix: '/offboarding',         required: ['employees:write'] },
-  { prefix: '/disciplinary',        required: ['employees:read'] },
-  { prefix: '/assets',              required: ['employees:read'] },
+  { prefix: '/recruitment',         required: ['employees:write', 'recruitment:manage'] },
+  { prefix: '/onboarding',          required: ['employees:write', 'onboarding:manage'] },
+  { prefix: '/performance-reviews', required: ['employees:read', 'performance:manage'] },
+  { prefix: '/offboarding',         required: ['employees:write', 'offboarding:manage'] },
+  { prefix: '/disciplinary',        required: ['employees:read', 'disciplinary:manage'] },
+  { prefix: '/assets',              required: ['employees:read', 'assets:manage'] },
 
   // ── Time & Attendance ───────────────────────────────────────────────
   { prefix: '/dtr',                 required: ['dtr:read'] },
@@ -56,13 +56,13 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   { prefix: '/payroll',             required: ['payroll:read'] },
   { prefix: '/thirteenth-month',    required: ['payroll:read'] },
   { prefix: '/loans',               required: ['loans:read'] },
-  { prefix: '/cash-advance',        required: ['loans:read'] },
+  { prefix: '/cash-advance',        required: ['loans:read', 'cashadvance:approve'] },
   { prefix: '/final-pay',           required: ['payroll:read'] },
-  { prefix: '/disbursement',        required: ['payroll:read'] },
+  { prefix: '/disbursement',        required: ['payroll:read', 'disbursement:manage'] },
 
   // ── Misc ────────────────────────────────────────────────────────────
-  { prefix: '/budget-requisitions', required: ['payroll:read', 'employees:read'] },
-  { prefix: '/announcements',       required: ['employees:read'] },
+  { prefix: '/budget-requisitions', required: ['payroll:read', 'employees:read', 'budget:read', 'budget:approve'] },
+  { prefix: '/announcements',       required: ['employees:read', 'announcements:write'] },
 
   // ── Reports ─────────────────────────────────────────────────────────
   { prefix: '/reports',             required: ['reports:generate'] },

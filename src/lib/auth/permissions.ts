@@ -21,6 +21,22 @@ export type Permission =
   | 'settings:write'
   | 'users:manage'
   | 'departments:write'
+  // Module-specific keys for finer-grained custom roles. A user only
+  // needs ONE of the alternative permissions listed for a route to
+  // access it — see page-access.ts. Built-in roles still keep the
+  // coarse-grained permissions above, so they're unaffected.
+  | 'announcements:write'
+  | 'performance:manage'
+  | 'recruitment:manage'
+  | 'onboarding:manage'
+  | 'offboarding:manage'
+  | 'disciplinary:manage'
+  | 'assets:manage'
+  | 'budget:read'
+  | 'budget:approve'
+  | 'disbursement:manage'
+  | 'overtime:approve'
+  | 'cashadvance:approve'
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SUPER_ADMIN: [
@@ -131,12 +147,12 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
       { key: 'departments',        label: 'Departments',              permission: 'departments:write' },
       { key: 'positions',          label: 'Positions',                permission: 'departments:write' },
       { key: 'org_chart',          label: 'Org Chart',                permission: 'employees:read' },
-      { key: 'recruitment',        label: 'Recruitment',              permission: 'employees:write' },
-      { key: 'onboarding',         label: 'Onboarding Tracker',       permission: 'employees:write' },
-      { key: 'performance',        label: 'Performance Reviews',      permission: 'employees:read' },
-      { key: 'offboarding',        label: 'Offboarding',              permission: 'employees:write' },
-      { key: 'disciplinary',       label: 'Disciplinary Records',     permission: 'employees:read' },
-      { key: 'assets',             label: 'Assets & Equipment',       permission: 'employees:read' },
+      { key: 'recruitment',        label: 'Recruitment',              permission: 'recruitment:manage' },
+      { key: 'onboarding',         label: 'Onboarding Tracker',       permission: 'onboarding:manage' },
+      { key: 'performance',        label: 'Performance Reviews',      permission: 'performance:manage' },
+      { key: 'offboarding',        label: 'Offboarding',              permission: 'offboarding:manage' },
+      { key: 'disciplinary',       label: 'Disciplinary Records',     permission: 'disciplinary:manage' },
+      { key: 'assets',             label: 'Assets & Equipment',       permission: 'assets:manage' },
     ],
   },
   {
@@ -175,16 +191,16 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
       { key: 'thirteenth',         label: '13th Month Pay',           permission: 'payroll:read' },
       { key: 'loans',              label: 'View Loans',               permission: 'loans:read' },
       { key: 'loans_write',        label: 'Create / Edit Loans',      permission: 'loans:write' },
-      { key: 'cash_advance',       label: 'Cash Advance',             permission: 'loans:read' },
+      { key: 'cash_advance',       label: 'Cash Advance',             permission: 'cashadvance:approve' },
       { key: 'final_pay',          label: 'Final Pay',                permission: 'payroll:write' },
-      { key: 'disbursement',       label: 'Payroll Disbursement',     permission: 'payroll:write' },
+      { key: 'disbursement',       label: 'Payroll Disbursement',     permission: 'disbursement:manage' },
     ],
   },
   {
     group: 'Budget & Communication',
     pages: [
-      { key: 'budget_requisitions',label: 'Budget Requisitions',      permission: 'payroll:read' },
-      { key: 'announcements',      label: 'Announcements',            permission: 'employees:read' },
+      { key: 'budget_requisitions',label: 'Budget Requisitions',      permission: 'budget:read' },
+      { key: 'announcements',      label: 'Announcements',            permission: 'announcements:write' },
     ],
   },
   {
