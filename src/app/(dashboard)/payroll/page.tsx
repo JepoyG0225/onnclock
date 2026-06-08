@@ -10,6 +10,7 @@ import { Plus, Settings } from 'lucide-react'
 import { peso, formatDate, getStatusColor } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollRunRowActions from '@/components/payroll/PayrollRunRowActions'
+import { PayrollRunViewButton } from '@/components/payroll/PayrollRunViewButton'
 
 export default async function PayrollPage() {
   const session = await auth()
@@ -122,9 +123,7 @@ export default async function PayrollPage() {
                       <td className="p-4 text-right font-bold text-green-700">{peso(run.totalNetPay.toNumber())}</td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <Link href={`/payroll/${run.id}`}>
-                            <Button variant="ghost" size="sm" className="text-[#032b63] hover:text-white">View</Button>
-                          </Link>
+                          <PayrollRunViewButton runId={run.id} />
                           <PayrollRunRowActions runId={run.id} status={run.status} />
                         </div>
                       </td>
