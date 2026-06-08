@@ -196,6 +196,37 @@ export async function approveAutoOtForDtr(params: {
 }
 
 /**
+ * Approve a hand-picked set of PENDING auto-OT requests by id.
+ *
+ * Used by the timesheet-approval modal once the admin has ticked which
+ * specific OT rows to approve. We still scope by companyId so a payload
+ * carrying ids from another tenant can't sneak through, and we keep the
+ * AUTO_OT_REASON_PREFIX filter so manually-filed OT requests stay
+ * untouched by this bulk path (they go through their own approval flow).
+ */
+export async function approveAutoOtByIds(params: {
+  companyId: string
+  ids: string[]
+  approvedById: string
+}): Promise<number> {
+  if (params.ids.length === 0) return 0
+  const result = await prisma.overtimeRequest.updateMany({
+    where: {
+      id: { in: params.ids },
+      companyId: params.companyId,
+      status: 'PENDING',
+      reason: { startsWith: AUTO_OT_REASON_PREFIX },
+    },
+    data: {
+      status: 'APPROVED',
+      approvedById: params.approvedById,
+      approvedAt: new Date(),
+    },
+  })
+  return result.count
+}
+
+/**
  * Bulk-approve PENDING auto-OT requests for a company across a date range.
  * Optionally restrict to a single employee (used by weekly-approve).
  */
