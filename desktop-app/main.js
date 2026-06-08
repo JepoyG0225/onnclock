@@ -77,6 +77,41 @@ function isAdminAppBuild() {
     appName.includes('admin') ||
     argv.includes('--admin-app') ||
     envFlag === '1' ||
+    envFlag === 'true' ||
+    // System-Admin builds are a subtype of admin — every admin-specific
+    // branch (auth gate, no clock-in tray, no screen capture, etc.)
+    // applies there too. The dedicated isSystemAdminAppBuild() check
+    // below adds the SUPER_ADMIN-only role restriction and the
+    // /admin/login start URL.
+    isSystemAdminAppBuild()
+  )
+}
+
+/**
+ * True for the SUPER_ADMIN-only build of the desktop app.
+ *
+ * Detected by:
+ *   • Product / app name containing "system admin" (set in
+ *     builder.sysadmin.json).
+ *   • --sysadmin-app CLI flag, used during local dev (`electron .
+ *     --sysadmin-app`).
+ *   • ONCLOCK_SYSADMIN_APP=1 env var.
+ *
+ * When this returns true:
+ *   • The window loads /admin/login (the SUPER_ADMIN login form) rather
+ *     than /login (the company-staff form).
+ *   • A successful sign-in is rejected unless the user's role is
+ *     SUPER_ADMIN (other admin tiers can sign in to the regular Admin
+ *     Desktop app — they don't need this build).
+ */
+function isSystemAdminAppBuild() {
+  const appName = String(app.getName() || '').toLowerCase()
+  const argv = Array.isArray(process.argv) ? process.argv.map(v => String(v).toLowerCase()) : []
+  const envFlag = String(process.env.ONCLOCK_SYSADMIN_APP || '').toLowerCase()
+  return (
+    (appName.includes('system') && appName.includes('admin')) ||
+    argv.includes('--sysadmin-app') ||
+    envFlag === '1' ||
     envFlag === 'true'
   )
 }
@@ -123,6 +158,11 @@ function getPortalUrl() {
 }
 
 function getAdminAppUrl() {
+  // System-Admin builds open the SUPER_ADMIN sign-in flow directly;
+  // company-staff Admin Desktop builds go to the standard /login page.
+  if (isSystemAdminAppBuild()) {
+    return `${getServerUrl()}/admin/login`
+  }
   return `${getServerUrl()}/login`
 }
 
@@ -915,6 +955,7 @@ function getStatusPayload() {
     role,
     isAdminRole: ADMIN_ROLES.has(role),
     isAdminBuild: isAdminAppBuild(),
+    isSystemAdminBuild: isSystemAdminAppBuild(),
     screenCaptureEnabled: store.get('screenCaptureEnabled', false),
     frequencyMinutes: store.get('frequencyMinutes', 5),
   }
@@ -1045,6 +1086,12 @@ async function handleLogin({ email, password }) {
       return { ok: false, error: res.data?.error ?? 'Login failed' }
     }
     const { token, user, screenCapture } = res.data
+    // System-Admin build is more restrictive: only the platform-level
+    // SUPER_ADMIN role can sign in here. All other admin-tier users
+    // belong on the regular Admin Desktop app.
+    if (isSystemAdminAppBuild() && user.role !== 'SUPER_ADMIN') {
+      return { ok: false, error: 'This desktop app is for OnClock System Administrators only.' }
+    }
     if (isAdminAppBuild() && !ADMIN_ROLES.has(user.role)) {
       return { ok: false, error: 'This desktop app is for admin accounts only.' }
     }

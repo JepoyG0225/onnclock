@@ -1,0 +1,60 @@
+{
+  "appId": "com.onclock.sysadmin.desktop",
+  "productName": "OnClock System Admin",
+  "artifactName": "OnClock-System-Admin-${version}-${os}-${arch}.${ext}",
+  "copyright": "Copyright © 2026 OnClock PH",
+  "win": {
+    "publisherName": "OnClock PH",
+    "certificateSubjectName": "OnClock System Admin Desktop Self Signed",
+    "icon": "assets/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "mac": {
+    "icon": "assets/icon.icns",
+    "category": "public.app-category.business",
+    "identity": "Jeffrey Gealon (826TQNNT37)",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "entitlements.mac.plist",
+    "entitlementsInherit": "entitlements.mac.plist",
+    "notarize": {
+      "teamId": "826TQNNT37"
+    },
+    "target": [
+      { "target": "dmg", "arch": ["x64", "arm64"] },
+      { "target": "zip", "arch": ["x64", "arm64"] }
+    ],
+    "extendInfo": {
+      "LSUIElement": false,
+      "NSLocationWhenInUseUsageDescription": "OnClock requires location access for diagnostic and platform-administration features."
+    }
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "OnClock System Admin",
+    "installerIcon": "assets/icon.ico",
+    "uninstallerIcon": "assets/icon.ico",
+    "installerHeaderIcon": "assets/icon.ico"
+  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "renderer/**/*",
+    "assets/**/*",
+    "node_modules/**/*"
+  ],
+  "extraResources": [],
+  "publish": null,
+  "extraMetadata": {
+    "name": "onclock-sysadmin-desktop",
+    "description": "OnClock System Admin desktop app for platform-level administration of companies, subscriptions, and payments"
+  }
+}
