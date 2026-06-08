@@ -151,13 +151,13 @@ export default function NewLeavePage() {
   }
 
   return (
-    <div className="p-6 max-w-xl">
+    <div className="px-4 py-6 sm:p-6 max-w-xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/portal/leaves" className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">File a Leave</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">File a Leave</h1>
           <p className="text-gray-500 text-sm">Submit a leave request for approval</p>
         </div>
       </div>
@@ -186,7 +186,7 @@ export default function NewLeavePage() {
         </div>
 
         {/* Date Range */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>
             <DatePicker
@@ -231,7 +231,7 @@ export default function NewLeavePage() {
               <span className="text-sm font-medium text-gray-700">Half-day leave (0.5 day)</span>
             </label>
             {isHalfDay && (
-              <div className="flex gap-2 pl-6">
+              <div className="flex flex-wrap gap-2 pl-6">
                 {(['AM', 'PM'] as const).map(period => (
                   <button
                     key={period}

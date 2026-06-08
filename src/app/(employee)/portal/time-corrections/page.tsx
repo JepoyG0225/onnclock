@@ -256,7 +256,7 @@ export default function TimeCorrectionPortalPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {entryMode === 'pick' && (
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Time Entry Record *</label>

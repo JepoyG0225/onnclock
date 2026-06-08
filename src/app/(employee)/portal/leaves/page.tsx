@@ -76,14 +76,14 @@ export default function LeavesPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Leaves</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Leaves</h1>
           <p className="text-gray-500 text-sm mt-1">Balances and requests</p>
         </div>
         <Link
           href="/portal/leaves/new"
-          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="inline-flex items-center justify-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
           style={{ background: '#ff5900' }}
         >
           <Plus className="w-4 h-4" /> File Leave
@@ -208,7 +208,7 @@ export default function LeavesPage() {
                   {statusBadge(req.status)}
                 </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div className="rounded-lg bg-gray-50 px-2 py-2">
                     <p className="text-[10px] text-gray-400">Days</p>
                     <p className="text-sm font-semibold text-gray-900">{req.totalDays}d</p>

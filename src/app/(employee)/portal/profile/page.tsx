@@ -354,7 +354,7 @@ export default function ProfilePage() {
               </button>
             </div>
             {editingPersonal ? (
-              <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-3">
                 <div>
                   <Label>First Name</Label>
                   <Input value={personalForm.firstName} onChange={e => setPersonalForm(f => ({ ...f, firstName: e.target.value }))} />
@@ -426,7 +426,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-3">
                 <InfoRow label="Gender" value={profile.gender} />
                 <InfoRow label="Civil Status" value={profile.civilStatus} />
                 <InfoRow label="Nationality" value={profile.nationality} />
@@ -491,7 +491,7 @@ export default function ProfilePage() {
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
               <Briefcase className="w-4 h-4" /> Employment Details
             </h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <InfoRow label="Status" value={profile.employmentStatus?.replace('_', ' ')} />
               <InfoRow label="Type" value={profile.employmentType?.replace('_', ' ')} />
               <InfoRow label="Pay Frequency" value={profile.payFrequency?.replace('_', ' ')} />
@@ -515,7 +515,7 @@ export default function ProfilePage() {
               </button>
             </div>
             {editingGov ? (
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
                   <Label>SSS No.</Label>
                   <Input value={govForm.sssNo} onChange={e => setGovForm(f => ({ ...f, sssNo: e.target.value }))} />
@@ -551,7 +551,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <InfoRow label="SSS No." value={mask(profile.sssNo)} />
                 <InfoRow label="PhilHealth No." value={mask(profile.philhealthNo)} />
                 <InfoRow label="Pag-IBIG No." value={mask(profile.pagibigNo)} />
@@ -566,7 +566,7 @@ export default function ProfilePage() {
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
                 <Building className="w-4 h-4" /> Bank Information
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <InfoRow label="Bank" value={profile.bankName} />
                 <InfoRow label="Account No." value={mask(profile.bankAccountNo)} />
               </div>

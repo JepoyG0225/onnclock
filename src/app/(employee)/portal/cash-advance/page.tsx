@@ -187,13 +187,13 @@ export default function PortalCashAdvancePage() {
 
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Repay Over</label>
-            <div className="inline-flex rounded-lg border overflow-hidden">
+            <div className="grid grid-cols-3 rounded-lg border overflow-hidden">
               {[1, 2, 3].map(m => (
                 <button
                   type="button"
                   key={m}
                   onClick={() => setForm(f => ({ ...f, repaymentMonths: m }))}
-                  className={`px-4 py-1.5 text-sm transition-colors ${
+                  className={`px-2 py-1.5 text-sm transition-colors ${
                     form.repaymentMonths === m ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -212,7 +212,14 @@ export default function PortalCashAdvancePage() {
             <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{errorMsg}</div>
           )}
 
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setErrorMsg(null) }}
+              className="px-4 py-2 rounded-lg text-sm font-medium border bg-white text-gray-700"
+            >
+              Cancel
+            </button>
             <button
               type="button"
               onClick={submit}
@@ -221,13 +228,6 @@ export default function PortalCashAdvancePage() {
               style={{ background: '#ff5900' }}
             >
               {submitting ? 'Submitting...' : 'Submit Request'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowForm(false); setErrorMsg(null) }}
-              className="px-4 py-2 rounded-lg text-sm font-medium border bg-white text-gray-700"
-            >
-              Cancel
             </button>
           </div>
         </div>

@@ -123,7 +123,10 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
+      {/* Stats: 2 cols on phones, 3 on small tablets, 5 on desktop. 5 cards
+          side-by-side at 375px wide would render each cell ≈70px which is
+          too cramped for the numeric values. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
         {[
           { label: 'Days Present', value: totals.present, color: 'text-[#032b63]' },
           { label: 'Days Absent', value: totals.absent, color: 'text-red-600' },
@@ -132,10 +135,10 @@ export default function AttendancePage() {
           { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-[#021e47]' },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-            <p className={`text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#032b63' } : undefined}>
+            <p className={`text-lg sm:text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#032b63' } : undefined}>
               {s.value}
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">{s.label}</p>
           </div>
         ))}
       </div>

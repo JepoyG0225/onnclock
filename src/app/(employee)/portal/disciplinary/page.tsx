@@ -182,7 +182,7 @@ export default function PortalDisciplinaryPage() {
                     </div>
 
                     {/* Dates */}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-500">
                       <div>
                         <span className="font-medium text-gray-600 block">Date of Incident</span>
                         {format(new Date(r.dateOfIncident), 'MMM d, yyyy')}

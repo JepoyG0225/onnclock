@@ -1089,7 +1089,7 @@ export default function ClockPage() {
       <div className="flex flex-col items-center gap-3">
         {loading && !record ? (
           <div
-            className="w-40 h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
+            className="w-36 h-36 sm:w-40 sm:h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
             style={{ background: 'rgba(46,65,86,0.12)', color: '#021e47' }}
           >
             <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#032b63' }} />
@@ -1100,7 +1100,7 @@ export default function ClockPage() {
           <button
             onClick={handleClockIn}
             disabled={actionLoading || loading || geofenceActionBlocked || screenCaptureBlocked || desktopRequired || !scheduleReady}
-            className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
+            className={`w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
               background: '#021e47',
               boxShadow: '0 0 0 10px rgba(46,65,86,0.2), 0 10px 24px rgba(0,0,0,0.18)',
@@ -1115,7 +1115,7 @@ export default function ClockPage() {
             <button
               onClick={handleBreakStart}
               disabled={actionLoading || loading || geofenceActionBlocked || desktopRequired}
-              className="w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: '#d97706',
                 boxShadow: '0 0 0 10px rgba(217,119,6,0.15), 0 10px 24px rgba(0,0,0,0.18)',
@@ -1137,7 +1137,7 @@ export default function ClockPage() {
           <button
             onClick={handleClockOut}
             disabled={actionLoading || loading || geofenceActionBlocked || desktopRequired}
-            className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'out' ? 'clock-pulse' : ''}`}
+            className={`w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'out' ? 'clock-pulse' : ''}`}
             style={{
               background: '#ef4444',
               boxShadow: '0 0 0 10px rgba(239,68,68,0.15), 0 10px 24px rgba(0,0,0,0.18)',
@@ -1151,7 +1151,7 @@ export default function ClockPage() {
           <button
             onClick={handleBreakEnd}
             disabled={actionLoading || loading}
-            className="w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: isOverBreak ? '#ef4444' : '#16a34a',
               boxShadow: isOverBreak
@@ -1167,7 +1167,7 @@ export default function ClockPage() {
           <button
             onClick={handleClockOut}
             disabled={actionLoading || loading || geofenceActionBlocked || desktopRequired}
-            className={`w-40 h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'out' ? 'clock-pulse' : ''}`}
+            className={`w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'out' ? 'clock-pulse' : ''}`}
             style={{
               background: '#ef4444',
               boxShadow: '0 0 0 10px rgba(239,68,68,0.15), 0 10px 24px rgba(0,0,0,0.18)',
