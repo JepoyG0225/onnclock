@@ -41,7 +41,12 @@ export function PayrollWorkflowStepper({ status }: { status: string }) {
   const currentIdx = STATUS_ORDER[status] ?? 0
 
   return (
-    <ol className="flex items-center gap-1 sm:gap-2 overflow-x-auto py-1">
+    // Stepper now spans the available width so the connectors visually
+    // chain the steps across the full header instead of bunching them
+    // on the left. Each step keeps a fixed-width content cluster (dot +
+    // label) and the connector between steps absorbs the leftover space
+    // via flex-1 — that way labels stay legible while the line grows.
+    <ol className="flex items-center w-full py-1">
       {STEPS.map((step, idx) => {
         const isComplete = idx < currentIdx
         const isCurrent  = idx === currentIdx
@@ -58,15 +63,14 @@ export function PayrollWorkflowStepper({ status }: { status: string }) {
             ? 'text-slate-600'
             : 'text-slate-400'
 
-        const connectorClass = idx < STEPS.length - 1
-          ? isComplete
-            ? 'bg-emerald-400'
-            : 'bg-slate-200'
-          : ''
+        const connectorClass = isComplete ? 'bg-emerald-400' : 'bg-slate-200'
 
         return (
-          <li key={step.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <div className="flex items-center gap-1.5">
+          <li
+            key={step.key}
+            className={`flex items-center ${idx < STEPS.length - 1 ? 'flex-1' : ''}`}
+          >
+            <div className="flex items-center gap-1.5 shrink-0">
               <span
                 aria-current={isCurrent ? 'step' : undefined}
                 className={`inline-flex items-center justify-center w-5 h-5 rounded-full border-2 text-[10px] font-bold transition-colors ${dotClass}`}
@@ -76,7 +80,7 @@ export function PayrollWorkflowStepper({ status }: { status: string }) {
               <span className={`text-xs whitespace-nowrap ${labelClass}`}>{step.label}</span>
             </div>
             {idx < STEPS.length - 1 && (
-              <span className={`hidden sm:block h-0.5 w-6 rounded ${connectorClass}`} />
+              <span className={`hidden sm:block flex-1 h-0.5 mx-2 rounded ${connectorClass}`} />
             )}
           </li>
         )
