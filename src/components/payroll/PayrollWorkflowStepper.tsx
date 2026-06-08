@@ -49,11 +49,11 @@ export function PayrollWorkflowStepper({ status }: { status: string }) {
         const dotClass = isComplete
           ? 'bg-emerald-500 text-white border-emerald-500'
           : isCurrent
-            ? 'bg-[#021e47] text-white border-[#021e47] ring-4 ring-[#021e47]/15'
+            ? 'bg-[#ff5900] text-white border-[#ff5900] ring-4 ring-[#ff5900]/15'
             : 'bg-white text-slate-400 border-slate-300'
 
         const labelClass = isCurrent
-          ? 'text-[#021e47] font-semibold'
+          ? 'text-[#ff5900] font-semibold'
           : isComplete
             ? 'text-slate-600'
             : 'text-slate-400'
