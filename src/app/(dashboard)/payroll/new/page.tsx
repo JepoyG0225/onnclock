@@ -52,6 +52,21 @@ export default function NewPayrollRunPage() {
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
   const [empSearch, setEmpSearch] = useState('')
 
+  // Unapproved-timesheet guard modal. Populated when the API rejects
+  // a create with code: 'UNAPPROVED_DTRS' so we can let the admin
+  // either fix the timesheets first or knowingly proceed.
+  type UnapprovedEmployee = {
+    id: string
+    employeeNo: string
+    firstName: string
+    lastName: string
+    unapprovedCount: number
+  }
+  const [unapprovedGuard, setUnapprovedGuard] = useState<{
+    employees: UnapprovedEmployee[]
+    totalRows: number
+  } | null>(null)
+
   useEffect(() => {
     let active = true
     async function loadDefaults() {
@@ -178,6 +193,13 @@ export default function NewPayrollRunPage() {
       return
     }
 
+    await createRun(false)
+  }
+
+  // Shared submit path so both the initial form submit AND the
+  // "Create anyway" button in the unapproved-DTR modal hit the same
+  // payload. `force` only differs on the second pass.
+  async function createRun(force: boolean) {
     setSaving(true)
     try {
       const payload = {
@@ -186,6 +208,7 @@ export default function NewPayrollRunPage() {
         employeeScopeMode: scopeMode,
         employmentTypeFilter: scopeMode === 'EMPLOYMENT_TYPE' ? employmentTypeFilter : [],
         employeeIds: scopeMode === 'CUSTOM' ? Array.from(employeeIds) : [],
+        force,
       }
       const res = await fetch('/api/payroll', {
         method: 'POST',
@@ -194,12 +217,22 @@ export default function NewPayrollRunPage() {
       })
 
       if (!res.ok) {
-        const err = await res.json()
+        const err = await res.json().catch(() => ({}))
+        // Special-case the unapproved-DTR guard so we render a list
+        // of offending employees instead of a generic toast.
+        if (res.status === 422 && err?.code === 'UNAPPROVED_DTRS') {
+          setUnapprovedGuard({
+            employees: err.unapprovedEmployees ?? [],
+            totalRows: Number(err.totalUnapprovedRows ?? 0),
+          })
+          return
+        }
         toast.error(err.error || 'Failed to create payroll run')
         return
       }
 
       const { run } = await res.json()
+      setUnapprovedGuard(null)
       toast.success('Payroll run created!')
       router.push(`/payroll/${run.id}`)
     } catch {
@@ -438,6 +471,84 @@ export default function NewPayrollRunPage() {
           </Button>
         </div>
       </form>
+
+      {/* ── Unapproved-DTR confirmation modal ─────────────────────────────
+          Surfaces when /api/payroll POST rejects with
+          code: 'UNAPPROVED_DTRS'. Lists every in-scope employee with
+          pending timesheets in the period + a count, and gives the admin
+          two paths: go back and approve them first, or knowingly proceed
+          (resubmits the same payload with force: true). */}
+      {unapprovedGuard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => !saving && setUnapprovedGuard(null)}
+          />
+          <Card className="relative w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-base text-amber-700 flex items-center gap-2">
+                <span className="inline-flex w-7 h-7 rounded-full bg-amber-100 items-center justify-center text-amber-700 text-sm">!</span>
+                Unapproved timesheets in this period
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 overflow-y-auto">
+              <p className="text-sm text-slate-700">
+                <strong>{unapprovedGuard.employees.length}</strong>{' '}
+                {unapprovedGuard.employees.length === 1 ? 'employee has' : 'employees have'}{' '}
+                a total of <strong>{unapprovedGuard.totalRows}</strong> unapproved DTR row{unapprovedGuard.totalRows !== 1 ? 's' : ''} between{' '}
+                <strong>{formData.periodStart}</strong> and{' '}
+                <strong>{formData.periodEnd}</strong>. Their hours will not be
+                included accurately in payroll until each row is approved.
+              </p>
+              <ul className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden bg-white max-h-72 overflow-y-auto">
+                {unapprovedGuard.employees.map(emp => (
+                  <li key={emp.id} className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-slate-50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {emp.lastName}, {emp.firstName}
+                      </p>
+                      <p className="text-xs text-slate-500 font-mono">#{emp.employeeNo}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-amber-700 whitespace-nowrap">
+                      {emp.unapprovedCount} pending
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-500">
+                <strong>Recommended:</strong> open Time Sheets, approve the
+                pending rows, then come back and create the run. Proceeding
+                anyway will compute payroll using whatever is currently
+                stored — pending rows are included as-is, rejected ones are
+                excluded.
+              </p>
+            </CardContent>
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setUnapprovedGuard(null)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dtr')}
+                disabled={saving}
+              >
+                Go to Time Sheets
+              </Button>
+              <Button
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+                onClick={() => createRun(true)}
+                disabled={saving}
+              >
+                {saving ? 'Creating…' : 'Create anyway'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

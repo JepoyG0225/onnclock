@@ -7,6 +7,11 @@ import { z } from 'zod'
 const createRunSchema = z.object({
   periodStart: z.string(),
   periodEnd: z.string(),
+  // When true, skip the "any unapproved timesheets in scope?" guard.
+  // Set by the New Run UI after the admin acknowledges the warning
+  // modal listing the offending employees. Defaults to false so a
+  // careless POST can't silently bypass the safety net.
+  force: z.boolean().optional(),
   payFrequency: z.enum(['SEMI_MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY']).optional(),
   payDate: z.string(),
   notes: z.string().optional(),
@@ -169,6 +174,79 @@ export async function POST(req: NextRequest) {
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || Number.isNaN(payout.getTime())) {
       return NextResponse.json({ error: 'Invalid period or pay date' }, { status: 422 })
+    }
+
+    // ── Unapproved-timesheet guard ───────────────────────────────────
+    // Block (and surface) any in-scope employees with trackTime=true
+    // who still have unapproved DTRs inside [periodStart, periodEnd].
+    // The admin can override by retrying with `force: true` after
+    // acknowledging the modal that lists the affected rows.
+    //
+    // `trackTime=false` employees are intentionally excluded — they
+    // don't generate DTRs in the first place (executives, contractors
+    // on flat rates, etc.) so unapproved counts would always be 0.
+    if (!parsed.data.force) {
+      const endPlus = new Date(end)
+      endPlus.setDate(endPlus.getDate() + 1)
+
+      // Resolve which trackTime employees fall in scope without
+      // duplicating the run-creation filter logic — same predicate.
+      const employeeScope: Record<string, unknown> = {
+        companyId: ctx.companyId,
+        isActive: true,
+        trackTime: true,
+      }
+      if (scopeMode === 'EMPLOYMENT_TYPE') {
+        employeeScope.employmentType = { in: employmentTypeFilter }
+      } else if (scopeMode === 'CUSTOM') {
+        employeeScope.id = { in: employeeIds }
+      }
+
+      const scopedEmployees = await prisma.employee.findMany({
+        where: employeeScope,
+        select: { id: true, firstName: true, lastName: true, employeeNo: true },
+      })
+
+      if (scopedEmployees.length > 0) {
+        const ids = scopedEmployees.map(e => e.id)
+        const unapproved = await prisma.dTRRecord.groupBy({
+          by: ['employeeId'],
+          where: {
+            employeeId: { in: ids },
+            date: { gte: start, lt: endPlus },
+            approvedBy: null,
+            OR: [{ remarks: null }, { remarks: { not: 'REJECTED' } }],
+          },
+          _count: { _all: true },
+        })
+
+        if (unapproved.length > 0) {
+          const byEmp = new Map(unapproved.map(r => [r.employeeId, r._count._all]))
+          const offenders = scopedEmployees
+            .filter(e => byEmp.has(e.id))
+            .map(e => ({
+              id: e.id,
+              employeeNo: e.employeeNo,
+              firstName: e.firstName,
+              lastName: e.lastName,
+              unapprovedCount: byEmp.get(e.id) ?? 0,
+            }))
+            .sort((a, b) => b.unapprovedCount - a.unapprovedCount)
+
+          const total = offenders.reduce((s, o) => s + o.unapprovedCount, 0)
+          return NextResponse.json(
+            {
+              error: `${offenders.length} employee${offenders.length !== 1 ? 's' : ''} still ${
+                offenders.length !== 1 ? 'have' : 'has'
+              } unapproved timesheets in this period (${total} row${total !== 1 ? 's' : ''} total). Approve them in Time Sheets first or proceed anyway.`,
+              code: 'UNAPPROVED_DTRS',
+              unapprovedEmployees: offenders,
+              totalUnapprovedRows: total,
+            },
+            { status: 422 }
+          )
+        }
+      }
     }
 
     if (payFrequency === 'SEMI_MONTHLY' && companyCycle) {
