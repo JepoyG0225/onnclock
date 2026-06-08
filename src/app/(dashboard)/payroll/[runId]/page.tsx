@@ -11,6 +11,7 @@ import { PayrollRunPayslips } from '@/components/payroll/PayrollRunPayslips'
 import { PayrollPayslipsLoader } from '@/components/payroll/PayrollPayslipsLoader'
 import { PayrollWorkflowStepper } from '@/components/payroll/PayrollWorkflowStepper'
 import { formatDate, getStatusColor, formatCurrency } from '@/lib/utils'
+import { resolveWorkflow, buildPlan, authorizeAdvance } from '@/lib/approvals/engine'
 import {Users, TrendingDown, AlertTriangle, Clock3, ClipboardCheck} from 'lucide-react'
 import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
@@ -31,20 +32,50 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
   const currency = company?.payrollCurrency ?? 'PHP'
   const peso = (n: number | { toNumber: () => number }) => formatCurrency(typeof n === 'number' ? n : n.toNumber(), currency)
 
-  const approvers = await prisma.approverConfig.findMany({
-    where: { companyId, type: 'PAYROLL' },
-    orderBy: { level: 'asc' },
-  })
-  const approverByLevel = new Map(approvers.map(a => [a.level, a.userId]))
-  const userApproverLevel = approvers.find(a => a.userId === session.user.id)?.level ?? null
-  const nextLevel = (run.approvalLevel ?? 0) + 1
-  const expectedUserId = approverByLevel.get(nextLevel)
-  const canApprove = !!expectedUserId && expectedUserId === session.user.id
-  const approveDisabledReason = !expectedUserId
-    ? `No approver configured for level ${nextLevel}`
-    : userApproverLevel && userApproverLevel > nextLevel
-      ? `Waiting for level ${nextLevel} approval`
-      : 'Not authorized for this approval level'
+  // Compute canApprove via the same path the POST handler uses
+  // (src/app/api/payroll/[runId]/approve/route.ts) so the button's
+  // enabled state never disagrees with what the API will actually do.
+  // Prefer the configurable Workflow Builder workflow; fall back to the
+  // legacy ApproverConfig chain only when no PAYROLL workflow exists.
+  const workflow = await resolveWorkflow({ companyId, type: 'PAYROLL', departmentId: null })
+  const currentLevel = run.approvalLevel ?? 0
+  const nextLevel = currentLevel + 1
+
+  let canApprove = false
+  let approveDisabledReason = 'Not authorized for this approval level'
+  if (workflow) {
+    const plan = buildPlan(workflow, { totalGross: Number(run.totalGross) })
+    if (plan.approvalSteps.length === 0) {
+      // Workflow exists but has no approval gate (e.g. notify-only) —
+      // any role-passing user can finalize. Match POST handler.
+      canApprove = true
+    } else {
+      const adv = await authorizeAdvance({
+        plan,
+        currentLevel,
+        actorUserId: session.user.id,
+        requesterDepartmentId: null,
+      })
+      canApprove = adv.authorized
+      if (!canApprove && !adv.currentStep) {
+        approveDisabledReason = `No approver configured for level ${nextLevel}`
+      }
+    }
+  } else {
+    const approvers = await prisma.approverConfig.findMany({
+      where: { companyId, type: 'PAYROLL' },
+      orderBy: { level: 'asc' },
+    })
+    const approverByLevel = new Map(approvers.map(a => [a.level, a.userId]))
+    const userApproverLevel = approvers.find(a => a.userId === session.user.id)?.level ?? null
+    const expectedUserId = approverByLevel.get(nextLevel)
+    canApprove = !!expectedUserId && expectedUserId === session.user.id
+    if (!expectedUserId) {
+      approveDisabledReason = `No approver configured for level ${nextLevel}`
+    } else if (userApproverLevel && userApproverLevel > nextLevel) {
+      approveDisabledReason = `Waiting for level ${nextLevel} approval`
+    }
+  }
 
   const holidaysInPeriod = await prisma.holiday.findMany({
     where: {
