@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
@@ -7,7 +8,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  if (!['COMPANY_ADMIN', 'SUPER_ADMIN'].includes(ctx.role)) {
+  // Gate by the payroll:lock permission so the Role Permissions matrix applies
+  // (admins always pass). Previously this hardcoded COMPANY_ADMIN/SUPER_ADMIN,
+  // which ignored any lock permission granted to other roles.
+  if (!(await ctxHasPermission(ctx, 'payroll:lock'))) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 

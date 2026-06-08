@@ -87,7 +87,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   ]
   const earningsRows: Array<[string, number]> = earnings.filter(([, v]) => v > 0)
 
-  const deductions = [
+  // Itemize "Other Deductions" from the employee's deduction setup, but only
+  // when those items reconcile with the payslip's stored total (so the
+  // breakdown can never disagree with what was actually deducted). Otherwise
+  // show the single total line. Guarded so a missing table can't break the PDF.
+  const otherDedTotal = payslip.otherDeductions.toNumber()
+  let otherDedItems: { label: string; amount: number }[] = []
+  try {
+    const rows = await prisma.employeeOtherDeduction.findMany({
+      where: { employeeId: payslip.employeeId, isActive: true },
+      select: { label: true, amount: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    otherDedItems = rows.map(r => ({ label: r.label, amount: Number(r.amount) }))
+  } catch { otherDedItems = [] }
+  const itemsSum = otherDedItems.reduce((s, d) => s + d.amount, 0)
+  const useItems = otherDedItems.length > 0 && Math.abs(itemsSum - otherDedTotal) < 0.01
+  const otherDedLines: Array<[string, number]> = useItems
+    ? otherDedItems.filter(d => d.amount > 0).map(d => [(d.label || 'Other Deduction').trim(), d.amount] as [string, number])
+    : (otherDedTotal > 0 ? [['Other Deductions', otherDedTotal] as [string, number]] : [])
+
+  const deductions: Array<[string, number]> = [
     ['SSS (Employee Share)', payslip.sssEmployee.toNumber()],
     ['PhilHealth (Employee)', payslip.philhealthEmployee.toNumber()],
     ['Pag-IBIG (Employee)', payslip.pagibigEmployee.toNumber()],
@@ -95,11 +115,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     ['Late/Undertime', payslip.lateDeduction.toNumber() + payslip.undertimeDeduction.toNumber()],
     ['Absences', payslip.absenceDeduction.toNumber()],
     ['Loan Amortizations', loanDeductionsTotal],
-    ['Other Deductions', payslip.otherDeductions.toNumber()],
-  ] as const
-  const deductionRows: Array<[string, number]> = deductions
-    .filter(([, v]) => v > 0)
-    .map(([label, value]) => [label, value])
+    ...otherDedLines,
+  ]
+  const deductionRows: Array<[string, number]> = deductions.filter(([, v]) => v > 0)
 
   try {
     const pdf = await PDFDocument.create()

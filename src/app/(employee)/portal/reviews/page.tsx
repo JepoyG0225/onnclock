@@ -47,15 +47,6 @@ interface ReviewDetail extends ReviewSummary {
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const COMPETENCIES = [
-  { key: 'jobKnowledge',   label: 'Job Knowledge' },
-  { key: 'qualityOfWork',  label: 'Quality of Work' },
-  { key: 'productivity',   label: 'Productivity' },
-  { key: 'communication',  label: 'Communication' },
-  { key: 'teamwork',       label: 'Teamwork' },
-  { key: 'initiative',     label: 'Initiative' },
-  { key: 'reliability',    label: 'Reliability' },
-]
 
 // Helper — custom competency keys are prefixed with "custom:"
 function isCustomKey(key: string) { return key.startsWith('custom:') }
@@ -117,6 +108,7 @@ function ReviewDrawer({
   const [review, setReview] = useState<ReviewDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [compLabels, setCompLabels] = useState<Record<string, string>>({})
 
   // Self-eval state
   const [selfEval, setSelfEval] = useState('')
@@ -132,11 +124,20 @@ function ReviewDrawer({
       setLoading(true)
       setError('')
       try {
-        const res = await fetch(`/api/performance-reviews/${reviewId}`)
+        const [res, compRes] = await Promise.all([
+          fetch(`/api/performance-reviews/${reviewId}`),
+          fetch('/api/performance-reviews/competencies').catch(() => ({ ok: false, json: async () => ({}) })),
+        ])
         const data = await res.json()
         if (!res.ok) { setError(data.error || 'Failed to load review'); return }
         setReview(data.review)
         setSelfEval(data.review.employeeComment ?? '')
+        if ((compRes as Response).ok) {
+          const cd = await (compRes as Response).json()
+          const map: Record<string, string> = {}
+          for (const c of (cd.competencies ?? []) as { key: string; label: string }[]) map[c.key] = c.label
+          setCompLabels(map)
+        }
       } catch {
         setError('Network error')
       } finally {
@@ -265,13 +266,15 @@ function ReviewDrawer({
                 <div>
                   <h3 className="text-sm font-semibold text-[#021e47] mb-3">Competency Scores</h3>
                   <div className="space-y-2.5">
-                    {/* Built-in */}
-                    {COMPETENCIES.map(c => {
-                      const score = review.competencyScores?.[c.key]
+                    {/* Library competencies */}
+                    {Object.entries(review.competencyScores)
+                      .filter(([k]) => !isCustomKey(k))
+                      .map(([k, score]) => {
                       if (score == null) return null
+                      const label = compLabels[k] ?? k
                       return (
-                        <div key={c.key} className="flex items-center justify-between gap-3">
-                          <span className="text-sm text-gray-600 min-w-0 flex-1">{c.label}</span>
+                        <div key={k} className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-gray-600 min-w-0 flex-1">{label}</span>
                           <div className="flex items-center gap-2 shrink-0">
                             <div className="flex gap-0.5">
                               {[1, 2, 3, 4, 5].map(v => (

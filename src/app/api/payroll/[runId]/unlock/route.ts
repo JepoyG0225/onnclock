@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
@@ -7,7 +8,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  if (!['COMPANY_ADMIN', 'SUPER_ADMIN'].includes(ctx.role)) {
+  // Unlocking reverses a lock — gate on the same payroll:lock permission.
+  if (!(await ctxHasPermission(ctx, 'payroll:lock'))) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 

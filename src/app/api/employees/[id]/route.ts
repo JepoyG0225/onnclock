@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import {
@@ -64,6 +65,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     })
     if (!existing) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+
+    // Duplicate employee-number guard. The unique key is (companyId, employeeNo)
+    // and it spans inactive/soft-deleted employees too, so a number "freed up"
+    // by deactivation is still reserved. Give a clear 409 instead of a raw P2002.
+    if (body.employeeNo && body.employeeNo !== existing.employeeNo) {
+      const clash = await prisma.employee.findFirst({
+        where: { companyId: ctx.companyId, employeeNo: body.employeeNo, NOT: { id } },
+        select: { id: true, firstName: true, lastName: true, isActive: true },
+      })
+      if (clash) {
+        return NextResponse.json(
+          {
+            error: `Employee number "${body.employeeNo}" is already used by ${clash.firstName} ${clash.lastName}`
+              + `${clash.isActive ? '' : ' (an inactive employee)'}. Choose a different number.`,
+            code: 'DUPLICATE_EMPLOYEE_NO',
+          },
+          { status: 409 },
+        )
+      }
+    }
 
     // Reactivation seat-cap guard. PATCH may flip isActive false→true via
     // the EmployeeStatusButton component — that bumps the active count
@@ -231,6 +252,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success: true, recompute, credit })
   } catch (e: unknown) {
+    // Friendly handling for a duplicate employee number (unique constraint on
+    // companyId + employeeNo) — surface a clear 409 instead of a raw 500.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      const target = (e.meta?.target as string[] | string | undefined)
+      const isEmpNo = Array.isArray(target) ? target.includes('employeeNo') : String(target ?? '').includes('employeeNo')
+      return NextResponse.json(
+        {
+          error: isEmpNo
+            ? 'That employee number is already used by another employee in this company. Choose a different number.'
+            : 'A record with these details already exists.',
+          code: 'DUPLICATE',
+        },
+        { status: 409 },
+      )
+    }
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[PATCH /api/employees/:id]', msg)
     return NextResponse.json({ error: msg }, { status: 500 })

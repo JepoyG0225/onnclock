@@ -1,8 +1,13 @@
 import { HolidayType, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { createNotificationsForUsers } from '@/lib/notifications'
 
 const GOOGLE_SYNC_TAG = '[AUTO:GOOGLE_CALENDAR]'
 const PUBLIC_SYNC_TAG = '[AUTO:PUBLIC_PH_HOLIDAYS]'
+const MERGED_SYNC_TAG = '[AUTO:PH_HOLIDAYS]'
+// Every tag an auto-sync has ever planted — used so a new sync cleans up rows
+// from older sync strategies and never treats them as "manual".
+const ALL_AUTO_TAGS = [GOOGLE_SYNC_TAG, PUBLIC_SYNC_TAG, MERGED_SYNC_TAG]
 const DEFAULT_CALENDAR_ID = 'en.philippines#holiday@group.v.calendar.google.com'
 
 type GoogleCalendarEvent = {
@@ -120,51 +125,45 @@ async function upsertAutoSyncedHolidays(params: {
   const rangeStart = new Date(Date.UTC(params.year, 0, 1))
   const rangeEnd = new Date(Date.UTC(params.year + 1, 0, 1))
 
+  // Snapshot ALL existing holiday dates (auto + manual) before we touch
+  // anything, so we can tell which incoming holidays are genuinely NEW
+  // (e.g. a freshly-proclaimed special day) vs. ones already on the calendar.
+  const existing = await prisma.holiday.findMany({
+    where: { companyId: params.companyId, date: { gte: rangeStart, lt: rangeEnd } },
+    select: { date: true, description: true },
+  })
+  const existingDates = new Set(existing.map(h => h.date.toISOString().slice(0, 10)))
+
   // "Manual" = anything that wasn't planted by an auto-sync, regardless of
   // WHICH auto-sync. Earlier versions only filtered by the current tag,
   // which let Google-tagged rows hide from a Public-tagged sync (and vice
   // versa) — both syncs then layered on top of each other and we ended up
   // with two rows per holiday in the DB.
-  const manual = await prisma.holiday.findMany({
-    where: {
-      companyId: params.companyId,
-      date: { gte: rangeStart, lt: rangeEnd },
-      AND: [
-        { NOT: { description: { startsWith: GOOGLE_SYNC_TAG } } },
-        { NOT: { description: { startsWith: PUBLIC_SYNC_TAG } } },
-      ],
-    },
-    select: { date: true },
-  })
-
   const manualDates = new Set(
-    manual.map(h => h.date.toISOString().slice(0, 10)),
+    existing
+      .filter(h => !ALL_AUTO_TAGS.some(tag => (h.description ?? '').startsWith(tag)))
+      .map(h => h.date.toISOString().slice(0, 10)),
   )
 
-  // Delete EVERY auto-synced row in the year, not just same-tagged ones.
-  // Otherwise running both syncs in sequence leaves the other source's
-  // rows behind → duplicates.
+  // Delete EVERY auto-synced row in the year, across all tag generations.
+  // Otherwise running different sync strategies leaves stale rows behind.
   await prisma.holiday.deleteMany({
     where: {
       companyId: params.companyId,
       date: { gte: rangeStart, lt: rangeEnd },
-      OR: [
-        { description: { startsWith: GOOGLE_SYNC_TAG } },
-        { description: { startsWith: PUBLIC_SYNC_TAG } },
-      ],
+      OR: ALL_AUTO_TAGS.map(tag => ({ description: { startsWith: tag } })),
     },
   })
 
-  const toCreate: Prisma.HolidayCreateManyInput[] = params.incoming
-    .filter(h => !manualDates.has(h.date))
-    .map(h => ({
-      companyId: params.companyId,
-      name: h.name,
-      date: new Date(`${h.date}T00:00:00.000Z`),
-      type: h.type,
-      isRecurring: true,
-      description: `${params.tag} ${h.name}`,
-    }))
+  const keep = params.incoming.filter(h => !manualDates.has(h.date))
+  const toCreate: Prisma.HolidayCreateManyInput[] = keep.map(h => ({
+    companyId: params.companyId,
+    name: h.name,
+    date: new Date(`${h.date}T00:00:00.000Z`),
+    type: h.type,
+    isRecurring: true,
+    description: `${params.tag} ${h.name}`,
+  }))
 
   if (toCreate.length > 0) {
     // Defense in depth: skipDuplicates protects us if the unique index on
@@ -172,43 +171,123 @@ async function upsertAutoSyncedHolidays(params: {
     await prisma.holiday.createMany({ data: toCreate, skipDuplicates: true })
   }
 
+  // Newly-detected = synced holidays whose date was on NO existing row before.
+  const added = keep.filter(h => !existingDates.has(h.date))
+
   return {
     fetched: params.incoming.length,
     imported: toCreate.length,
     skippedManual: params.incoming.length - toCreate.length,
+    added,
   }
 }
 
+// Union two+ holiday lists by date. Lists are merged in priority order — the
+// first list to claim a date wins its name/type (pass the richer source first).
+function mergeByDate(
+  lists: Array<Array<{ name: string; date: string; type: HolidayType }>>,
+): Array<{ name: string; date: string; type: HolidayType }> {
+  const byDate = new Map<string, { name: string; date: string; type: HolidayType }>()
+  for (const list of lists) {
+    for (const h of list) {
+      if (!byDate.has(h.date)) byDate.set(h.date, h)
+    }
+  }
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+// Best-effort in-app alert to company admins/HR when new holidays appear.
+async function notifyHolidayAdditions(
+  companyId: string,
+  added: Array<{ name: string; date: string }>,
+) {
+  if (added.length === 0) return
+  try {
+    const recipients = await prisma.userCompany.findMany({
+      where: { companyId, isActive: true, role: { in: ['COMPANY_ADMIN', 'HR_MANAGER'] } },
+      select: { userId: true },
+    })
+    const userIds = recipients.map(r => r.userId)
+    if (userIds.length === 0) return
+    const fmt = (iso: string) =>
+      new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    const list = added.slice(0, 5).map(a => `${fmt(a.date)} — ${a.name}`).join('; ')
+    const extra = added.length > 5 ? ` (+${added.length - 5} more)` : ''
+    await createNotificationsForUsers(userIds, {
+      companyId,
+      type: 'GENERIC',
+      title: added.length === 1 ? 'New holiday detected' : `${added.length} new holidays detected`,
+      body: `${list}${extra}. Review payroll runs that cover these dates.`,
+      link: '/holidays',
+    })
+  } catch (err) {
+    console.error('[holidays] notifyHolidayAdditions failed', err)
+  }
+}
+
+/**
+ * Merged PH holiday sync for one company/year. Pulls from BOTH Google Calendar
+ * (when an API key is configured — it carries proclaimed special days) AND the
+ * Nager.Date public API, unions them, upserts (preserving manual entries), and
+ * notifies HR of any genuinely-new holidays. Either source failing is
+ * tolerated; the other still applies.
+ */
+export async function syncCompanyHolidays(params: {
+  companyId: string
+  year: number
+  apiKey?: string
+  calendarId?: string
+}) {
+  const lists: Array<Array<{ name: string; date: string; type: HolidayType }>> = []
+  const sources: string[] = []
+
+  if (params.apiKey) {
+    try {
+      lists.push(await fetchGoogleHolidaysForYear({ year: params.year, apiKey: params.apiKey, calendarId: params.calendarId }))
+      sources.push('google_calendar')
+    } catch (err) {
+      console.error('[holidays] Google Calendar fetch failed', err)
+    }
+  }
+  try {
+    lists.push(await fetchPublicPhHolidaysForYear({ year: params.year }))
+    sources.push('public_holiday_api')
+  } catch (err) {
+    console.error('[holidays] Nager.Date fetch failed', err)
+  }
+
+  if (lists.length === 0) {
+    throw new Error('All holiday sources failed')
+  }
+
+  // Google first so its richer proclamation names/types win on shared dates.
+  const incoming = mergeByDate(lists)
+  const result = await upsertAutoSyncedHolidays({
+    companyId: params.companyId,
+    year: params.year,
+    incoming,
+    tag: MERGED_SYNC_TAG,
+  })
+  await notifyHolidayAdditions(params.companyId, result.added)
+  return { ...result, sources }
+}
+
+// Back-compat wrappers (kept so any other callers keep working) — both now
+// route through the merged sync.
 export async function syncCompanyGoogleHolidays(params: {
   companyId: string
   year: number
   apiKey: string
   calendarId?: string
 }) {
-  const incoming = await fetchGoogleHolidaysForYear({
-    year: params.year,
-    apiKey: params.apiKey,
-    calendarId: params.calendarId,
-  })
-  return upsertAutoSyncedHolidays({
-    companyId: params.companyId,
-    year: params.year,
-    incoming,
-    tag: GOOGLE_SYNC_TAG,
-  })
+  return syncCompanyHolidays(params)
 }
 
 export async function syncCompanyPublicPhHolidays(params: {
   companyId: string
   year: number
 }) {
-  const incoming = await fetchPublicPhHolidaysForYear({ year: params.year })
-  return upsertAutoSyncedHolidays({
-    companyId: params.companyId,
-    year: params.year,
-    incoming,
-    tag: PUBLIC_SYNC_TAG,
-  })
+  return syncCompanyHolidays(params)
 }
 
 export const GoogleHolidaySync = {

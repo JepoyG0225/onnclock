@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { syncAutoOvertimeRequest, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
+import { syncAutoOvertimeRequest, applyManualOtOverride, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
@@ -155,14 +155,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   })
 
-  await syncAutoOvertimeRequest({
-    companyId,
-    employeeId: record.employeeId,
-    date: updated.date,
-    timeIn: updated.timeIn,
-    timeOut: updated.timeOut,
-    overtimeHours: Number(updated.overtimeHours ?? 0),
-  })
+  if (overrideOt !== undefined) {
+    // Admin explicitly set OT on the timesheet — make it authoritative
+    // (APPROVED), so it sticks on the timesheet and pays. Overriding to 0
+    // clears the day's auto-OT.
+    await applyManualOtOverride({
+      companyId,
+      employeeId: record.employeeId,
+      date: updated.date,
+      hours: Number(finalOvertime ?? 0),
+      approvedById: ctx.userId,
+      timeIn: updated.timeIn,
+      timeOut: updated.timeOut,
+    })
+  } else {
+    // Time-only edit — keep the auto-detect flow (creates a PENDING request
+    // for HR to approve).
+    await syncAutoOvertimeRequest({
+      companyId,
+      employeeId: record.employeeId,
+      date: updated.date,
+      timeIn: updated.timeIn,
+      timeOut: updated.timeOut,
+      overtimeHours: Number(updated.overtimeHours ?? 0),
+    })
+  }
 
   // Strip clockInPhoto — large base64 payload not needed by admin clients
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

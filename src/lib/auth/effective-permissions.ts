@@ -109,3 +109,18 @@ export function hasAnyPermission(permissions: Permission[], required: Permission
   if (!required.length) return true
   return required.some(p => permissions.includes(p))
 }
+
+/**
+ * Whether an authenticated API context holds a given permission. Resolves the
+ * user's effective permissions (custom role → company override → role defaults;
+ * SUPER_ADMIN always passes). Lets API routes gate by permission instead of a
+ * hardcoded role list — used by the payroll lock/unlock and budget routes.
+ */
+export async function ctxHasPermission(
+  ctx: { userId: string; companyId: string; role: string; actorRole?: string },
+  permission: Permission,
+): Promise<boolean> {
+  if (ctx.role === 'SUPER_ADMIN' || ctx.actorRole === 'SUPER_ADMIN') return true
+  const perms = await getEffectivePermissions(ctx.role, ctx.companyId, ctx.userId)
+  return perms.includes(permission)
+}

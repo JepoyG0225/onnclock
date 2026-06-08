@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { createNotificationsForUsers } from '@/lib/notifications'
+import {
+  resolveWorkflow,
+  buildPlan,
+  resolveApprovers,
+  notifyStepsOnSubmit,
+  type RequestFacts,
+} from '@/lib/approvals/engine'
+import { dispatchNotifySteps } from '@/lib/approvals/notify'
 
 const createLeaveSchema = z.object({
   leaveTypeId: z.string(),
@@ -162,6 +171,64 @@ export async function POST(req: NextRequest) {
 
     return req
   })
+
+  // Best-effort: route the new request through its workflow to ping the first
+  // approver and fire any on-submit NOTIFY steps. Never blocks the response.
+  try {
+    const emp = await prisma.employee.findUnique({
+      where: { id: finalEmployeeId },
+      select: { departmentId: true, firstName: true, lastName: true },
+    })
+    const lt = await prisma.leaveType.findUnique({
+      where: { id: leaveTypeId },
+      select: { name: true, isWithPay: true },
+    })
+    const requesterDepartmentId = emp?.departmentId ?? null
+    const requesterName = `${emp?.firstName ?? ''} ${emp?.lastName ?? ''}`.trim() || 'An employee'
+
+    const workflow = await resolveWorkflow({
+      companyId: ctx.companyId,
+      type: 'LEAVE',
+      departmentId: requesterDepartmentId,
+    })
+    if (workflow) {
+      const facts: RequestFacts = {
+        totalDays,
+        leaveType: lt?.name ?? '',
+        isWithPay: !!lt?.isWithPay,
+        isHalfDay: isHalfDay ?? false,
+        departmentId: requesterDepartmentId ?? '',
+      }
+      const plan = buildPlan(workflow, facts)
+      const notifyCtx = {
+        companyId: ctx.companyId,
+        requesterEmployeeId: finalEmployeeId,
+        requesterDepartmentId,
+        link: '/leaves',
+        vars: { requestType: 'Leave', requesterName, leaveType: lt?.name ?? 'Leave' },
+      }
+      await dispatchNotifySteps(notifyStepsOnSubmit(plan), notifyCtx)
+
+      const firstApproval = plan.approvalSteps[0]
+      if (firstApproval) {
+        const approvers = await resolveApprovers(firstApproval, {
+          companyId: ctx.companyId,
+          requesterDepartmentId,
+        })
+        if (approvers.length > 0) {
+          await createNotificationsForUsers(approvers, {
+            companyId: ctx.companyId,
+            type: 'GENERIC',
+            title: 'Leave request awaiting your approval',
+            body: `${requesterName} · ${lt?.name ?? 'Leave'}`,
+            link: '/leaves',
+          })
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[leaves POST] workflow submit notifications failed', err)
+  }
 
   return NextResponse.json({ leaveRequest }, { status: 201 })
 }

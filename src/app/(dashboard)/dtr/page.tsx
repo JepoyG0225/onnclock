@@ -27,6 +27,7 @@ import {
   ZoomIn,
   MapPin,
   Pencil,
+  Upload,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +36,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { DatePicker } from '@/components/ui/date-picker'
 import { AppSpinner } from '@/components/ui/AppSpinner'
+import { DtrImportModal } from '@/components/dtr/DtrImportModal'
 
 interface DTRRecord {
   id: string
@@ -215,6 +217,7 @@ export default function DTRPage() {
   const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null)
 
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteInput, setDeleteInput] = useState('')
@@ -961,10 +964,16 @@ export default function DTRPage() {
             {viewMode === 'monthly' && 'Grouped by employee for the selected month'}
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)} disabled={isSystemAdmin && !selectedCompanyId}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add DTR Entry
-        </Button>
+        <div className="flex items-center gap-2" data-tour="dtr-add">
+          <Button variant="outline" onClick={() => setShowImport(true)} disabled={isSystemAdmin && !selectedCompanyId}>
+            <Upload className="w-4 h-4 mr-2" />
+            Bulk Import
+          </Button>
+          <Button onClick={() => setShowForm(true)} disabled={isSystemAdmin && !selectedCompanyId}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add DTR Entry
+          </Button>
+        </div>
       </div>
 
       {showForm && portalTarget && createPortal(
@@ -1057,6 +1066,13 @@ export default function DTRPage() {
         </div>,
         portalTarget,
       )}
+
+      <DtrImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onSuccess={async () => { await load(); await loadWeeks() }}
+        endpoint={withCompanyQuery('/api/dtr/bulk')}
+      />
 
       {editRecord && portalTarget && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
+import { Prisma } from '@prisma/client'
+import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
+import { notifyAfterApprove } from '@/lib/approvals/notify'
 import { z } from 'zod'
+
+const trailOf = (v: unknown) => (Array.isArray(v) ? v : [])
 
 const HR_ROLES = new Set(['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN'])
 
@@ -89,46 +94,106 @@ export async function PATCH(
     select: { id: true },
   })
 
+  // Load by company (not owner-only). A workflow approver — who may be any role,
+  // e.g. a PAYROLL_OFFICER set as the requisition's approver — must be able to
+  // find a requisition filed by someone else. Authorization for each action is
+  // enforced below (engine decision for approve/reject; ownership for cancel).
+  // Previously this used an owner-only filter for non-HR roles, so the
+  // designated approver got a 404 and the requisition stayed PENDING.
   const existing = await prisma.budgetRequisition.findFirst({
-    where: {
-      id,
-      ...(isHR
-        ? { company: { id: ctx.companyId! } }
-        : { employeeId: employee?.id ?? '__none__' }
-      ),
-    },
+    where: { id, company: { id: ctx.companyId! } },
+    include: { employee: { select: { departmentId: true, firstName: true, lastName: true } } },
   })
 
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  // Employees can only cancel their own pending requests
-  if (!isHR && status !== 'CANCELLED') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-  }
-  if (!isHR && existing.status !== 'PENDING') {
-    return NextResponse.json({ error: 'Only pending requests can be cancelled' }, { status: 400 })
+  const isOwner = !!employee && existing.employeeId === employee.id
+  const include = { items: true, attachments: { orderBy: { createdAt: 'asc' as const } } }
+
+  // ── Cancellation: ownership rules (no approval chain) ──
+  if (status === 'CANCELLED') {
+    if (!isHR && !isOwner) {
+      return NextResponse.json({ error: 'You can only cancel your own requisitions' }, { status: 403 })
+    }
+    if (!isHR && existing.status !== 'PENDING') {
+      return NextResponse.json({ error: 'Only pending requests can be cancelled' }, { status: 400 })
+    }
+    const updated = await prisma.budgetRequisition.update({ where: { id }, data: { status }, include })
+    return NextResponse.json({ requisition: updated })
   }
 
+  // ── Approve / Reject: workflow engine, legacy HR gate as fallback ──
+  const action = status === 'APPROVED' ? 'approve' : 'reject'
+  const requesterDepartmentId = existing.employee?.departmentId ?? null
+  const requesterName = `${existing.employee?.firstName ?? ''} ${existing.employee?.lastName ?? ''}`.trim() || 'An employee'
+
+  const decision = await evaluateApprovalAction({
+    companyId: ctx.companyId!,
+    type: 'BUDGET',
+    requesterDepartmentId,
+    requesterEmployeeId: existing.employeeId,
+    facts: { amount: Number(existing.totalAmount), title: existing.title, departmentId: requesterDepartmentId ?? '' } as RequestFacts,
+    currentLevel: existing.approvalLevel ?? 0,
+    actorUserId: ctx.userId,
+    action,
+    notes: reviewNote ?? null,
+  })
+
+  if (decision.usedWorkflow) {
+    if (!decision.authorized) {
+      return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
+    }
+  } else if (!isHR) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
+  const newTrail = [...trailOf(existing.approvalTrail), decision.trailEntry] as Prisma.InputJsonValue
+
+  // Intermediate approval: advance the chain, stay PENDING.
+  if (action === 'approve' && decision.usedWorkflow && !decision.isFinal) {
+    const updated = await prisma.budgetRequisition.update({
+      where: { id },
+      data: { approvalLevel: decision.nextLevel, approvalTrail: newTrail },
+      include,
+    })
+    if (decision.plan) {
+      await notifyAfterApprove({
+        plan: decision.plan,
+        nextLevel: decision.nextLevel,
+        isFinal: false,
+        ctx: { companyId: ctx.companyId!, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/budget-requisitions', vars: { requestType: 'Budget Requisition', requesterName } },
+        nextApproverTitle: 'Budget requisition awaiting your approval',
+        nextApproverBody: `${requesterName} · ₱${Number(existing.totalAmount).toLocaleString()}`,
+      })
+    }
+    return NextResponse.json({ requisition: updated })
+  }
+
+  // Final approval or rejection — record the review.
   const updated = await prisma.budgetRequisition.update({
     where: { id },
     data: {
       status,
-      ...(isHR
-        ? {
-            reviewedBy: ctx.userId,
-            reviewNote: reviewNote ?? null,
-            reviewedAt: new Date(),
-          }
-        : {}
-      ),
+      reviewedBy: ctx.userId,
+      reviewNote: reviewNote ?? null,
+      reviewedAt: new Date(),
+      approvalLevel: decision.nextLevel,
+      approvalTrail: newTrail,
     },
-    include: {
-      items: true,
-      attachments: { orderBy: { createdAt: 'asc' } },
-    },
+    include,
   })
+
+  if (action === 'approve' && decision.plan) {
+    await notifyAfterApprove({
+      plan: decision.plan,
+      nextLevel: decision.nextLevel,
+      isFinal: true,
+      ctx: { companyId: ctx.companyId!, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/budget-requisitions', vars: { requestType: 'Budget Requisition', requesterName } },
+      nextApproverTitle: '', nextApproverBody: '',
+    })
+  }
 
   return NextResponse.json({ requisition: updated })
 }

@@ -13,6 +13,7 @@ import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createQrPhPayment } from '@/lib/payments/paymongo'
 import { computeCreditApplied } from '@/lib/billing/credit'
+import { effectiveDiscountPct } from '@/lib/billing/pricing'
 
 const schema = z.object({
   // Subscription duration. 3M and 6M are prepay plans at the standard
@@ -24,7 +25,6 @@ const schema = z.object({
 })
 
 const DURATION_MONTHS = { '3_MONTH': 3, '6_MONTH': 6, ANNUAL: 12 } as const
-const DURATION_DISCOUNT_PCT = { '3_MONTH': 0, '6_MONTH': 0, ANNUAL: 20 } as const
 const DURATION_LABEL = { '3_MONTH': '3-Month', '6_MONTH': '6-Month', ANNUAL: 'Annual' } as const
 
 // Window during which an upgrade still credits the remaining value of the
@@ -85,7 +85,9 @@ export async function POST(req: NextRequest) {
   })
 
   const months = DURATION_MONTHS[billingCycle]
-  const discountPct = DURATION_DISCOUNT_PCT[billingCycle]
+  // Single source of truth: under 100 seats only annual is discounted (20%);
+  // at 100+ seats 3M/6M get 20% and annual gets 30%.
+  const discountPct = effectiveDiscountPct(billingCycle, billedSeatCount)
   const cycleLabel = DURATION_LABEL[billingCycle]
   const isSameCycleChange = existingSub?.billingCycle === billingCycle
   // Proration only applies when ALL three are true:
@@ -128,7 +130,7 @@ export async function POST(req: NextRequest) {
     // when the company had paid for a 3M/6M plan.
     const existingCycle = (existingSub.billingCycle ?? 'ANNUAL') as keyof typeof DURATION_MONTHS
     const existingMonths = DURATION_MONTHS[existingCycle] ?? 12
-    const existingDiscountFactor = 1 - (DURATION_DISCOUNT_PCT[existingCycle] ?? 0) / 100
+    const existingDiscountFactor = 1 - effectiveDiscountPct(existingCycle, Number(existingSub.seatCount ?? 0)) / 100
     const oldCycleTotal = Number(existingSub.pricePerSeat) * existingMonths * Number(existingSub.seatCount) * existingDiscountFactor
     remainingCredit = Math.round(oldCycleTotal * remainingRatio * 100) / 100
 

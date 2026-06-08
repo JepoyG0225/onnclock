@@ -9,6 +9,7 @@
     "ios:run": "npx cap run ios"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/camera": "^8.2.0",

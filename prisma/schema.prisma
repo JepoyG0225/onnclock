@@ -364,6 +364,8 @@ model Company {
   thirteenthMonthLogs   ThirteenthMonthLog[]
   rolePermissions       CompanyRolePermission[]
   approverConfigs       ApproverConfig[]
+  approvalWorkflows     ApprovalWorkflow[]
+  performanceCompetencies PerformanceCompetency[]
   subscription          Subscription?
   invoices              Invoice[]
   assets                CompanyAsset[]
@@ -618,6 +620,7 @@ model Employee {
   locationPings                LocationPing[]
   thirteenthMonthLogs          ThirteenthMonthLog[]
   incomeAssignments            EmployeeIncomeAssignment[]
+  otherDeductionItems          EmployeeOtherDeduction[]
   payrollIncomeEntries         PayrollRunIncomeEntry[]
   hiredApplications            JobApplication[]           @relation("HiredEmployeeApplications")
   onboardingProcesses          OnboardingProcess[]
@@ -1108,6 +1111,23 @@ model EmployeeIncomeAssignment {
   @@map("employee_income_assignments")
 }
 
+// Per-employee recurring "other deductions" (e.g. uniform, cooperative dues).
+// Summed into the payslip's otherDeductions each payroll run.
+model EmployeeOtherDeduction {
+  id         String   @id @default(cuid())
+  employeeId String
+  label      String
+  amount     Decimal  @default(0) @db.Decimal(12, 2)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, isActive])
+  @@map("employee_other_deductions")
+}
+
 model PayrollRunIncomeEntry {
   id           String   @id @default(cuid())
   payrollRunId String
@@ -1186,6 +1206,8 @@ model CashAdvanceRequest {
   approvedById    String?
   approvedAt      DateTime?
   rejectionReason String?
+  approvalLevel   Int               @default(0) // workflow engine: completed approval steps
+  approvalTrail   Json?             // workflow engine: per-step action log
   // Once approved, points to the EmployeeLoan that handles deduction
   linkedLoanId    String?           @unique
   createdAt       DateTime          @default(now())
@@ -1483,6 +1505,28 @@ model PerformanceReview {
   @@map("performance_reviews")
 }
 
+// Company-customizable scorecard competencies. Each company manages its own
+// list (add/edit/delete/reorder). Reviews score against the active set; the
+// per-review `competencyScores` JSON is keyed by `key`. Deleting is a soft
+// delete (isActive=false) so historical reviews can still resolve the label.
+model PerformanceCompetency {
+  id          String   @id @default(cuid())
+  companyId   String
+  key         String // stable score-JSON key (seeded defaults keep their original keys)
+  label       String
+  description String?  @db.Text
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@index([companyId, isActive, sortOrder])
+  @@map("performance_competencies")
+}
+
 model OffboardingProcess {
   id              String            @id @default(cuid())
   companyId       String
@@ -1553,6 +1597,8 @@ model OvertimeRequest {
   approvedById    String?
   approvedAt      DateTime?
   rejectionReason String?
+  approvalLevel   Int                   @default(0) // workflow engine: completed approval steps
+  approvalTrail   Json?                 // workflow engine: per-step action log
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
@@ -1920,6 +1966,67 @@ model ApproverConfig {
 }
 
 // ─────────────────────────────────────────────
+// CONFIGURABLE APPROVAL WORKFLOWS (engine v3)
+//
+// A company builds one workflow per request type, optionally scoped to a
+// department (departmentId = null is the company-wide default that applies
+// when a department has no workflow of its own). A workflow is an ordered
+// list of steps; each step may carry a `conditions` guard that is evaluated
+// against the request's field values at run time — steps whose guard is false
+// are skipped, so the live approval chain is data-driven.
+// ─────────────────────────────────────────────
+
+model ApprovalWorkflow {
+  id           String   @id @default(cuid())
+  companyId    String
+  type         String // 'LEAVE' | 'OVERTIME' | 'CASH_ADVANCE' | 'BUDGET' | 'TIME_CORRECTION'
+  name         String
+  departmentId String? // null = company-wide default; otherwise scoped to this department
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company                @relation(fields: [companyId], references: [id])
+  steps   ApprovalWorkflowStep[]
+
+  // One workflow per (company, type, department). NULL departmentId is the
+  // single company default — the unique row count for the default is enforced
+  // in application logic since SQL treats NULLs as distinct.
+  @@unique([companyId, type, departmentId])
+  @@index([companyId, type])
+  @@map("approval_workflows")
+}
+
+model ApprovalWorkflowStep {
+  id         String  @id @default(cuid())
+  workflowId String
+  order      Int // 1-based execution order within the workflow
+  stepType   String  @default("APPROVAL") // 'APPROVAL' | 'NOTIFY'
+  conditions Json? // optional guard: { match: 'ALL' | 'ANY', rules: [{ field, op, value }] }
+
+  // APPROVAL step — who must sign off
+  approverType   String? // 'SPECIFIC_USER' | 'ROLE' | 'DEPARTMENT_HEAD'
+  approverUserId String?
+  approverRole   String?
+
+  // NOTIFY step — who to notify and how
+  notifyTarget  String? // 'REQUESTER' | 'DEPARTMENT_HEAD' | 'SPECIFIC_USER' | 'ROLE'
+  notifyUserId  String?
+  notifyRole    String?
+  notifyChannel String? @default("IN_APP") // 'EMAIL' | 'IN_APP' | 'BOTH'
+  messageTitle  String?
+  messageBody   String?
+
+  createdAt DateTime @default(now())
+
+  workflow ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, order])
+  @@index([workflowId])
+  @@map("approval_workflow_steps")
+}
+
+// ─────────────────────────────────────────────
 // CHAT GROUPS
 // ─────────────────────────────────────────────
 
@@ -1967,6 +2074,8 @@ model BudgetRequisition {
   reviewedBy  String?
   reviewNote  String?                 @db.Text
   reviewedAt  DateTime?
+  approvalLevel Int                   @default(0) // workflow engine: completed approval steps
+  approvalTrail Json?                 // workflow engine: per-step action log
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt
 
@@ -2034,6 +2143,8 @@ model TimeEntryCorrection {
   adminNotes   String?
   reviewedBy   String?
   reviewedAt   DateTime?
+  approvalLevel Int                       @default(0) // workflow engine: completed approval steps
+  approvalTrail Json?                      // workflow engine: per-step action log
   createdAt    DateTime                   @default(now())
   updatedAt    DateTime                   @updatedAt
 

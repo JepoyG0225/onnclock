@@ -115,6 +115,59 @@ export async function syncAutoOvertimeRequest(params: {
   })
 }
 
+/**
+ * Apply an explicit OT override made by an admin on the timesheet. Unlike the
+ * auto-sync (which creates a PENDING request awaiting approval), a manual
+ * override is authoritative: we replace the day's auto-OT with an APPROVED
+ * request for the overridden hours so it shows on the timesheet (which renders
+ * approved OT) AND pays in payroll. Overriding to 0 clears the day's auto-OT.
+ */
+export async function applyManualOtOverride(params: {
+  companyId: string
+  employeeId: string
+  date: Date
+  hours: number
+  approvedById: string
+  timeIn: Date | null
+  timeOut: Date | null
+}) {
+  const dayStart = new Date(params.date); dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+
+  // The override supersedes any auto-generated OT for the day, whatever its
+  // status. (Employee-filed manual requests — without the AUTO tag — are left
+  // untouched.)
+  await prisma.overtimeRequest.deleteMany({
+    where: {
+      companyId: params.companyId,
+      employeeId: params.employeeId,
+      date: { gte: dayStart, lt: dayEnd },
+      reason: { startsWith: AUTO_OT_REASON_PREFIX },
+    },
+  })
+
+  const hours = Math.round(Math.max(0, Number(params.hours) || 0) * 100) / 100
+  // Nothing to credit if OT is disabled for the company or the override is 0.
+  if (hours <= 0 || !(await isOvertimeEnabledForCompany(params.companyId))) return
+
+  const startTime = params.timeIn ? formatManilaTime(params.timeIn) : '00:00'
+  const endTime = params.timeOut ? formatManilaTime(params.timeOut) : '00:00'
+  await prisma.overtimeRequest.create({
+    data: {
+      companyId: params.companyId,
+      employeeId: params.employeeId,
+      date: new Date(formatManilaDateKey(params.date)),
+      startTime,
+      endTime,
+      hours,
+      reason: `${AUTO_OT_REASON_PREFIX} Manual override from timesheet (${hours.toFixed(2)}h).`,
+      status: 'APPROVED',
+      approvedById: params.approvedById,
+      approvedAt: new Date(),
+    },
+  })
+}
+
 export async function getApprovedOtHoursMap(params: {
   companyId: string
   dateFrom: Date

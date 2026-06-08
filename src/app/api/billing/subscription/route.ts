@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPausedEmployees } from '@/lib/billing/seat-limit'
+import { effectiveDiscountPct } from '@/lib/billing/pricing'
 
 export async function GET() {
   try {
@@ -70,13 +71,16 @@ export async function GET() {
     select: { name: true, email: true, address: true, city: true },
   })
 
-  // Compute estimated next bill
+  // Compute estimated next bill. Discount comes from the single source of
+  // truth (lib/billing/pricing) so 100+ seat companies see their volume tier
+  // (3M/6M 20%, annual 30%) reflected here too.
   const pricePerSeat = Number(sub.pricePerSeat)
-  const isAnnual = sub.billingCycle === 'ANNUAL'
-  const discountPct = isAnnual ? 20 : 0
-  const effectiveMonthlyRate = isAnnual ? pricePerSeat * 0.8 : pricePerSeat
+  const seatTier = Math.max(employeeCount, Number(sub.seatCount ?? 0))
+  const discountPct = effectiveDiscountPct(sub.billingCycle, seatTier)
+  const effectiveMonthlyRate = pricePerSeat * (1 - discountPct / 100)
   const estimatedMonthly = effectiveMonthlyRate * employeeCount
-  const estimatedAnnual = pricePerSeat * 12 * 0.8 * employeeCount
+  const annualFactor = 1 - effectiveDiscountPct('ANNUAL', seatTier) / 100
+  const estimatedAnnual = pricePerSeat * 12 * annualFactor * employeeCount
 
   const daysLeft =
     sub.status === 'TRIAL' && sub.trialEndsAt

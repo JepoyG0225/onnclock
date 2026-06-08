@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { Building2, CreditCard, Receipt, Wallet, LogOut, ShieldCheck, ArrowDownToLine } from 'lucide-react'
+import { Building2, CreditCard, Receipt, Wallet, LogOut, ShieldCheck, ArrowDownToLine, FileText } from 'lucide-react'
 
 const THEME = {
   deep: '#021e47',
@@ -38,6 +38,11 @@ const NAV_ITEMS = [
     href: '/admin/disbursement-topups',
     icon: ArrowDownToLine,
     label: 'Wallet Top-Ups',
+  },
+  {
+    href: '/admin/proposals',
+    icon: FileText,
+    label: 'Proposals',
   },
 ]
 

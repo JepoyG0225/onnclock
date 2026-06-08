@@ -1,15 +1,20 @@
-import { mkdir, writeFile, unlink } from 'node:fs/promises'
-import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanyPricePerSeat } from '@/lib/feature-gates'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import {
   formatStorage,
   getCompanyDocumentStorageLimitBytes,
   getCompanyDocumentStorageUsedBytes,
 } from '@/lib/document-storage'
+
+// Vercel's filesystem is read-only, so documents go to Supabase Storage
+// (same bucket strategy as budget-requisition attachments).
+function getStorageBucket() {
+  return process.env.SUPABASE_ATTACHMENTS_BUCKET || process.env.SUPABASE_LOGO_BUCKET || 'company-logos'
+}
 
 const ALLOWED_MIME = new Set([
   'application/pdf',
@@ -115,21 +120,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const ext = extensionFromMime(file.type)
-  const filename = `${Date.now()}-${randomUUID()}.${ext}`
-  const dir = path.join(process.cwd(), 'public', 'uploads', 'employee-docs', ctx.companyId, id)
-  await mkdir(dir, { recursive: true })
+  const objectPath = `employee-docs/${ctx.companyId}/${id}/${Date.now()}-${randomUUID()}.${ext}`
+  const bucket = getStorageBucket()
+  const supabase = getSupabaseAdmin()
   const bytes = Buffer.from(await file.arrayBuffer())
-  const absoluteFilePath = path.join(dir, filename)
-  await writeFile(absoluteFilePath, bytes)
 
-  const publicUrl = `/uploads/employee-docs/${ctx.companyId}/${id}/${filename}`
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(objectPath, bytes, { contentType: file.type, upsert: false })
+  if (uploadError) {
+    console.error('[employee documents] Supabase upload error:', uploadError)
+    return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
+  }
+
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(objectPath)
+  const publicUrl = urlData.publicUrl
 
   try {
     const document = await prisma.employeeDocument.create({
       data: {
         employeeId: id,
         documentType,
-        fileName: file.name || filename,
+        fileName: file.name || objectPath.split('/').pop() || 'document',
         fileUrl: publicUrl,
         expiresAt: expiresAtRaw ? new Date(expiresAtRaw) : null,
         notes: notes || null,
@@ -150,7 +162,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { status: 201 }
     )
   } catch (e) {
-    await unlink(absoluteFilePath).catch(() => {})
+    await supabase.storage.from(bucket).remove([objectPath]).catch(() => {})
     const message = e instanceof Error ? e.message : 'Failed to save document'
     return NextResponse.json({ error: message }, { status: 500 })
   }

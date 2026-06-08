@@ -1,24 +1,47 @@
 export type UserRole = 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'HR_MANAGER' | 'PAYROLL_OFFICER' | 'EMPLOYEE'
 
 export type Permission =
+  // Core
   | 'employees:read'
   | 'employees:write'
   | 'employees:delete'
+  | 'departments:write'
+  | 'analytics:read'
+  // HR suite
+  | 'recruitment:manage'
+  | 'onboarding:manage'
+  | 'performance:manage'
+  | 'offboarding:manage'
+  | 'disciplinary:manage'
+  | 'assets:manage'
+  | 'announcements:write'
+  // Time & attendance
+  | 'dtr:read'
+  | 'dtr:write'
+  | 'dtr:approve'
+  | 'corrections:approve'
+  | 'overtime:approve'
+  | 'biometrics:manage'
+  // Leave
+  | 'leaves:read'
+  | 'leaves:write'
+  | 'leaves:approve'
+  // Payroll & finance
   | 'payroll:read'
   | 'payroll:write'
   | 'payroll:approve'
   | 'payroll:lock'
-  | 'leaves:read'
-  | 'leaves:write'
-  | 'leaves:approve'
-  | 'dtr:read'
-  | 'dtr:write'
-  | 'dtr:approve'
-  | 'reports:generate'
   | 'loans:read'
   | 'loans:write'
+  | 'cashadvance:approve'
+  | 'budget:read'
+  | 'budget:approve'
+  | 'disbursement:manage'
+  | 'reports:generate'
+  // Settings & admin
   | 'settings:read'
   | 'settings:write'
+  | 'approvals:manage'
   | 'users:manage'
   | 'departments:write'
   // Module-specific keys for finer-grained custom roles. A user only
@@ -37,47 +60,42 @@ export type Permission =
   | 'disbursement:manage'
   | 'overtime:approve'
   | 'cashadvance:approve'
+  | 'audit:read'
+  | 'billing:manage'
+
+// Every permission — used to grant full access to admin roles.
+export const ALL_PERMISSIONS: Permission[] = [
+  'employees:read', 'employees:write', 'employees:delete', 'departments:write', 'analytics:read',
+  'recruitment:manage', 'onboarding:manage', 'performance:manage', 'offboarding:manage',
+  'disciplinary:manage', 'assets:manage', 'announcements:write',
+  'dtr:read', 'dtr:write', 'dtr:approve', 'corrections:approve', 'overtime:approve', 'biometrics:manage',
+  'leaves:read', 'leaves:write', 'leaves:approve',
+  'payroll:read', 'payroll:write', 'payroll:approve', 'payroll:lock',
+  'loans:read', 'loans:write', 'cashadvance:approve', 'budget:read', 'budget:approve',
+  'disbursement:manage', 'reports:generate',
+  'settings:read', 'settings:write', 'approvals:manage', 'users:manage', 'billing:manage', 'audit:read',
+]
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  SUPER_ADMIN: [
-    'employees:read', 'employees:write', 'employees:delete',
-    'payroll:read', 'payroll:write', 'payroll:approve', 'payroll:lock',
-    'leaves:read', 'leaves:write', 'leaves:approve',
-    'dtr:read', 'dtr:write', 'dtr:approve',
-    'reports:generate',
-    'loans:read', 'loans:write',
-    'settings:read', 'settings:write',
-    'users:manage',
-    'departments:write',
-  ],
-  COMPANY_ADMIN: [
-    'employees:read', 'employees:write', 'employees:delete',
-    'payroll:read', 'payroll:write', 'payroll:approve', 'payroll:lock',
-    'leaves:read', 'leaves:write', 'leaves:approve',
-    'dtr:read', 'dtr:write', 'dtr:approve',
-    'reports:generate',
-    'loans:read', 'loans:write',
-    'settings:read', 'settings:write',
-    'users:manage',
-    'departments:write',
-  ],
+  SUPER_ADMIN: [...ALL_PERMISSIONS],
+  COMPANY_ADMIN: [...ALL_PERMISSIONS],
   HR_MANAGER: [
-    'employees:read', 'employees:write',
-    'payroll:read',
+    'employees:read', 'employees:write', 'departments:write', 'analytics:read',
+    'recruitment:manage', 'onboarding:manage', 'performance:manage', 'offboarding:manage',
+    'disciplinary:manage', 'assets:manage', 'announcements:write',
+    'dtr:read', 'dtr:write', 'dtr:approve', 'corrections:approve', 'overtime:approve', 'biometrics:manage',
     'leaves:read', 'leaves:write', 'leaves:approve',
-    'dtr:read', 'dtr:write', 'dtr:approve',
+    'payroll:read', 'loans:read', 'cashadvance:approve', 'budget:read', 'budget:approve',
     'reports:generate',
-    'loans:read',
-    'settings:read',
-    'departments:write',
+    'settings:read', 'approvals:manage', 'audit:read',
   ],
   PAYROLL_OFFICER: [
     'employees:read',
-    'payroll:read', 'payroll:write',
+    'dtr:read', 'overtime:approve',
     'leaves:read',
-    'dtr:read',
+    'payroll:read', 'payroll:write',
+    'loans:read', 'loans:write', 'cashadvance:approve', 'budget:read', 'disbursement:manage',
     'reports:generate',
-    'loans:read', 'loans:write',
     'settings:read',
   ],
   EMPLOYEE: [
@@ -88,6 +106,96 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
 export function hasPermission(role: UserRole, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false
+}
+
+// ─── Route → required-permission map ────────────────────────────────────────
+// Maps a dashboard route to the permission a user must hold to open it. Used to
+// (1) filter the sidebar and (2) guard direct navigation. Most specific (longest)
+// matching prefix wins, so `/leaves/types` can require a different permission than
+// `/leaves`. Routes NOT listed here are unrestricted (fail-open) so new pages are
+// never accidentally locked. Admin roles bypass this entirely.
+export const ROUTE_PERMISSIONS: Record<string, Permission> = {
+  '/dashboard': 'employees:read',
+  '/analytics': 'analytics:read',
+
+  // Employment
+  '/employees': 'employees:read',
+  '/employee-files': 'employees:read',
+  '/departments': 'departments:write',
+  '/positions': 'departments:write',
+  '/org-chart': 'employees:read',
+  '/recruitment': 'recruitment:manage',
+  '/onboarding': 'onboarding:manage',
+  '/performance-reviews': 'performance:manage',
+  '/offboarding': 'offboarding:manage',
+  '/disciplinary': 'disciplinary:manage',
+  '/assets': 'assets:manage',
+
+  // Time & attendance
+  '/dtr': 'dtr:read',
+  '/attendance/map': 'dtr:read',
+  '/attendance/tardiness': 'dtr:read',
+  '/attendance/settings': 'settings:write',
+  '/time-corrections': 'corrections:approve',
+  '/overtime-requests': 'overtime:approve',
+  '/biometric-devices': 'biometrics:manage',
+  '/schedules': 'settings:read',
+  '/holidays': 'settings:read',
+
+  // Leave (more specific first via longest-prefix match)
+  '/leaves/types': 'settings:write',
+  '/leaves/calendar': 'leaves:read',
+  '/leaves': 'leaves:read',
+
+  // Payroll & finance
+  '/payroll/settings': 'settings:write',
+  '/payroll': 'payroll:read',
+  '/thirteenth-month': 'payroll:read',
+  '/tax-annualization': 'payroll:read',
+  '/final-pay': 'payroll:write',
+  '/disbursement': 'disbursement:manage',
+  '/loans': 'loans:read',
+  '/cash-advance': 'cashadvance:approve',
+  '/budget-requisitions': 'budget:read',
+
+  // Reports
+  '/reports': 'reports:generate',
+
+  // Communication
+  '/announcements': 'announcements:write',
+
+  // Settings & admin (subpaths first)
+  '/settings/users': 'users:manage',
+  '/settings/permissions': 'users:manage',
+  '/settings/approvals': 'approvals:manage',
+  '/settings/workflows': 'approvals:manage',
+  '/settings/payroll-rules': 'settings:write',
+  '/settings/billing': 'billing:manage',
+  '/settings/audit': 'audit:read',
+  '/settings': 'settings:read',
+  '/billing': 'billing:manage',
+}
+
+/**
+ * The permission required to open `pathname`, or null if the route is
+ * unrestricted. Resolves by longest matching prefix so nested routes
+ * (e.g. /payroll/settings) can require a stricter permission than their parent.
+ */
+export function routePermission(pathname: string): Permission | null {
+  let best: { prefix: string; permission: Permission } | null = null
+  for (const [prefix, permission] of Object.entries(ROUTE_PERMISSIONS)) {
+    if (pathname === prefix || pathname.startsWith(prefix + '/')) {
+      if (!best || prefix.length > best.prefix.length) best = { prefix, permission }
+    }
+  }
+  return best?.permission ?? null
+}
+
+/** Whether a user holding `granted` permissions may open `pathname`. */
+export function canAccessRoute(pathname: string, granted: readonly string[]): boolean {
+  const required = routePermission(pathname)
+  if (!required) return true // unrestricted route
+  return granted.includes(required)
 }
 
 export function getRolePermissions(role: UserRole): Permission[] {
@@ -111,7 +219,9 @@ export const ROLE_COLORS: Record<UserRole, string> = {
 }
 
 // ─── Page → Permission mapping ──────────────────────────────────────────────
-// Each nav page requires at least ONE of its listed permissions to be visible.
+// Catalog of every feature/page in the app, grouped like the sidebar. Drives
+// the Role Permissions settings matrix. Keep this in sync with the nav as new
+// features ship.
 export interface NavPermission {
   key: string          // unique page key
   label: string        // human-readable name
@@ -181,7 +291,7 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
     ],
   },
   {
-    group: 'Payroll',
+    group: 'Payroll & Finance',
     pages: [
       { key: 'payroll',            label: 'Payroll Runs',             permission: 'payroll:read' },
       { key: 'pay_write',          label: 'Create / Compute',         permission: 'payroll:write' },

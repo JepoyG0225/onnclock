@@ -75,6 +75,123 @@ export async function POST() {
         EXCEPTION WHEN duplicate_object THEN NULL; END $$;
       `,
     },
+    {
+      name: 'create_approval_workflows',
+      sql: `
+        CREATE TABLE IF NOT EXISTS "approval_workflows" (
+          "id"           TEXT         NOT NULL,
+          "companyId"    TEXT         NOT NULL,
+          "type"         TEXT         NOT NULL,
+          "name"         TEXT         NOT NULL,
+          "departmentId" TEXT,
+          "isActive"     BOOLEAN      NOT NULL DEFAULT true,
+          "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "approval_workflows_pkey" PRIMARY KEY ("id")
+        );
+        CREATE TABLE IF NOT EXISTS "approval_workflow_steps" (
+          "id"             TEXT         NOT NULL,
+          "workflowId"     TEXT         NOT NULL,
+          "order"          INTEGER      NOT NULL,
+          "stepType"       TEXT         NOT NULL DEFAULT 'APPROVAL',
+          "conditions"     JSONB,
+          "approverType"   TEXT,
+          "approverUserId" TEXT,
+          "approverRole"   TEXT,
+          "notifyTarget"   TEXT,
+          "notifyUserId"   TEXT,
+          "notifyRole"     TEXT,
+          "notifyChannel"  TEXT         DEFAULT 'IN_APP',
+          "messageTitle"   TEXT,
+          "messageBody"    TEXT,
+          "createdAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "approval_workflow_steps_pkey" PRIMARY KEY ("id")
+        );
+        CREATE INDEX IF NOT EXISTS "approval_workflows_companyId_type_idx"
+          ON "approval_workflows"("companyId", "type");
+        CREATE UNIQUE INDEX IF NOT EXISTS "approval_workflows_companyId_type_departmentId_key"
+          ON "approval_workflows"("companyId", "type", "departmentId");
+        CREATE INDEX IF NOT EXISTS "approval_workflow_steps_workflowId_idx"
+          ON "approval_workflow_steps"("workflowId");
+        CREATE UNIQUE INDEX IF NOT EXISTS "approval_workflow_steps_workflowId_order_key"
+          ON "approval_workflow_steps"("workflowId", "order");
+        DO $$ BEGIN
+          ALTER TABLE "approval_workflows"
+            ADD CONSTRAINT "approval_workflows_companyId_fkey"
+            FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+        DO $$ BEGIN
+          ALTER TABLE "approval_workflow_steps"
+            ADD CONSTRAINT "approval_workflow_steps_workflowId_fkey"
+            FOREIGN KEY ("workflowId") REFERENCES "approval_workflows"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+      `,
+    },
+    {
+      name: 'add_approval_columns_to_requests',
+      sql: `
+        ALTER TABLE "overtime_requests"
+          ADD COLUMN IF NOT EXISTS "approvalLevel" INTEGER NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS "approvalTrail" JSONB;
+        ALTER TABLE "cash_advance_requests"
+          ADD COLUMN IF NOT EXISTS "approvalLevel" INTEGER NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS "approvalTrail" JSONB;
+        ALTER TABLE "budget_requisitions"
+          ADD COLUMN IF NOT EXISTS "approvalLevel" INTEGER NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS "approvalTrail" JSONB;
+        ALTER TABLE "time_entry_corrections"
+          ADD COLUMN IF NOT EXISTS "approvalLevel" INTEGER NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS "approvalTrail" JSONB;
+      `,
+    },
+    {
+      name: 'create_performance_competencies',
+      sql: `
+        CREATE TABLE IF NOT EXISTS "performance_competencies" (
+          "id"          TEXT         NOT NULL,
+          "companyId"   TEXT         NOT NULL,
+          "key"         TEXT         NOT NULL,
+          "label"       TEXT         NOT NULL,
+          "description" TEXT,
+          "sortOrder"   INTEGER      NOT NULL DEFAULT 0,
+          "isActive"    BOOLEAN      NOT NULL DEFAULT true,
+          "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "performance_competencies_pkey" PRIMARY KEY ("id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "performance_competencies_companyId_key_key"
+          ON "performance_competencies"("companyId", "key");
+        CREATE INDEX IF NOT EXISTS "performance_competencies_companyId_isActive_sortOrder_idx"
+          ON "performance_competencies"("companyId", "isActive", "sortOrder");
+        DO $$ BEGIN
+          ALTER TABLE "performance_competencies"
+            ADD CONSTRAINT "performance_competencies_companyId_fkey"
+            FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+      `,
+    },
+    {
+      name: 'create_employee_other_deductions',
+      sql: `
+        CREATE TABLE IF NOT EXISTS "employee_other_deductions" (
+          "id"         TEXT          NOT NULL,
+          "employeeId" TEXT          NOT NULL,
+          "label"      TEXT          NOT NULL,
+          "amount"     DECIMAL(12,2) NOT NULL DEFAULT 0,
+          "isActive"   BOOLEAN       NOT NULL DEFAULT true,
+          "createdAt"  TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt"  TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "employee_other_deductions_pkey" PRIMARY KEY ("id")
+        );
+        CREATE INDEX IF NOT EXISTS "employee_other_deductions_employeeId_isActive_idx"
+          ON "employee_other_deductions"("employeeId", "isActive");
+        DO $$ BEGIN
+          ALTER TABLE "employee_other_deductions"
+            ADD CONSTRAINT "employee_other_deductions_employeeId_fkey"
+            FOREIGN KEY ("employeeId") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+      `,
+    },
   ]
 
   for (const m of migrations) {

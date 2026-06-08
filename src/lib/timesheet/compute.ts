@@ -449,8 +449,12 @@ export async function resolveShiftForDtr(params: {
   //
   //   3. DEFAULT_REGULAR_CAP_MINUTES (8 h) — last resort.
   const spanMinutes = plannedShiftMinutes(scheduleTimeIn, scheduleTimeOut)
+  // computeHours expects a GROSS cap and deducts the break itself before
+  // comparing. `workHoursPerDay` is the NET agreed hours (already after break),
+  // so add the break back here — otherwise the break is deducted twice and an
+  // 8h shift (9.5h span − 1.5h break) is logged as only 6.5h regular.
   const plannedRegularMinutes =
-    (workHoursPerDay != null && workHoursPerDay > 0 ? Math.round(workHoursPerDay * 60) : null) ??
+    (workHoursPerDay != null && workHoursPerDay > 0 ? Math.round(workHoursPerDay * 60) + allowedBreakMinutes : null) ??
     spanMinutes ??
     DEFAULT_REGULAR_CAP_MINUTES
 

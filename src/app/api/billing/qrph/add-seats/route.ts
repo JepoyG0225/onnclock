@@ -30,13 +30,13 @@ import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createQrPhPayment } from '@/lib/payments/paymongo'
 import { computeCreditApplied } from '@/lib/billing/credit'
+import { effectiveDiscountPct } from '@/lib/billing/pricing'
 
 const schema = z.object({
   additionalSeats: z.number().int().min(1).max(1_000),
 })
 
 const DURATION_MONTHS = { '3_MONTH': 3, '6_MONTH': 6, ANNUAL: 12, MONTHLY: 1 } as const
-const DURATION_DISCOUNT_PCT = { '3_MONTH': 0, '6_MONTH': 0, ANNUAL: 20, MONTHLY: 0 } as const
 
 async function nextInvoiceNo(): Promise<string> {
   const now = new Date()
@@ -93,7 +93,9 @@ export async function POST(req: NextRequest) {
   const now = new Date()
   const cycleKey = (sub.billingCycle ?? 'ANNUAL') as keyof typeof DURATION_MONTHS
   const cycleMonths = DURATION_MONTHS[cycleKey] ?? 12
-  const discountPct = DURATION_DISCOUNT_PCT[cycleKey] ?? 0
+  // Discount based on the resulting total seats (single source of truth): at
+  // 100+ seats 3M/6M get 20% and annual gets 30%; under that only annual = 20%.
+  const discountPct = effectiveDiscountPct(cycleKey, Number(sub.seatCount ?? 0) + additionalSeats)
   const pricePerSeat = Number(sub.pricePerSeat)
 
   // ── Pro-rated cost ─────────────────────────────────────────────────────

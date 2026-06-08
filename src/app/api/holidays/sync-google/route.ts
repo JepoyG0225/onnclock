@@ -3,8 +3,7 @@ import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
 import {
   GoogleHolidaySync,
-  syncCompanyGoogleHolidays,
-  syncCompanyPublicPhHolidays,
+  syncCompanyHolidays,
 } from '@/lib/holidays/google-calendar'
 
 const bodySchema = z.object({
@@ -26,23 +25,15 @@ export async function POST(req: NextRequest) {
   const calendarId = process.env.GOOGLE_HOLIDAY_CALENDAR_ID || GoogleHolidaySync.defaultCalendarId
 
   try {
-    if (apiKey) {
-      const result = await syncCompanyGoogleHolidays({
-        companyId: ctx.companyId,
-        year,
-        apiKey,
-        calendarId,
-      })
-      return NextResponse.json({ year, source: 'google_calendar', ...result })
-    }
-
-    const result = await syncCompanyPublicPhHolidays({
+    const result = await syncCompanyHolidays({
       companyId: ctx.companyId,
       year,
+      apiKey,
+      calendarId,
     })
-    return NextResponse.json({ year, source: 'public_holiday_api', ...result })
+    return NextResponse.json({ year, ...result })
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Google holiday sync failed'
+    const message = err instanceof Error ? err.message : 'Holiday sync failed'
     return NextResponse.json({ error: message }, { status: 502 })
   }
 }

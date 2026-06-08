@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
+import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
+import { notifyAfterApprove } from '@/lib/approvals/notify'
 import { z } from 'zod'
+
+const ADMIN_ROLES = ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD']
+const trailOf = (v: unknown) => (Array.isArray(v) ? v : [])
 
 const reviewSchema = z.object({
   action: z.enum(['approve', 'reject']),
@@ -14,18 +20,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  // Authority is chain-driven when a workflow exists; otherwise legacy roles.
   const { ctx, error } = await requireAuth()
   if (error) return error
-
-  if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD'].includes(ctx.role)) {
-    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
-  }
 
   const companyId = resolveCompanyIdForRequest(ctx, req) ?? ctx.companyId
 
   const correction = await prisma.timeEntryCorrection.findFirst({
     where: { id, companyId },
-    include: { employee: { select: { id: true, companyId: true } } },
+    include: { employee: { select: { id: true, companyId: true, departmentId: true, firstName: true, lastName: true } } },
   })
   if (!correction) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (correction.status !== 'PENDING') {
@@ -41,7 +44,52 @@ export async function PATCH(
   const { action, adminNotes } = parsed.data
   const newStatus = action === 'approve' ? 'APPROVED' : 'REJECTED'
 
-  // If approving, apply the correction to the DTR record (or create one
+  const requesterDepartmentId = correction.employee?.departmentId ?? null
+  const requesterName = `${correction.employee?.firstName ?? ''} ${correction.employee?.lastName ?? ''}`.trim() || 'An employee'
+
+  const decision = await evaluateApprovalAction({
+    companyId,
+    type: 'TIME_CORRECTION',
+    requesterDepartmentId,
+    requesterEmployeeId: correction.employeeId,
+    facts: { departmentId: requesterDepartmentId ?? '' } as RequestFacts,
+    currentLevel: correction.approvalLevel ?? 0,
+    actorUserId: ctx.userId,
+    action,
+    notes: adminNotes ?? null,
+  })
+
+  if (decision.usedWorkflow) {
+    if (!decision.authorized) {
+      return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
+    }
+  } else if (!ADMIN_ROLES.includes(ctx.role)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+  }
+
+  const newTrail = [...trailOf(correction.approvalTrail), decision.trailEntry] as Prisma.InputJsonValue
+
+  // Intermediate approval: advance the chain, stay PENDING, do NOT apply the
+  // DTR change yet — that only happens on the final approval.
+  if (action === 'approve' && decision.usedWorkflow && !decision.isFinal) {
+    const advanced = await prisma.timeEntryCorrection.update({
+      where: { id },
+      data: { approvalLevel: decision.nextLevel, approvalTrail: newTrail },
+    })
+    if (decision.plan) {
+      await notifyAfterApprove({
+        plan: decision.plan,
+        nextLevel: decision.nextLevel,
+        isFinal: false,
+        ctx: { companyId, requesterEmployeeId: correction.employeeId, requesterDepartmentId, link: '/time-corrections', vars: { requestType: 'Time Correction', requesterName } },
+        nextApproverTitle: 'Time correction awaiting your approval',
+        nextApproverBody: requesterName,
+      })
+    }
+    return NextResponse.json({ correction: advanced })
+  }
+
+  // If approving (final), apply the correction to the DTR record (or create one
   // when this is a "manual entry" request with no existing DTR row).
   if (action === 'approve') {
     const targetDtr = correction.dtrRecordId
@@ -108,8 +156,20 @@ export async function PATCH(
       adminNotes: adminNotes ?? null,
       reviewedBy: ctx.userId,
       reviewedAt: new Date(),
+      approvalLevel: decision.nextLevel,
+      approvalTrail: newTrail,
     },
   })
+
+  if (action === 'approve' && decision.plan) {
+    await notifyAfterApprove({
+      plan: decision.plan,
+      nextLevel: decision.nextLevel,
+      isFinal: true,
+      ctx: { companyId, requesterEmployeeId: correction.employeeId, requesterDepartmentId, link: '/time-corrections', vars: { requestType: 'Time Correction', requesterName } },
+      nextApproverTitle: '', nextApproverBody: '',
+    })
+  }
 
   return NextResponse.json({ correction: updated })
 }

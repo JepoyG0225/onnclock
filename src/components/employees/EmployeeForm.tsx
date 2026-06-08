@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Loader2, Save, CalendarDays, Plus } from 'lucide-react'
+import { Loader2, Save, CalendarDays, Plus, Trash2 } from 'lucide-react'
 import { DatePicker } from '@/components/ui/date-picker'
 import { EmployeePortalAccess } from '@/components/employees/EmployeePortalAccess'
 
@@ -219,6 +219,8 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
   const [companyIncomeTypes, setCompanyIncomeTypes] = useState<IncomeTypeItem[]>([])
   const [incomeAssignments, setIncomeAssignments] = useState<Record<string, { assigned: boolean; fixedAmount: number }>>({})
   const [incomeAssignmentsLoading, setIncomeAssignmentsLoading] = useState(false)
+  const [otherDeductions, setOtherDeductions] = useState<{ label: string; amount: number }[]>([])
+  const [otherDeductionsLoading, setOtherDeductionsLoading] = useState(false)
 
   function shouldDisableLeaveByGender(lt: { code: string; name: string; genderRestriction?: string | null }, gender?: EmployeeFormData['gender']) {
     if (!gender) return false
@@ -234,8 +236,8 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     return false
   }
 
-  async function loadLeaveAllocations() {
-    if (!employeeId || leavesLoaded) return
+  async function loadLeaveAllocations(force = false) {
+    if (!employeeId || (leavesLoaded && !force)) return
     setLeavesLoading(true)
     try {
       const res = await fetch(`/api/employees/${employeeId}/leave-balances`)
@@ -259,24 +261,34 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
     }
   }
 
+  // Persist the current leave allocations for a given employee. Used by both the
+  // dedicated "Save Leaves" button and the main employee submit so edits aren't
+  // lost when the user saves the profile without clicking the leaves button.
+  async function persistLeaveAllocations(targetId: string): Promise<boolean> {
+    // Nothing to persist if the leaves tab was never opened/loaded for this edit.
+    if (!leavesLoaded) return true
+    const allocations = Object.entries(leaveAllocations).map(([leaveTypeId, v]) => ({
+      leaveTypeId,
+      entitled: v.entitled,
+      enabled: v.enabled,
+    }))
+    if (allocations.length === 0) return true
+    const res = await fetch(`/api/employees/${targetId}/leave-balances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ allocations }),
+    })
+    return res.ok
+  }
+
   async function saveLeaveAllocations() {
     if (!employeeId) return
     setLeavesSaving(true)
     try {
-      const allocations = Object.entries(leaveAllocations).map(([leaveTypeId, v]) => ({
-        leaveTypeId,
-        entitled: v.entitled,
-        enabled: v.enabled,
-      }))
-      const res = await fetch(`/api/employees/${employeeId}/leave-balances`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ allocations }),
-      })
-      if (res.ok) {
+      const ok = await persistLeaveAllocations(employeeId)
+      if (ok) {
         toast.success('Leave allocations saved')
-        setLeavesLoaded(false)
-        await loadLeaveAllocations()
+        await loadLeaveAllocations(true) // force a fresh reload so the UI matches the DB
       } else {
         toast.error('Failed to save leave allocations')
       }
@@ -307,6 +319,32 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       setIncomeAssignments(map)
     } finally {
       setIncomeAssignmentsLoading(false)
+    }
+  }
+
+  async function loadOtherDeductions() {
+    if (!employeeId) return
+    setOtherDeductionsLoading(true)
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/deductions`)
+      if (!res.ok) { setOtherDeductions([]); return }
+      const data = await res.json()
+      setOtherDeductions(((data.deductions ?? []) as { label: string; amount: number }[]).map(d => ({ label: d.label, amount: Number(d.amount) })))
+    } finally {
+      setOtherDeductionsLoading(false)
+    }
+  }
+
+  async function persistOtherDeductions(targetEmployeeId: string) {
+    const rows = otherDeductions.filter(d => d.label.trim().length > 0)
+    const res = await fetch(`/api/employees/${targetEmployeeId}/deductions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deductions: rows.map(d => ({ label: d.label.trim(), amount: Number(d.amount) || 0, isActive: true })) }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || 'Failed to save employee other deductions')
     }
   }
 
@@ -380,6 +418,11 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
   }, [employeeId])
 
   useEffect(() => {
+    if (employeeId) void loadOtherDeductions()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId])
+
+  useEffect(() => {
     if (isCreate) return
     // No workScheduleId → employee is on flexible scheduling (no fixed template)
     if (!defaultValues?.workScheduleId) {
@@ -420,6 +463,23 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       const targetEmployeeId = (result.employee?.id as string | undefined) || employeeId
       if (targetEmployeeId) {
         await persistIncomeAssignments(targetEmployeeId)
+        // Best-effort: a deductions-save failure (e.g. table not migrated yet)
+        // must not abort the employee save.
+        try {
+          await persistOtherDeductions(targetEmployeeId)
+        } catch (e) {
+          console.error(e)
+          toast.error('Employee saved, but other deductions could not be saved. Try again after the DB migration.')
+        }
+        // Persist leave entitlements too, so editing them on the Leaves tab and
+        // clicking the main Save (instead of "Save Leaves") doesn't discard them.
+        try {
+          const ok = await persistLeaveAllocations(targetEmployeeId)
+          if (!ok) toast.error('Employee saved, but leave entitlements could not be saved.')
+        } catch (e) {
+          console.error(e)
+          toast.error('Employee saved, but leave entitlements could not be saved.')
+        }
       }
 
       if (employeeId) {
@@ -518,7 +578,8 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              onClick={tab.value === 'leaves' ? loadLeaveAllocations : undefined}
+              data-tour={`emp-tab-${tab.value}`}
+              onClick={tab.value === 'leaves' ? () => loadLeaveAllocations() : undefined}
             >
               {tab.label}
             </TabsTrigger>
@@ -1052,6 +1113,63 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </CardContent>
             </Card>
           )}
+
+          {/* Other Deductions Setup — recurring per-employee deductions */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-base">Employee Other Deductions Setup</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Recurring deductions applied to this employee on every payroll run (e.g. uniform,
+                cooperative dues). Saved together when you click Save Employee.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {otherDeductionsLoading ? (
+                <p className="text-sm text-gray-400">Loading other deductions…</p>
+              ) : (
+                <>
+                  {otherDeductions.length === 0 && (
+                    <p className="text-sm text-gray-400">No other deductions yet. Add one below.</p>
+                  )}
+                  {otherDeductions.map((d, i) => (
+                    <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center border rounded-lg px-3 py-2">
+                      <div className="md:col-span-7">
+                        <Input
+                          placeholder="Deduction label (e.g. Uniform)"
+                          value={d.label}
+                          onChange={e => setOtherDeductions(prev => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                        />
+                      </div>
+                      <div className="md:col-span-4">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          placeholder="Amount"
+                          value={d.amount}
+                          onChange={e => setOtherDeductions(prev => prev.map((x, j) => (j === i ? { ...x, amount: Number(e.target.value || 0) } : x)))}
+                        />
+                      </div>
+                      <div className="md:col-span-1 flex justify-end">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setOtherDeductions(prev => prev.filter((_, j) => j !== i))}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setOtherDeductions(prev => [...prev, { label: '', amount: 0 }])}
+                    className="gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add deduction
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* GOVERNMENT IDs */}

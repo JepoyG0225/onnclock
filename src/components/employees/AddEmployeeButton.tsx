@@ -25,7 +25,7 @@ export function AddEmployeeButton({ atSeatCap, activeCount, paidSeats }: Props) 
 
   return (
     <>
-      <Button onClick={handleClick}>
+      <Button onClick={handleClick} data-tour="add-employee">
         <Plus className="mr-2 w-4 h-4" />
         Add Employee
       </Button>

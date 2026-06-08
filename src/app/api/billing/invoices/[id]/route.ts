@@ -38,9 +38,15 @@ export async function GET(
   const fallbackPricePerSeat = Number(invoice.subscription?.pricePerSeat ?? 0)
   const fallbackSeatCount = Number(invoice.subscription?.seatCount ?? 0)
   const effectivePricePerSeat = rawPricePerSeat > 0 ? rawPricePerSeat : fallbackPricePerSeat
-  const monthsBilled = Number(invoice.discountPct) > 0 ? 12 : 1
 
   let effectiveSeatCount = rawSeatCount > 0 ? rawSeatCount : fallbackSeatCount
+  // Derive months from the pre-discount subtotal (subtotal = price × months ×
+  // seats) when we know the price and seats — this stays correct now that 3M/6M
+  // plans can also carry a discount. Fall back to the legacy discount heuristic
+  // only when seats are unknown (old invoices that predate stored seatCount).
+  const monthsBilled = effectivePricePerSeat > 0 && effectiveSeatCount > 0
+    ? Math.max(1, Math.round(Number(invoice.subtotal) / (effectivePricePerSeat * effectiveSeatCount)))
+    : (Number(invoice.discountPct) > 0 ? 12 : 1)
   if (effectiveSeatCount <= 0 && effectivePricePerSeat > 0) {
     const estimatedSeats = Math.round(Number(invoice.subtotal) / (effectivePricePerSeat * monthsBilled))
     effectiveSeatCount = Math.max(1, estimatedSeats)

@@ -80,10 +80,17 @@ export async function GET(req: NextRequest) {
     ? ctx.managedDepartmentId
     : departmentId
 
+  // "Delete" is a soft delete (isActive=false). Exclude deactivated employees
+  // by default so they don't leak into dropdowns (e.g. "Reports To"), org
+  // chart, etc. Pass status=INACTIVE (or includeInactive=1) to fetch them.
+  const showInactive = status === 'INACTIVE' || searchParams.get('includeInactive') === '1'
+
   const where: Record<string, unknown> = {
     companyId,
+    ...(showInactive ? {} : { isActive: true }),
+    ...(status === 'INACTIVE' ? { isActive: false } : {}),
     ...(effectiveDepartmentId && { departmentId: effectiveDepartmentId }),
-    ...(status && { employmentStatus: status }),
+    ...(status && status !== 'INACTIVE' && { employmentStatus: status }),
     ...(search && {
       OR: [
         { firstName: { contains: search } },

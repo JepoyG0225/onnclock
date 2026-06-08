@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { ensureDefaultPaymentMethods } from '@/lib/billing/payment-methods'
 import { Prisma } from '@prisma/client'
 import { createMayaCheckoutSession } from '@/lib/payments/maya'
+import { effectiveDiscountPct } from '@/lib/billing/pricing'
 
 const schema = z.object({
   billingCycle: z.enum(['ANNUAL']),
@@ -88,6 +89,11 @@ export async function POST(req: NextRequest) {
 
   const isAnnual = billingCycle === 'ANNUAL'
 
+  // Single source of truth for the prepay discount (lib/billing/pricing): under
+  // 100 seats only annual is discounted (20%); at 100+ seats annual is 30%.
+  const newDiscountPct = effectiveDiscountPct(billingCycle, billedSeatCount)
+  const newFactor = 1 - newDiscountPct / 100
+
   const existingBillingCycle = existingSub?.billingCycle
   const isSameCycleChange = !!existingBillingCycle && existingBillingCycle === billingCycle
   const hasActiveRemainingPeriod =
@@ -100,19 +106,20 @@ export async function POST(req: NextRequest) {
   const oldPricePerSeat = Number(existingSub?.pricePerSeat ?? 0)
   const oldSeatCount = Number(existingSub?.seatCount ?? 0)
   const oldIsAnnual = existingBillingCycle === 'ANNUAL'
-  const oldCycleTotal = oldIsAnnual
-    ? oldPricePerSeat * 12 * oldSeatCount * 0.8
-    : oldPricePerSeat * oldSeatCount
+  const oldFactor = 1 - effectiveDiscountPct(existingBillingCycle, oldSeatCount) / 100
+  const oldCycleTotal = (oldIsAnnual
+    ? oldPricePerSeat * 12 * oldSeatCount
+    : oldPricePerSeat * oldSeatCount) * oldFactor
 
   let periodStart = now
   let periodEnd = new Date(now)
   const newCycleSubtotal = isAnnual ? pricePerSeat * 12 * billedSeatCount : pricePerSeat * billedSeatCount
-  const newCycleDiscountAmount = isAnnual ? newCycleSubtotal * 0.2 : 0
+  const newCycleDiscountAmount = newCycleSubtotal * (newDiscountPct / 100)
   const newCycleTotal = newCycleSubtotal - newCycleDiscountAmount
 
   let subtotal = newCycleSubtotal
-  let discountPct = isAnnual ? 20 : 0
-  let discountAmount = isAnnual ? subtotal * 0.2 : 0
+  let discountPct = newDiscountPct
+  let discountAmount = Math.round(newCycleSubtotal * (newDiscountPct / 100) * 100) / 100
   let remainingCredit = 0
 
   if (hasActiveRemainingPeriod && existingSub?.currentPeriodStart && existingSub.currentPeriodEnd) {
@@ -131,18 +138,18 @@ export async function POST(req: NextRequest) {
       const deltaTotal = Math.max(0, currentPeriodNewTotal - currentPeriodOldTotal)
       const proratedTotal = Math.round(deltaTotal * remainingRatio * 100) / 100
 
-      // Keep the 20% annual discount line visible and consistent in invoice breakdown.
-      subtotal = isAnnual ? Math.round((proratedTotal / 0.8) * 100) / 100 : proratedTotal
-      discountPct = isAnnual ? 20 : 0
-      discountAmount = isAnnual ? Math.round((subtotal - proratedTotal) * 100) / 100 : 0
+      // Keep the combined discount line visible and consistent in invoice breakdown.
+      subtotal = newFactor > 0 ? Math.round((proratedTotal / newFactor) * 100) / 100 : proratedTotal
+      discountPct = newDiscountPct
+      discountAmount = Math.round((subtotal - proratedTotal) * 100) / 100
       periodStart = now
       periodEnd = currentEnd
     } else {
       // Cross-cycle change (e.g., monthly -> annual): charge full new cycle minus remaining paid credit.
       const netTotal = Math.max(0, newCycleTotal - remainingCredit)
-      subtotal = isAnnual ? Math.round((netTotal / 0.8) * 100) / 100 : netTotal
-      discountPct = isAnnual ? 20 : 0
-      discountAmount = isAnnual ? Math.round((subtotal - netTotal) * 100) / 100 : 0
+      subtotal = newFactor > 0 ? Math.round((netTotal / newFactor) * 100) / 100 : netTotal
+      discountPct = newDiscountPct
+      discountAmount = Math.round((subtotal - netTotal) * 100) / 100
       if (isAnnual) periodEnd.setFullYear(periodEnd.getFullYear() + 1)
       else periodEnd.setMonth(periodEnd.getMonth() + 1)
     }

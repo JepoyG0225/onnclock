@@ -14,16 +14,6 @@ import { Button } from '@/components/ui/button'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COMPETENCIES = [
-  { key: 'jobKnowledge',    label: 'Job Knowledge',          desc: 'Understanding of role responsibilities and technical skills' },
-  { key: 'qualityOfWork',   label: 'Quality of Work',        desc: 'Accuracy, thoroughness, and attention to detail' },
-  { key: 'productivity',    label: 'Productivity',           desc: 'Volume and efficiency of work output' },
-  { key: 'communication',   label: 'Communication',          desc: 'Clarity, listening, and collaboration with others' },
-  { key: 'teamwork',        label: 'Teamwork',               desc: 'Contribution to team goals and positive work relationships' },
-  { key: 'initiative',      label: 'Initiative',             desc: 'Proactiveness, creativity, and going beyond what is required' },
-  { key: 'reliability',     label: 'Reliability',            desc: 'Consistency, punctuality, and dependability' },
-]
-
 // Custom competency keys are prefixed with "custom:" so labels are self-contained in the scores JSON.
 // e.g. { "custom:Leadership": 4, "custom:Attendance": 5 }
 function isCustomKey(key: string) { return key.startsWith('custom:') }
@@ -145,14 +135,20 @@ export default function ReviewDetailPage() {
   const [newCompetencyLabel,  setNewCompetencyLabel]  = useState('')
   const [isManager,           setIsManager]           = useState(false)
   const [isEmployee,          setIsEmployee]          = useState(false)
+  const [competencies,        setCompetencies]        = useState<{ key: string; label: string; description: string | null; isActive: boolean }[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [reviewRes, meRes] = await Promise.all([
+      const [reviewRes, meRes, compRes] = await Promise.all([
         fetch(`/api/performance-reviews/${id}`),
         fetch('/api/employees/me').catch(() => ({ ok: false, json: async () => ({}) })),
+        fetch('/api/performance-reviews/competencies').catch(() => ({ ok: false, json: async () => ({}) })),
       ])
+      if ((compRes as Response).ok) {
+        const cd = await (compRes as Response).json()
+        setCompetencies(cd.competencies ?? [])
+      }
       if (!reviewRes.ok) {
         const d = await reviewRes.json()
         toast.error(d.error ?? 'Failed to load review')
@@ -490,8 +486,8 @@ export default function ReviewDetailPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {/* Built-in competencies */}
-                  {COMPETENCIES.map(c => {
+                  {/* Library competencies */}
+                  {competencies.filter(c => c.isActive || (scores[c.key] ?? 0) > 0).map(c => {
                     const score = scores[c.key] ?? 0
                     return (
                       <div key={c.key} className="flex items-center gap-3">
@@ -562,14 +558,14 @@ export default function ReviewDetailPage() {
 
             {/* ── Standard competencies ── */}
             <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Standard Competencies</p>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Competencies</p>
               <div className="space-y-2">
-                {COMPETENCIES.map((comp) => (
+                {competencies.filter(c => c.isActive || (scores[c.key] ?? 0) > 0).map((comp) => (
                   <div key={comp.key} className="border border-slate-100 rounded-xl p-4">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
                         <p className="text-sm font-semibold text-slate-800">{comp.label}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{comp.desc}</p>
+                        {comp.description && <p className="text-xs text-slate-400 mt-0.5">{comp.description}</p>}
                       </div>
                       <StarRatingInput
                         value={scores[comp.key] ?? 0}

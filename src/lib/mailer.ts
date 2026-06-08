@@ -347,6 +347,67 @@ export async function sendRecruitmentStageEmail({
 }
 
 /**
+ * Generic per-company email used by the approval-workflow engine for NOTIFY
+ * steps. Uses the company's own SMTP config when set, otherwise the platform
+ * default. Best-effort: callers wrap in try/catch so a mail failure never
+ * blocks the approval action.
+ */
+export async function sendCompanyEmail({
+  companyId,
+  to,
+  subject,
+  body,
+}: {
+  companyId: string
+  to: string | string[]
+  subject: string
+  body: string
+}) {
+  const resolved = await getCompanyMailer(companyId)
+  await resolved.transporter.sendMail({
+    from: resolved.from,
+    to: Array.isArray(to) ? to.join(', ') : to,
+    subject,
+    text: body,
+    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.6">${body.replace(/\n/g, '<br/>')}</div>`,
+  })
+}
+
+/**
+ * Send a sales proposal/quotation (PDF attached) from the system-admin
+ * proposal generator. Uses the platform SMTP identity (NexDev/OnClock).
+ */
+export async function sendProposalEmail({
+  to,
+  subject,
+  message,
+  pdf,
+  filename,
+}: {
+  to: string
+  subject: string
+  message: string
+  pdf: Buffer | Uint8Array
+  filename: string
+}) {
+  const info = await transporter.sendMail({
+    from: buildFromIdentity({ senderName: 'OnClock by NexDev Systems' }),
+    to,
+    subject,
+    text: message,
+    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.6">${message.replace(/\n/g, '<br/>')}</div>`,
+    attachments: [
+      {
+        filename,
+        content: Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf),
+        contentType: 'application/pdf',
+      },
+    ],
+  })
+  return info.messageId
+}
+
+/**
  * Reminder for trial companies that haven't started setting up employees yet.
  * Triggered manually from the system admin → Companies page when a SUPER_ADMIN
  * notices a company has been on trial but has 0 active employees.

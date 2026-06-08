@@ -28,18 +28,13 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { effectiveDiscountPct } from '@/lib/billing/pricing'
 
 const DURATION_MONTHS: Record<string, number> = {
   MONTHLY: 1,
   '3_MONTH': 3,
   '6_MONTH': 6,
   ANNUAL: 12,
-}
-const DURATION_DISCOUNT_PCT: Record<string, number> = {
-  MONTHLY: 0,
-  '3_MONTH': 0,
-  '6_MONTH': 0,
-  ANNUAL: 20,
 }
 
 export interface IssueDeactivationCreditResult {
@@ -64,7 +59,7 @@ export async function issueDeactivationCredit(opts: {
   const sub = await prisma.subscription.findUnique({
     where: { companyId: opts.companyId },
     select: {
-      status: true, billingCycle: true, pricePerSeat: true,
+      status: true, billingCycle: true, pricePerSeat: true, seatCount: true,
       currentPeriodStart: true, currentPeriodEnd: true,
     },
   })
@@ -79,7 +74,9 @@ export async function issueDeactivationCredit(opts: {
 
   const cycleKey = sub.billingCycle ?? 'ANNUAL'
   const cycleMonths = DURATION_MONTHS[cycleKey] ?? 12
-  const discountPct = DURATION_DISCOUNT_PCT[cycleKey] ?? 0
+  // Use the same discount the seats were billed at (volume tiers included) so
+  // the refund matches what was actually paid per seat.
+  const discountPct = effectiveDiscountPct(cycleKey, Number(sub.seatCount ?? 0))
   const discountFactor = 1 - discountPct / 100
   const pricePerSeat = Number(sub.pricePerSeat)
 

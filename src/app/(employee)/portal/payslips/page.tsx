@@ -48,6 +48,7 @@ interface Payslip {
 export default function PayslipsPage() {
   const { fmt: peso } = useCurrency()
   const [payslips, setPayslips] = useState<Payslip[]>([])
+  const [otherDeductionItems, setOtherDeductionItems] = useState<{ label: string; amount: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Payslip | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -75,6 +76,7 @@ export default function PayslipsPage() {
         const res = await fetch('/api/payroll/my-payslips')
         const data = await res.json()
         setPayslips(data.payslips ?? [])
+        setOtherDeductionItems(data.otherDeductionItems ?? [])
       } catch {
         // silent
       } finally {
@@ -224,12 +226,27 @@ export default function PayslipsPage() {
                         <span>{peso(selected.sssLoanDeduction + selected.pagibigLoan + selected.companyLoan)}</span>
                       </div>
                     )}
-                    {selected.otherDeductions > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Other Deductions</span>
-                        <span>{peso(selected.otherDeductions)}</span>
-                      </div>
-                    )}
+                    {(() => {
+                      // Itemize only when the employee's deduction items reconcile with
+                      // this payslip's stored Other Deductions total; else show the total.
+                      const items = otherDeductionItems.filter(d => Number(d?.amount) > 0)
+                      const sum = items.reduce((s, d) => s + Number(d.amount), 0)
+                      const useItems = items.length > 0 && Math.abs(sum - selected.otherDeductions) < 0.01
+                      if (useItems) {
+                        return items.map((d, i) => (
+                          <div key={i} className="flex justify-between">
+                            <span className="text-gray-600 pl-2">{d.label || 'Other Deduction'}</span>
+                            <span>{peso(Number(d.amount))}</span>
+                          </div>
+                        ))
+                      }
+                      return selected.otherDeductions > 0 ? (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Other Deductions</span>
+                          <span>{peso(selected.otherDeductions)}</span>
+                        </div>
+                      ) : null
+                    })()}
                     <div className="flex justify-between border-t border-gray-100 pt-1.5 font-semibold">
                       <span>Total</span>
                       <span className="text-red-600">{peso(selected.totalDeductions)}</span>

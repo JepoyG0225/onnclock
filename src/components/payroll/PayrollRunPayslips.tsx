@@ -452,6 +452,11 @@ function PerDayBreakdown({
   const hourlyRate = ps.dailyRate / 8
   const rt = ps.employee.rateType
   const round2 = (n: number) => Math.round(n * 100) / 100
+  // The payslip only pays APPROVED overtime (the engine uses the approved-OT
+  // map). DTR rows still carry raw computed OT hours, so a day can show worked
+  // OT that was never approved/paid. Flag that case so the breakdown matches
+  // the payslip's OT Pay (₱0) instead of implying unpaid hours were paid.
+  const otWasPaid = ps.regularOtAmount > 0
 
   // Index holidays for quick lookup
   const holidayByDate = new Map<string, HolidayInPeriod>()
@@ -475,6 +480,12 @@ function PerDayBreakdown({
   // to what the engine actually paid.
   const totalOtHoursDtr = dtrs.reduce((s, d) => s + d.overtimeHours, 0)
   const totalNdHoursDtr = dtrs.reduce((s, d) => s + d.nightDiffHours, 0)
+  // Late / undertime: the engine stores period-level peso deductions
+  // (ps.lateDeduction / ps.undertimeDeduction). Distribute each proportional
+  // to its own per-day minutes so the daily lines sum back to the stored
+  // deduction exactly. These are deductions from NET — not part of gross.
+  const totalLateMinDtr = dtrs.reduce((s, d) => s + (d.lateMinutes || 0), 0)
+  const totalUtMinDtr = dtrs.reduce((s, d) => s + (d.undertimeMinutes || 0), 0)
 
   // Worked-holiday day classification (for premium distribution)
   const workedRegularHolidayDates: string[] = []
@@ -512,6 +523,9 @@ function PerDayBreakdown({
     hours: number
     overtimeHours: number
     nightDiffHours: number
+    lateMinutes: number
+    undertimeMinutes: number
+    lateUtDeduction: number
     workedAmount: number
     overtimeAmount: number
     nightDiffAmount: number
@@ -533,6 +547,11 @@ function PerDayBreakdown({
     const reg = d ? d.regularHours : 0
     const ot = d ? d.overtimeHours : 0
     const nd = d ? d.nightDiffHours : 0
+    const lateMin = d ? (d.lateMinutes || 0) : 0
+    const utMin = d ? (d.undertimeMinutes || 0) : 0
+    const lateDed = totalLateMinDtr > 0 ? round2((lateMin / totalLateMinDtr) * ps.lateDeduction) : 0
+    const utDed = totalUtMinDtr > 0 ? round2((utMin / totalUtMinDtr) * ps.undertimeDeduction) : 0
+    const lateUtDeduction = round2(lateDed + utDed)
     const isAbsent = d?.isAbsent ?? false
     const isLeave = d?.isLeave ?? false
     const isLeavePaid = d?.isLeavePaid ?? false
@@ -600,6 +619,9 @@ function PerDayBreakdown({
       hours: reg,
       overtimeHours: ot,
       nightDiffHours: nd,
+      lateMinutes: lateMin,
+      undertimeMinutes: utMin,
+      lateUtDeduction,
       workedAmount,
       overtimeAmount,
       nightDiffAmount,
@@ -635,6 +657,9 @@ function PerDayBreakdown({
   const grandPremium = round2(rows.reduce((s, r) => s + r.holidayPremium + r.art94Credit, 0))
   const grandOt = round2(rows.reduce((s, r) => s + r.overtimeAmount, 0))
   const grandNd = round2(rows.reduce((s, r) => s + r.nightDiffAmount, 0))
+  const grandLateMin = rows.reduce((s, r) => s + r.lateMinutes, 0)
+  const grandUtMin = rows.reduce((s, r) => s + r.undertimeMinutes, 0)
+  const grandLateUtDed = round2(ps.lateDeduction + ps.undertimeDeduction)
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -654,6 +679,7 @@ function PerDayBreakdown({
             <th className="text-right px-3 py-1.5 font-semibold">Reg hrs</th>
             <th className="text-right px-3 py-1.5 font-semibold">OT</th>
             <th className="text-right px-3 py-1.5 font-semibold">ND</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-rose-500">Late / UT</th>
             <th className="text-right px-3 py-1.5 font-semibold">Amount</th>
           </tr>
         </thead>
@@ -679,11 +705,32 @@ function PerDayBreakdown({
                 <td className="px-3 py-1.5 text-right align-top text-slate-700">
                   {r.hours > 0 ? `${r.hours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
                 </td>
-                <td className="px-3 py-1.5 text-right align-top text-blue-700">
-                  {r.overtimeHours > 0 ? `${r.overtimeHours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
+                <td className="px-3 py-1.5 text-right align-top">
+                  {r.overtimeHours > 0 ? (
+                    otWasPaid ? (
+                      <span className="text-blue-700">{r.overtimeHours.toFixed(2)}h</span>
+                    ) : (
+                      <span className="inline-block leading-tight" title="Worked OT was not approved — not paid in this run">
+                        <span className="text-slate-400 line-through">{r.overtimeHours.toFixed(2)}h</span>
+                        <span className="block text-[9px] text-slate-400">unpaid</span>
+                      </span>
+                    )
+                  ) : <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-3 py-1.5 text-right align-top text-cyan-700">
                   {r.nightDiffHours > 0 ? `${r.nightDiffHours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
+                </td>
+                <td className="px-3 py-1.5 text-right align-top whitespace-nowrap">
+                  {(r.lateMinutes > 0 || r.undertimeMinutes > 0) ? (
+                    <div className="leading-tight">
+                      <p className="font-bold text-rose-600">-{peso(r.lateUtDeduction)}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {r.lateMinutes > 0 ? `${r.lateMinutes}m late` : ''}
+                        {r.lateMinutes > 0 && r.undertimeMinutes > 0 ? ' · ' : ''}
+                        {r.undertimeMinutes > 0 ? `${r.undertimeMinutes}m UT` : ''}
+                      </p>
+                    </div>
+                  ) : <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-3 py-1.5 text-right align-top font-bold text-slate-800 whitespace-nowrap">
                   {totalForDay > 0 ? peso(totalForDay) : <span className="text-slate-300">—</span>}
@@ -704,6 +751,18 @@ function PerDayBreakdown({
             <td className="px-3 py-1.5 text-right font-bold text-cyan-700">
               {grandNd > 0 ? peso(grandNd) : <span className="text-slate-300">—</span>}
             </td>
+            <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
+              {grandLateUtDed > 0 ? (
+                <div className="leading-tight">
+                  <p className="text-rose-600">-{peso(grandLateUtDed)}</p>
+                  <p className="text-[10px] font-normal text-slate-400">
+                    {grandLateMin > 0 ? `${grandLateMin}m late` : ''}
+                    {grandLateMin > 0 && grandUtMin > 0 ? ' · ' : ''}
+                    {grandUtMin > 0 ? `${grandUtMin}m UT` : ''}
+                  </p>
+                </div>
+              ) : <span className="text-slate-300">—</span>}
+            </td>
             <td className="px-3 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">
               {peso(round2(grandWorked + grandOt + grandNd + grandPremium))}
             </td>
@@ -714,8 +773,12 @@ function PerDayBreakdown({
         OT / ND / holiday-premium amounts are distributed from the engine&apos;s
         stored totals proportional to each day&apos;s hours, so the daily sum
         always tallies to what the payslip actually paid. Days show ₱0 for
-        a component when the engine credited none (e.g. unapproved OT,
-        disableHolidayPay turned on).
+        a component when the engine credited none. Worked OT that wasn&apos;t
+        approved (or when overtime is disabled) is shown struck-through and
+        marked <span className="text-slate-400">unpaid</span> — it is not in
+        gross. <span className="text-rose-500">Late / UT</span> is a
+        deduction from net pay (not part of gross) — shown here per day; its column total
+        equals the payslip&apos;s stored late + undertime deduction.
       </p>
     </div>
   )

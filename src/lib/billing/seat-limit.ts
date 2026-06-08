@@ -19,6 +19,19 @@
 import { cache } from 'react'
 import { prisma } from '@/lib/prisma'
 
+// Companies that are never seat-capped (e.g. the sales "Demo Inc" account used
+// for live demos). Matched case-insensitively by company name. Extra names can
+// be added via the UNCAPPED_COMPANY_NAMES env var (comma-separated).
+const UNCAPPED_COMPANY_NAMES = new Set(
+  ['demo inc', ...(process.env.UNCAPPED_COMPANY_NAMES ?? '').split(',')]
+    .map(n => n.trim().toLowerCase())
+    .filter(Boolean),
+)
+
+function isUncappedCompanyName(name?: string | null): boolean {
+  return !!name && UNCAPPED_COMPANY_NAMES.has(name.trim().toLowerCase())
+}
+
 export interface SeatStatus {
   /** Active employees currently in the company (isActive=true). */
   activeCount: number
@@ -78,12 +91,13 @@ export const getPausedEmployees = cache(async (companyId: string): Promise<Pause
  * only hits Prisma once.
  */
 export const getSeatStatus = cache(async (companyId: string): Promise<SeatStatus> => {
-  const [activeCount, sub] = await Promise.all([
+  const [activeCount, sub, company] = await Promise.all([
     prisma.employee.count({ where: { companyId, isActive: true } }),
     prisma.subscription.findUnique({
       where: { companyId },
       select: { status: true, seatCount: true },
     }),
+    prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
   ])
 
   const status = sub?.status ?? 'NO_SUBSCRIPTION'
@@ -94,7 +108,8 @@ export const getSeatStatus = cache(async (companyId: string): Promise<SeatStatus
   // unrestricted (the free-trial UX should let HR enroll their roster
   // without friction). EXPIRED/CANCELLED have a separate gate that
   // already redirects them to billing for anything but settings.
-  const enforceCap = status === 'ACTIVE'
+  // Demo/whitelisted companies are never capped so demos can add unlimited seats.
+  const enforceCap = status === 'ACTIVE' && !isUncappedCompanyName(company?.name)
   const isOver = enforceCap && unbilled > 0
 
   return { activeCount, paidSeats, unbilled, status, enforceCap, isOver }

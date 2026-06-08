@@ -435,6 +435,26 @@ export async function POST(
     },
   })
 
+  // Per-employee "Other Deductions" line items. Fetched separately (and
+  // guarded) so a not-yet-migrated table can't break the whole payroll compute
+  // — it just yields zero deductions until the migration is applied. We keep
+  // the individual items so the payslip can show a breakdown.
+  const otherDeductionMap = new Map<string, { label: string; amount: number }[]>()
+  try {
+    const items = await prisma.employeeOtherDeduction.findMany({
+      where: { employeeId: { in: employees.map(e => e.id) }, isActive: true },
+      select: { employeeId: true, label: true, amount: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    for (const it of items) {
+      const list = otherDeductionMap.get(it.employeeId) ?? []
+      list.push({ label: it.label, amount: Number(it.amount) })
+      otherDeductionMap.set(it.employeeId, list)
+    }
+  } catch (err) {
+    console.error('[payroll compute] other deductions unavailable (run migration)', err)
+  }
+
   const variableAssignmentKeys = new Set<string>()
   for (const emp of employees) {
     for (const assignment of emp.incomeAssignments) {
@@ -562,7 +582,11 @@ export async function POST(
 
       return {
         ...d,
-        isHoliday: !!holiday,
+        // Recognize a holiday from the company calendar OR the DTR row's own
+        // flag, so a shift worked on a holiday still earns the premium (200%
+        // for REGULAR) even if that date isn't in the calendar yet / was added
+        // late. Calendar still wins on the holiday TYPE when present.
+        isHoliday: !!holiday || d.isHoliday === true,
         holidayType: holiday?.type ?? d.holidayType,
         overtimeHours: approvedOtMap.get(buildOtMapKey(emp.id, d.date)) ?? 0,
         nightDiffHours,
@@ -885,6 +909,14 @@ export async function POST(
     const companyLoans = loanDeductions.filter(l => l.type === 'COMPANY_LOAN'       ).reduce((s, l) => s + l.amount, 0)
     const otherLoans   = loanDeductions.filter(l => !l.type.startsWith('SSS') && !l.type.startsWith('PAGIBIG') && l.type !== 'COMPANY_LOAN').reduce((s, l) => s + l.amount, 0)
 
+    // Employee "Other Deductions" (recurring, set up on the employee profile).
+    const otherDeductionItems = otherDeductionMap.get(emp.id) ?? []
+    const otherDeductionsTotal = parseFloat(
+      otherDeductionItems.reduce((s, d) => s + d.amount, 0).toFixed(2),
+    )
+    const totalDeductionsWithOther = parseFloat((result.totalDeductions + otherDeductionsTotal).toFixed(2))
+    const netPayWithOther = parseFloat((result.netPay - otherDeductionsTotal).toFixed(2))
+
     builds.push({
       employeeId: emp.id,
       loanDeductions: loanDeductions.map(l => ({ id: l.id, amount: l.amount })),
@@ -921,8 +953,9 @@ export async function POST(
         lateDeduction:              result.lateDeduction,
         undertimeDeduction:         result.undertimeDeduction,
         absenceDeduction:           result.absenceDeduction,
-        totalDeductions:            result.totalDeductions,
-        netPay:                     result.netPay,
+        otherDeductions:            otherDeductionsTotal,
+        totalDeductions:            totalDeductionsWithOther,
+        netPay:                     netPayWithOther,
         thirteenthMonthContribution:result.thirteenthMonthContribution,
         taxableIncome:              result.taxableIncome,
         nonTaxableIncome:           result.nonTaxableIncome,
@@ -935,8 +968,8 @@ export async function POST(
 
     totalBasic       += result.basicPay
     totalGross       += result.grossPay
-    totalDeductions  += result.totalDeductions
-    totalNetPay      += result.netPay
+    totalDeductions  += totalDeductionsWithOther
+    totalNetPay      += netPayWithOther
     totalSssEr       += result.sssEmployer
     totalPhEr        += result.philhealthEmployer
     totalPagibigEr   += result.pagibigEmployer

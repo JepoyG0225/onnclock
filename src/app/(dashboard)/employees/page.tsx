@@ -32,10 +32,15 @@ export default async function EmployeesPage({
   const page = parseInt(params.page || '1')
   const limit = 20
 
+  // "Delete" is a soft delete (isActive=false). Default the list to active
+  // employees so a deleted employee actually disappears; the special
+  // "INACTIVE" filter surfaces deactivated employees so HR can reactivate them.
+  const showInactive = status === 'INACTIVE'
   const where = {
     companyId,
+    isActive: !showInactive,
     ...(departmentId && { departmentId }),
-    ...(status && { employmentStatus: status as EmploymentStatus }),
+    ...(status && status !== 'INACTIVE' && { employmentStatus: status as EmploymentStatus }),
     ...(search && {
       OR: [
         { firstName: { contains: search } },
@@ -129,6 +134,7 @@ export default async function EmployeesPage({
               <option value="CONTRACTUAL">Contractual</option>
               <option value="RESIGNED">Resigned</option>
               <option value="TERMINATED">Terminated</option>
+              <option value="INACTIVE">Inactive (Deactivated)</option>
             </select>
             <Button type="submit" variant="outline" size="sm">Filter</Button>
           </form>

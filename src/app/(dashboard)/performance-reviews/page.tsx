@@ -6,8 +6,10 @@ import { format } from 'date-fns'
 import {
   BarChart3, Plus, Search, Loader2, ChevronRight,
   Users, CalendarRange, Star, AlertTriangle,
-  CheckCircle2, Clock3, CircleDot, Eye,
+  CheckCircle2, Clock3, CircleDot, Eye, ClipboardList, X,
 } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { CompetencyManager } from '@/components/performance/CompetencyManager'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -282,6 +284,7 @@ export default function PerformanceReviewsPage() {
   const [total,        setTotal]        = useState(0)
   const [loading,      setLoading]      = useState(true)
   const [showCreate,   setShowCreate]   = useState(false)
+  const [showCompetencies, setShowCompetencies] = useState(false)
   const [activeStatus, setActiveStatus] = useState<string>('')
   const [search,       setSearch]       = useState('')
   const [page,         setPage]         = useState(1)
@@ -332,12 +335,20 @@ export default function PerformanceReviewsPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Manage review cycles, scorecards, and employee feedback</p>
         </div>
-        <Button
-          onClick={() => setShowCreate(true)}
-          className="bg-[#021e47] hover:bg-[#021e47]/90 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" /> New Review Cycle
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => setShowCompetencies(true)}
+          >
+            <ClipboardList className="w-4 h-4 mr-2" /> Manage Competencies
+          </Button>
+          <Button
+            onClick={() => setShowCreate(true)}
+            className="bg-[#021e47] hover:bg-[#021e47]/90 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" /> New Review Cycle
+          </Button>
+        </div>
       </div>
 
       {/* Status summary cards */}
@@ -502,6 +513,29 @@ export default function PerformanceReviewsPage() {
           onClose={() => setShowCreate(false)}
           onCreated={fetchReviews}
         />
+      )}
+
+      {/* Manage competencies modal */}
+      {showCompetencies && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowCompetencies(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-xl max-h-[85vh] overflow-auto">
+            <div className="flex items-start justify-between gap-3 p-5 border-b sticky top-0 bg-white">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-[#032b63]" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Scorecard Competencies</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Create, edit, reorder, or remove the competencies used in every scorecard</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCompetencies(false)} className="text-slate-400 hover:text-slate-700 p-1"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5">
+              <CompetencyManager />
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

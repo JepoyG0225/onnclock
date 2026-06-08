@@ -5,12 +5,14 @@ import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ComputePayrollButton } from '@/components/payroll/ComputePayrollButton'
+import { ApproveRunOtButton } from '@/components/payroll/ApproveRunOtButton'
 import PayrollActionButtons from '@/components/payroll/PayrollActionButtons'
 import { PayrollRunPayslips } from '@/components/payroll/PayrollRunPayslips'
 import { PayrollPayslipsLoader } from '@/components/payroll/PayrollPayslipsLoader'
 import { PayrollWorkflowStepper } from '@/components/payroll/PayrollWorkflowStepper'
 import { formatDate, getStatusColor, formatCurrency } from '@/lib/utils'
-import {Users, TrendingDown} from 'lucide-react'
+import {Users, TrendingDown, AlertTriangle, Clock3, ClipboardCheck} from 'lucide-react'
+import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 
 export default async function PayrollRunPage({ params }: { params: Promise<{ runId: string }> }) {
@@ -72,6 +74,27 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
     },
     orderBy: { date: 'asc' },
   })
+
+  // Pre-payroll readiness flags: attendance and OT in this period that still
+  // need sign-off. Surfaced so admins don't finalize a run on top of
+  // unreviewed timesheets / pending overtime.
+  const [unapprovedTimesheets, pendingOtCount] = await Promise.all([
+    prisma.dTRRecord.count({
+      where: {
+        employee: { companyId },
+        date: { gte: run.periodStart, lte: run.periodEnd },
+        timeOut: { not: null },     // completed attendance that warrants review
+        approvedBy: null,           // not yet approved
+        NOT: { remarks: 'REJECTED' },
+      },
+    }),
+    prisma.overtimeRequest.count({
+      where: { companyId, status: 'PENDING', date: { gte: run.periodStart, lte: run.periodEnd } },
+    }),
+  ])
+  const showReadinessWarning =
+    (unapprovedTimesheets > 0 || pendingOtCount > 0) &&
+    run.status !== 'APPROVED' && run.status !== 'LOCKED' && run.status !== 'CANCELLED'
 
   const payslips = await prisma.payslip.findMany({
     where: { payrollRunId: runId },
@@ -144,6 +167,43 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
         </div>
         <PayrollWorkflowStepper status={run.status} />
       </div>
+
+      {/* Pre-payroll readiness warning */}
+      {showReadinessWarning && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-900">
+                Items in this pay period still need approval
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Review and approve these before finalizing — they affect what this run pays. Recompute after approving.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {unapprovedTimesheets > 0 && (
+                  <Link
+                    href="/dtr"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    <ClipboardCheck className="w-3.5 h-3.5" />
+                    {unapprovedTimesheets} unapproved timesheet{unapprovedTimesheets !== 1 ? 's' : ''}
+                  </Link>
+                )}
+                {pendingOtCount > 0 && (
+                  <Link
+                    href="/overtime-requests"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    <Clock3 className="w-3.5 h-3.5" />
+                    {pendingOtCount} pending overtime request{pendingOtCount !== 1 ? 's' : ''}
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

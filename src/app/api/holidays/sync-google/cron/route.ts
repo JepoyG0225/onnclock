@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
   GoogleHolidaySync,
-  syncCompanyGoogleHolidays,
-  syncCompanyPublicPhHolidays,
+  syncCompanyHolidays,
 } from '@/lib/holidays/google-calendar'
 
 function isAuthorized(req: NextRequest) {
@@ -30,30 +29,34 @@ export async function GET(req: NextRequest) {
     select: { id: true },
   })
 
-  const summary: Array<{ companyId: string; year: number; imported: number; skippedManual: number; fetched: number }> = []
+  const summary: Array<{ companyId: string; year: number; imported: number; skippedManual: number; fetched: number; addedCount: number }> = []
 
   for (const company of companies) {
     for (const year of years) {
-      const result = apiKey
-        ? await syncCompanyGoogleHolidays({
-            companyId: company.id,
-            year,
-            apiKey,
-            calendarId,
-          })
-        : await syncCompanyPublicPhHolidays({
-            companyId: company.id,
-            year,
-          })
-      summary.push({ companyId: company.id, year, ...result })
+      try {
+        const result = await syncCompanyHolidays({ companyId: company.id, year, apiKey, calendarId })
+        summary.push({
+          companyId: company.id,
+          year,
+          imported: result.imported,
+          skippedManual: result.skippedManual,
+          fetched: result.fetched,
+          addedCount: result.added.length,
+        })
+      } catch (err) {
+        console.error('[holidays cron] sync failed', { companyId: company.id, year, err })
+      }
     }
   }
 
+  const totalAdded = summary.reduce((s, r) => s + r.addedCount, 0)
+
   return NextResponse.json({
     ok: true,
-    source: apiKey ? 'google_calendar' : 'public_holiday_api',
+    source: apiKey ? 'google_calendar+public_holiday_api' : 'public_holiday_api',
     companies: companies.length,
     syncedYears: years,
+    totalAdded,
     summary,
   })
 }

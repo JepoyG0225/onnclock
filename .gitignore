@@ -43,3 +43,11 @@ next-env.d.ts
 /src/generated/prisma
 
 .vercel
+
+# Desktop app build artifacts & deps (exceed GitHub 100MB limit)
+desktop-system-admin/dist/
+desktop-system-admin/node_modules/
+desktop-app-employee/dist/
+desktop-app/dist/
+desktop-app/node_modules/
+desktop-app-employee/node_modules/

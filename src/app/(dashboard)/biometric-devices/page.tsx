@@ -42,6 +42,11 @@ function isOnline(lastSeenAt: string | null) {
   return Date.now() - new Date(lastSeenAt).getTime() < 5 * 60_000
 }
 
+// Feature lock — biometric terminals are not released yet. Flip to false to
+// restore the full device-management UI below (typed boolean so the real UI
+// stays reachable / type-checked while it's hidden).
+const BIOMETRIC_COMING_SOON: boolean = true
+
 export default function BiometricDevicesPage() {
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(false)
@@ -59,7 +64,7 @@ export default function BiometricDevicesPage() {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (!BIOMETRIC_COMING_SOON) load() }, [])
 
   async function createDevice() {
     if (!form.name.trim()) { toast.error('Name is required'); return }
@@ -121,6 +126,32 @@ export default function BiometricDevicesPage() {
     online:  devices.filter(d => d.status === 'ACTIVE' && isOnline(d.lastSeenAt)).length,
     pending: devices.filter(d => d.status === 'PENDING_PAIRING').length,
   }), [devices])
+
+  if (BIOMETRIC_COMING_SOON) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Biometric Terminals</h1>
+          <p className="text-slate-500 text-sm mt-1">Fingerprint clock-in/out kiosks for your workplace.</p>
+        </div>
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-50">
+              <Fingerprint className="h-8 w-8 text-sky-500" />
+            </div>
+            <span className="inline-flex items-center rounded-full bg-sky-500/90 px-3 py-1 text-xs font-black tracking-wide text-white">
+              COMING SOON
+            </span>
+            <h2 className="mt-3 text-lg font-bold text-slate-800">Biometric terminals are almost here</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+              We&apos;re putting the finishing touches on fingerprint clock-in/out kiosk support.
+              This feature is temporarily locked — check back soon.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

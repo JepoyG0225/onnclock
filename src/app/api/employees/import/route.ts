@@ -15,10 +15,11 @@ interface ImportError {
 function parseDate(value: unknown): Date | null {
   if (value === null || value === undefined || value === '') return null
 
+  // Build dates at UTC midnight so the stored @db.Date calendar day is correct
+  // regardless of the server's timezone (avoids off-by-one shifts).
   if (typeof value === 'number') {
     // Excel serial date: days since 1899-12-30
-    const excelEpoch = new Date(1899, 11, 30)
-    const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000)
+    const date = new Date(Date.UTC(1899, 11, 30) + value * 24 * 60 * 60 * 1000)
     if (!isNaN(date.getTime())) return date
     return null
   }
@@ -29,7 +30,7 @@ function parseDate(value: unknown): Date | null {
   // Try YYYY-MM-DD
   const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (match) {
-    const d = new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]))
+    const d = new Date(Date.UTC(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3])))
     if (!isNaN(d.getTime())) return d
   }
 
@@ -53,6 +54,9 @@ export async function POST(req: NextRequest) {
   if (error) return error
 
   const companyId = resolveCompanyIdForRequest(ctx!, req)
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
+  }
 
   let formData: FormData
   try {

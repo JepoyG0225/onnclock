@@ -25,5 +25,20 @@ export async function GET() {
     take: 24,
   })
 
-  return NextResponse.json({ payslips })
+  // Active "other deduction" line items for this employee — used to itemize the
+  // Other Deductions total on the payslip. Guarded so a not-yet-migrated table
+  // can't break the payslip list.
+  let otherDeductionItems: { label: string; amount: number }[] = []
+  try {
+    const rows = await prisma.employeeOtherDeduction.findMany({
+      where: { employeeId: employee.id, isActive: true },
+      select: { label: true, amount: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    otherDeductionItems = rows.map(r => ({ label: r.label, amount: Number(r.amount) }))
+  } catch {
+    otherDeductionItems = []
+  }
+
+  return NextResponse.json({ payslips, otherDeductionItems })
 }

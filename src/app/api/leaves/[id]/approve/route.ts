@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { createNotification, userIdForEmployee } from '@/lib/notifications'
+import { createNotification, createNotificationsForUsers, userIdForEmployee } from '@/lib/notifications'
+import {
+  resolveWorkflow,
+  buildPlan,
+  authorizeAdvance,
+  resolveApprovers,
+  notifyStepsOnApprove,
+  type RequestFacts,
+} from '@/lib/approvals/engine'
+import { dispatchNotifySteps } from '@/lib/approvals/notify'
 
 export async function POST(
   req: NextRequest,
@@ -40,22 +49,62 @@ export async function POST(
     return NextResponse.json({ error: 'Leave request is not pending' }, { status: 400 })
   }
 
-  const approvers = await prisma.approverConfig.findMany({
-    where: { companyId: ctx.companyId, type: 'LEAVE' },
-    orderBy: { level: 'asc' },
-  })
-  const maxLevel = approvers.length
-  const currentLevel = leaveRequest.approvalLevel ?? 0
-  const nextLevel = currentLevel + 1
-  const expectedApprover = approvers.find(a => a.level === nextLevel)
+  const employee = leaveRequest.employee as { departmentId?: string | null; firstName?: string | null; lastName?: string | null } | null
+  const requesterDepartmentId = employee?.departmentId ?? null
+  const requesterName = `${employee?.firstName ?? ''} ${employee?.lastName ?? ''}`.trim() || 'An employee'
 
-  if (maxLevel > 0) {
-    if (!expectedApprover || expectedApprover.userId !== ctx.userId) {
-      return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
-    }
+  const currentLevel = leaveRequest.approvalLevel ?? 0
+  let nextLevel: number
+  let isFinal: boolean
+
+  // Prefer the configurable workflow engine (per-department, conditional).
+  // Fall back to the legacy company-wide ApproverConfig chain for companies
+  // that haven't built a workflow yet, so nothing breaks on rollout.
+  const workflow = await resolveWorkflow({
+    companyId: ctx.companyId,
+    type: 'LEAVE',
+    departmentId: requesterDepartmentId,
+  })
+
+  const facts: RequestFacts = {
+    totalDays: leaveRequest.totalDays.toNumber(),
+    leaveType: leaveRequest.leaveType?.name ?? '',
+    isWithPay: !!leaveRequest.leaveType?.isWithPay,
+    isHalfDay: !!leaveRequest.isHalfDay,
+    departmentId: requesterDepartmentId ?? '',
   }
 
-  const isFinal = maxLevel === 0 || nextLevel >= maxLevel
+  const plan = workflow ? buildPlan(workflow, facts) : null
+
+  if (plan) {
+    const adv = await authorizeAdvance({
+      plan,
+      currentLevel,
+      actorUserId: ctx.userId,
+      requesterDepartmentId,
+      requesterEmployeeId: leaveRequest.employeeId,
+    })
+    if (action === 'approve' && !adv.noChain && !adv.authorized) {
+      return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
+    }
+    nextLevel = adv.nextLevel
+    isFinal = action === 'approve' ? adv.isFinal : true
+  } else {
+    const approvers = await prisma.approverConfig.findMany({
+      where: { companyId: ctx.companyId, type: 'LEAVE' },
+      orderBy: { level: 'asc' },
+    })
+    const maxLevel = approvers.length
+    nextLevel = currentLevel + 1
+    const expectedApprover = approvers.find(a => a.level === nextLevel)
+    if (action === 'approve' && maxLevel > 0) {
+      if (!expectedApprover || expectedApprover.userId !== ctx.userId) {
+        return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
+      }
+    }
+    isFinal = action === 'approve' ? (maxLevel === 0 || nextLevel >= maxLevel) : true
+  }
+
   const newStatus = action === 'approve'
     ? (isFinal ? 'APPROVED' : 'PENDING')
     : 'REJECTED'
@@ -71,7 +120,7 @@ export async function POST(
     prevTrail = []
   }
   const trailEntry = {
-    level: maxLevel > 0 ? nextLevel : 1,
+    level: nextLevel,
     userId: ctx.userId,
     action,
     notes: notes ?? null,
@@ -213,6 +262,42 @@ export async function POST(
       body: `${leaveRequest.leaveType?.name ?? 'Leave'} · ${start} – ${end}${notes ? ` · ${notes}` : ''}`,
       link: '/portal/leaves',
     })
+  }
+
+  // Workflow engine NOTIFY steps + "your turn" hand-off (engine path, approve only).
+  if (plan && action === 'approve') {
+    const notifyCtx = {
+      companyId: ctx.companyId,
+      requesterEmployeeId: leaveRequest.employeeId,
+      requesterDepartmentId,
+      link: '/leaves',
+      vars: {
+        requestType: 'Leave',
+        requesterName,
+        leaveType: leaveRequest.leaveType?.name ?? 'Leave',
+      },
+    }
+    await dispatchNotifySteps(notifyStepsOnApprove(plan, nextLevel, isFinal), notifyCtx)
+
+    // Ping the next approver in the chain when approval continues.
+    if (!isFinal) {
+      const nextStep = plan.approvalSteps[nextLevel]
+      if (nextStep) {
+        const nextApprovers = await resolveApprovers(nextStep, {
+          companyId: ctx.companyId,
+          requesterDepartmentId,
+        })
+        if (nextApprovers.length > 0) {
+          await createNotificationsForUsers(nextApprovers, {
+            companyId: ctx.companyId,
+            type: 'GENERIC',
+            title: 'Leave request awaiting your approval',
+            body: `${requesterName} · ${leaveRequest.leaveType?.name ?? 'Leave'}`,
+            link: '/leaves',
+          })
+        }
+      }
+    }
   }
 
   return NextResponse.json({ success: true, status: newStatus })

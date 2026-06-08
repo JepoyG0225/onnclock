@@ -19,6 +19,7 @@ export function EmployeeImportButton() {
       <Button
         variant="outline"
         onClick={() => setOpen(true)}
+        data-tour="import-employees"
         className="border-[#162d54] text-[#162d54] hover:bg-[#162d54] hover:text-white"
       >
         <Upload className="mr-2 w-4 h-4" />

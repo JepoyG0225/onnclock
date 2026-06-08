@@ -15,7 +15,6 @@ import {
   computeHours,
   computeLateAndUndertime,
   getCompanyNightDiffWindow,
-  plannedShiftMinutes,
   resolveShiftForDtr,
 } from './compute'
 
@@ -71,7 +70,7 @@ export async function recomputeCompanyDtrHours(
       employee: {
         select: {
           workScheduleId: true,
-          workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true } },
+          workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
         },
       },
     },
@@ -92,14 +91,17 @@ export async function recomputeCompanyDtrHours(
               timeIn: d.employee.workSchedule.timeIn ?? null,
               timeOut: d.employee.workSchedule.timeOut ?? null,
               breakMinutes: d.employee.workSchedule.breakMinutes ?? null,
+              workHoursPerDay: d.employee.workSchedule.workHoursPerDay ?? null,
             }
           : null,
       },
       defaultBreakMinutes,
     })
-    const plannedMins = plannedShiftMinutes(resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+    // Use the same workHoursPerDay-based cap as the live clock-out path so OT
+    // only starts once the employee exceeds the company's set working hours/day
+    // (+ break), not merely the shift span.
     const computed = computeHours(d.timeIn, d.timeOut, d.breakIn, d.breakOut, {
-      plannedRegularMinutes: plannedMins,
+      plannedRegularMinutes: resolved.plannedRegularMinutes,
       allowedBreakMinutes: resolved.allowedBreakMinutes,
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,

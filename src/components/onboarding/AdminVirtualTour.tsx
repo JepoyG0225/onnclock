@@ -262,36 +262,37 @@ export function AdminVirtualTour({
     if (actorRole === 'SUPER_ADMIN') return
     if (!['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(role)) return
 
-    const seenKey = `onclock_admin_tour_seen_${userId}`
     const progressKey = `onclock_admin_tour_progress_${userId}`
-    const seen = window.localStorage.getItem(seenKey)
-    if (seen) return
 
+    // Resume mid-tour after a navigation click (location.assign reloads the page).
+    let restoreId: number | undefined
     const savedProgressRaw = window.sessionStorage.getItem(progressKey)
     if (savedProgressRaw) {
       try {
         const saved = JSON.parse(savedProgressRaw) as { active?: boolean; stepIndex?: number }
         if (saved.active) {
           const bounded = Math.max(0, Math.min(Number(saved.stepIndex ?? 0), Math.max(steps.length - 1, 0)))
-          const restoreId = window.setTimeout(() => {
-            setStepIndex(bounded)
-            setActive(true)
-          }, 0)
-          return () => window.clearTimeout(restoreId)
+          restoreId = window.setTimeout(() => { setStepIndex(bounded); setActive(true) }, 0)
         }
-      } catch {
-        // ignore corrupted progress and fall through to fresh start
-      }
+      } catch { /* ignore corrupted progress */ }
     }
 
-    const id = window.setTimeout(() => {
+    // The full system tour now starts on explicit request — from the Welcome
+    // modal's "Take the full tour" or a Help action — instead of auto-running,
+    // so it doesn't collide with the first-login welcome / page tours.
+    const onStart = () => {
+      setStepIndex(0)
       setActive(true)
       const first = steps[0]
       if (first?.href) clickSidebarHref(first.href)
-      if (first?.clickSelector) clickBySelector(first.clickSelector)
-    }, 700)
+      else if (first?.clickSelector) clickBySelector(first.clickSelector)
+    }
+    window.addEventListener('onclock:start-system-tour', onStart)
 
-    return () => window.clearTimeout(id)
+    return () => {
+      if (restoreId) window.clearTimeout(restoreId)
+      window.removeEventListener('onclock:start-system-tour', onStart)
+    }
   }, [userId, role, actorRole, steps])
 
   useEffect(() => {
