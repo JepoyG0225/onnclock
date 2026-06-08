@@ -71,12 +71,19 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   // /settings/profile is always allowed; the other settings sub-paths
   // need the corresponding permission. We list the open one with empty
   // required so the prefix sort still matches it.
+  //
+  // Audit & Compliance and Billing are COMPANY_ADMIN-only by design.
+  // Both surface company-wide financial/governance data that lower
+  // roles shouldn't see, so we gate them on users:manage (the canonical
+  // COMPANY_ADMIN permission, force-granted to that role by the loader
+  // so they can never lock themselves out). A custom role can still be
+  // granted users:manage explicitly if the admin wants to share access.
   { prefix: '/settings/profile',     required: [] },
-  { prefix: '/settings/billing',     required: [] },
+  { prefix: '/settings/billing',     required: ['users:manage'] },
   { prefix: '/settings/users',       required: ['users:manage'] },
   { prefix: '/settings/permissions', required: ['users:manage'] },
   { prefix: '/settings/approvals',   required: ['settings:write'] },
-  { prefix: '/settings/audit',       required: ['settings:read'] },
+  { prefix: '/settings/audit',       required: ['users:manage'] },
   { prefix: '/settings/payroll-rules', required: ['settings:write'] },
   { prefix: '/settings',             required: ['settings:read'] },
 
