@@ -24,6 +24,8 @@ export default function AttendanceSettingsPage() {
     selfieRequired: false,
     screenCaptureEnabled: false,
     screenCaptureFrequencyMinutes: '5',
+    autoClockoutEnabled: false,
+    autoClockoutMinutes: '10',
     geofenceLat: '',
     geofenceLng: '',
     geofenceRadiusMeters: '',
@@ -57,6 +59,9 @@ export default function AttendanceSettingsPage() {
         (typeof data.screenCaptureEnabled === 'boolean' ? data.screenCaptureEnabled : prev.screenCaptureEnabled)
         && !!feature.entitled,
       screenCaptureFrequencyMinutes: String(data.screenCaptureFrequencyMinutes ?? prev.screenCaptureFrequencyMinutes ?? 5),
+      autoClockoutEnabled:
+        typeof data.autoClockoutEnabled === 'boolean' ? data.autoClockoutEnabled : prev.autoClockoutEnabled,
+      autoClockoutMinutes: String(data.autoClockoutMinutes ?? prev.autoClockoutMinutes ?? 10),
       geofenceLat: data.geofenceLat != null ? String(data.geofenceLat) : '',
       geofenceLng: data.geofenceLng != null ? String(data.geofenceLng) : '',
       geofenceRadiusMeters: data.geofenceRadiusMeters != null ? String(data.geofenceRadiusMeters) : '',
@@ -78,6 +83,8 @@ export default function AttendanceSettingsPage() {
         selfieRequired: Boolean(form.selfieRequired),
         screenCaptureEnabled: Boolean(form.screenCaptureEnabled),
         screenCaptureFrequencyMinutes: Number(form.screenCaptureFrequencyMinutes || 5),
+        autoClockoutEnabled: Boolean(form.autoClockoutEnabled),
+        autoClockoutMinutes: Number(form.autoClockoutMinutes || 10),
         geofenceLat: form.geofenceLat.trim() === '' ? null : Number(form.geofenceLat),
         geofenceLng: form.geofenceLng.trim() === '' ? null : Number(form.geofenceLng),
         geofenceRadiusMeters: form.geofenceRadiusMeters.trim() === '' ? null : Number(form.geofenceRadiusMeters),
@@ -89,6 +96,10 @@ export default function AttendanceSettingsPage() {
       if (!Number.isFinite(payload.screenCaptureFrequencyMinutes) || payload.screenCaptureFrequencyMinutes < 1) {
         payload.screenCaptureFrequencyMinutes = 5
       }
+      if (!Number.isFinite(payload.autoClockoutMinutes) || payload.autoClockoutMinutes < 1) {
+        payload.autoClockoutMinutes = 10
+      }
+      if (payload.autoClockoutMinutes > 240) payload.autoClockoutMinutes = 240
 
       const res = await fetch('/api/settings', {
         method: 'PATCH',
@@ -299,6 +310,46 @@ export default function AttendanceSettingsPage() {
               </div>
             </div>
           )}
+
+          {/* ── Auto clock-out on inactivity ─────────────────────────────
+              Desktop app uses Electron's powerMonitor.getSystemIdleTime()
+              which reports the number of seconds since the OS last saw
+              keyboard or mouse input (also counts screen lock / sleep).
+              When the threshold is hit the app fires the standard
+              clock-out path with a remarks stamp so HR can audit. */}
+          <div className="space-y-3 rounded-xl border p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4 mt-0.5"
+                checked={Boolean(form.autoClockoutEnabled)}
+                onChange={e => setForm(f => ({ ...f, autoClockoutEnabled: e.target.checked }))}
+              />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900">Auto clock-out on inactivity</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  When enabled, the desktop app automatically clocks employees out after
+                  the chosen number of minutes with no keyboard, mouse, or screen activity.
+                  Employees see a 60-second warning notification before the clock-out fires.
+                </p>
+              </div>
+            </label>
+
+            {form.autoClockoutEnabled && (
+              <div className="ml-7 flex items-center gap-3 pt-1">
+                <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Inactivity timeout</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={240}
+                  value={form.autoClockoutMinutes}
+                  onChange={e => setForm(f => ({ ...f, autoClockoutMinutes: e.target.value }))}
+                  className="w-24"
+                />
+                <span className="text-xs text-gray-500">minutes (1–240)</span>
+              </div>
+            )}
+          </div>
 
           {form.geofenceEnabled && (
             <div className="border rounded-xl p-4 space-y-4 bg-slate-50">

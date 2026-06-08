@@ -33,6 +33,8 @@ const companySchema = z.object({
   selfieRequired: z.boolean().optional(),
   screenCaptureEnabled: z.boolean().optional(),
   screenCaptureFrequencyMinutes: z.number().int().min(1).max(60).optional(),
+  autoClockoutEnabled: z.boolean().optional(),
+  autoClockoutMinutes: z.number().int().min(1).max(240).optional(),
   geofenceEnabled: z.boolean().optional(),
   geofenceLat: z.number().optional().nullable(),
   geofenceLng: z.number().optional().nullable(),
@@ -251,6 +253,12 @@ export async function PATCH(req: NextRequest) {
     }
     if (companyFieldSupported('screenCaptureFrequencyMinutes') && hasField('screenCaptureFrequencyMinutes')) {
       companyUpdateData.screenCaptureFrequencyMinutes = parsed.data.screenCaptureFrequencyMinutes
+    }
+    if (companyFieldSupported('autoClockoutEnabled') && hasField('autoClockoutEnabled')) {
+      companyUpdateData.autoClockoutEnabled = parsed.data.autoClockoutEnabled
+    }
+    if (companyFieldSupported('autoClockoutMinutes') && hasField('autoClockoutMinutes')) {
+      companyUpdateData.autoClockoutMinutes = parsed.data.autoClockoutMinutes
     }
     if (companyFieldSupported('geofenceEnabled') && hasField('geofenceEnabled')) {
       companyUpdateData.geofenceEnabled = parsed.data.geofenceEnabled

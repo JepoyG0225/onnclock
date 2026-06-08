@@ -316,6 +316,13 @@ model Company {
   selfieRequired                Boolean  @default(false)
   screenCaptureEnabled          Boolean  @default(false)
   screenCaptureFrequencyMinutes Int      @default(5)
+  // Auto clock-out after N minutes of OS-level inactivity (no keyboard
+  // or mouse input across the entire desktop). The desktop app polls
+  // electron's powerMonitor.getSystemIdleTime() and fires the usual
+  // clock-out path when the threshold is hit. autoClockoutMinutes of
+  // 0 is treated as disabled regardless of the enabled flag.
+  autoClockoutEnabled           Boolean  @default(false)
+  autoClockoutMinutes           Int      @default(10)
   geofenceLat                   Float?
   geofenceLng                   Float?
   geofenceRadiusMeters          Int?

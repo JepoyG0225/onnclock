@@ -13,6 +13,7 @@ const {
   shell,
   session,
   safeStorage,
+  powerMonitor,
 } = require('electron')
 const crypto = require('crypto')
 const fs = require('fs')
@@ -32,6 +33,8 @@ const store = new Store({
     userRole: '',
     screenCaptureEnabled: false,
     frequencyMinutes: 5,
+    autoClockoutEnabled: false,
+    autoClockoutMinutes: 10,
     // PIN lock
     pinHash: null,
     pinSalt: null,
@@ -529,6 +532,111 @@ function stopCaptureLoop() {
     log('Screen capture stopped')
   }
 }
+
+// ── Auto clock-out on inactivity ──────────────────────────────────────
+// Polls Electron's powerMonitor.getSystemIdleTime() (returns seconds
+// since the OS last saw keyboard or mouse input — also counts screen
+// lock / sleep on macOS and Windows). When the configured threshold
+// is hit we fire the same /api/attendance/clock-out path the user
+// would hit manually, stamping a remarks string for the audit trail.
+//
+// To avoid surprising the employee mid-task we show a 60-second
+// warning notification before the actual clock-out fires; any input
+// during the warning window resets the timer.
+let idleWatcherInterval = null
+let idleWarningShown = false
+
+function startIdleWatcher() {
+  if (idleWatcherInterval) return
+  if (!store.get('autoClockoutEnabled', false)) return
+  // Tick every 20s — fine-grained enough to fire close to the configured
+  // threshold without burning CPU. powerMonitor.getSystemIdleTime() is a
+  // sync OS call so it's cheap.
+  idleWatcherInterval = setInterval(checkIdleAndAutoClockout, 20 * 1000)
+  idleWarningShown = false
+  log(`Idle watcher started (auto clock-out after ${store.get('autoClockoutMinutes', 10)} min)`)
+}
+
+function stopIdleWatcher() {
+  if (idleWatcherInterval) {
+    clearInterval(idleWatcherInterval)
+    idleWatcherInterval = null
+    idleWarningShown = false
+    log('Idle watcher stopped')
+  }
+}
+
+async function checkIdleAndAutoClockout() {
+  try {
+    if (!isClockedIn || isOnBreak) {
+      stopIdleWatcher()
+      return
+    }
+    if (!store.get('autoClockoutEnabled', false)) {
+      stopIdleWatcher()
+      return
+    }
+    const minutes = Math.max(1, Number(store.get('autoClockoutMinutes', 10)))
+    const idleSec = powerMonitor.getSystemIdleTime() // seconds
+    const thresholdSec = minutes * 60
+    const warnAtSec   = Math.max(30, thresholdSec - 60) // 1 minute before
+
+    // Reset warning flag once activity is detected again so the next
+    // idle stretch shows a fresh warning.
+    if (idleSec < warnAtSec && idleWarningShown) {
+      idleWarningShown = false
+    }
+
+    if (idleSec >= warnAtSec && idleSec < thresholdSec && !idleWarningShown) {
+      idleWarningShown = true
+      try {
+        new Notification({
+          title: 'OnClock — inactive',
+          body: `You'll be clocked out in about 1 minute due to inactivity. Move the mouse to stay clocked in.`,
+        }).show()
+      } catch { /* notifications may be denied — best effort */ }
+    }
+
+    if (idleSec >= thresholdSec) {
+      log(`Auto clock-out triggered — idle ${Math.round(idleSec)}s ≥ ${thresholdSec}s`)
+      stopIdleWatcher()
+      await performAutoClockout(minutes)
+    }
+  } catch (err) {
+    log(`Idle watcher tick failed: ${err?.message ?? err}`)
+  }
+}
+
+async function performAutoClockout(minutesIdle) {
+  try {
+    const remarks = `Auto clock-out: inactive for ${minutesIdle} minute${minutesIdle === 1 ? '' : 's'}`
+    // Reuse the existing clock-out endpoint so all the standard side
+    // effects (DTR finalize, screen capture stop, location ping stop,
+    // notifications) fire identically to a manual clock-out.
+    const res = await apiRequest('POST', '/api/attendance/clock-out', { remarks, auto: true })
+    if (res.ok) {
+      isClockedIn = false
+      isOnBreak = false
+      stopCaptureLoop()
+      stopLocationPingLoop()
+      try {
+        new Notification({
+          title: 'OnClock — clocked out',
+          body: `You were clocked out automatically after ${minutesIdle} minutes of inactivity.`,
+        }).show()
+      } catch { /* best effort */ }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('auto-clockout', { minutesIdle })
+      }
+      updateTrayTooltip()
+      log('Auto clock-out completed')
+    } else {
+      log(`Auto clock-out API failed: ${res.data?.error ?? res.status}`)
+    }
+  } catch (err) {
+    log(`Auto clock-out error: ${err?.message ?? err}`)
+  }
+}
 // ----
 
 function updateTrayTooltip() {
@@ -661,6 +769,11 @@ async function handleClockIn(location) {
         startCaptureLoop()
       }
       startLocationPingLoop()
+      // Begin watching for inactivity once the employee is clocked in.
+      // Break-start handlers below stop the watcher; break-end restarts it.
+      if (store.get('autoClockoutEnabled', false)) {
+        startIdleWatcher()
+      }
       await syncClockStateFromServer('clockin')
       rebuildTrayMenu()
       broadcastStatus()
@@ -692,6 +805,7 @@ async function handleClockOut(location) {
     if (res.ok) {
       stopCaptureLoop()
       stopLocationPingLoop()
+      stopIdleWatcher()
       isClockedIn = false
       currentDtrRecordId = null
       captureCount = 0
@@ -900,6 +1014,23 @@ async function syncClockStateFromServer(source = 'poll') {
       }
     }
 
+    // Auto clock-out config (admin-configurable per company). Stored on
+    // the same security poll cadence so it stays fresh without a second
+    // round-trip. autoClockoutMinutes ≤ 0 is treated as disabled.
+    if (secRes.ok && secRes.data?.autoClockout != null) {
+      const ac = secRes.data.autoClockout
+      const nextAutoEnabled = Boolean(ac.enabled) && Number(ac.minutes) > 0
+      const nextAutoMinutes = Math.max(1, Number(ac.minutes ?? 10))
+      store.set('autoClockoutEnabled', nextAutoEnabled)
+      store.set('autoClockoutMinutes', nextAutoMinutes)
+      // (Re)start or stop the idle-watcher to reflect the latest setting.
+      if (isClockedIn && !isOnBreak && nextAutoEnabled) {
+        startIdleWatcher()
+      } else {
+        stopIdleWatcher()
+      }
+    }
+
     if (!todayRes.ok) {
       if (source !== 'poll') {
         log(`Clock state sync failed (${source}): ${todayRes.data?.error ?? todayRes.status}`)
@@ -993,6 +1124,9 @@ async function handleStartBreak() {
   const monitoringEnabled = Boolean(store.get('screenCaptureEnabled', false))
   stopCaptureLoop()
   stopLocationPingLoop()
+  // Pause the inactivity watcher during a break — breaks are
+  // intentional idleness and should never auto-clock-out.
+  stopIdleWatcher()
   startBreakWarningLoop()
   log(monitoringEnabled ? 'Break started - screen capture paused' : 'Break started')
   new Notification({
@@ -1049,6 +1183,9 @@ async function handleEndBreak() {
     startCaptureLoop()
   }
   startLocationPingLoop()   // resume location pings after break
+  if (store.get('autoClockoutEnabled', false)) {
+    startIdleWatcher()      // resume inactivity watcher after break
+  }
   rebuildTrayMenu()
   broadcastStatus()
   return { ok: true }
