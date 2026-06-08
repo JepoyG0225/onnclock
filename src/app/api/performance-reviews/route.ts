@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { getCompanyPricePerSeat, hasHrisProFeature } from '@/lib/feature-gates'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
 
@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  const price = await getCompanyPricePerSeat(ctx.companyId)
-  if (!hasHrisProFeature(price)) {
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
     return NextResponse.json({ error: 'Performance Reviews require the Pro plan (₱70/employee).' }, { status: 403 })
   }
 
@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth(HR_ROLES)
   if (error) return error
 
-  const price = await getCompanyPricePerSeat(ctx.companyId)
-  if (!hasHrisProFeature(price)) {
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
     return NextResponse.json({ error: 'Performance Reviews require the Pro plan (₱70/employee).' }, { status: 403 })
   }
 

@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest) {
   if (error) return error
 
   const sub = await getCompanySubscription(ctx.companyId)
-  if (!hasHrisProFeature(sub.pricePerSeat)) {
+  if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
     return NextResponse.json({ error: 'Offboarding requires a Pro subscription.' }, { status: 403 })
   }
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (error) return error
 
   const sub = await getCompanySubscription(ctx.companyId)
-  if (!hasHrisProFeature(sub.pricePerSeat)) {
+  if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
     return NextResponse.json({ error: 'Offboarding requires a Pro subscription.' }, { status: 403 })
   }
 

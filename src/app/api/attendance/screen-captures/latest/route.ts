@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { getCompanyPricePerSeat, hasHrisProFeature } from '@/lib/feature-gates'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
 
@@ -16,8 +16,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const price = await getCompanyPricePerSeat(ctx.companyId)
-  if (!hasHrisProFeature(price)) {
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
     return NextResponse.json({ captures: {} })
   }
 

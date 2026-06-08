@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { getCompanyPricePerSeat, hasHrisProFeature } from '@/lib/feature-gates'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 
 export async function POST(
   _req: NextRequest,
@@ -12,8 +12,8 @@ export async function POST(
 
   const { id } = await params
 
-  const price = await getCompanyPricePerSeat(ctx.companyId)
-  if (!hasHrisProFeature(price)) {
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
     return NextResponse.json({ error: 'Performance Reviews require the Pro plan.' }, { status: 403 })
   }
 

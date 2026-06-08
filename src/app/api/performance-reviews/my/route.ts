@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { getCompanyPricePerSeat, hasHrisProFeature } from '@/lib/feature-gates'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 
 // GET /api/performance-reviews/my — employee's own reviews (portal)
 export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  const price = await getCompanyPricePerSeat(ctx.companyId)
-  if (!hasHrisProFeature(price)) {
+  const sub = await getCompanySubscription(ctx.companyId)
+  if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
     return NextResponse.json({ reviews: [] })
   }
 
