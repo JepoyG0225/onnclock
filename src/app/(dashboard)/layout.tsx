@@ -18,6 +18,7 @@ import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 import { canAccessPath } from '@/lib/auth/page-access'
+import { PermissionsProvider } from '@/components/auth/PermissionsProvider'
 
 export default async function DashboardLayout({
   children,
@@ -160,7 +161,9 @@ export default async function DashboardLayout({
             bypassGate={session.user.role === 'SUPER_ADMIN'}
             unbilledSeats={unbilledSeats}
           >
-            {children}
+            <PermissionsProvider permissions={permissions}>
+              {children}
+            </PermissionsProvider>
           </SubscriptionGate>
         </MainContent>
         <AdminVirtualTour

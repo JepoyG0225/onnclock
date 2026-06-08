@@ -5,6 +5,8 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { Building, Shield, Mail, Users, Lock, CheckCircle, HardDrive, LineChart, ShieldCheck, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
+import { canAccessPath } from '@/lib/auth/page-access'
+import { usePermissions } from '@/components/auth/PermissionsProvider'
 
 const TABS = [
   { href: '/settings', label: 'Company', icon: Building },
@@ -31,10 +33,25 @@ export function SettingsTabs() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const currentTab = searchParams.get('tab')
+  const permissions = usePermissions()
+
+  // Hide tabs the current user can't open. Tabs that are query-string
+  // variants of /settings (Company / Government IDs / Email / Storage)
+  // all live under /settings, so they're visible iff the user can access
+  // /settings at all. Dedicated sub-pages (Users, Permissions, Approvals,
+  // Payroll Rules, Audit, Billing) check their own canonical path —
+  // matches the sidebar filter and the layout-level route guard, so they
+  // can never disagree.
+  const visibleTabs = TABS.filter(tab => {
+    const canonical = tab.href.startsWith('/settings?tab=') ? '/settings' : tab.href
+    return canAccessPath(canonical, permissions)
+  })
+
+  if (visibleTabs.length === 0) return null
 
   return (
     <div className="flex flex-wrap gap-1 rounded-lg border bg-gray-50 p-1">
-      {TABS.map(tab => {
+      {visibleTabs.map(tab => {
         const active = isActive(pathname, currentTab, tab.href)
         return (
           <Link
