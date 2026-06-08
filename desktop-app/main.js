@@ -105,10 +105,19 @@ function isAdminAppBuild() {
  *     Desktop app — they don't need this build).
  */
 function isSystemAdminAppBuild() {
+  // `app.getName()` returns the npm package name resolved at runtime —
+  // electron-builder sets it from extraMetadata.name in
+  // builder.sysadmin.json, which is "onclock-sysadmin-desktop". That
+  // string contains "sysadmin" but NOT the word "system" alone, so the
+  // previous "system" + "admin" pair-check matched nothing in the
+  // shipped build. Match on the "sysadmin" package-name token first,
+  // and keep the "system" + "admin" pair as a fallback for any future
+  // rename where the package name uses the full words.
   const appName = String(app.getName() || '').toLowerCase()
   const argv = Array.isArray(process.argv) ? process.argv.map(v => String(v).toLowerCase()) : []
   const envFlag = String(process.env.ONCLOCK_SYSADMIN_APP || '').toLowerCase()
   return (
+    appName.includes('sysadmin') ||
     (appName.includes('system') && appName.includes('admin')) ||
     argv.includes('--sysadmin-app') ||
     envFlag === '1' ||
