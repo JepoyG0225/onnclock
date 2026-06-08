@@ -8,6 +8,7 @@ import { ComputePayrollButton } from '@/components/payroll/ComputePayrollButton'
 import PayrollActionButtons from '@/components/payroll/PayrollActionButtons'
 import { PayrollRunPayslips } from '@/components/payroll/PayrollRunPayslips'
 import { PayrollPayslipsLoader } from '@/components/payroll/PayrollPayslipsLoader'
+import { PayrollWorkflowStepper } from '@/components/payroll/PayrollWorkflowStepper'
 import { formatDate, getStatusColor, formatCurrency } from '@/lib/utils'
 import {Users, TrendingDown} from 'lucide-react'
 import { PesoIcon } from '@/components/ui/PesoIcon'
@@ -106,30 +107,42 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payroll Run</h1>
-          <p className="text-gray-600 mt-1">{run.periodLabel}</p>
+      {/* Header
+          ───
+          Title + period on the left, status pill on the right, then a
+          tight cluster of actions:
+            • ComputePayrollButton  (only while editable)
+            • Primary workflow CTA  (Submit / Approve / Lock / Unlock)
+            • ⋯ More menu           (Download Excel, Delete)
+          A small pipeline stepper sits below as visual context for where
+          the run currently is. */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Payroll Run</h1>
+            <p className="text-gray-600 mt-1">
+              {run.periodLabel}
+              <span className="mx-2 text-gray-300">·</span>
+              <span className="text-gray-500">Pay date {formatDate(run.payDate)}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={`text-sm border-0 ${getStatusColor(run.status)}`}>
+              {STATUS_LABELS[run.status]}
+            </Badge>
+            {(run.status === 'DRAFT' || run.status === 'COMPUTED' || run.status === 'FOR_APPROVAL') && (
+              <ComputePayrollButton runId={run.id} status={run.status} />
+            )}
+            <PayrollActionButtons
+              runId={run.id}
+              status={run.status}
+              periodLabel={run.periodLabel}
+              canApprove={run.status !== 'FOR_APPROVAL' ? true : canApprove}
+              approveDisabledReason={run.status !== 'FOR_APPROVAL' ? undefined : approveDisabledReason}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge className={`text-sm border-0 ${getStatusColor(run.status)}`}>
-            {STATUS_LABELS[run.status]}
-          </Badge>
-          {/* Compute / Recompute button — shown for any run that hasn't been
-             approved or locked yet so HR can refresh payslips after DTR
-             corrections, loan adjustments, holiday additions, etc. */}
-          {(run.status === 'DRAFT' || run.status === 'COMPUTED' || run.status === 'FOR_APPROVAL') && (
-            <ComputePayrollButton runId={run.id} status={run.status} />
-          )}
-          <PayrollActionButtons
-            runId={run.id}
-            status={run.status}
-            periodLabel={run.periodLabel}
-            canApprove={run.status !== 'FOR_APPROVAL' ? true : canApprove}
-            approveDisabledReason={run.status !== 'FOR_APPROVAL' ? undefined : approveDisabledReason}
-          />
-        </div>
+        <PayrollWorkflowStepper status={run.status} />
       </div>
 
       {/* Summary Cards */}
