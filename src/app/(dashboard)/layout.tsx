@@ -115,7 +115,16 @@ export default async function DashboardLayout({
   // if the user navigated directly to a page their role isn't ticked for,
   // bounce them back to /dashboard. SUPER_ADMIN bypasses inside the
   // loader, so impersonation is unaffected.
-  const permissions = await getEffectivePermissions(effectiveRole, companyId ?? null)
+  const permissions = await getEffectivePermissions(
+    effectiveRole,
+    companyId ?? null,
+    // Pass the underlying user id so the loader can honor any custom-role
+    // assignment (user_custom_roles). When SUPER_ADMIN impersonates, we
+    // still use session.user.id — impersonation grants the impersonated
+    // role, not the impersonated user's identity, so custom-role lookups
+    // remain scoped to the actual logged-in user.
+    session.user.id ?? null,
+  )
   const pathname = (await headers()).get('x-pathname') ?? ''
   if (pathname && !canAccessPath(pathname, permissions)) {
     redirect('/dashboard')
