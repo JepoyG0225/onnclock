@@ -1,0 +1,62 @@
+{
+  "appId": "com.onclock.desktop",
+  "productName": "OnClock Desktop",
+  "artifactName": "OnClock-Desktop-${version}-${os}-${arch}.${ext}",
+  "copyright": "Copyright © 2026 OnClock PH",
+  "win": {
+    "publisherName": "OnClock PH",
+    "certificateSubjectName": "OnClock Employee Desktop Self Signed",
+    "icon": "assets/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "mac": {
+    "icon": "assets/icon.icns",
+    "category": "public.app-category.business",
+    "identity": "Jeffrey Gealon (826TQNNT37)",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "entitlements.mac.plist",
+    "entitlementsInherit": "entitlements.mac.plist",
+    "notarize": {
+      "teamId": "826TQNNT37"
+    },
+    "target": [
+      { "target": "dmg", "arch": ["x64", "arm64"] },
+      { "target": "zip", "arch": ["x64", "arm64"] }
+    ],
+    "extendInfo": {
+      "LSUIElement": false,
+      "NSLocationWhenInUseUsageDescription": "OnClock uses your location for attendance geofence checks while clocking in and out.",
+      "NSCameraUsageDescription": "OnClock uses the camera for selfie verification at clock-in when your employer enables it.",
+      "NSScreenCaptureDescription": "OnClock captures occasional screenshots while you're clocked in if your employer enables screen monitoring."
+    }
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "OnClock Desktop",
+    "installerIcon": "assets/icon.ico",
+    "uninstallerIcon": "assets/icon.ico",
+    "installerHeaderIcon": "assets/icon.ico"
+  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "renderer/**/*",
+    "assets/**/*",
+    "node_modules/**/*"
+  ],
+  "extraResources": [],
+  "publish": null,
+  "extraMetadata": {
+    "name": "onclock-desktop",
+    "description": "OnClock Desktop app for employee time tracking, screen monitoring, and attendance"
+  }
+}
