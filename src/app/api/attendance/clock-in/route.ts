@@ -154,7 +154,12 @@ export async function POST(req: NextRequest) {
     (companyPolicy?.screenCaptureEnabled ?? false) &&
     hasScreenCaptureFeature(sub.pricePerSeat, sub.isTrial)
 
-  if (screenCaptureActive) {
+  // Browser clock-in is blocked when screen monitoring is enforced so
+  // capture starts at the very beginning of the shift. TRIAL companies
+  // get a pass: they may be evaluating screen monitoring without the
+  // desktop app rolled out yet, so we allow portal clock-in (mobile or
+  // browser) without forcing the desktop install during evaluation.
+  if (screenCaptureActive && !sub.isTrial) {
     if (isMobileUserAgent(ua)) {
       return NextResponse.json(
         { error: 'Screen monitoring is enabled. You can only clock in on a laptop or desktop device.' },

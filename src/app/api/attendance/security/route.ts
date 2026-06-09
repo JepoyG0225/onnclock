@@ -30,6 +30,13 @@ export async function GET(req: NextRequest) {
 
   const entitled = hasScreenCaptureFeature(sub.pricePerSeat, sub.isTrial)
   const enabled  = entitled && (company?.screenCaptureEnabled ?? false)
+  // The browser clock block (desktop-app required to clock in/out when
+  // screen monitoring is on) is enforced only on PAID Pro tiers — the
+  // /api/attendance/clock-in and /api/attendance/clock-out routes do
+  // the same trial-aware check. Reporting the flag truthfully here lets
+  // the portal hide the "use desktop app" modal for trial users and
+  // show normal clock buttons instead.
+  const browserBlockEnforced = enabled && !sub.isTrial
   const ua       = req.headers.get('user-agent') ?? ''
 
   return NextResponse.json({
@@ -37,9 +44,9 @@ export async function GET(req: NextRequest) {
       entitled,
       enabled,
       frequencyMinutes: company?.screenCaptureFrequencyMinutes ?? 5,
-      // Desktop-only: browser clock-in is blocked when enabled
-      desktopOnlyRequired: enabled,
-      browserClockBlocked: enabled,
+      // Desktop-only: browser clock-in is blocked when enabled on PAID Pro
+      desktopOnlyRequired: browserBlockEnforced,
+      browserClockBlocked: browserBlockEnforced,
       isMobileDevice: isMobileUserAgent(ua),
       isDesktopApp: isDesktopApp(ua),
     },

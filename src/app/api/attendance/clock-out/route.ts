@@ -112,7 +112,14 @@ export async function POST(req: NextRequest) {
     (company?.screenCaptureEnabled ?? false) &&
     hasScreenCaptureFeature(sub.pricePerSeat, sub.isTrial)
 
-  if (screenCaptureActive && !isDesktopApp(ua)) {
+  // Browser clock-out is blocked when screen monitoring is enforced so
+  // the desktop app's final capture lands in the audit trail. We only
+  // enforce on PAID Pro subscribers — TRIAL customers can be evaluating
+  // the feature without the desktop app rolled out yet, so we let them
+  // clock out from the portal in the browser. The screen captures they
+  // already have during the shift are still recorded; only the very
+  // last frame at clock-out is skipped.
+  if (screenCaptureActive && !isDesktopApp(ua) && !sub.isTrial) {
     return NextResponse.json(
       { error: 'Screen monitoring is enabled. Please use the OnClock Desktop app to clock out.', desktopRequired: true },
       { status: 403 }
