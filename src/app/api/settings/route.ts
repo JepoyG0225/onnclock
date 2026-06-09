@@ -193,11 +193,18 @@ export async function PATCH(req: NextRequest) {
       ? normalizeBreakMinutes(parsed.data.defaultBreakMinutes)
       : undefined
 
+    // Screen-capture entitlement mirrors hasScreenCaptureFeature() in
+    // lib/feature-gates — TRIAL grants the feature so customers can
+    // evaluate it during the trial window. Previously this PATCH gate
+    // only checked pricePerSeat >= 70, so a trial admin who toggled
+    // the setting on in the UI (which correctly read entitled=true)
+    // would see the save silently downgrade the value to false.
     const subscription = await prisma.subscription.findUnique({
       where: { companyId: ctx.companyId },
-      select: { pricePerSeat: true },
+      select: { pricePerSeat: true, status: true },
     })
-    const isScreenCaptureEntitled = Number(subscription?.pricePerSeat ?? 0) >= 70
+    const isTrialSub = subscription?.status === 'TRIAL'
+    const isScreenCaptureEntitled = isTrialSub || Number(subscription?.pricePerSeat ?? 0) >= 70
     if ((parsed.data.screenCaptureEnabled ?? false) && !isScreenCaptureEntitled) {
       return NextResponse.json(
         { error: 'Screen capture security requires the Php 70 per employee plan.' },
