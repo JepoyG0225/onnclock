@@ -2,6 +2,7 @@ import { stat, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { prisma } from '@/lib/prisma'
 import { PLAN_PRICE } from '@/lib/feature-gates'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 const MB = 1024 * 1024
 const GB = 1024 * MB
@@ -171,15 +172,66 @@ export async function getCompanyResumeStorageUsedBytes(companyId: string): Promi
   return dirSizeBytes(dir)
 }
 
-/** Total local storage usage across all tracked categories. */
+/** Budget requisition attachments — measured via DB fileSize column. */
+export async function getCompanyAttachmentStorageUsedBytes(companyId: string): Promise<number> {
+  try {
+    const result = await prisma.budgetRequisitionAttachment.aggregate({
+      where: { requisition: { company: { id: companyId } } },
+      _sum: { fileSize: true },
+    })
+    return result._sum.fileSize ?? 0
+  } catch {
+    return 0
+  }
+}
+
+/** Supabase-hosted employee documents — list objects by company prefix. */
+async function getSupabaseStorageUsedBytes(companyId: string): Promise<number> {
+  try {
+    const supabase = getSupabaseAdmin()
+    const bucket = process.env.SUPABASE_ATTACHMENTS_BUCKET || process.env.SUPABASE_LOGO_BUCKET || 'company-logos'
+
+    let total = 0
+
+    // Employee docs in Supabase
+    const prefixes = [
+      `employee-docs/${companyId}`,
+      `budget-attachments/${companyId}`,
+      `companies/${companyId}`,
+    ]
+
+    for (const prefix of prefixes) {
+      const { data } = await supabase.storage.from(bucket).list(prefix, {
+        limit: 1000,
+        sortBy: { column: 'created_at', order: 'desc' },
+      })
+      if (data) {
+        for (const file of data) {
+          if (file.metadata?.size) {
+            total += Number(file.metadata.size)
+          }
+        }
+      }
+    }
+
+    return total
+  } catch {
+    // Supabase unavailable or bucket missing — fall back gracefully
+    return 0
+  }
+}
+
+/** Total storage usage across all tracked categories. */
 export async function getAllLocalStorageUsedBytes(
   companyId: string
-): Promise<{ docs: number; resumes: number; total: number }> {
-  const [docs, resumes] = await Promise.all([
+): Promise<{ docs: number; resumes: number; attachments: number; supabase: number; total: number }> {
+  const [docs, resumes, attachments, supabase] = await Promise.all([
     getCompanyDocumentStorageUsedBytes(companyId),
     getCompanyResumeStorageUsedBytes(companyId),
+    getCompanyAttachmentStorageUsedBytes(companyId),
+    getSupabaseStorageUsedBytes(companyId),
   ])
-  return { docs, resumes, total: docs + resumes }
+  return { docs, resumes, attachments, supabase, total: docs + resumes + attachments + supabase }
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────

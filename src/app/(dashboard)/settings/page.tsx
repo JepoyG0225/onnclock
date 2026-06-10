@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { Copy, Check, FileText, Briefcase, ArrowUpRight, Loader2, Sparkles, AlertTriangle, PackagePlus, CheckCircle2, X, HardDrive } from 'lucide-react'
+import { Copy, Check, FileText, Briefcase, ArrowUpRight, Loader2, Sparkles, AlertTriangle, PackagePlus, CheckCircle2, X, HardDrive, Paperclip, Cloud } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
@@ -436,6 +436,10 @@ type StorageData = {
   docsLabel: string
   resumesBytes: number
   resumesLabel: string
+  attachmentsBytes: number
+  attachmentsLabel: string
+  supabaseBytes: number
+  supabaseLabel: string
   usedPct: number
   planName: string
   baseLimitLabel: string
@@ -621,6 +625,34 @@ function StorageTab() {
                 {data.usedBytes > 0 && (
                   <span className="ml-auto text-[11px] text-slate-400 shrink-0">
                     {Math.round((data.resumesBytes / data.usedBytes) * 100)}%
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                  <Paperclip className="w-4 h-4 text-orange-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-700">Attachments</p>
+                  <p className="text-sm font-black text-slate-900">{data.attachmentsLabel}</p>
+                </div>
+                {data.usedBytes > 0 && (
+                  <span className="ml-auto text-[11px] text-slate-400 shrink-0">
+                    {Math.round((data.attachmentsBytes / data.usedBytes) * 100)}%
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
+                  <Cloud className="w-4 h-4 text-teal-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-700">Cloud Storage</p>
+                  <p className="text-sm font-black text-slate-900">{data.supabaseLabel}</p>
+                </div>
+                {data.usedBytes > 0 && (
+                  <span className="ml-auto text-[11px] text-slate-400 shrink-0">
+                    {Math.round((data.supabaseBytes / data.usedBytes) * 100)}%
                   </span>
                 )}
               </div>

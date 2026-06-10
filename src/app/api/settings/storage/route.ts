@@ -34,8 +34,8 @@ export async function GET() {
     where: { companyId: ctx.companyId, isActive: true },
   })
 
-  // Measure actual disk usage (runs concurrently)
-  const { docs, resumes, total } = await getAllLocalStorageUsedBytes(ctx.companyId)
+  // Measure actual storage usage across all categories (runs concurrently)
+  const { docs, resumes, attachments, supabase, total } = await getAllLocalStorageUsedBytes(ctx.companyId)
 
   const usedPct = planInfo.limitBytes > 0
     ? Math.min(100, Math.round((total / planInfo.limitBytes) * 100))
@@ -49,6 +49,10 @@ export async function GET() {
     docsLabel: formatStorage(docs),
     resumesBytes: resumes,
     resumesLabel: formatStorage(resumes),
+    attachmentsBytes: attachments,
+    attachmentsLabel: formatStorage(attachments),
+    supabaseBytes: supabase,
+    supabaseLabel: formatStorage(supabase),
     usedPct,
 
     // Plan
