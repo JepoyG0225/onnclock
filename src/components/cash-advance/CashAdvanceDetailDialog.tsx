@@ -53,8 +53,10 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
 
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
   const department = request.employee.department?.name || 'Employee'
-  const monthlyAmort = request.amountRequested / Math.max(1, request.repaymentMonths)
-  const monthlyBasic = request.employee.basicSalary / 2 // semi-monthly basic
+  const amount = Number(request.amountRequested)
+  const basicSalary = Number(request.employee.basicSalary)
+  const monthlyAmort = amount / Math.max(1, request.repaymentMonths)
+  const monthlyBasic = basicSalary / 2 // semi-monthly basic
   const amortPct = monthlyBasic > 0 ? (monthlyAmort / monthlyBasic) * 100 : 0
 
   async function doApprove() {
@@ -107,7 +109,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
       onClose={onClose}
       type="CASH_ADVANCE"
       id={request.id}
-      title={`${employeeName} — ${peso(request.amountRequested)}`}
+      title={`${employeeName} — ${peso(amount)}`}
       subtitle={`${department} · #${request.employee.employeeNo}`}
       status={request.status}
       detailsSlot={
@@ -115,7 +117,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
           <DetailRow
             icon={<Wallet className="h-4 w-4" />}
             label="Amount Requested"
-            value={<span className="text-base font-bold">{peso(request.amountRequested)}</span>}
+            value={<span className="text-base font-bold">{peso(amount)}</span>}
             hint={`Repayable over ${request.repaymentMonths} month${request.repaymentMonths === 1 ? '' : 's'}`}
           />
           <DetailRow
@@ -147,8 +149,8 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                 Linked Loan
               </p>
               <div className="mt-1 grid grid-cols-1 gap-1 text-sm text-emerald-900 sm:grid-cols-3">
-                <p>Balance: <strong>{peso(request.loan.balance)}</strong></p>
-                <p>Monthly: <strong>{peso(request.loan.monthlyAmortization)}</strong></p>
+                <p>Balance: <strong>{peso(Number(request.loan.balance))}</strong></p>
+                <p>Monthly: <strong>{peso(Number(request.loan.monthlyAmortization))}</strong></p>
                 <p>Status: <strong>{request.loan.status}</strong></p>
               </div>
             </div>
