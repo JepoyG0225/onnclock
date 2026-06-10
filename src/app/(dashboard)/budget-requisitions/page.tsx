@@ -241,7 +241,7 @@ export default async function BudgetRequisitionsAdminPage({
                           <span className="font-bold text-gray-900">{fmtPeso(req.totalAmount)}</span>
                         </td>
                         <td className="p-4 text-gray-600">{req.items.length}</td>
-                        <td className="p-4" onClick={e => e.stopPropagation()}>
+                        <td className="p-4">
                           <BudgetReqAttachmentsModal
                             attachments={req.attachments}
                             requisitionTitle={req.title}

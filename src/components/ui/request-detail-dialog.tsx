@@ -2,11 +2,20 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Loader2, X } from 'lucide-react'
+import { Loader2, X, ClipboardList, Clock3, Banknote, FileText, CalendarDays, Receipt } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { RequestActivityFeed, type RequestActivityEvent } from '@/components/ui/request-activity-feed'
 import { statusToBadgeVariant, formatStatusLabel } from '@/lib/status'
+
+const TYPE_META: Record<string, { label: string; icon: ReactNode }> = {
+  LEAVE:           { label: 'Leave Request',        icon: <CalendarDays className="h-5 w-5" /> },
+  OVERTIME:        { label: 'Overtime Request',      icon: <Clock3 className="h-5 w-5" /> },
+  CASH_ADVANCE:    { label: 'Cash Advance',          icon: <Banknote className="h-5 w-5" /> },
+  BUDGET:          { label: 'Budget Requisition',    icon: <ClipboardList className="h-5 w-5" /> },
+  TIME_CORRECTION: { label: 'Time Correction',       icon: <FileText className="h-5 w-5" /> },
+  PAYROLL:         { label: 'Payroll',                icon: <Receipt className="h-5 w-5" /> },
+}
 
 /**
  * Shared modal shell for any request type's detail view. Owns:
@@ -125,25 +134,33 @@ export function RequestDetailDialog({
         style={{ maxHeight: 'calc(100vh - 2rem)' }}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="truncate text-base font-bold text-slate-900">{title}</h2>
-              <Badge variant={statusToBadgeVariant(status)}>
-                {formatStatusLabel(status)}
-              </Badge>
-              {statusExtra}
-            </div>
-            {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
-          </div>
+        <div
+          className="relative px-5 py-4"
+          style={{ background: 'linear-gradient(135deg, #ff5900 0%, #ff7a33 100%)' }}
+        >
           <button
             type="button"
             onClick={onClose}
-            className="ml-2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            className="absolute right-3 top-3 rounded-full p-1.5 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
           </button>
+
+          <div className="flex items-center gap-2 text-white/80 mb-2">
+            {TYPE_META[type]?.icon}
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              {TYPE_META[type]?.label ?? type}
+            </span>
+          </div>
+          <h2 className="truncate text-lg font-bold text-white">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs text-white/70">{subtitle}</p>}
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <Badge variant={statusToBadgeVariant(status)} className="border-white/30">
+              {formatStatusLabel(status)}
+            </Badge>
+            {statusExtra}
+          </div>
         </div>
 
         {/* Body — single column, details on top, activity below */}

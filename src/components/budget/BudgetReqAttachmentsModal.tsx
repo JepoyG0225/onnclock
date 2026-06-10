@@ -44,7 +44,7 @@ export function BudgetReqAttachmentsModal({ attachments, requisitionTitle }: Pro
     <>
       {/* Trigger button */}
       <button
-        onClick={() => setOpen(true)}
+        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
         className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full
           bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors whitespace-nowrap"
       >
