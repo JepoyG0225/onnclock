@@ -11,67 +11,48 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(50, parseInt(new URL(req.url).searchParams.get('limit') || '20'))
 
   try {
-    const leaveRequests = await prisma.leaveRequest.findMany({
-      where: {
-        employee: { companyId: ctx.companyId },
-        status: 'PENDING',
-      },
-      include: {
-        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
-        leaveType: { select: { name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
-
-    const dtrPending = await prisma.dTRRecord.findMany({
-      where: {
-        employee: { companyId: ctx.companyId },
-        timeOut: { not: null },
-        approvedBy: null,
-      },
-      include: {
-        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
-
-    const disciplinary = await prisma.disciplinaryRecord.findMany({
-      where: {
-        companyId: ctx.companyId,
-        status: 'OPEN',
-      },
-      include: {
-        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
-
-    const timeCorrections = await prisma.timeEntryCorrection.findMany({
-      where: {
-        companyId: ctx.companyId,
-        status: 'PENDING',
-      },
-      include: {
-        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
-
-    const overtimeRequests = await prisma.overtimeRequest.findMany({
-      where: {
-        companyId: ctx.companyId,
-        status: 'PENDING',
-      },
-      include: {
-        employee: { select: { firstName: true, lastName: true, employeeNo: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
+    // Five independent reads — fire them in parallel so total wall
+    // time is max(individual query) instead of sum. The sequential
+    // version below was reliably hitting the 5s Prisma timeout (5.02s
+    // executions in production traces) because each query waited for
+    // the previous one to finish.
+    const empSelect = { firstName: true, lastName: true, employeeNo: true } as const
+    const [leaveRequests, dtrPending, disciplinary, timeCorrections, overtimeRequests] = await Promise.all([
+      prisma.leaveRequest.findMany({
+        where: { employee: { companyId: ctx.companyId }, status: 'PENDING' },
+        include: { employee: { select: empSelect }, leaveType: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+      prisma.dTRRecord.findMany({
+        where: {
+          employee: { companyId: ctx.companyId },
+          timeOut: { not: null },
+          approvedBy: null,
+        },
+        include: { employee: { select: empSelect } },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+      prisma.disciplinaryRecord.findMany({
+        where: { companyId: ctx.companyId, status: 'OPEN' },
+        include: { employee: { select: empSelect } },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+      prisma.timeEntryCorrection.findMany({
+        where: { companyId: ctx.companyId, status: 'PENDING' },
+        include: { employee: { select: empSelect } },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+      prisma.overtimeRequest.findMany({
+        where: { companyId: ctx.companyId, status: 'PENDING' },
+        include: { employee: { select: empSelect } },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+    ])
 
   const TYPE_LABELS: Record<string, string> = {
     NOTICE_TO_EXPLAIN: 'Notice to Explain',

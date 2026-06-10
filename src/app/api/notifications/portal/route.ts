@@ -15,24 +15,28 @@ export async function GET(req: NextRequest) {
     })
     if (!employee) return NextResponse.json({ items: [] })
 
-    const leaves = await prisma.leaveRequest.findMany({
-      where: { employeeId: employee.id, status: { in: ['APPROVED', 'REJECTED'] } },
-      include: { leaveType: { select: { name: true } } },
-      orderBy: { reviewedAt: 'desc' },
-      take: limit,
-    })
-
-    const disciplinary = await prisma.disciplinaryRecord.findMany({
-      where: { employeeId: employee.id },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    })
-
-    const corrections = await prisma.timeEntryCorrection.findMany({
-      where: { employeeId: employee.id, status: { in: ['APPROVED', 'REJECTED'] } },
-      orderBy: { reviewedAt: 'desc' },
-      take: limit,
-    })
+    // Three independent reads — parallel instead of sequential so the
+    // portal's notification poll doesn't stack 3× the latency of a
+    // single query (and stay under the 5s Prisma timeout when the DB
+    // is briefly slow).
+    const [leaves, disciplinary, corrections] = await Promise.all([
+      prisma.leaveRequest.findMany({
+        where: { employeeId: employee.id, status: { in: ['APPROVED', 'REJECTED'] } },
+        include: { leaveType: { select: { name: true } } },
+        orderBy: { reviewedAt: 'desc' },
+        take: limit,
+      }),
+      prisma.disciplinaryRecord.findMany({
+        where: { employeeId: employee.id },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+      prisma.timeEntryCorrection.findMany({
+        where: { employeeId: employee.id, status: { in: ['APPROVED', 'REJECTED'] } },
+        orderBy: { reviewedAt: 'desc' },
+        take: limit,
+      }),
+    ])
 
   const TYPE_LABELS: Record<string, string> = {
     NOTICE_TO_EXPLAIN: 'Notice to Explain',
