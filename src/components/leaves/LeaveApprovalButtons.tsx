@@ -52,6 +52,7 @@ export function LeaveApprovalButtons({
           title={!canApprove ? (disabledReason ?? 'Approval not available yet') : undefined}
         >
           {loading === 'approve' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+          {loading === 'approve' ? 'Approving...' : 'Approve'}
         </Button>
         <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-600"
           onClick={() => setShowRejectModal(true)}
@@ -59,6 +60,7 @@ export function LeaveApprovalButtons({
           title={!canApprove ? (disabledReason ?? 'Approval not available yet') : undefined}
         >
           {loading === 'reject' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+          Reject
         </Button>
       </div>
 

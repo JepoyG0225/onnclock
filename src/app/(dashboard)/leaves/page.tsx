@@ -11,6 +11,7 @@ import { LeaveRowOpener } from '@/components/leaves/LeaveRowOpener'
 import { ChevronRight } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
 
 export default async function LeavesPage({
   searchParams,
@@ -21,8 +22,9 @@ export default async function LeavesPage({
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const companyId = session?.user?.companyId!
-  const role = session?.user?.role
+  const companyId = session.user.companyId
+  if (!companyId) redirect('/login')
+  const role = session.user.role
 
   const status = params.status || undefined
   const isHR = ['COMPANY_ADMIN', 'HR_MANAGER', 'SUPER_ADMIN'].includes(role ?? '')
@@ -47,9 +49,11 @@ export default async function LeavesPage({
       halfDayPeriod: true,
       employee: {
         select: {
+          id: true,
           firstName: true,
           lastName: true,
           employeeNo: true,
+          departmentId: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
         },
@@ -68,7 +72,7 @@ export default async function LeavesPage({
   const userApproverLevel = session?.user?.id
     ? (approvers.find(a => a.userId === session.user.id)?.level ?? null)
     : null
-  function approvalGate(currentLevel: number | null) {
+  function legacyApprovalGate(currentLevel: number | null) {
     const level = (currentLevel ?? 0) + 1
     const expectedUserId = approverByLevel.get(level)
     const canApprove = !!expectedUserId && expectedUserId === session?.user?.id
@@ -82,6 +86,48 @@ export default async function LeavesPage({
     }
     return { canApprove: false, reason: 'Not authorized for this approval level' }
   }
+
+  const workflowByDepartment = new Map<string, ReturnType<typeof resolveWorkflow>>()
+  const approvalGates = new Map(
+    await Promise.all(requests.map(async request => {
+      const departmentId = request.employee.departmentId
+      const workflowKey = departmentId ?? ''
+      let workflowPromise = workflowByDepartment.get(workflowKey)
+      if (!workflowPromise) {
+        workflowPromise = resolveWorkflow({ companyId, type: 'LEAVE', departmentId })
+        workflowByDepartment.set(workflowKey, workflowPromise)
+      }
+
+      const workflow = await workflowPromise
+      if (!workflow) {
+        return [request.id, legacyApprovalGate(request.approvalLevel)] as const
+      }
+
+      const currentLevel = request.approvalLevel ?? 0
+      const plan = buildPlan(workflow, {
+        totalDays: request.totalDays.toNumber(),
+        leaveType: request.leaveType.name,
+        isWithPay: request.leaveType.isWithPay,
+        isHalfDay: request.isHalfDay,
+        departmentId: departmentId ?? '',
+      })
+      const advance = await authorizeAdvance({
+        plan,
+        currentLevel,
+        actorUserId: session.user.id,
+        requesterDepartmentId: departmentId,
+        requesterEmployeeId: request.employee.id,
+      })
+      const canApprove = advance.noChain || advance.authorized
+      const reason = canApprove
+        ? undefined
+        : advance.currentStep
+          ? 'Not authorized for this approval level'
+          : `No approver configured for level ${currentLevel + 1}`
+
+      return [request.id, { canApprove, reason }] as const
+    })),
+  )
 
   return (
     <div className="space-y-6">
@@ -136,7 +182,10 @@ export default async function LeavesPage({
                 </thead>
                 <tbody>
                   {requests.map((req) => {
-                    const gate = approvalGate(req.approvalLevel ?? 0)
+                    const gate = approvalGates.get(req.id) ?? {
+                      canApprove: false,
+                      reason: 'Approval availability could not be determined',
+                    }
                     return (
                       <LeaveRowOpener
                         key={req.id}
