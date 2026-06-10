@@ -212,7 +212,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     })
   }
 
-  logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'CashAdvance', id, {
+  logAudit(ctx, action === 'APPROVE' ? 'APPROVE' : 'REJECT', 'CashAdvance', id, {
     newValues: { status: updated.status },
   }).catch(() => {})
 
