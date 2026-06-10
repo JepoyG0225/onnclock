@@ -55,6 +55,37 @@ interface NavItem {
   releasedAt?: string
 }
 
+interface SidebarCounts {
+  pendingDtr: number
+  pendingLeaves: number
+  pendingOvertime: number
+  pendingTimeCorrections: number
+  pendingBudgetRequisitions: number
+  pendingCashAdvances: number
+}
+
+const EMPTY_SIDEBAR_COUNTS: SidebarCounts = {
+  pendingDtr: 0,
+  pendingLeaves: 0,
+  pendingOvertime: 0,
+  pendingTimeCorrections: 0,
+  pendingBudgetRequisitions: 0,
+  pendingCashAdvances: 0,
+}
+
+function pendingCountForItem(item: NavItem, counts: SidebarCounts): number {
+  const path = item.href.split('?')[0]
+  const countByPath: Record<string, number> = {
+    '/dtr': counts.pendingDtr,
+    '/leaves': counts.pendingLeaves,
+    '/overtime-requests': counts.pendingOvertime,
+    '/time-corrections': counts.pendingTimeCorrections,
+    '/budget-requisitions': counts.pendingBudgetRequisitions,
+    '/cash-advance': counts.pendingCashAdvances,
+  }
+  return countByPath[path] ?? 0
+}
+
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'HR Analytics', href: '/analytics', icon: BarChart3, releasedAt: '2026-05-13T00:00:00+08:00' },
@@ -153,7 +184,7 @@ const SYSTEM_ADMIN_NAV_ITEMS: NavItem[] = [
 interface AppSidebarProps {
   initialLogoUrl?: string | null
   initialUserRole?: string | null
-  initialCounts?: { pendingDtr: number; pendingLeaves: number; pendingOvertime: number }
+  initialCounts?: SidebarCounts
   initialTrialEndsAt?: string | null
   isLocal?: boolean
   hrisProEnabled?: boolean
@@ -169,7 +200,7 @@ interface AppSidebarProps {
 export function AppSidebar({
   initialLogoUrl = null,
   initialUserRole = null,
-  initialCounts = { pendingDtr: 0, pendingLeaves: 0, pendingOvertime: 0 },
+  initialCounts = EMPTY_SIDEBAR_COUNTS,
   initialTrialEndsAt = null,
   isLocal = false,
   hrisProEnabled = true,
@@ -185,7 +216,7 @@ export function AppSidebar({
   const [expanded, setExpanded] = useState<string[]>([
     'Employment', 'Time & Attendance', 'Leave Management', 'Reports', 'Settings', 'Payroll',
   ])
-  const [counts, setCounts] = useState<{ pendingDtr: number; pendingLeaves: number; pendingOvertime: number }>(initialCounts)
+  const [counts, setCounts] = useState<SidebarCounts>(initialCounts)
   // Trial-end timestamp is immutable for the session — keep it as a plain
   // value (no state). The per-second countdown / banner UI lives in
   // <TrialCountdownBanner /> so its 1s ticker doesn't re-render the
@@ -220,6 +251,9 @@ export function AppSidebar({
             pendingDtr: Number(data.pendingDtr) || 0,
             pendingLeaves: Number(data.pendingLeaves) || 0,
             pendingOvertime: Number(data.pendingOvertime) || 0,
+            pendingTimeCorrections: Number(data.pendingTimeCorrections) || 0,
+            pendingBudgetRequisitions: Number(data.pendingBudgetRequisitions) || 0,
+            pendingCashAdvances: Number(data.pendingCashAdvances) || 0,
           })
         }
       } catch { /* ignore */ }
@@ -431,7 +465,7 @@ function CollapsedFlyout({
   isActive: boolean
   activeStyle: React.CSSProperties
   baseItemClass: string
-  counts: { pendingDtr: number; pendingLeaves: number; pendingOvertime: number }
+  counts: SidebarCounts
   hrisProEnabled: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -465,41 +499,25 @@ function CollapsedFlyout({
         </span>
       )
     }
+    if (PRO_LABELS.has(child.label) && !hrisProEnabled) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/50 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          🔒
+        </span>
+      )
+    }
+    const pendingCount = pendingCountForItem(child, counts)
+    if (pendingCount > 0) {
+      return (
+        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          {pendingCount}
+        </span>
+      )
+    }
     if (child.releasedAt && isFeatureNew(child.releasedAt)) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-fuchsia-500 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
           NEW
-        </span>
-      )
-    }
-    if (PRO_LABELS.has(child.label)) {
-      if (!hrisProEnabled) {
-        return (
-          <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/50 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
-            🔒
-          </span>
-        )
-      }
-      return null
-    }
-    if (child.label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
-          {counts.pendingDtr}
-        </span>
-      )
-    }
-    if (child.label === 'Leave Requests' && counts.pendingLeaves > 0) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
-          {counts.pendingLeaves}
-        </span>
-      )
-    }
-    if (child.label === 'Overtime Requests' && counts.pendingOvertime > 0) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
-          {counts.pendingOvertime}
         </span>
       )
     }
@@ -598,7 +616,7 @@ function NavItemComponent({
   expanded: string[]
   onToggle: (label: string) => void
   collapsed: boolean
-  counts: { pendingDtr: number; pendingLeaves: number; pendingOvertime: number }
+  counts: SidebarCounts
   hrisProEnabled: boolean
 }) {
   const isActive   = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -620,41 +638,25 @@ function NavItemComponent({
         </span>
       )
     }
+    if (PRO_LABELS.has(child.label) && !hrisProEnabled) {
+      return (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/40 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+          🔒
+        </span>
+      )
+    }
+    const pendingCount = pendingCountForItem(child, counts)
+    if (pendingCount > 0) {
+      return (
+        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          {pendingCount}
+        </span>
+      )
+    }
     if (child.releasedAt && isFeatureNew(child.releasedAt)) {
       return (
         <span className="ml-auto inline-flex items-center justify-center rounded-full bg-fuchsia-500 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
           NEW
-        </span>
-      )
-    }
-    if (PRO_LABELS.has(child.label)) {
-      if (!hrisProEnabled) {
-        return (
-          <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/40 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
-            🔒
-          </span>
-        )
-      }
-      return null
-    }
-    if (child.label === 'Weekly Time Sheets' && counts.pendingDtr > 0) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
-          {counts.pendingDtr}
-        </span>
-      )
-    }
-    if (child.label === 'Leave Requests' && counts.pendingLeaves > 0) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
-          {counts.pendingLeaves}
-        </span>
-      )
-    }
-    if (child.label === 'Overtime Requests' && counts.pendingOvertime > 0) {
-      return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5">
-          {counts.pendingOvertime}
         </span>
       )
     }

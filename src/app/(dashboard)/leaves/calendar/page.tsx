@@ -7,9 +7,7 @@ import {
   endOfMonth,
   endOfWeek,
   format,
-  isSameDay,
   isSameMonth,
-  parseISO,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -105,10 +103,11 @@ export default function LeaveCalendarPage() {
 
   // For each day, find leaves that overlap it.
   function leavesOnDay(day: Date): Leave[] {
+    const dayStr = format(day, 'yyyy-MM-dd')
     return leaves.filter((l) => {
-      const s = parseISO(l.startDate)
-      const e = parseISO(l.endDate)
-      return day >= s && day <= e
+      const startDate = l.startDate.slice(0, 10)
+      const endDate = l.endDate.slice(0, 10)
+      return dayStr >= startDate && dayStr <= endDate
     })
   }
 

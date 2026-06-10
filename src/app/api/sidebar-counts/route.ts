@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { CHAT_MESSAGE_ENTITY, CHAT_GROUP_MESSAGE_ENTITY, conversationId, groupMessageEntityId, groupReadEntityId } from '@/lib/chat'
+import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 
 export async function GET() {
   const { ctx, error } = await requireAuth()
@@ -11,33 +12,75 @@ export async function GET() {
     let pendingDtr = 0
     let pendingLeaves = 0
     let pendingOvertime = 0
+    let pendingTimeCorrections = 0
+    let pendingBudgetRequisitions = 0
+    let pendingCashAdvances = 0
 
-    if (['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(ctx.role)) {
-      const [dtr, leaves, overtime] = await Promise.all([
-        prisma.dTRRecord.count({
+    const permissions = await getEffectivePermissions(ctx.role, ctx.companyId, ctx.userId)
+    const canReviewDtr = permissions.includes('dtr:read')
+    const canReviewLeaves = permissions.includes('leaves:read')
+    const canReviewOvertime = permissions.includes('overtime:approve')
+    const canReviewTimeCorrections = permissions.includes('corrections:approve')
+    const canReviewBudgetRequisitions = permissions.includes('budget:read')
+    const canReviewCashAdvances = permissions.includes('cashadvance:approve')
+
+    const [dtr, leaves, overtime, timeCorrections, budgetRequisitions, cashAdvances] = await Promise.all([
+      canReviewDtr
+        ? prisma.dTRRecord.count({
           where: {
             employee: { companyId: ctx.companyId },
             timeOut: { not: null },
             approvedBy: null,
           },
-        }),
-        prisma.leaveRequest.count({
+        })
+        : Promise.resolve(0),
+      canReviewLeaves
+        ? prisma.leaveRequest.count({
           where: {
             employee: { companyId: ctx.companyId },
             status: 'PENDING',
           },
-        }),
-        prisma.overtimeRequest.count({
+        })
+        : Promise.resolve(0),
+      canReviewOvertime
+        ? prisma.overtimeRequest.count({
           where: {
             companyId: ctx.companyId,
             status: 'PENDING',
           },
-        }),
-      ])
-      pendingDtr = dtr
-      pendingLeaves = leaves
-      pendingOvertime = overtime
-    }
+        })
+        : Promise.resolve(0),
+      canReviewTimeCorrections
+        ? prisma.timeEntryCorrection.count({
+          where: {
+            companyId: ctx.companyId,
+            status: 'PENDING',
+          },
+        })
+        : Promise.resolve(0),
+      canReviewBudgetRequisitions
+        ? prisma.budgetRequisition.count({
+          where: {
+            companyId: ctx.companyId,
+            status: 'PENDING',
+          },
+        })
+        : Promise.resolve(0),
+      canReviewCashAdvances
+        ? prisma.cashAdvanceRequest.count({
+          where: {
+            companyId: ctx.companyId,
+            status: 'PENDING',
+          },
+        })
+        : Promise.resolve(0),
+    ])
+    pendingDtr = dtr
+    pendingLeaves = leaves
+    pendingOvertime = overtime
+    pendingTimeCorrections = timeCorrections
+    pendingBudgetRequisitions = budgetRequisitions
+    pendingCashAdvances = cashAdvances
 
     // Fetch contacts and group memberships in parallel — neither depends on the other
     const [contacts, memberships] = await Promise.all([
@@ -127,6 +170,9 @@ export async function GET() {
         pendingDtr,
         pendingLeaves,
         pendingOvertime,
+        pendingTimeCorrections,
+        pendingBudgetRequisitions,
+        pendingCashAdvances,
         unreadChat: unreadDm + unreadGroups,
       },
       {
@@ -145,6 +191,9 @@ export async function GET() {
       pendingDtr: 0,
       pendingLeaves: 0,
       pendingOvertime: 0,
+      pendingTimeCorrections: 0,
+      pendingBudgetRequisitions: 0,
+      pendingCashAdvances: 0,
       unreadChat: 0,
       degraded: true,
     })

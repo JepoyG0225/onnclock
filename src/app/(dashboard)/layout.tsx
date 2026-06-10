@@ -54,7 +54,14 @@ export default async function DashboardLayout({
   // so the layout only blocks for max(company, sub), not sum(...).
   // Saves roughly one Supabase round-trip on every navigation.
   let company: Awaited<ReturnType<typeof getCompanyLite>> | null = null
-  const counts = { pendingDtr: 0, pendingLeaves: 0, pendingOvertime: 0 }
+  const counts = {
+    pendingDtr: 0,
+    pendingLeaves: 0,
+    pendingOvertime: 0,
+    pendingTimeCorrections: 0,
+    pendingBudgetRequisitions: 0,
+    pendingCashAdvances: 0,
+  }
   let sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; pricePerSeat?: unknown } | null = null
 
   // Wrap each query in a hard 4s timeout — a hung Prisma call (pool
