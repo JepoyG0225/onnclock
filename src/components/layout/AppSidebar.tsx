@@ -133,7 +133,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    label: 'Payroll',
+    label: 'Payroll & Finance',
     href: '/payroll',
     icon: PesoIcon,
     children: [
@@ -142,11 +142,11 @@ const NAV_ITEMS: NavItem[] = [
       { label: '13th Month Pay', href: '/thirteenth-month', icon: Gift },
       { label: 'Loans',          href: '/loans',            icon: CreditCard },
       { label: 'Cash Advance',   href: '/cash-advance',     icon: CreditCard, releasedAt: '2026-05-13T00:00:00+08:00' },
+      { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },
       { label: 'Final Pay',      href: '/final-pay',        icon: Receipt,    releasedAt: '2026-05-13T00:00:00+08:00' },
       { label: 'Disbursement',   href: '/disbursement',     icon: Send,       releasedAt: '2026-05-29T00:00:00+08:00' },
     ],
   },
-  { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },
   { label: 'Announcements', href: '/announcements', icon: Megaphone, releasedAt: '2026-05-01T00:00:00+08:00' },
   {
     label: 'Reports',
@@ -214,7 +214,7 @@ export function AppSidebar({
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl)
   const [userRole] = useState<string | null>(initialUserRole)
   const [expanded, setExpanded] = useState<string[]>([
-    'Employment', 'Time & Attendance', 'Leave Management', 'Reports', 'Settings', 'Payroll',
+    'Employment', 'Time & Attendance', 'Leave Management', 'Reports', 'Settings', 'Payroll & Finance',
   ])
   const [counts, setCounts] = useState<SidebarCounts>(initialCounts)
   // Trial-end timestamp is immutable for the session — keep it as a plain
@@ -509,7 +509,7 @@ function CollapsedFlyout({
     const pendingCount = pendingCountForItem(child, counts)
     if (pendingCount > 0) {
       return (
-        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
           {pendingCount}
         </span>
       )
@@ -562,10 +562,10 @@ function CollapsedFlyout({
                   return (
                     <div
                       key={child.href}
-                      className="flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed"
+                      className="flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed whitespace-nowrap"
                     >
                       <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                      {child.label}
+                      <span className="truncate">{child.label}</span>
                       {renderBadge(child)}
                     </div>
                   )
@@ -577,7 +577,7 @@ function CollapsedFlyout({
                 data-tour-item={child.href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  'flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium transition-colors',
+                  'flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap',
                   childActive
                     ? 'text-white'
                     : 'text-white/65 hover:text-white hover:bg-white/10'
@@ -585,7 +585,7 @@ function CollapsedFlyout({
                 style={childActive ? { background: 'rgba(250,94,1,0.85)' } : undefined}
               >
                 <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                {child.label}
+                <span className="truncate">{child.label}</span>
                 {renderBadge(child)}
               </Link>
                 )
@@ -648,7 +648,7 @@ function NavItemComponent({
     const pendingCount = pendingCountForItem(child, counts)
     if (pendingCount > 0) {
       return (
-        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
           {pendingCount}
         </span>
       )
@@ -752,10 +752,10 @@ function NavItemComponent({
                   return (
                     <div
                       key={child.href}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed whitespace-nowrap"
                     >
                       <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                      {child.label}
+                      <span className="truncate">{child.label}</span>
                       {renderBadge(child)}
                     </div>
                   )
@@ -766,7 +766,7 @@ function NavItemComponent({
                 href={child.href}
                 data-tour-item={child.href}
                 className={cn(
-                  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150',
+                  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 whitespace-nowrap',
                   childActive
                     ? 'text-white'
                     : 'text-white/55 hover:bg-white/15 hover:text-white/90'
@@ -774,7 +774,7 @@ function NavItemComponent({
                 style={childActive ? { background: 'rgba(250,94,1,0.82)' } : undefined}
               >
                 <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                {child.label}
+                <span className="truncate">{child.label}</span>
                 {renderBadge(child)}
               </Link>
                 )
