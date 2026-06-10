@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { CalendarDays, Plus } from 'lucide-react'
 import { formatDate, getStatusColor } from '@/lib/utils'
-import { LeaveApprovalButtons } from '@/components/leaves/LeaveApprovalButtons'
-import { RequestActivityPopover } from '@/components/ui/request-activity-popover'
+import { LeaveRowOpener } from '@/components/leaves/LeaveRowOpener'
+import { ChevronRight } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 
@@ -40,12 +40,18 @@ export default async function LeavesPage({
       status: true,
       createdAt: true,
       approvalLevel: true,
+      // Detail-dialog fields — surfaced inside LeaveRequestDetailDialog
+      reason: true,
+      reviewNotes: true,
+      isHalfDay: true,
+      halfDayPeriod: true,
       employee: {
         select: {
           firstName: true,
           lastName: true,
           employeeNo: true,
           department: { select: { name: true } },
+          position: { select: { title: true } },
         },
       },
       leaveType: { select: { name: true, code: true, isWithPay: true } },
@@ -125,47 +131,60 @@ export default async function LeavesPage({
                     <th className="text-center p-4 font-semibold text-gray-600">Days</th>
                     <th className="text-left p-4 font-semibold text-gray-600">Status</th>
                     <th className="text-left p-4 font-semibold text-gray-600">Filed On</th>
-                    {isHR && <th className="text-center p-4 font-semibold text-gray-600">Actions</th>}
+                    <th className="w-12 p-4" aria-label="Open details" />
                   </tr>
                 </thead>
                 <tbody>
-                  {requests.map((req) => (
-                    <tr key={req.id} className="border-b hover:bg-gray-50">
-                      <td className="p-4">
-                        <p className="font-medium">{req.employee.lastName}, {req.employee.firstName}</p>
-                        <p className="text-xs text-gray-500">{req.employee.employeeNo} · {req.employee.department?.name}</p>
-                      </td>
-                      <td className="p-4">
-                        <p className="font-medium">{req.leaveType.name}</p>
-                        <Badge variant="outline" className="text-xs mt-0.5">
-                          {req.leaveType.isWithPay ? 'With Pay' : 'Without Pay'}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-gray-600">
-                        {formatDate(req.startDate)} – {formatDate(req.endDate)}
-                      </td>
-                      <td className="p-4 text-center font-medium">{req.totalDays.toString()}</td>
-                      <td className="p-4">
-                        <Badge className={`text-xs border-0 ${getStatusColor(req.status)}`}>
-                          {req.status}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-gray-500 text-xs">{formatDate(req.createdAt)}</td>
-                      {isHR && (
-                        <td className="p-4 text-center">
-                          <div className="inline-flex items-center gap-1.5">
-                            {req.status === 'PENDING' && (
-                              <LeaveApprovalButtons
-                                requestId={req.id}
-                                {...approvalGate(req.approvalLevel ?? 0)}
-                              />
-                            )}
-                            <RequestActivityPopover type="LEAVE" id={req.id} />
-                          </div>
+                  {requests.map((req) => {
+                    const gate = approvalGate(req.approvalLevel ?? 0)
+                    return (
+                      <LeaveRowOpener
+                        key={req.id}
+                        request={{
+                          id: req.id,
+                          status: req.status as 'PENDING' | 'APPROVED' | 'REJECTED',
+                          approvalLevel: req.approvalLevel,
+                          startDate: req.startDate.toISOString(),
+                          endDate: req.endDate.toISOString(),
+                          totalDays: req.totalDays.toString(),
+                          reason: req.reason,
+                          reviewNotes: req.reviewNotes,
+                          isHalfDay: req.isHalfDay,
+                          halfDayPeriod: req.halfDayPeriod,
+                          createdAt: req.createdAt.toISOString(),
+                          employee: req.employee,
+                          leaveType: req.leaveType,
+                        }}
+                        canApprove={gate.canApprove}
+                        approveDisabledReason={gate.reason}
+                        isHR={isHR}
+                      >
+                        <td className="border-b border-slate-100 p-4">
+                          <p className="font-medium">{req.employee.lastName}, {req.employee.firstName}</p>
+                          <p className="text-xs text-gray-500">{req.employee.employeeNo} · {req.employee.department?.name}</p>
                         </td>
-                      )}
-                    </tr>
-                  ))}
+                        <td className="border-b border-slate-100 p-4">
+                          <p className="font-medium">{req.leaveType.name}</p>
+                          <Badge variant="outline" className="text-xs mt-0.5">
+                            {req.leaveType.isWithPay ? 'With Pay' : 'Without Pay'}
+                          </Badge>
+                        </td>
+                        <td className="border-b border-slate-100 p-4 text-gray-600">
+                          {formatDate(req.startDate)} – {formatDate(req.endDate)}
+                        </td>
+                        <td className="border-b border-slate-100 p-4 text-center font-medium">{req.totalDays.toString()}</td>
+                        <td className="border-b border-slate-100 p-4">
+                          <Badge className={`text-xs border-0 ${getStatusColor(req.status)}`}>
+                            {req.status}
+                          </Badge>
+                        </td>
+                        <td className="border-b border-slate-100 p-4 text-gray-500 text-xs">{formatDate(req.createdAt)}</td>
+                        <td className="border-b border-slate-100 p-4 text-slate-400">
+                          <ChevronRight className="h-4 w-4" />
+                        </td>
+                      </LeaveRowOpener>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
