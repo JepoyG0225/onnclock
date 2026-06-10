@@ -142,8 +142,13 @@ export default function DepartmentsPage() {
     chart
       .container(containerRef.current)
       .data(data)
-      .nodeWidth((d: any) => (d.data.isDept ? 200 : 260))
-      .nodeHeight((d: any) => (d.data.isDept ? 60 : 190))
+      // Root "Company" node renders as an invisible 1x1 spacer so the
+      // tree still has a single anchor (d3-org-chart needs one) but the
+      // visual hierarchy starts at the department badges below. Department
+      // badges keep their pill shape; employee cards keep their wider
+      // panel layout.
+      .nodeWidth((d: any) => (d.data.isRoot ? 1 : d.data.isDept ? 200 : 260))
+      .nodeHeight((d: any) => (d.data.isRoot ? 1 : d.data.isDept ? 60 : 190))
       .childrenMargin((d: any) => {
         if (d.depth === 0) return 20
         return d.data.isDept ? 60 : 40
@@ -221,8 +226,16 @@ export default function DepartmentsPage() {
 }
 
 function nodeContent(d: { data: OrgNode & { _directSubordinates?: number } }) {
-  const { name, position, department, employeeNo, photoUrl, initials, accent, isDept, _directSubordinates } = d.data
+  const { name, position, department, employeeNo, photoUrl, initials, accent, isDept, isRoot, _directSubordinates } = d.data
   const hasChildren = !!_directSubordinates && _directSubordinates > 0
+
+  // Root "Company" node renders empty so the org chart starts visually
+  // at the department badges below. The node still exists in the tree
+  // (d3-org-chart needs a single root) but it has zero visual presence.
+  if (isRoot) {
+    return `<div style="width:1px;height:1px;"></div>`
+  }
+
   const avatar = photoUrl
     ? `<div style="width:48px;height:48px;border-radius:999px;overflow:hidden;flex:0 0 48px;display:block;">
          <img src="${photoUrl}" style="width:48px;height:48px;object-fit:cover;display:block;border-radius:999px;" />
