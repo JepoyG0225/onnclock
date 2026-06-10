@@ -302,6 +302,7 @@ export async function POST(
   }
 
   logAudit(ctx, newStatus === 'APPROVED' ? 'APPROVE' : 'REJECT', 'LeaveRequest', id, {
+    description: `${newStatus === 'APPROVED' ? 'Approved' : 'Rejected'} ${leaveRequest.leaveType?.name ?? 'leave'} request for ${requesterName}`,
     newValues: { status: newStatus },
   }).catch(() => {})
 

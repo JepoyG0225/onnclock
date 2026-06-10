@@ -99,7 +99,9 @@ export async function PATCH(
     const updated = await prisma.overtimeRequest.update({
       where: { id }, data: { status }, include: includeEmployee,
     })
-    logAudit(ctx, 'CANCEL', 'OvertimeRequest', id).catch(() => {})
+    logAudit(ctx, 'CANCEL', 'OvertimeRequest', id, {
+      description: `Cancelled overtime request for ${existing.employee?.firstName ?? ''} ${existing.employee?.lastName ?? ''}`.trim(),
+    }).catch(() => {})
     return NextResponse.json({ request: updated })
   }
 
@@ -193,6 +195,7 @@ export async function PATCH(
   }
 
   logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'OvertimeRequest', id, {
+    description: `${action === 'approve' ? 'Approved' : 'Rejected'} overtime request for ${requesterName} (${existing.hours}h)`,
     newValues: { status: updated.status },
   }).catch(() => {})
 
@@ -217,6 +220,8 @@ export async function DELETE(
 
   await prisma.overtimeRequest.delete({ where: { id } })
 
-  logAudit(ctx, 'DELETE', 'OvertimeRequest', id).catch(() => {})
+  logAudit(ctx, 'DELETE', 'OvertimeRequest', id, {
+    description: `Deleted overtime request`,
+  }).catch(() => {})
   return NextResponse.json({ ok: true })
 }

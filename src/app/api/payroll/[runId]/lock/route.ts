@@ -84,6 +84,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     }
   })
 
-  logAudit(ctx, 'LOCK', 'PayrollRun', runId).catch(() => {})
+  logAudit(ctx, 'LOCK', 'PayrollRun', runId, {
+    description: `Locked payroll run — loan deductions applied`,
+  }).catch(() => {})
   return NextResponse.json({ ok: true, status: 'LOCKED' })
 }

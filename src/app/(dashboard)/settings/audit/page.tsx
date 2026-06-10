@@ -16,6 +16,7 @@ type AuditLog = {
   userName: string | null
   userEmail: string | null
   ipAddress: string | null
+  newValues: { description?: string } | null
   createdAt: string
 }
 
@@ -98,10 +99,9 @@ export default function AuditSettingsPage() {
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-left">
                     <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Timestamp</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Performed by</th>
                     <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Action</th>
-                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Entity</th>
-                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Entity ID</th>
-                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Description</th>
                     <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">IP Address</th>
                   </tr>
                 </thead>
@@ -112,18 +112,22 @@ export default function AuditSettingsPage() {
                       log.action === 'APPROVE' ? 'bg-blue-100 text-blue-700' :
                       log.action === 'REJECT' ? 'bg-red-100 text-red-700' :
                       log.action === 'DELETE' || log.action === 'CANCEL' ? 'bg-orange-100 text-orange-700' :
+                      log.action === 'UPDATE' ? 'bg-purple-100 text-purple-700' :
+                      log.action === 'SUBMIT' ? 'bg-indigo-100 text-indigo-700' :
+                      log.action === 'LOCK' ? 'bg-yellow-100 text-yellow-700' :
                       'bg-slate-100 text-slate-600'
+                    const desc = (log.newValues as { description?: string } | null)?.description
+                    const fallbackDesc = `${log.action} ${log.entity}`
                     return (
                       <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">{log.userName || log.userEmail || log.userId}</td>
                         <td className="px-4 py-2.5">
                           <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${actionColor}`}>
                             {log.action}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-sm font-medium text-slate-900">{log.entity}</td>
-                        <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{log.entityId.slice(0, 8)}</td>
-                        <td className="px-4 py-2.5 text-xs text-slate-700">{log.userName || log.userEmail || log.userId}</td>
+                        <td className="px-4 py-2.5 text-sm text-slate-900">{desc || fallbackDesc}</td>
                         <td className="px-4 py-2.5 text-xs text-slate-400">{log.ipAddress || '—'}</td>
                       </tr>
                     )

@@ -213,6 +213,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   logAudit(ctx, action === 'APPROVE' ? 'APPROVE' : 'REJECT', 'CashAdvance', id, {
+    description: `${action === 'APPROVE' ? 'Approved' : 'Rejected'} ₱${Number(existing.amountRequested).toLocaleString()} cash advance for ${requesterName}`,
     newValues: { status: updated.status },
   }).catch(() => {})
 
@@ -243,6 +244,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     where: { id },
     data: { status: 'CANCELLED' },
   })
-  logAudit(ctx, 'CANCEL', 'CashAdvance', id).catch(() => {})
+  logAudit(ctx, 'CANCEL', 'CashAdvance', id, {
+    description: `Cancelled cash advance request ₱${Number(existing.amountRequested).toLocaleString()}`,
+  }).catch(() => {})
   return NextResponse.json({ request: updated })
 }

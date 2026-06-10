@@ -107,7 +107,9 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    logAudit(ctx, 'CREATE', 'TimeCorrection', correction.id).catch(() => {})
+    logAudit(ctx, 'CREATE', 'TimeCorrection', correction.id, {
+      description: `Filed a time entry correction for ${dateOnly.toLocaleDateString()}`,
+    }).catch(() => {})
     return NextResponse.json({ correction }, { status: 201 })
   } catch (error: unknown) {
     if (isMissingTimeCorrectionSchemaError(error)) {

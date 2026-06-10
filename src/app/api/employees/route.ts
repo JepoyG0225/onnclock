@@ -269,6 +269,7 @@ export async function POST(req: NextRequest) {
     })
 
     logAudit(ctx, 'CREATE', 'Employee', employee.id, {
+      description: `Created employee ${data.firstName} ${data.lastName} (${data.employeeNo})`,
       newValues: { employeeNo: data.employeeNo, firstName: data.firstName, lastName: data.lastName },
     }).catch(() => {})
 

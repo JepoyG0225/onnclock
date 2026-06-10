@@ -251,7 +251,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    logAudit(ctx, 'UPDATE', 'Employee', id).catch(() => {})
+    logAudit(ctx, 'UPDATE', 'Employee', id, {
+      description: `Updated employee record ${existing.employeeNo}`,
+    }).catch(() => {})
 
     return NextResponse.json({ success: true, recompute, credit })
   } catch (e: unknown) {
@@ -310,6 +312,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   logAudit(ctx, 'DEACTIVATE', 'Employee', id, {
+    description: `Deactivated employee ${employee.employeeNo}`,
     newValues: { employeeNo: employee.employeeNo },
   }).catch(() => {})
 

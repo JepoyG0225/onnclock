@@ -126,7 +126,9 @@ export async function POST(req: NextRequest) {
     include: { items: true },
   })
 
-  logAudit(ctx, 'CREATE', 'BudgetRequisition', requisition.id).catch(() => {})
+  logAudit(ctx, 'CREATE', 'BudgetRequisition', requisition.id, {
+    description: `Created budget requisition "${title}" — ₱${totalAmount.toLocaleString()}`,
+  }).catch(() => {})
 
   return NextResponse.json({ requisition }, { status: 201 })
 }

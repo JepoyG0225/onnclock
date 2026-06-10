@@ -316,7 +316,9 @@ export async function PATCH(req: NextRequest) {
 
     const defaultBreakMinutes = requestedDefaultBreakMinutes ?? await readCompanyDefaultBreakMinutes(ctx.companyId)
 
-    logAudit(ctx, 'UPDATE', 'CompanySettings', ctx.companyId).catch(() => {})
+    logAudit(ctx, 'UPDATE', 'CompanySettings', ctx.companyId, {
+      description: `Updated company settings`,
+    }).catch(() => {})
 
     return NextResponse.json({
       ...updated,

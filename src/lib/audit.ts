@@ -9,6 +9,7 @@ export async function logAudit(
   entity: string,
   entityId: string,
   opts?: {
+    description?: string
     oldValues?: Record<string, unknown>
     newValues?: Record<string, unknown>
     ipAddress?: string | null
@@ -32,7 +33,10 @@ export async function logAudit(
       entity,
       entityId,
       oldValues: (opts?.oldValues as Prisma.InputJsonValue) ?? undefined,
-      newValues: (opts?.newValues as Prisma.InputJsonValue) ?? undefined,
+      newValues: ({
+        ...opts?.newValues,
+        ...(opts?.description ? { description: opts.description } : {}),
+      } as Prisma.InputJsonValue) ?? undefined,
       ipAddress: ip,
     },
   })

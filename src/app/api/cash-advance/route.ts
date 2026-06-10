@@ -224,7 +224,9 @@ export async function POST(req: NextRequest) {
     // non-fatal
   }
 
-  logAudit(ctx, 'CREATE', 'CashAdvance', request.id).catch(() => {})
+  logAudit(ctx, 'CREATE', 'CashAdvance', request.id, {
+    description: `${employee.firstName} ${employee.lastName} requested ₱${amountRequested.toLocaleString()} cash advance`,
+  }).catch(() => {})
 
   return NextResponse.json({ request }, { status: 201 })
 }

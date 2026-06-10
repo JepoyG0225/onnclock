@@ -306,7 +306,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    logAudit(ctx, 'CREATE', 'PayrollRun', run.id).catch(() => {})
+    logAudit(ctx, 'CREATE', 'PayrollRun', run.id, {
+      description: `Created payroll run ${periodStart} to ${periodEnd}`,
+    }).catch(() => {})
     return NextResponse.json({ run }, { status: 201 })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)

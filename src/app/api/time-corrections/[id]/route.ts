@@ -174,6 +174,7 @@ export async function PATCH(
   }
 
   logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'TimeCorrection', id, {
+    description: `${action === 'approve' ? 'Approved' : 'Rejected'} time correction for ${requesterName}`,
     newValues: { status: updated.status },
   }).catch(() => {})
 

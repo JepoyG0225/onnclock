@@ -164,6 +164,7 @@ export async function POST(req: NextRequest) {
     const created = await prisma.workSchedule.create({ data: scheduleData })
 
     logAudit(ctx, 'CREATE', 'WorkSchedule', created.id, {
+      description: `Created work schedule "${scheduleData.name}"`,
       newValues: { name: scheduleData.name },
     }).catch(() => {})
     return NextResponse.json({ schedule: created }, { status: 201 })

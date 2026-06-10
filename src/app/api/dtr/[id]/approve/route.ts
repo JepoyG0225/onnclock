@@ -56,7 +56,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  logAudit(ctx, action === 'APPROVED' ? 'APPROVE' : 'REJECT', 'DTRRecord', id).catch(() => {})
+  logAudit(ctx, action === 'APPROVED' ? 'APPROVE' : 'REJECT', 'DTRRecord', id, {
+    description: `${action === 'APPROVED' ? 'Approved' : 'Rejected'} DTR record for ${record.date.toISOString().slice(0, 10)}`,
+  }).catch(() => {})
 
   return NextResponse.json({ ...updated, otApproved })
 }

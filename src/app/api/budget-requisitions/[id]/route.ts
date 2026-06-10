@@ -123,7 +123,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Only pending requests can be cancelled' }, { status: 400 })
     }
     const updated = await prisma.budgetRequisition.update({ where: { id }, data: { status }, include })
-    logAudit(ctx, 'CANCEL', 'BudgetRequisition', id).catch(() => {})
+    const empName = `${existing.employee?.firstName ?? ''} ${existing.employee?.lastName ?? ''}`.trim()
+    logAudit(ctx, 'CANCEL', 'BudgetRequisition', id, {
+      description: `Cancelled budget requisition "${existing.title}" by ${empName || 'employee'}`,
+    }).catch(() => {})
     return NextResponse.json({ requisition: updated })
   }
 
@@ -199,6 +202,7 @@ export async function PATCH(
   }
 
   logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'BudgetRequisition', id, {
+    description: `${action === 'approve' ? 'Approved' : 'Rejected'} budget requisition "${existing.title}" by ${requesterName}`,
     newValues: { status: updated.status },
   }).catch(() => {})
 

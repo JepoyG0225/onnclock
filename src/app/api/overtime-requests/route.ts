@@ -172,7 +172,9 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  logAudit(ctx, 'CREATE', 'OvertimeRequest', request.id).catch(() => {})
+  logAudit(ctx, 'CREATE', 'OvertimeRequest', request.id, {
+    description: `${request.employee?.firstName ?? ''} ${request.employee?.lastName ?? ''} filed an overtime request`.trim(),
+  }).catch(() => {})
 
   return NextResponse.json({ request }, { status: 201 })
 }

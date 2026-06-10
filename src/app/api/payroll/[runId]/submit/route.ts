@@ -18,6 +18,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     where: { id: runId },
     data: { status: 'FOR_APPROVAL', approvalLevel: 0, approvalTrail: [] },
   })
-  logAudit(ctx, 'SUBMIT', 'PayrollRun', runId).catch(() => {})
+  logAudit(ctx, 'SUBMIT', 'PayrollRun', runId, {
+    description: `Submitted payroll run for approval (${run.periodStart.toISOString().slice(0, 10)} to ${run.periodEnd.toISOString().slice(0, 10)})`,
+  }).catch(() => {})
   return NextResponse.json(updated)
 }

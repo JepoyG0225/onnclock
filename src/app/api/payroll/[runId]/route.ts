@@ -71,7 +71,9 @@ export async function DELETE(
     prisma.payrollRun.delete({ where: { id: runId } }),
   ])
 
-  logAudit(ctx, 'DELETE', 'PayrollRun', runId).catch(() => {})
+  logAudit(ctx, 'DELETE', 'PayrollRun', runId, {
+    description: `Deleted payroll run`,
+  }).catch(() => {})
 
   return NextResponse.json({
     success: true,
