@@ -8,6 +8,7 @@ import { Banknote, Check, X, Clock, CheckCircle2, XCircle, Ban } from 'lucide-re
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { peso } from '@/lib/utils'
+import { RequestActivityPopover } from '@/components/ui/request-activity-popover'
 
 type Status = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
@@ -250,6 +251,9 @@ export default function CashAdvancePage() {
                             ) : r.status === 'REJECTED' && r.rejectionReason ? (
                               <div className="text-xs text-gray-500 max-w-xs italic">{r.rejectionReason}</div>
                             ) : null}
+                            <div className="mt-1.5 flex justify-center">
+                              <RequestActivityPopover type="CASH_ADVANCE" id={r.id} />
+                            </div>
                           </td>
                         </tr>
 

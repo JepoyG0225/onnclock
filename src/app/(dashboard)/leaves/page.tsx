@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { CalendarDays, Plus } from 'lucide-react'
 import { formatDate, getStatusColor } from '@/lib/utils'
 import { LeaveApprovalButtons } from '@/components/leaves/LeaveApprovalButtons'
+import { RequestActivityPopover } from '@/components/ui/request-activity-popover'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 
@@ -152,12 +153,15 @@ export default async function LeavesPage({
                       <td className="p-4 text-gray-500 text-xs">{formatDate(req.createdAt)}</td>
                       {isHR && (
                         <td className="p-4 text-center">
-                          {req.status === 'PENDING' && (
-                            <LeaveApprovalButtons
-                              requestId={req.id}
-                              {...approvalGate(req.approvalLevel ?? 0)}
-                            />
-                          )}
+                          <div className="inline-flex items-center gap-1.5">
+                            {req.status === 'PENDING' && (
+                              <LeaveApprovalButtons
+                                requestId={req.id}
+                                {...approvalGate(req.approvalLevel ?? 0)}
+                              />
+                            )}
+                            <RequestActivityPopover type="LEAVE" id={req.id} />
+                          </div>
                         </td>
                       )}
                     </tr>

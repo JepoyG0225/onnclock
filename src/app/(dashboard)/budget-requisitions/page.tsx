@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ClipboardList } from 'lucide-react'
 import { BudgetReqActionButtons } from '@/components/budget/BudgetReqActionButtons'
 import { BudgetReqAttachmentsModal } from '@/components/budget/BudgetReqAttachmentsModal'
+import { RequestActivityPopover } from '@/components/ui/request-activity-popover'
 
 function fmtDate(d: Date | string | null) {
   if (!d) return '—'
@@ -160,13 +161,16 @@ export default async function BudgetRequisitionsAdminPage({
                       <td className="p-4 text-gray-600 text-xs">{fmtDate(req.createdAt)}</td>
                       <td className="p-4">{statusBadge(req.status as string)}</td>
                       <td className="p-4">
-                        {req.status === 'PENDING' && (
-                          <BudgetReqActionButtons
-                            id={req.id}
-                            title={req.title}
-                            amount={fmtPeso(req.totalAmount)}
-                          />
-                        )}
+                        <div className="inline-flex items-center gap-1.5">
+                          {req.status === 'PENDING' && (
+                            <BudgetReqActionButtons
+                              id={req.id}
+                              title={req.title}
+                              amount={fmtPeso(req.totalAmount)}
+                            />
+                          )}
+                          <RequestActivityPopover type="BUDGET" id={req.id} />
+                        </div>
                       </td>
                     </tr>
                   ))}
