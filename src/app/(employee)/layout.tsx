@@ -18,14 +18,37 @@ export default async function EmployeePortalLayout({
   const session = await auth()
   if (!session?.user) redirect('/portal/login')
 
-  const [company, employee, sub, pausedEmployees] = session.user.companyId
-    ? await Promise.all([
-        getCompanyLite(session.user.companyId),
-        getEmployeeLiteByUser(session.user.id, session.user.companyId),
-        getCompanySubscription(session.user.companyId),
-        getPausedEmployees(session.user.companyId),
-      ])
-    : [undefined, null, { pricePerSeat: 0, isTrial: false }, { ids: [], details: [] }]
+  // Wrap the parallel data loads so a transient failure in any single
+  // query (DB connection blip, missing subscription row, unusual data
+  // shape) doesn't tear down the entire portal with a 500. Each call has
+  // a sensible empty-state fallback so the portal stays usable while
+  // the broken query degrades silently — the affected widget will just
+  // render its own empty UI.
+  let company: Awaited<ReturnType<typeof getCompanyLite>> | undefined
+  let employee: Awaited<ReturnType<typeof getEmployeeLiteByUser>> = null
+  let sub = { pricePerSeat: 0, isTrial: false }
+  let pausedEmployees = { ids: [] as string[], details: [] as Array<{ id: string; firstName: string; lastName: string; employeeNo: string; createdAt: Date }> }
+
+  if (session.user.companyId) {
+    const results = await Promise.allSettled([
+      getCompanyLite(session.user.companyId),
+      getEmployeeLiteByUser(session.user.id, session.user.companyId),
+      getCompanySubscription(session.user.companyId),
+      getPausedEmployees(session.user.companyId),
+    ])
+    if (results[0].status === 'fulfilled') company = results[0].value
+    if (results[1].status === 'fulfilled') employee = results[1].value
+    if (results[2].status === 'fulfilled') sub = results[2].value
+    if (results[3].status === 'fulfilled') pausedEmployees = results[3].value
+    // Log any failure to Vercel runtime logs so we can debug per company
+    // without the whole portal exploding.
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        const which = ['company', 'employee', 'subscription', 'pausedEmployees'][i]
+        console.error(`[portal layout] ${which} load failed for company ${session.user.companyId}:`, r.reason)
+      }
+    })
+  }
 
   // Seat-cap lockout: if this employee is one of the newest hires that
   // pushed the company over its paid seat count, block portal access
