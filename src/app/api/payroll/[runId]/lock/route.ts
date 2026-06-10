@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
@@ -83,5 +84,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     }
   })
 
+  logAudit(ctx, 'LOCK', 'PayrollRun', runId).catch(() => {})
   return NextResponse.json({ ok: true, status: 'LOCKED' })
 }

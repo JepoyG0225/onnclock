@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
@@ -98,6 +99,7 @@ export async function PATCH(
     const updated = await prisma.overtimeRequest.update({
       where: { id }, data: { status }, include: includeEmployee,
     })
+    logAudit(ctx, 'CANCEL', 'OvertimeRequest', id).catch(() => {})
     return NextResponse.json({ request: updated })
   }
 
@@ -190,6 +192,10 @@ export async function PATCH(
     })
   }
 
+  logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'OvertimeRequest', id, {
+    newValues: { status: updated.status },
+  }).catch(() => {})
+
   return NextResponse.json({ request: updated })
 }
 
@@ -211,5 +217,6 @@ export async function DELETE(
 
   await prisma.overtimeRequest.delete({ where: { id } })
 
+  logAudit(ctx, 'DELETE', 'OvertimeRequest', id).catch(() => {})
   return NextResponse.json({ ok: true })
 }

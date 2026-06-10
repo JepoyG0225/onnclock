@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 
 export async function DELETE(
   req: NextRequest,
@@ -69,6 +70,8 @@ export async function DELETE(
     prisma.payrollDisbursement.deleteMany({ where: { payrollRunId: runId } }),
     prisma.payrollRun.delete({ where: { id: runId } }),
   ])
+
+  logAudit(ctx, 'DELETE', 'PayrollRun', runId).catch(() => {})
 
   return NextResponse.json({
     success: true,

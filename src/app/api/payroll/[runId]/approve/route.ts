@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { Prisma } from '@prisma/client'
 import { resolveWorkflow, buildPlan, authorizeAdvance, type RequestFacts } from '@/lib/approvals/engine'
 
@@ -72,6 +73,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
         approvedAt: isFinal ? new Date() : run.approvedAt,
       },
     })
+    logAudit(ctx, 'APPROVE', 'PayrollRun', runId, {
+      newValues: { status: updated.status },
+    }).catch(() => {})
     return NextResponse.json(updated)
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2022') {

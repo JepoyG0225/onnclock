@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
@@ -122,6 +123,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Only pending requests can be cancelled' }, { status: 400 })
     }
     const updated = await prisma.budgetRequisition.update({ where: { id }, data: { status }, include })
+    logAudit(ctx, 'CANCEL', 'BudgetRequisition', id).catch(() => {})
     return NextResponse.json({ requisition: updated })
   }
 
@@ -195,6 +197,10 @@ export async function PATCH(
       nextApproverTitle: '', nextApproverBody: '',
     })
   }
+
+  logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'BudgetRequisition', id, {
+    newValues: { status: updated.status },
+  }).catch(() => {})
 
   return NextResponse.json({ requisition: updated })
 }

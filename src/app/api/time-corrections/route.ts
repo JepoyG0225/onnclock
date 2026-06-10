@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { resolvePortalEmployeeId } from '@/lib/portal-employee'
 import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    logAudit(ctx, 'CREATE', 'TimeCorrection', correction.id).catch(() => {})
     return NextResponse.json({ correction }, { status: 201 })
   } catch (error: unknown) {
     if (isMissingTimeCorrectionSchemaError(error)) {

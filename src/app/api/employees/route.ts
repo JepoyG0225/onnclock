@@ -3,6 +3,7 @@ import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
+import { logAudit } from '@/lib/audit'
 
 const createEmployeeSchema = z.object({
   employeeNo: z.string().min(1),
@@ -266,6 +267,10 @@ export async function POST(req: NextRequest) {
       })),
       skipDuplicates: true,
     })
+
+    logAudit(ctx, 'CREATE', 'Employee', employee.id, {
+      newValues: { employeeNo: data.employeeNo, firstName: data.firstName, lastName: data.lastName },
+    }).catch(() => {})
 
     return NextResponse.json({ employee }, { status: 201 })
   } catch (error: unknown) {

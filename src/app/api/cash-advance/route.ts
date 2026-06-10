@@ -19,6 +19,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/lib/notifications'
 import { computeCashAdvanceLimit } from '@/lib/cash-advance-limit'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN']
@@ -222,6 +223,8 @@ export async function POST(req: NextRequest) {
   } catch {
     // non-fatal
   }
+
+  logAudit(ctx, 'CREATE', 'CashAdvance', request.id).catch(() => {})
 
   return NextResponse.json({ request }, { status: 201 })
 }

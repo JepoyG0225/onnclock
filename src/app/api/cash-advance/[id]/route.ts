@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/lib/notifications'
+import { logAudit } from '@/lib/audit'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
@@ -211,6 +212,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     })
   }
 
+  logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'CashAdvance', id, {
+    newValues: { status: updated.status },
+  }).catch(() => {})
+
   return NextResponse.json({ request: updated })
 }
 
@@ -238,5 +243,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     where: { id },
     data: { status: 'CANCELLED' },
   })
+  logAudit(ctx, 'CANCEL', 'CashAdvance', id).catch(() => {})
   return NextResponse.json({ request: updated })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { Prisma } from '@prisma/client'
 import { createNotification, createNotificationsForUsers, userIdForEmployee } from '@/lib/notifications'
 import {
@@ -299,6 +300,10 @@ export async function POST(
       }
     }
   }
+
+  logAudit(ctx, newStatus === 'APPROVED' ? 'APPROVE' : 'REJECT', 'LeaveRequest', id, {
+    newValues: { status: newStatus },
+  }).catch(() => {})
 
   return NextResponse.json({ success: true, status: newStatus })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
@@ -17,5 +18,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     where: { id: runId },
     data: { status: 'FOR_APPROVAL', approvalLevel: 0, approvalTrail: [] },
   })
+  logAudit(ctx, 'SUBMIT', 'PayrollRun', runId).catch(() => {})
   return NextResponse.json(updated)
 }

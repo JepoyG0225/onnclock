@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
+import { logAudit } from '@/lib/audit'
 import { validateShiftTimes } from '@/lib/timesheet/validate-shift'
 import { z } from 'zod'
 
@@ -162,6 +163,9 @@ export async function POST(req: NextRequest) {
 
     const created = await prisma.workSchedule.create({ data: scheduleData })
 
+    logAudit(ctx, 'CREATE', 'WorkSchedule', created.id, {
+      newValues: { name: scheduleData.name },
+    }).catch(() => {})
     return NextResponse.json({ schedule: created }, { status: 201 })
   } catch (err) {
     console.error('[POST /api/schedules]', err)

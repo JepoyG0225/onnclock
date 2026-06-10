@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import {
   diffPayrollAffectingFields,
   recomputeRunsForEmployee,
@@ -250,6 +251,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    logAudit(ctx, 'UPDATE', 'Employee', id).catch(() => {})
+
     return NextResponse.json({ success: true, recompute, credit })
   } catch (e: unknown) {
     // Friendly handling for a duplicate employee number (unique constraint on
@@ -305,6 +308,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       console.error('[DELETE /api/employees/:id] credit issuance failed', err)
     }
   }
+
+  logAudit(ctx, 'DEACTIVATE', 'Employee', id, {
+    newValues: { employeeNo: employee.employeeNo },
+  }).catch(() => {})
 
   return NextResponse.json({ success: true, credit })
 }

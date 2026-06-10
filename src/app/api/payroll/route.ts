@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPeriodLabel } from '@/lib/utils'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const createRunSchema = z.object({
@@ -305,6 +306,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    logAudit(ctx, 'CREATE', 'PayrollRun', run.id).catch(() => {})
     return NextResponse.json({ run }, { status: 201 })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)

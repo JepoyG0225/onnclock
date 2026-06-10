@@ -13,6 +13,8 @@ type AuditLog = {
   entity: string
   entityId: string
   userId: string
+  userName: string | null
+  userEmail: string | null
   ipAddress: string | null
   createdAt: string
 }
@@ -99,10 +101,17 @@ export default function AuditSettingsPage() {
           {!loading && logs.length === 0 ? <p className="text-sm text-slate-500">No matching audit logs.</p> : null}
           {logs.map(log => (
             <div key={log.id} className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-sm font-semibold text-slate-900">{log.action} · {log.entity}</p>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                  {log.action}
+                </span>
+                <span className="text-sm font-semibold text-slate-900">{log.entity}</span>
+              </div>
               <p className="text-xs text-slate-500 mt-1">
-                {new Date(log.createdAt).toLocaleString()} · Entity #{log.entityId} · Actor {log.userId}
-                {log.ipAddress ? ` · IP ${log.ipAddress}` : ''}
+                {new Date(log.createdAt).toLocaleString()}
+                {' · '}
+                {log.userName || log.userEmail || log.userId}
+                {log.ipAddress ? ` · ${log.ipAddress}` : ''}
               </p>
             </div>
           ))}

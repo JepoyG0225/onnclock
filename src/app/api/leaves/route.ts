@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 import { createNotificationsForUsers } from '@/lib/notifications'
 import {
@@ -229,6 +230,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('[leaves POST] workflow submit notifications failed', err)
   }
+
+  logAudit(ctx, 'CREATE', 'LeaveRequest', leaveRequest.id).catch(() => {})
 
   return NextResponse.json({ leaveRequest }, { status: 201 })
 }

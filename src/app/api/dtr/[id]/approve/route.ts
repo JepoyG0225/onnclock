@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { isOvertimeEnabledForCompany, approveAutoOtForDtr, approveAutoOtByIds } from '@/lib/overtime-requests'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })
     }
   }
+
+  logAudit(ctx, action === 'APPROVED' ? 'APPROVE' : 'REJECT', 'DTRRecord', id).catch(() => {})
 
   return NextResponse.json({ ...updated, otApproved })
 }

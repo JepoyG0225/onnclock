@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
@@ -171,6 +172,10 @@ export async function PATCH(
       nextApproverTitle: '', nextApproverBody: '',
     })
   }
+
+  logAudit(ctx, action === 'approve' ? 'APPROVE' : 'REJECT', 'TimeCorrection', id, {
+    newValues: { status: updated.status },
+  }).catch(() => {})
 
   return NextResponse.json({ correction: updated })
 }

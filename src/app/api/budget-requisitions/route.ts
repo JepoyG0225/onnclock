@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { z } from 'zod'
 
@@ -124,6 +125,8 @@ export async function POST(req: NextRequest) {
     },
     include: { items: true },
   })
+
+  logAudit(ctx, 'CREATE', 'BudgetRequisition', requisition.id).catch(() => {})
 
   return NextResponse.json({ requisition }, { status: 201 })
 }

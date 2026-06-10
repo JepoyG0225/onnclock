@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
@@ -314,6 +315,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     const defaultBreakMinutes = requestedDefaultBreakMinutes ?? await readCompanyDefaultBreakMinutes(ctx.companyId)
+
+    logAudit(ctx, 'UPDATE', 'CompanySettings', ctx.companyId).catch(() => {})
 
     return NextResponse.json({
       ...updated,

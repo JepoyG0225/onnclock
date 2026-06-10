@@ -28,6 +28,18 @@ export async function GET(req: NextRequest) {
         newValues: true,
         ipAddress: true,
       },
+    }).then(async (rows) => {
+      const userIds = [...new Set(rows.map(r => r.userId))]
+      const users = await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true, email: true },
+      })
+      const userMap = new Map(users.map(u => [u.id, u]))
+      return rows.map(r => ({
+        ...r,
+        userName: userMap.get(r.userId)?.name ?? null,
+        userEmail: userMap.get(r.userId)?.email ?? null,
+      }))
     }),
     prisma.auditLog.groupBy({
       by: ['entity'],
