@@ -114,38 +114,52 @@ export default function AuditSettingsPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-[#032b63]" />
-            Activity Feed
+            Audit Log
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {loading ? <p className="text-sm text-slate-500">Loading audit logs...</p> : null}
-          {!loading && logs.length === 0 ? <p className="text-sm text-slate-500">No matching audit logs.</p> : null}
-          {logs.map(log => {
-            const actionColor =
-              log.action === 'CREATE' ? 'bg-green-100 text-green-700' :
-              log.action === 'APPROVE' ? 'bg-blue-100 text-blue-700' :
-              log.action === 'REJECT' ? 'bg-red-100 text-red-700' :
-              log.action === 'DELETE' || log.action === 'CANCEL' ? 'bg-orange-100 text-orange-700' :
-              'bg-slate-100 text-slate-600'
-            return (
-              <div key={log.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center justify-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${actionColor}`}>
-                      {log.action}
-                    </span>
-                    <span className="text-sm font-semibold text-slate-900">{log.entity}</span>
-                    <span className="text-xs text-slate-400 font-mono">{log.entityId.slice(0, 8)}</span>
-                  </div>
-                  <span className="text-[11px] text-slate-400">{new Date(log.createdAt).toLocaleString()}</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  {log.userName || log.userEmail || log.userId}
-                  {log.ipAddress ? ` · IP ${log.ipAddress}` : ''}
-                </p>
-              </div>
-            )
-          })}
+        <CardContent className="p-0">
+          {loading ? <p className="text-sm text-slate-500 p-4">Loading audit logs...</p> : null}
+          {!loading && logs.length === 0 ? <p className="text-sm text-slate-500 p-4">No matching audit logs.</p> : null}
+          {!loading && logs.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-left">
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Timestamp</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Action</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Entity</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Entity ID</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
+                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">IP Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map(log => {
+                    const actionColor =
+                      log.action === 'CREATE' ? 'bg-green-100 text-green-700' :
+                      log.action === 'APPROVE' ? 'bg-blue-100 text-blue-700' :
+                      log.action === 'REJECT' ? 'bg-red-100 text-red-700' :
+                      log.action === 'DELETE' || log.action === 'CANCEL' ? 'bg-orange-100 text-orange-700' :
+                      'bg-slate-100 text-slate-600'
+                    return (
+                      <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${actionColor}`}>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-sm font-medium text-slate-900">{log.entity}</td>
+                        <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{log.entityId.slice(0, 8)}</td>
+                        <td className="px-4 py-2.5 text-xs text-slate-700">{log.userName || log.userEmail || log.userId}</td>
+                        <td className="px-4 py-2.5 text-xs text-slate-400">{log.ipAddress || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
