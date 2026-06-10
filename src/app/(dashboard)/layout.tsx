@@ -17,6 +17,7 @@ import { cookies, headers } from 'next/headers'
 import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
+import { ROLE_PERMISSIONS } from '@/lib/auth/permissions'
 import { canAccessPath, findFirstAccessiblePath } from '@/lib/auth/page-access'
 import { PermissionsProvider } from '@/components/auth/PermissionsProvider'
 
@@ -143,12 +144,18 @@ export default async function DashboardLayout({
   // Same 4s timeout pattern — the permission resolver does up to 2
   // queries (custom-role assignment + companyRolePermission override)
   // and a hung connection here was contributing to the same slow-
-  // function pattern users saw on /portal/clock. On timeout we fall
-  // back to an empty permission set; the route guard below will
-  // redirect them to /settings/profile (always-allowed) rather than
-  // blank-screen them. This is conservative — they'll see a stripped
-  // sidebar until the next navigation re-runs the loader cleanly.
-  let permissions: Awaited<ReturnType<typeof getEffectivePermissions>> = []
+  // function pattern users saw on /portal/clock.
+  //
+  // CRITICAL: on timeout/failure we fall back to the hardcoded
+  // ROLE_PERMISSIONS defaults for this role — NOT an empty array. An
+  // empty fallback would gate out every nav item except the few paths
+  // not in PATH_REQUIRED_PERMISSIONS, which is exactly the
+  // "sidebar shows only one item" bug users reported. The hardcoded
+  // defaults are the same set a fresh company starts with, so the
+  // user sees their normal role-appropriate nav while the DB sorts
+  // itself out.
+  const safeFallback = (ROLE_PERMISSIONS[effectiveRole as keyof typeof ROLE_PERMISSIONS] ?? []) as Awaited<ReturnType<typeof getEffectivePermissions>>
+  let permissions: Awaited<ReturnType<typeof getEffectivePermissions>> = safeFallback
   try {
     permissions = await withTimeout(
       getEffectivePermissions(effectiveRole, companyId ?? null, session.user.id ?? null),
@@ -156,7 +163,7 @@ export default async function DashboardLayout({
       'getEffectivePermissions',
     )
   } catch (err) {
-    console.error(`[dashboard layout] getEffectivePermissions failed for company ${companyId ?? '?'}:`, err)
+    console.error(`[dashboard layout] getEffectivePermissions failed for company ${companyId ?? '?'}, falling back to ${effectiveRole} defaults:`, err)
   }
   const pathname = (await headers()).get('x-pathname') ?? ''
   if (pathname && !canAccessPath(pathname, permissions)) {

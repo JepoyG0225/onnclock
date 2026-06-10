@@ -42,6 +42,7 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   { prefix: '/attendance/tardiness',required: ['dtr:read'] },
   { prefix: '/attendance/settings', required: ['settings:read'] },
   { prefix: '/time-corrections',    required: ['dtr:read'] },
+  { prefix: '/overtime-requests',   required: ['dtr:read', 'overtime:approve'] },
   { prefix: '/biometric-devices',   required: ['settings:read'] },
   { prefix: '/schedules',           required: ['settings:read', 'dtr:read'] },
   { prefix: '/holidays',            required: ['settings:read'] },
