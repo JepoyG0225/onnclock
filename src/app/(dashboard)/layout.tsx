@@ -56,29 +56,53 @@ export default async function DashboardLayout({
   const counts = { pendingDtr: 0, pendingLeaves: 0, pendingOvertime: 0 }
   let sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; pricePerSeat?: unknown } | null = null
 
+  // Wrap each query in a hard 4s timeout — a hung Prisma call (pool
+  // exhaustion during a burst, blocked connection from another region)
+  // was making the layout sit on a single slow query until the Vercel
+  // function timeout (≈10–15s) and 500'd. Now each individual load
+  // degrades to its empty-state fallback if it doesn't respond in
+  // under 4 seconds; the affected widget renders empty but the
+  // dashboard stays responsive.
+  function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${label}`)), ms),
+      ),
+    ])
+  }
+
   let unbilledSeats = 0
-  try {
-    const [companyResult, subResult, seatStatus] = await Promise.all([
-      companyId ? getCompanyLite(companyId) : Promise.resolve(null),
-      canManageCompanyData
-        ? prisma.subscription.findUnique({
+  const dashLoads = await Promise.allSettled([
+    companyId ? withTimeout(getCompanyLite(companyId), 4000, 'getCompanyLite') : Promise.resolve(null),
+    canManageCompanyData
+      ? withTimeout(
+          prisma.subscription.findUnique({
             where: { companyId },
             select: { status: true, trialEndsAt: true, currentPeriodEnd: true, pricePerSeat: true },
-          })
-        : Promise.resolve(null),
-      // Seat audit feeds SubscriptionGate. Returns {unbilled: 0} for
-      // TRIAL / no-subscription so the gate stays inactive there; only
-      // ACTIVE companies with activeCount > seatCount get redirected.
-      canManageCompanyData && companyId
-        ? getSeatStatus(companyId)
-        : Promise.resolve(null),
-    ])
-    company = companyResult
-    sub = subResult
-    if (seatStatus?.isOver) unbilledSeats = seatStatus.unbilled
-  } catch (error) {
-    console.error('DashboardLayout data load failed', error)
+          }),
+          4000,
+          'subscription',
+        )
+      : Promise.resolve(null),
+    // Seat audit feeds SubscriptionGate. Returns {unbilled: 0} for
+    // TRIAL / no-subscription so the gate stays inactive there; only
+    // ACTIVE companies with activeCount > seatCount get redirected.
+    canManageCompanyData && companyId
+      ? withTimeout(getSeatStatus(companyId), 4000, 'getSeatStatus')
+      : Promise.resolve(null),
+  ])
+  if (dashLoads[0].status === 'fulfilled') company = dashLoads[0].value
+  if (dashLoads[1].status === 'fulfilled') sub = dashLoads[1].value
+  if (dashLoads[2].status === 'fulfilled' && dashLoads[2].value?.isOver) {
+    unbilledSeats = dashLoads[2].value.unbilled
   }
+  dashLoads.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      const which = ['company', 'subscription', 'seatStatus'][i]
+      console.error(`[dashboard layout] ${which} load failed for company ${companyId ?? '?'}:`, r.reason)
+    }
+  })
 
   let subStatus = 'ACTIVE'
   let trialEndsAt: string | null = null
@@ -116,16 +140,24 @@ export default async function DashboardLayout({
   // if the user navigated directly to a page their role isn't ticked for,
   // bounce them back to /dashboard. SUPER_ADMIN bypasses inside the
   // loader, so impersonation is unaffected.
-  const permissions = await getEffectivePermissions(
-    effectiveRole,
-    companyId ?? null,
-    // Pass the underlying user id so the loader can honor any custom-role
-    // assignment (user_custom_roles). When SUPER_ADMIN impersonates, we
-    // still use session.user.id — impersonation grants the impersonated
-    // role, not the impersonated user's identity, so custom-role lookups
-    // remain scoped to the actual logged-in user.
-    session.user.id ?? null,
-  )
+  // Same 4s timeout pattern — the permission resolver does up to 2
+  // queries (custom-role assignment + companyRolePermission override)
+  // and a hung connection here was contributing to the same slow-
+  // function pattern users saw on /portal/clock. On timeout we fall
+  // back to an empty permission set; the route guard below will
+  // redirect them to /settings/profile (always-allowed) rather than
+  // blank-screen them. This is conservative — they'll see a stripped
+  // sidebar until the next navigation re-runs the loader cleanly.
+  let permissions: Awaited<ReturnType<typeof getEffectivePermissions>> = []
+  try {
+    permissions = await withTimeout(
+      getEffectivePermissions(effectiveRole, companyId ?? null, session.user.id ?? null),
+      4000,
+      'getEffectivePermissions',
+    )
+  } catch (err) {
+    console.error(`[dashboard layout] getEffectivePermissions failed for company ${companyId ?? '?'}:`, err)
+  }
   const pathname = (await headers()).get('x-pathname') ?? ''
   if (pathname && !canAccessPath(pathname, permissions)) {
     // /dashboard is itself now gated (so narrow custom roles like

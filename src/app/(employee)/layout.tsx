@@ -18,34 +18,47 @@ export default async function EmployeePortalLayout({
   const session = await auth()
   if (!session?.user) redirect('/portal/login')
 
-  // Wrap the parallel data loads so a transient failure in any single
-  // query (DB connection blip, missing subscription row, unusual data
-  // shape) doesn't tear down the entire portal with a 500. Each call has
-  // a sensible empty-state fallback so the portal stays usable while
-  // the broken query degrades silently — the affected widget will just
-  // render its own empty UI.
+  // Wrap each parallel data load with a hard 4-second timeout so a
+  // hung query (pgBouncer pool exhaustion during a burst, blocked
+  // connection from another region, etc.) can't drag the function
+  // execution to the Vercel default timeout. Without this, a single
+  // slow query made /portal/clock take 15+ seconds to render or 500
+  // entirely. Each call now degrades to its empty-state fallback in
+  // under 5 seconds — affected widgets render their own empty UI but
+  // the portal stays responsive.
+  function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${label}`)), ms),
+      ),
+    ])
+  }
+
   let company: Awaited<ReturnType<typeof getCompanyLite>> | undefined
   let employee: Awaited<ReturnType<typeof getEmployeeLiteByUser>> = null
   let sub = { pricePerSeat: 0, isTrial: false }
   let pausedEmployees = { ids: [] as string[], details: [] as Array<{ id: string; firstName: string; lastName: string; employeeNo: string; createdAt: Date }> }
 
   if (session.user.companyId) {
+    const cid = session.user.companyId
     const results = await Promise.allSettled([
-      getCompanyLite(session.user.companyId),
-      getEmployeeLiteByUser(session.user.id, session.user.companyId),
-      getCompanySubscription(session.user.companyId),
-      getPausedEmployees(session.user.companyId),
+      withTimeout(getCompanyLite(cid), 4000, 'getCompanyLite'),
+      withTimeout(getEmployeeLiteByUser(session.user.id, cid), 4000, 'getEmployeeLiteByUser'),
+      withTimeout(getCompanySubscription(cid), 4000, 'getCompanySubscription'),
+      withTimeout(getPausedEmployees(cid), 4000, 'getPausedEmployees'),
     ])
     if (results[0].status === 'fulfilled') company = results[0].value
     if (results[1].status === 'fulfilled') employee = results[1].value
     if (results[2].status === 'fulfilled') sub = results[2].value
     if (results[3].status === 'fulfilled') pausedEmployees = results[3].value
-    // Log any failure to Vercel runtime logs so we can debug per company
-    // without the whole portal exploding.
+    // Log any failure (DB error or timeout) to Vercel runtime logs so
+    // we can pattern-match per company without the whole portal
+    // exploding.
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
         const which = ['company', 'employee', 'subscription', 'pausedEmployees'][i]
-        console.error(`[portal layout] ${which} load failed for company ${session.user.companyId}:`, r.reason)
+        console.error(`[portal layout] ${which} load failed for company ${cid}:`, r.reason)
       }
     })
   }
