@@ -227,13 +227,15 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    logAudit(ctx, 'CREATE', 'LeaveRequest', leaveRequest.id, {
+      description: `${requesterName} filed a ${lt?.name ?? 'leave'} request`,
+    }).catch(() => {})
   } catch (err) {
     console.error('[leaves POST] workflow submit notifications failed', err)
+    logAudit(ctx, 'CREATE', 'LeaveRequest', leaveRequest.id, {
+      description: 'Filed a leave request',
+    }).catch(() => {})
   }
-
-  logAudit(ctx, 'CREATE', 'LeaveRequest', leaveRequest.id, {
-    description: `${requesterName} filed a ${lt?.name ?? 'leave'} request`,
-  }).catch(() => {})
 
   return NextResponse.json({ leaveRequest }, { status: 201 })
 }
