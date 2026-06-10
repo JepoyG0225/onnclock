@@ -95,7 +95,8 @@ export default function TimeCorrectionPortalPage() {
     if (!value) return '—'
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    // 12-hour format without leading zeros — "1:00 PM" / "9:30 AM"
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
   }
 
   function extractTimeInput(value: string | null): string {

@@ -490,6 +490,11 @@ export default function RecruitmentPage() {
 
                   {/* Right: actions */}
                   <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                    <Link href={`/recruitment/${job.id}/view`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                      <Briefcase className="w-3.5 h-3.5" /> View posting
+                    </Link>
+
                     <Link href={`/recruitment/${job.id}`}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                       <Users className="w-3.5 h-3.5" /> Applicants

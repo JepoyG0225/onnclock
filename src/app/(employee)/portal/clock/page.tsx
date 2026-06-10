@@ -832,7 +832,7 @@ export default function ClockPage() {
 
       <div className="text-center">
         <div className="font-black tabular-nums leading-none" style={{ fontSize: '2.75rem', color: '#032b63' }}>
-          {currentTime ? format(currentTime, 'HH:mm:ss') : '--:--:--'}
+          {currentTime ? format(currentTime, 'h:mm:ss a') : '--:--:-- --'}
         </div>
         <div className="text-xs text-slate-400 font-semibold mt-1">
           {currentTime ? format(currentTime, 'MMM dd yyyy EEEE') : '--'}
@@ -947,7 +947,7 @@ export default function ClockPage() {
                   : screenCaptureUnavailable
                     ? 'Permission was revoked or the stream ended. Clock out and in again to resume monitoring.'
                     : isClockedIn && lastCapturedAt
-                      ? `Last captured at ${lastCapturedAt.toLocaleTimeString()} — next in ${screenCaptureFeature.frequencyMinutes} min`
+                      ? `Last captured at ${lastCapturedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} — next in ${screenCaptureFeature.frequencyMinutes} min`
                       : `Your full screen will be captured every ${screenCaptureFeature.frequencyMinutes} minute(s) while clocked in. When prompted, select "Entire Screen".`}
               </p>
             </div>
@@ -1186,7 +1186,7 @@ export default function ClockPage() {
             <Clock className="w-5 h-5" style={{ color: '#032b63' }} />
           </div>
           <div className="text-xs font-bold text-slate-700">
-            {record?.timeIn ? format(new Date(record.timeIn), 'hh:mm a') : '--'}
+            {record?.timeIn ? format(new Date(record.timeIn), 'h:mm a') : '--'}
           </div>
           <div className="text-[10px] text-slate-400">Clock In</div>
         </div>
@@ -1195,7 +1195,7 @@ export default function ClockPage() {
             <Clock className="w-5 h-5" style={{ color: '#032b63' }} />
           </div>
           <div className="text-xs font-bold text-slate-700">
-            {record?.timeOut ? format(new Date(record.timeOut), 'hh:mm a') : '--'}
+            {record?.timeOut ? format(new Date(record.timeOut), 'h:mm a') : '--'}
           </div>
           <div className="text-[10px] text-slate-400">Clock Out</div>
         </div>

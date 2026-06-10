@@ -185,7 +185,7 @@ export default function AttendancePage() {
                     <td className="px-4 py-3 text-gray-600">
                       {record.timeIn ? (
                         <span className="flex items-center gap-1">
-                          {format(new Date(record.timeIn), 'hh:mm a')}
+                          {format(new Date(record.timeIn), 'h:mm a')}
                           {record.clockInAddress && (
                             <MapPin className="w-3 h-3" style={{ color: '#032b63' }} aria-label={record.clockInAddress} />
                           )}
@@ -195,7 +195,7 @@ export default function AttendancePage() {
                     <td className="px-4 py-3 text-gray-600">
                       {record.timeOut ? (
                         <span className="flex items-center gap-1">
-                          {format(new Date(record.timeOut), 'hh:mm a')}
+                          {format(new Date(record.timeOut), 'h:mm a')}
                           {record.clockOutAddress && (
                             <MapPin className="w-3 h-3" style={{ color: '#032b63' }} aria-label={record.clockOutAddress} />
                           )}
