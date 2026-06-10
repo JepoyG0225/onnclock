@@ -138,7 +138,7 @@ export function LeaveRequestDetailDialog({
       />
 
       <div
-        className="relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
+        className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
         style={{ maxHeight: 'calc(100vh - 2rem)' }}
       >
         {/* Header */}
@@ -169,9 +169,9 @@ export function LeaveRequestDetailDialog({
           </button>
         </div>
 
-        {/* Body — two columns on desktop, stacked on mobile */}
-        <div className="grid flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[1fr_360px]">
-          {/* ── Left: details ──────────────────────────────────────── */}
+        {/* Body — single column, details on top, activity below */}
+        <div className="flex-1 overflow-y-auto">
+          {/* ── Top: details ───────────────────────────────────────── */}
           <div className="space-y-4 px-5 py-5">
             <DetailRow
               icon={<CalendarDays className="h-4 w-4" />}
@@ -225,8 +225,8 @@ export function LeaveRequestDetailDialog({
             )}
           </div>
 
-          {/* ── Right: activity ────────────────────────────────────── */}
-          <aside className="border-t border-slate-100 bg-slate-50/40 px-5 py-5 md:border-t-0 md:border-l">
+          {/* ── Bottom: activity ───────────────────────────────────── */}
+          <section className="border-t border-slate-100 bg-slate-50/40 px-5 py-5">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
               Activity
             </h3>
@@ -242,7 +242,7 @@ export function LeaveRequestDetailDialog({
             {!loadingActivity && !activityError && events && (
               <RequestActivityFeed events={events} compact />
             )}
-          </aside>
+          </section>
         </div>
 
         {/* Footer actions */}
