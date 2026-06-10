@@ -171,8 +171,12 @@ export function LeaveRequestDetailDialog({
 
         {/* Body — single column, details on top, activity below */}
         <div className="flex-1 overflow-y-auto">
-          {/* ── Top: details ───────────────────────────────────────── */}
-          <div className="space-y-4 px-5 py-5">
+          {/* ── Top: details ───────────────────────────────────────────
+              2-column grid on sm: and up so the short metadata rows
+              (Leave Type, Date Range, Filed By) sit two-up. Reason and
+              Admin Notes always span both columns because their content
+              is long-form and would look cramped at half-width. */}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 px-5 py-5 sm:grid-cols-2">
             <DetailRow
               icon={<CalendarDays className="h-4 w-4" />}
               label="Leave Type"
@@ -201,6 +205,7 @@ export function LeaveRequestDetailDialog({
               label="Filed By"
               value={employeeName}
               hint={`${positionLine} · Submitted ${formatDate(request.createdAt)}`}
+              className="sm:col-span-2"
             />
             {request.reason && (
               <DetailRow
@@ -211,10 +216,11 @@ export function LeaveRequestDetailDialog({
                     {request.reason}
                   </p>
                 }
+                className="sm:col-span-2"
               />
             )}
             {request.reviewNotes && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Admin Notes
                 </p>
@@ -269,14 +275,17 @@ function DetailRow({
   label,
   value,
   hint,
+  className,
 }: {
   icon: React.ReactNode
   label: string
   value: React.ReactNode
   hint?: string
+  /** Optional class passthrough for grid-span / layout overrides. */
+  className?: string
 }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className={`flex items-start gap-3 ${className ?? ''}`}>
       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
         {icon}
       </div>
