@@ -8,6 +8,8 @@ import { EmployeeDeleteButton } from '@/components/employees/EmployeeDeleteButto
 import { EmployeeViewButton } from '@/components/employees/EmployeeViewButton'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader } from '@/components/ui/page-header'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Users, Search } from 'lucide-react'
 import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
 import { EmploymentStatus } from '@prisma/client'
@@ -83,21 +85,20 @@ export default async function EmployeesPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-          <p className="text-gray-500 mt-1">{total} total employees</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <EmployeeImportButton />
-          <AddEmployeeButton
-            atSeatCap={atSeatCap}
-            activeCount={seat.activeCount}
-            paidSeats={seat.paidSeats}
-          />
-        </div>
-      </div>
+      <PageHeader
+        title="Employees"
+        subtitle={`${total} total ${total === 1 ? 'employee' : 'employees'}`}
+        actions={
+          <>
+            <EmployeeImportButton />
+            <AddEmployeeButton
+              atSeatCap={atSeatCap}
+              activeCount={seat.activeCount}
+              paidSeats={seat.paidSeats}
+            />
+          </>
+        }
+      />
 
       {/* Filters */}
       <Card>
@@ -145,13 +146,16 @@ export default async function EmployeesPage({
       <Card>
         <CardContent className="p-0">
           {employees.length === 0 ? (
-            <div className="text-center py-16">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No employees found</p>
-              <Link href="/employees/new" className="mt-3 inline-block">
-                <Button size="sm">Add your first employee</Button>
-              </Link>
-            </div>
+            <EmptyState
+              icon={<Users className="w-6 h-6" />}
+              title="No employees found"
+              description="Add your first employee to start tracking time and processing payroll."
+              action={
+                <Link href="/employees/new">
+                  <Button size="sm" variant="accent">Add your first employee</Button>
+                </Link>
+              }
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

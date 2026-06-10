@@ -8,6 +8,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { CalendarDays, Plus } from 'lucide-react'
 import { formatDate, getStatusColor } from '@/lib/utils'
 import { LeaveApprovalButtons } from '@/components/leaves/LeaveApprovalButtons'
+import { PageHeader } from '@/components/ui/page-header'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export default async function LeavesPage({
   searchParams,
@@ -76,18 +78,18 @@ export default async function LeavesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leave Requests</h1>
-          <p className="text-gray-500 mt-1">{requests.length} total requests</p>
-        </div>
-        <Link href="/leaves/my-leaves">
-          <Button>
-            <Plus className="mr-2 w-4 h-4" />
-            File Leave
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="Leave Requests"
+        subtitle={`${requests.length} total ${requests.length === 1 ? 'request' : 'requests'}`}
+        actions={
+          <Link href="/leaves/my-leaves">
+            <Button variant="accent" size="sm">
+              <Plus className="mr-2 w-4 h-4" />
+              File Leave
+            </Button>
+          </Link>
+        }
+      />
 
       {/* Filter */}
       <div className="flex gap-2">
@@ -106,10 +108,11 @@ export default async function LeavesPage({
       <Card>
         <CardContent className="p-0">
           {requests.length === 0 ? (
-            <div className="text-center py-16">
-              <CalendarDays className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No leave requests</p>
-            </div>
+            <EmptyState
+              icon={<CalendarDays className="w-6 h-6" />}
+              title="No leave requests"
+              description={status ? `No requests in ${status.toLowerCase()} status yet.` : 'Employee leave requests will show up here.'}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

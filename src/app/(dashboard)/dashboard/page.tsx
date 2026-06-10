@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Users, CalendarDays, TrendingUp, AlertCircle, UserCheck, Cake, PlaneTakeoff } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 type BirthdayEmployee = {
   id: string
@@ -185,73 +186,41 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Stats Grid ── */}
+      {/* ── Stats Grid ──
+          Migrated from hand-rolled inline-style tiles to the shared
+          <KpiCard> primitive. Tones are spread (primary/success/warning/
+          info) so the dashboard reads as a stat sheet instead of an
+          orange wall. The pending-leaves tile uses 'warning' tone +
+          a trend line to signal "action needed" without screaming. */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Total Employees */}
-        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
-          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)' }}>
-              <Users className="w-4 h-4" style={{ color: '#ff5900' }} />
-            </div>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,89,0,0.08)', color: '#ff5900' }}>
-              {activeEmployees} active
-            </span>
-          </div>
-          <p className="text-3xl font-bold" style={{ color: '#162d54' }}>{totalEmployees}</p>
-          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Total Employees</p>
-        </div>
-
-        {/* Last Payroll */}
-        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
-          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)', color: '#ff5900' }}>
-              <PesoIcon className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold leading-tight truncate" style={{ color: '#162d54' }}>
-            {lastPayrollRun ? peso(Number(lastPayrollRun.totalNetPay)) : '—'}
-          </p>
-          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Last Payroll</p>
-          {lastPayrollRun && (
-            <p className="text-xs mt-0.5 truncate" style={{ color: '#cbd5e1' }}>{lastPayrollRun.periodLabel}</p>
-          )}
-        </div>
-
-        {/* Pending Leaves */}
-        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
-          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)' }}>
-              <CalendarDays className="w-4 h-4" style={{ color: '#ff5900' }} />
-            </div>
-            {pendingLeaves > 0 && (
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#ff5900' }}>
-                Action needed
-              </span>
-            )}
-          </div>
-          <p className="text-3xl font-bold" style={{ color: '#162d54' }}>{pendingLeaves}</p>
-          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Pending Leaves</p>
-        </div>
-
-        {/* Clocked In Today */}
-        <div className="rounded-xl bg-white p-5 transition-shadow hover:shadow-md"
-          style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-lg" style={{ background: 'rgba(255,89,0,0.08)' }}>
-              <UserCheck className="w-4 h-4" style={{ color: '#ff5900' }} />
-            </div>
-            <span className="text-xs font-semibold" style={{ color: '#ff5900' }}>{clockInPct}%</span>
-          </div>
-          <p className="text-3xl font-bold" style={{ color: '#162d54' }}>{clockedInToday}</p>
-          <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>Clocked In Today</p>
-          <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: '#f1f5f9' }}>
-            <div className="h-full rounded-full transition-all" style={{ width: `${clockInPct}%`, background: '#ff5900' }} />
-          </div>
-        </div>
+        <KpiCard
+          icon={<Users className="h-5 w-5" />}
+          label="Total Employees"
+          value={totalEmployees}
+          hint={`${activeEmployees} active`}
+          tone="primary"
+        />
+        <KpiCard
+          icon={<PesoIcon className="h-5 w-5" />}
+          label="Last Payroll"
+          value={lastPayrollRun ? peso(Number(lastPayrollRun.totalNetPay)) : '—'}
+          hint={lastPayrollRun?.periodLabel}
+          tone="success"
+        />
+        <KpiCard
+          icon={<CalendarDays className="h-5 w-5" />}
+          label="Pending Leaves"
+          value={pendingLeaves}
+          tone={pendingLeaves > 0 ? 'warning' : 'neutral'}
+          trend={pendingLeaves > 0 ? { direction: 'flat', text: 'Action needed' } : undefined}
+        />
+        <KpiCard
+          icon={<UserCheck className="h-5 w-5" />}
+          label="Clocked In Today"
+          value={clockedInToday}
+          hint={`${clockInPct}% of active employees`}
+          tone="info"
+        />
       </div>
 
       {/* ── Remittance Schedules ── */}
