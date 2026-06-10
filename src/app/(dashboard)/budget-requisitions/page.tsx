@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ClipboardList } from 'lucide-react'
 import { BudgetReqAttachmentsModal } from '@/components/budget/BudgetReqAttachmentsModal'
-import { BudgetReqDetailDialog } from '@/components/budget/BudgetReqDetailDialog'
-import { RequestRowOpener } from '@/components/ui/request-row-opener'
+import BudgetReqRowClient from '@/components/budget/BudgetReqRowClient'
 import { ChevronRight } from 'lucide-react'
 import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
@@ -214,17 +213,11 @@ export default async function BudgetRequisitionsAdminPage({
                       })),
                     }
                     return (
-                      <RequestRowOpener
+                      <BudgetReqRowClient
                         key={req.id}
-                        renderDialog={(open, onClose) => (
-                          <BudgetReqDetailDialog
-                            open={open}
-                            onClose={onClose}
-                            request={dialogReq}
-                            canAct={gate.canAct}
-                            actionDisabledReason={gate.reason}
-                          />
-                        )}
+                        request={dialogReq}
+                        canAct={gate.canAct}
+                        actionDisabledReason={gate.reason}
                       >
                         <td className="p-4">
                           <p className="font-semibold text-gray-900">
@@ -260,7 +253,7 @@ export default async function BudgetRequisitionsAdminPage({
                         <td className="p-4 text-slate-400">
                           <ChevronRight className="h-4 w-4" />
                         </td>
-                      </RequestRowOpener>
+                      </BudgetReqRowClient>
                     )
                   })}
                 </tbody>
