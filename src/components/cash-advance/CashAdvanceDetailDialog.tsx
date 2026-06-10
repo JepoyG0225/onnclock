@@ -22,7 +22,10 @@ export interface CashAdvanceDetailDialogProps {
       firstName: string
       lastName: string
       employeeNo: string
+      rateType?: string
       basicSalary: number
+      dailyRate?: number | null
+      hourlyRate?: number | null
       department?: { name: string } | null
     }
     loan?: { balance: number; status: string; monthlyAmortization: number } | null
@@ -54,10 +57,15 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
   const department = request.employee.department?.name || 'Employee'
   const amount = Number(request.amountRequested)
-  const basicSalary = Number(request.employee.basicSalary)
+  const rateType = (request.employee.rateType ?? 'MONTHLY') as 'MONTHLY' | 'DAILY' | 'HOURLY'
+  const monthlySalary = rateType === 'DAILY'
+    ? Number(request.employee.dailyRate ?? request.employee.basicSalary) * 22
+    : rateType === 'HOURLY'
+      ? Number(request.employee.hourlyRate ?? request.employee.basicSalary) * 8 * 22
+      : Number(request.employee.basicSalary)
   const monthlyAmort = amount / Math.max(1, request.repaymentMonths)
-  const monthlyBasic = basicSalary / 2 // semi-monthly basic
-  const amortPct = monthlyBasic > 0 ? (monthlyAmort / monthlyBasic) * 100 : 0
+  const semiMonthlyBasic = monthlySalary / 2
+  const amortPct = semiMonthlyBasic > 0 ? (monthlyAmort / semiMonthlyBasic) * 100 : 0
 
   async function doApprove() {
     setActing('approve')
