@@ -42,11 +42,44 @@ function withPgBouncerMode(url?: string) {
 
 const runtimeDbUrl = withPgBouncerMode(baseDbUrl)
 
-export const prisma =
+// ── System-wide query timeout ────────────────────────────────────────
+// Every Prisma operation is wrapped in a Promise.race against a hard
+// 5-second clock. If a query hangs (pgBouncer pool exhaustion during a
+// burst, a transient Supabase pause, etc.) it rejects fast with a
+// labeled error instead of dragging the Vercel function to its 15-second
+// timeout and 500-ing with an empty response body. Route handlers can
+// then catch the rejection and return a structured error, or fall back
+// to an empty-state UI in the case of layouts.
+//
+// The window is intentionally generous (5s) — Supabase from Tokyo
+// (hnd1) to Singapore typically completes in <200ms, so 5s only fires
+// when something is actually wrong. Override at runtime via the
+// PRISMA_QUERY_TIMEOUT_MS env var if needed.
+const QUERY_TIMEOUT_MS = Number(process.env.PRISMA_QUERY_TIMEOUT_MS || '5000')
+
+const basePrisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     datasourceUrl: runtimeDbUrl,
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+export const prisma = basePrisma.$extends({
+  query: {
+    $allModels: {
+      async $allOperations({ model, operation, args, query }) {
+        return Promise.race([
+          query(args),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`Prisma query timeout (${QUERY_TIMEOUT_MS}ms): ${model}.${operation}`)),
+              QUERY_TIMEOUT_MS,
+            ),
+          ),
+        ])
+      },
+    },
+  },
+}) as unknown as typeof basePrisma
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = basePrisma
