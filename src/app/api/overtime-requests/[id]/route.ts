@@ -5,6 +5,7 @@ import { isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
@@ -125,7 +126,7 @@ export async function PATCH(
     if (!decision.authorized) {
       return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
     }
-  } else if (!HR_ROLES.includes(ctx.role)) {
+  } else if (!(await ctxHasPermission(ctx, 'overtime:approve'))) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 

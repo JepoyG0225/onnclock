@@ -9,6 +9,8 @@ import { BudgetReqAttachmentsModal } from '@/components/budget/BudgetReqAttachme
 import { BudgetReqDetailDialog } from '@/components/budget/BudgetReqDetailDialog'
 import { RequestRowOpener } from '@/components/ui/request-row-opener'
 import { ChevronRight } from 'lucide-react'
+import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
+import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 
 function fmtDate(d: Date | string | null) {
   if (!d) return '—'
@@ -45,9 +47,11 @@ export default async function BudgetRequisitionsAdminPage({
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const companyId = session.user.companyId!
+  const companyId = session.user.companyId
+  if (!companyId) redirect('/login')
   const status = params.status || undefined
-  const isHR = ['COMPANY_ADMIN', 'HR_MANAGER', 'SUPER_ADMIN'].includes(session.user.role ?? '')
+  const permissions = await getEffectivePermissions(session.user.role, companyId, session.user.id)
+  const legacyCanApprove = permissions.includes('budget:approve')
 
   const requisitions = await prisma.budgetRequisition.findMany({
     where: {
@@ -57,9 +61,11 @@ export default async function BudgetRequisitionsAdminPage({
     include: {
       employee: {
         select: {
+          id: true,
           firstName: true,
           lastName: true,
           employeeNo: true,
+          departmentId: true,
           department: { select: { name: true } },
           position:   { select: { title: true } },
         },
@@ -70,6 +76,54 @@ export default async function BudgetRequisitionsAdminPage({
     orderBy: { createdAt: 'desc' },
     take: 100,
   })
+
+  const workflowByDepartment = new Map<string, ReturnType<typeof resolveWorkflow>>()
+  const approvalGates = new Map(
+    await Promise.all(requisitions.map(async requisition => {
+      if (requisition.status !== 'PENDING') {
+        return [requisition.id, { canAct: false, reason: undefined }] as const
+      }
+
+      const departmentId = requisition.employee.departmentId
+      const workflowKey = departmentId ?? ''
+      let workflowPromise = workflowByDepartment.get(workflowKey)
+      if (!workflowPromise) {
+        workflowPromise = resolveWorkflow({ companyId, type: 'BUDGET', departmentId })
+        workflowByDepartment.set(workflowKey, workflowPromise)
+      }
+
+      const workflow = await workflowPromise
+      if (!workflow) {
+        return [requisition.id, {
+          canAct: legacyCanApprove,
+          reason: legacyCanApprove ? undefined : 'You do not have permission to approve budget requisitions',
+        }] as const
+      }
+
+      const currentLevel = requisition.approvalLevel ?? 0
+      const plan = buildPlan(workflow, {
+        amount: Number(requisition.totalAmount),
+        title: requisition.title,
+        departmentId: departmentId ?? '',
+      })
+      const advance = await authorizeAdvance({
+        plan,
+        currentLevel,
+        actorUserId: session.user.id,
+        requesterDepartmentId: departmentId,
+        requesterEmployeeId: requisition.employee.id,
+      })
+      const canAct = advance.noChain || advance.authorized
+      return [requisition.id, {
+        canAct,
+        reason: canAct
+          ? undefined
+          : advance.currentStep
+            ? 'Not authorized for this approval level'
+            : `No approver configured for level ${currentLevel + 1}`,
+      }] as const
+    })),
+  )
 
   return (
     <div className="space-y-6">
@@ -130,6 +184,10 @@ export default async function BudgetRequisitionsAdminPage({
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {requisitions.map(req => {
+                    const gate = approvalGates.get(req.id) ?? {
+                      canAct: false,
+                      reason: 'Approval availability could not be determined',
+                    }
                     const dialogReq = {
                       id: req.id,
                       title: req.title,
@@ -149,7 +207,10 @@ export default async function BudgetRequisitionsAdminPage({
                       })),
                       attachments: req.attachments.map(a => ({
                         id: a.id,
-                        filename: a.fileName,
+                        fileName: a.fileName,
+                        fileUrl: a.fileUrl,
+                        fileSize: a.fileSize,
+                        mimeType: a.mimeType,
                       })),
                     }
                     return (
@@ -160,7 +221,8 @@ export default async function BudgetRequisitionsAdminPage({
                             open={open}
                             onClose={onClose}
                             request={dialogReq}
-                            isHR={isHR}
+                            canAct={gate.canAct}
+                            actionDisabledReason={gate.reason}
                           />
                         )}
                       >

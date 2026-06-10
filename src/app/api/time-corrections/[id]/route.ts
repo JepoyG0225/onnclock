@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
 
 const ADMIN_ROLES = ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD']
@@ -63,7 +64,7 @@ export async function PATCH(
     if (!decision.authorized) {
       return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
     }
-  } else if (!ADMIN_ROLES.includes(ctx.role)) {
+  } else if (!(ADMIN_ROLES.includes(ctx.role) || await ctxHasPermission(ctx, 'corrections:approve'))) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 

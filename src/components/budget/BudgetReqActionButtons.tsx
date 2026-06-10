@@ -4,14 +4,17 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 interface Props {
   id: string
   title: string
   amount: string
+  canAct: boolean
+  disabledReason?: string
 }
 
-export function BudgetReqActionButtons({ id, title, amount }: Props) {
+export function BudgetReqActionButtons({ id, title, amount, canAct, disabledReason }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
   const [showApproveModal, setShowApproveModal] = useState(false)
@@ -22,13 +25,23 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
   async function doAction(status: 'APPROVED' | 'REJECTED', note?: string) {
     setLoading(status === 'APPROVED' ? 'approve' : 'reject')
     try {
-      await fetch(`/api/budget-requisitions/${id}`, {
+      const res = await fetch(`/api/budget-requisitions/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, reviewNote: note ?? null }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || 'Action failed')
+        return false
+      }
+      toast.success(status === 'APPROVED' ? 'Budget requisition approved' : 'Budget requisition rejected')
       router.refresh()
-    } catch { /* ignore */ } finally {
+      return true
+    } catch {
+      toast.error('Action failed')
+      return false
+    } finally {
       setLoading(null)
     }
   }
@@ -39,7 +52,8 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
         <Button
           size="sm"
           onClick={() => setShowApproveModal(true)}
-          disabled={loading !== null}
+          disabled={loading !== null || !canAct}
+          title={!canAct ? disabledReason : undefined}
           className="gap-1 text-xs h-7 px-2.5"
           style={{ background: '#16a34a', color: '#fff' }}
         >
@@ -52,7 +66,8 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
           size="sm"
           variant="outline"
           onClick={() => setShowRejectModal(true)}
-          disabled={loading !== null}
+          disabled={loading !== null || !canAct}
+          title={!canAct ? disabledReason : undefined}
           className="gap-1 text-xs h-7 px-2.5 border-red-200 text-red-600 hover:bg-red-50"
         >
           {loading === 'reject'
@@ -95,9 +110,10 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
                 style={{ background: '#16a34a', color: '#fff' }}
                 disabled={loading === 'approve'}
                 onClick={async () => {
-                  await doAction('APPROVED', approveNote)
-                  setShowApproveModal(false)
-                  setApproveNote('')
+                  if (await doAction('APPROVED', approveNote)) {
+                    setShowApproveModal(false)
+                    setApproveNote('')
+                  }
                 }}
               >
                 {loading === 'approve' && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -141,9 +157,10 @@ export function BudgetReqActionButtons({ id, title, amount }: Props) {
                 style={{ background: '#dc2626', color: '#fff' }}
                 disabled={loading === 'reject'}
                 onClick={async () => {
-                  await doAction('REJECTED', reviewNote)
-                  setShowRejectModal(false)
-                  setReviewNote('')
+                  if (await doAction('REJECTED', reviewNote)) {
+                    setShowRejectModal(false)
+                    setReviewNote('')
+                  }
                 }}
               >
                 {loading === 'reject' && <Loader2 className="w-4 h-4 animate-spin" />}

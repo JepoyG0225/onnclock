@@ -5,6 +5,7 @@ import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
 
 const trailOf = (v: unknown) => (Array.isArray(v) ? v : [])
@@ -145,7 +146,7 @@ export async function PATCH(
     if (!decision.authorized) {
       return NextResponse.json({ error: 'Not authorized for this approval level' }, { status: 403 })
     }
-  } else if (!isHR) {
+  } else if (!(await ctxHasPermission(ctx, 'budget:approve'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
-import { ClipboardEdit, Check, X, Clock, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
-import { toast } from 'sonner'
+import { ClipboardEdit, Clock, CheckCircle, XCircle, Loader2, RefreshCw, ChevronRight } from 'lucide-react'
+import { RequestCardOpener } from '@/components/ui/request-card-opener'
+import { TimeCorrectionDetailDialog } from '@/components/time-corrections/TimeCorrectionDetailDialog'
 
 interface Correction {
   id: string
@@ -17,11 +18,14 @@ interface Correction {
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   adminNotes: string | null
   createdAt: string
+  canAct: boolean
+  actionDisabledReason?: string
   employee: {
     firstName: string
     lastName: string
     employeeNo: string
     department: { name: string } | null
+    position: { title: string } | null
   }
 }
 
@@ -40,11 +44,8 @@ const TAB_OPTIONS = [
 
 export default function TimeCorrectionAdminPage() {
   const [corrections, setCorrections] = useState<Correction[]>([])
-  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('PENDING')
-  const [reviewing, setReviewing] = useState<{ id: string; action: 'approve' | 'reject' } | null>(null)
-  const [adminNotes, setAdminNotes] = useState('')
 
   const fetchCorrections = useCallback(async () => {
     setLoading(true)
@@ -53,36 +54,12 @@ export default function TimeCorrectionAdminPage() {
       const res = await fetch(`/api/time-corrections${qs}`)
       const data = await res.json().catch(() => ({}))
       setCorrections(data.corrections ?? [])
-      setTotal(data.total ?? 0)
     } finally {
       setLoading(false)
     }
   }, [statusFilter])
 
   useEffect(() => { fetchCorrections() }, [fetchCorrections])
-
-  async function handleReview(id: string, action: 'approve' | 'reject') {
-    setReviewing({ id, action })
-  }
-
-  async function submitReview() {
-    if (!reviewing) return
-    try {
-      const res = await fetch(`/api/time-corrections/${reviewing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: reviewing.action, adminNotes: adminNotes.trim() || undefined }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(data?.error ?? 'Failed'); return }
-      toast.success(reviewing.action === 'approve' ? 'Request approved' : 'Request rejected')
-      setReviewing(null)
-      setAdminNotes('')
-      fetchCorrections()
-    } catch {
-      toast.error('Failed to submit review')
-    }
-  }
 
   const pendingCount = corrections.filter(c => c.status === 'PENDING').length
 
@@ -142,7 +119,18 @@ export default function TimeCorrectionAdminPage() {
       ) : (
         <div className="space-y-3">
           {corrections.map(c => (
-            <div key={c.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <RequestCardOpener
+              key={c.id}
+              renderDialog={(open, onClose) => (
+                <TimeCorrectionDetailDialog
+                  open={open}
+                  onClose={onClose}
+                  request={c}
+                  onActionDone={fetchCorrections}
+                />
+              )}
+            >
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   {/* Employee + status */}
@@ -197,69 +185,11 @@ export default function TimeCorrectionAdminPage() {
                   </p>
                 </div>
 
-                {/* Action buttons (only for PENDING) */}
-                {c.status === 'PENDING' && (
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => { setAdminNotes(''); handleReview(c.id, 'approve') }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition"
-                    >
-                      <Check className="w-3.5 h-3.5" /> Approve
-                    </button>
-                    <button
-                      onClick={() => { setAdminNotes(''); handleReview(c.id, 'reject') }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition"
-                    >
-                      <X className="w-3.5 h-3.5" /> Reject
-                    </button>
-                  </div>
-                )}
+                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
               </div>
             </div>
+            </RequestCardOpener>
           ))}
-        </div>
-      )}
-
-      {/* Review confirmation modal */}
-      {reviewing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setReviewing(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <h2 className="text-base font-bold text-gray-900">
-              {reviewing.action === 'approve' ? '✅ Approve Request' : '❌ Reject Request'}
-            </h2>
-            <p className="text-sm text-gray-500">
-              {reviewing.action === 'approve'
-                ? 'The DTR record will be updated with the requested times.'
-                : 'The employee will be notified of the rejection.'}
-            </p>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Admin Note (optional)</label>
-              <textarea
-                value={adminNotes}
-                onChange={e => setAdminNotes(e.target.value)}
-                rows={2}
-                placeholder="Add a note for the employee..."
-                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#032b63]/30 resize-none"
-              />
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setReviewing(null)}
-                className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitReview}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white transition ${
-                  reviewing.action === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'
-                }`}
-              >
-                Confirm {reviewing.action === 'approve' ? 'Approval' : 'Rejection'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

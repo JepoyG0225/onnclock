@@ -1,6 +1,6 @@
 'use client'
 
-import { Building2, User, FileText, Calendar, ClipboardList, Paperclip } from 'lucide-react'
+import { Building2, User, FileText, Calendar, ClipboardList, Paperclip, Download } from 'lucide-react'
 import { RequestDetailDialog, DetailRow } from '@/components/ui/request-detail-dialog'
 import { BudgetReqActionButtons } from '@/components/budget/BudgetReqActionButtons'
 
@@ -31,9 +31,16 @@ export interface BudgetReqDetailDialogProps {
       unitCost?: number | string | null
       lineTotal?: number | string
     }>
-    attachments: Array<{ id: string; filename?: string; fileName?: string }>
+    attachments: Array<{
+      id: string
+      fileName: string
+      fileUrl: string
+      fileSize: number
+      mimeType: string
+    }>
   }
-  isHR: boolean
+  canAct: boolean
+  actionDisabledReason?: string
 }
 
 function formatDate(iso: string | null): string {
@@ -51,7 +58,13 @@ function peso(n: number | string): string {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(num)
 }
 
-export function BudgetReqDetailDialog({ open, onClose, request, isHR }: BudgetReqDetailDialogProps) {
+export function BudgetReqDetailDialog({
+  open,
+  onClose,
+  request,
+  canAct,
+  actionDisabledReason,
+}: BudgetReqDetailDialogProps) {
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
   const positionLine = [
     request.employee.position?.title,
@@ -142,10 +155,18 @@ export function BudgetReqDetailDialog({ open, onClose, request, isHR }: BudgetRe
                 <Paperclip className="h-3.5 w-3.5" />
                 Attachments ({request.attachments.length})
               </p>
-              <ul className="space-y-1 text-xs text-slate-700">
+              <ul className="space-y-1.5 text-xs text-slate-700">
                 {request.attachments.map(a => (
-                  <li key={a.id} className="truncate">
-                    {a.filename ?? a.fileName ?? a.id}
+                  <li key={a.id}>
+                    <a
+                      href={a.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-2.5 py-2 hover:bg-slate-50"
+                    >
+                      <span className="truncate">{a.fileName}</span>
+                      <Download className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -154,12 +175,14 @@ export function BudgetReqDetailDialog({ open, onClose, request, isHR }: BudgetRe
         </>
       }
       actionsSlot={
-        isHR && request.status === 'PENDING'
+        request.status === 'PENDING'
           ? (
               <BudgetReqActionButtons
                 id={request.id}
                 title={request.title}
                 amount={peso(request.totalAmount)}
+                canAct={canAct}
+                disabledReason={actionDisabledReason}
               />
             )
           : undefined

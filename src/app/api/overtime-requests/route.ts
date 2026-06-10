@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { syncAutoOvertimeRequestsForCompany } from '@/lib/overtime-requests'
+import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
 
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
             firstName: true,
             lastName: true,
             employeeNo: true,
+            departmentId: true,
             department: { select: { name: true } },
             position: { select: { title: true } },
           },
@@ -67,7 +70,60 @@ export async function GET(req: NextRequest) {
     prisma.overtimeRequest.count({ where }),
   ])
 
-  return NextResponse.json({ requests, total, page, limit })
+  const legacyCanApprove = await ctxHasPermission(ctx, 'overtime:approve')
+  const workflowByDepartment = new Map<string, ReturnType<typeof resolveWorkflow>>()
+  const requestsWithAuthorization = await Promise.all(requests.map(async request => {
+    if (request.status !== 'PENDING') {
+      return { ...request, canAct: false, actionDisabledReason: undefined }
+    }
+
+    const departmentId = request.employee?.departmentId ?? null
+    const workflowKey = departmentId ?? ''
+    let workflowPromise = workflowByDepartment.get(workflowKey)
+    if (!workflowPromise) {
+      workflowPromise = resolveWorkflow({
+        companyId: ctx.companyId,
+        type: 'OVERTIME',
+        departmentId,
+      })
+      workflowByDepartment.set(workflowKey, workflowPromise)
+    }
+
+    const workflow = await workflowPromise
+    if (!workflow) {
+      return {
+        ...request,
+        canAct: legacyCanApprove,
+        actionDisabledReason: legacyCanApprove ? undefined : 'You do not have permission to approve overtime requests',
+      }
+    }
+
+    const currentLevel = request.approvalLevel ?? 0
+    const plan = buildPlan(workflow, {
+      hours: request.hours,
+      departmentId: departmentId ?? '',
+    })
+    const advance = await authorizeAdvance({
+      plan,
+      currentLevel,
+      actorUserId: ctx.userId,
+      requesterDepartmentId: departmentId,
+      requesterEmployeeId: request.employeeId,
+    })
+    const canAct = advance.noChain || advance.authorized
+
+    return {
+      ...request,
+      canAct,
+      actionDisabledReason: canAct
+        ? undefined
+        : advance.currentStep
+          ? 'Not authorized for this approval level'
+          : `No approver configured for level ${currentLevel + 1}`,
+    }
+  }))
+
+  return NextResponse.json({ requests: requestsWithAuthorization, total, page, limit })
 }
 
 export async function POST(req: NextRequest) {

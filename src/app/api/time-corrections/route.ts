@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { resolvePortalEmployeeId } from '@/lib/portal-employee'
+import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
 
 const timePattern = /^([01]?\d|2[0-3]):[0-5]\d$/
@@ -123,13 +125,15 @@ export async function GET(req: NextRequest) {
   if (error) return error
 
   const { searchParams } = new URL(req.url)
-  const isAdmin = ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD'].includes(ctx.role)
+  const canReviewCorrections =
+    ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD'].includes(ctx.role) ||
+    await ctxHasPermission(ctx, 'corrections:approve')
   const companyId = resolveCompanyIdForRequest(ctx, req) ?? ctx.companyId
   const status = searchParams.get('status') ?? undefined
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
   const limit = 50
 
-  if (isAdmin) {
+  if (canReviewCorrections) {
     const where = {
       companyId,
       ...(status ? { status: status as 'PENDING' | 'APPROVED' | 'REJECTED' } : {}),
@@ -140,8 +144,9 @@ export async function GET(req: NextRequest) {
         include: {
           employee: {
             select: {
-              firstName: true, lastName: true, employeeNo: true,
+              id: true, firstName: true, lastName: true, employeeNo: true, departmentId: true,
               department: { select: { name: true } },
+              position: { select: { title: true } },
             },
           },
         },
@@ -151,7 +156,55 @@ export async function GET(req: NextRequest) {
       }),
       prisma.timeEntryCorrection.count({ where }),
     ])
-    return NextResponse.json({ corrections, total, page, limit })
+    const workflowByDepartment = new Map<string, ReturnType<typeof resolveWorkflow>>()
+    const correctionsWithAuthorization = await Promise.all(corrections.map(async correction => {
+      if (correction.status !== 'PENDING') {
+        return { ...correction, canAct: false, actionDisabledReason: undefined }
+      }
+
+      const departmentId = correction.employee.departmentId
+      const workflowKey = departmentId ?? ''
+      let workflowPromise = workflowByDepartment.get(workflowKey)
+      if (!workflowPromise) {
+        workflowPromise = resolveWorkflow({
+          companyId,
+          type: 'TIME_CORRECTION',
+          departmentId,
+        })
+        workflowByDepartment.set(workflowKey, workflowPromise)
+      }
+
+      const workflow = await workflowPromise
+      if (!workflow) {
+        return {
+          ...correction,
+          canAct: canReviewCorrections,
+          actionDisabledReason: canReviewCorrections ? undefined : 'You do not have permission to review time corrections',
+        }
+      }
+
+      const currentLevel = correction.approvalLevel ?? 0
+      const plan = buildPlan(workflow, { departmentId: departmentId ?? '' })
+      const advance = await authorizeAdvance({
+        plan,
+        currentLevel,
+        actorUserId: ctx.userId,
+        requesterDepartmentId: departmentId,
+        requesterEmployeeId: correction.employeeId,
+      })
+      const canAct = advance.noChain || advance.authorized
+
+      return {
+        ...correction,
+        canAct,
+        actionDisabledReason: canAct
+          ? undefined
+          : advance.currentStep
+            ? 'Not authorized for this approval level'
+            : `No approver configured for level ${currentLevel + 1}`,
+      }
+    }))
+    return NextResponse.json({ corrections: correctionsWithAuthorization, total, page, limit })
   }
 
   // Employee: own requests only
@@ -163,8 +216,24 @@ export async function GET(req: NextRequest) {
       employeeId,
       ...(status ? { status: status as 'PENDING' | 'APPROVED' | 'REJECTED' } : {}),
     },
+    include: {
+      employee: {
+        select: {
+          id: true, firstName: true, lastName: true, employeeNo: true, departmentId: true,
+          department: { select: { name: true } },
+          position: { select: { title: true } },
+        },
+      },
+    },
     orderBy: { createdAt: 'desc' },
     take: limit,
   })
-  return NextResponse.json({ corrections, total: corrections.length })
+  return NextResponse.json({
+    corrections: corrections.map(correction => ({
+      ...correction,
+      canAct: false,
+      actionDisabledReason: 'You do not have permission to review time corrections',
+    })),
+    total: corrections.length,
+  })
 }

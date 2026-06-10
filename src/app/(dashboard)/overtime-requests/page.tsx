@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Clock3, Check, X, Loader2, Sparkles } from 'lucide-react'
-import { toast } from 'sonner'
+import { Clock3, Sparkles, ChevronRight } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { RequestCardOpener } from '@/components/ui/request-card-opener'
+import { OvertimeRequestDetailDialog } from '@/components/overtime/OvertimeRequestDetailDialog'
 
 type OtStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
@@ -17,6 +17,8 @@ interface OtRequest {
   reason: string
   status: OtStatus
   rejectionReason: string | null
+  canAct: boolean
+  actionDisabledReason?: string
   employee: {
     id: string
     firstName: string
@@ -51,7 +53,6 @@ export default function OvertimeRequestsPage() {
   const [requests, setRequests] = useState<OtRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<string>('PENDING')
-  const [actingId, setActingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -65,34 +66,6 @@ export default function OvertimeRequestsPage() {
   }, [status])
 
   useEffect(() => { load() }, [load])
-
-  async function act(id: string, action: 'APPROVED' | 'REJECTED') {
-    let rejectionReason: string | undefined
-    if (action === 'REJECTED') {
-      const reason = window.prompt('Reason for rejecting this overtime request? (optional)')
-      if (reason === null) return // cancelled the prompt
-      rejectionReason = reason || undefined
-    }
-    setActingId(id)
-    try {
-      const res = await fetch(`/api/overtime-requests/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: action, rejectionReason }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(data.error || `Failed to ${action === 'APPROVED' ? 'approve' : 'reject'} request`)
-        return
-      }
-      toast.success(action === 'APPROVED' ? 'Overtime approved' : 'Overtime rejected')
-      await load()
-    } catch {
-      toast.error('An error occurred')
-    } finally {
-      setActingId(null)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -130,40 +103,42 @@ export default function OvertimeRequestsPage() {
             const cleanReason = isAuto ? r.reason.slice(AUTO_PREFIX.length).trim() : r.reason
             const name = r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : 'Unknown'
             return (
-              <Card key={r.id}>
-                <CardContent className="p-4 flex items-start justify-between gap-4 flex-wrap">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-slate-800">{name}</p>
-                      {r.employee?.employeeNo && <span className="text-xs text-slate-400">{r.employee.employeeNo}</span>}
-                      <Badge className={`text-[11px] border-0 ${STATUS_META[r.status].cls}`}>{STATUS_META[r.status].label}</Badge>
-                      {isAuto && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                          <Sparkles className="w-3 h-3" /> Auto-detected
-                        </span>
-                      )}
+              <RequestCardOpener
+                key={r.id}
+                renderDialog={(open, onClose) => (
+                  <OvertimeRequestDetailDialog
+                    open={open}
+                    onClose={onClose}
+                    request={r}
+                    canAct={r.canAct}
+                    actionDisabledReason={r.actionDisabledReason}
+                    onActionDone={load}
+                  />
+                )}
+              >
+                <Card>
+                  <CardContent className="p-4 flex items-start justify-between gap-4 flex-wrap">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-slate-800">{name}</p>
+                        {r.employee?.employeeNo && <span className="text-xs text-slate-400">{r.employee.employeeNo}</span>}
+                        <Badge className={`text-[11px] border-0 ${STATUS_META[r.status].cls}`}>{STATUS_META[r.status].label}</Badge>
+                        {isAuto && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                            <Sparkles className="w-3 h-3" /> Auto-detected
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {fmtDate(r.date)} · {r.startTime}–{r.endTime} · <span className="font-semibold">{Number(r.hours).toFixed(2)}h</span>
+                        {r.employee?.department?.name ? ` · ${r.employee.department.name}` : ''}
+                      </p>
+                      {cleanReason && <p className="text-xs text-slate-500 mt-1 line-clamp-1">{cleanReason}</p>}
                     </div>
-                    <p className="text-sm text-slate-600 mt-1">
-                      {fmtDate(r.date)} · {r.startTime}–{r.endTime} · <span className="font-semibold">{Number(r.hours).toFixed(2)}h</span>
-                      {r.employee?.department?.name ? ` · ${r.employee.department.name}` : ''}
-                    </p>
-                    {cleanReason && <p className="text-xs text-slate-500 mt-1">{cleanReason}</p>}
-                    {r.status === 'REJECTED' && r.rejectionReason && (
-                      <p className="text-xs text-rose-600 mt-1">Rejected: {r.rejectionReason}</p>
-                    )}
-                  </div>
-                  {r.status === 'PENDING' && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button size="sm" variant="outline" disabled={actingId === r.id} onClick={() => act(r.id, 'REJECTED')} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
-                        <X className="w-3.5 h-3.5" /> Reject
-                      </Button>
-                      <Button size="sm" disabled={actingId === r.id} onClick={() => act(r.id, 'APPROVED')} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
-                        {actingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Approve
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 self-center" />
+                  </CardContent>
+                </Card>
+              </RequestCardOpener>
             )
           })}
         </div>
