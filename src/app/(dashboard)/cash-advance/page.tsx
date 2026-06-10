@@ -4,11 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Banknote, Check, X, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react'
+import { Banknote, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { peso } from '@/lib/utils'
-import { RequestActivityPopover } from '@/components/ui/request-activity-popover'
+import { CashAdvanceDetailDialog } from '@/components/cash-advance/CashAdvanceDetailDialog'
+import { RequestRowOpener } from '@/components/ui/request-row-opener'
+import { ChevronRight } from 'lucide-react'
 
 type Status = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
@@ -51,8 +53,6 @@ export default function CashAdvancePage() {
   const [requests,     setRequests]     = useState<Request[]>([])
   const [loading,      setLoading]      = useState(false)
   const [statusFilter, setStatusFilter] = useState<Status | ''>('PENDING')
-  const [rejectingId,  setRejectingId]  = useState<string | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
 
   async function load() {
     setLoading(true)
@@ -68,38 +68,9 @@ export default function CashAdvancePage() {
 
   useEffect(() => { load() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter])
 
-  async function approve(id: string) {
-    if (!confirm('Approve this cash advance? An EmployeeLoan will be created so payroll automatically deducts it.')) return
-    const res = await fetch(`/api/cash-advance/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'APPROVE' }),
-    })
-    if (res.ok) {
-      toast.success('Cash advance approved — deduction scheduled for next payroll')
-      load()
-    } else {
-      const err = await res.json().catch(() => ({}))
-      toast.error(err?.error ?? 'Failed to approve')
-    }
-  }
-
-  async function reject(id: string) {
-    const res = await fetch(`/api/cash-advance/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'REJECT', rejectionReason: rejectReason || null }),
-    })
-    if (res.ok) {
-      toast.success('Request rejected')
-      setRejectingId(null)
-      setRejectReason('')
-      load()
-    } else {
-      const err = await res.json().catch(() => ({}))
-      toast.error(err?.error ?? 'Failed to reject')
-    }
-  }
+  // Approve/Reject now live inside CashAdvanceDetailDialog. The dialog
+  // calls `onActionDone={load}` so the list refreshes after either
+  // action without us holding onto per-row state up here.
 
   const pendingCount  = requests.filter(r => r.status === 'PENDING').length
   const pendingTotal  = requests.filter(r => r.status === 'PENDING')
@@ -186,7 +157,7 @@ export default function CashAdvancePage() {
                     <th className="text-left p-3 font-medium text-gray-600">Reason</th>
                     <th className="text-left p-3 font-medium text-gray-600">Filed</th>
                     <th className="text-center p-3 font-medium text-gray-600">Status</th>
-                    <th className="text-center p-3 font-medium text-gray-600">Actions</th>
+                    <th className="w-10 p-3" aria-label="Open details" />
                   </tr>
                 </thead>
                 <tbody>
@@ -197,92 +168,46 @@ export default function CashAdvancePage() {
                     const monthlyAmort = amt / Math.max(1, r.repaymentMonths)
 
                     return (
-                      <>
-                        <tr key={r.id} className="border-b hover:bg-gray-50">
-                          <td className="p-3">
-                            <div className="font-medium">{r.employee.lastName}, {r.employee.firstName}</div>
-                            <div className="text-xs text-gray-400">
-                              {r.employee.employeeNo}
-                              {r.employee.department?.name && ` · ${r.employee.department.name}`}
-                            </div>
-                          </td>
-                          <td className="p-3 text-right text-gray-600">{peso(monthlyBasic)}</td>
-                          <td className="p-3 text-right">
-                            <div className="font-semibold text-[#021e47]">{peso(amt)}</div>
-                            <div className="text-xs text-gray-400">{pctOfSalary.toFixed(1)}% of basic</div>
-                          </td>
-                          <td className="p-3 text-center">
-                            <div className="font-medium">{r.repaymentMonths}</div>
-                            <div className="text-xs text-gray-400">{peso(monthlyAmort)}/mo</div>
-                          </td>
-                          <td className="p-3 text-gray-700 max-w-xs truncate" title={r.reason}>{r.reason}</td>
-                          <td className="p-3 text-xs text-gray-600">{format(new Date(r.createdAt), 'MMM d, yyyy')}</td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${STATUS_BADGE[r.status]}`}>
-                              {STATUS_ICON[r.status]}
-                              {r.status}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            {r.status === 'PENDING' ? (
-                              <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  style={{ background: '#16a34a' }}
-                                  onClick={() => approve(r.id)}
-                                >
-                                  <Check className="w-3.5 h-3.5 mr-1" />Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 text-xs text-red-600 hover:bg-red-50"
-                                  onClick={() => setRejectingId(rejectingId === r.id ? null : r.id)}
-                                >
-                                  <X className="w-3.5 h-3.5 mr-1" />Reject
-                                </Button>
-                              </div>
-                            ) : r.status === 'APPROVED' && r.loan ? (
-                              <div className="text-xs text-gray-600">
-                                <div>Balance: <span className="font-medium text-red-600">{peso(Number(r.loan.balance))}</span></div>
-                                <div>Loan: {r.loan.status}</div>
-                              </div>
-                            ) : r.status === 'REJECTED' && r.rejectionReason ? (
-                              <div className="text-xs text-gray-500 max-w-xs italic">{r.rejectionReason}</div>
-                            ) : null}
-                            <div className="mt-1.5 flex justify-center">
-                              <RequestActivityPopover type="CASH_ADVANCE" id={r.id} />
-                            </div>
-                          </td>
-                        </tr>
-
-                        {rejectingId === r.id && (
-                          <tr key={`${r.id}-reject`} className="bg-red-50 border-b">
-                            <td colSpan={8} className="p-3">
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={rejectReason}
-                                  onChange={(e) => setRejectReason(e.target.value)}
-                                  placeholder="Reason for rejection (optional)"
-                                  className="flex-1 border rounded px-3 py-1.5 text-sm"
-                                />
-                                <Button size="sm" variant="destructive" onClick={() => reject(r.id)}>
-                                  Confirm Reject
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => { setRejectingId(null); setRejectReason('') }}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
+                      <RequestRowOpener
+                        key={r.id}
+                        renderDialog={(open, onClose) => (
+                          <CashAdvanceDetailDialog
+                            open={open}
+                            onClose={onClose}
+                            request={r}
+                            isHR
+                            onActionDone={load}
+                          />
                         )}
-                      </>
+                      >
+                        <td className="p-3 border-b">
+                          <div className="font-medium">{r.employee.lastName}, {r.employee.firstName}</div>
+                          <div className="text-xs text-gray-400">
+                            {r.employee.employeeNo}
+                            {r.employee.department?.name && ` · ${r.employee.department.name}`}
+                          </div>
+                        </td>
+                        <td className="p-3 text-right text-gray-600 border-b">{peso(monthlyBasic)}</td>
+                        <td className="p-3 text-right border-b">
+                          <div className="font-semibold text-[#021e47]">{peso(amt)}</div>
+                          <div className="text-xs text-gray-400">{pctOfSalary.toFixed(1)}% of basic</div>
+                        </td>
+                        <td className="p-3 text-center border-b">
+                          <div className="font-medium">{r.repaymentMonths}</div>
+                          <div className="text-xs text-gray-400">{peso(monthlyAmort)}/mo</div>
+                        </td>
+                        <td className="p-3 text-gray-700 max-w-xs truncate border-b" title={r.reason}>{r.reason}</td>
+                        <td className="p-3 text-xs text-gray-600 border-b">{format(new Date(r.createdAt), 'MMM d, yyyy')}</td>
+                        <td className="p-3 text-center border-b">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${STATUS_BADGE[r.status]}`}>
+                            {STATUS_ICON[r.status]}
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-400 border-b">
+                          <ChevronRight className="h-4 w-4" />
+                        </td>
+                      </RequestRowOpener>
                     )
                   })}
                 </tbody>

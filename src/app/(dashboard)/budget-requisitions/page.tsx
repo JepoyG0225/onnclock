@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ClipboardList } from 'lucide-react'
-import { BudgetReqActionButtons } from '@/components/budget/BudgetReqActionButtons'
 import { BudgetReqAttachmentsModal } from '@/components/budget/BudgetReqAttachmentsModal'
-import { RequestActivityPopover } from '@/components/ui/request-activity-popover'
+import { BudgetReqDetailDialog } from '@/components/budget/BudgetReqDetailDialog'
+import { RequestRowOpener } from '@/components/ui/request-row-opener'
+import { ChevronRight } from 'lucide-react'
 
 function fmtDate(d: Date | string | null) {
   if (!d) return '—'
@@ -46,6 +47,7 @@ export default async function BudgetRequisitionsAdminPage({
 
   const companyId = session.user.companyId!
   const status = params.status || undefined
+  const isHR = ['COMPANY_ADMIN', 'HR_MANAGER', 'SUPER_ADMIN'].includes(session.user.role ?? '')
 
   const requisitions = await prisma.budgetRequisition.findMany({
     where: {
@@ -123,57 +125,82 @@ export default async function BudgetRequisitionsAdminPage({
                     <th className="p-4 font-semibold text-gray-600">Needed By</th>
                     <th className="p-4 font-semibold text-gray-600">Filed</th>
                     <th className="p-4 font-semibold text-gray-600">Status</th>
-                    <th className="p-4 font-semibold text-gray-600">Actions</th>
+                    <th className="p-4 w-12" aria-label="Open details" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {requisitions.map(req => (
-                    <tr key={req.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="p-4">
-                        <p className="font-semibold text-gray-900">
-                          {req.employee.firstName} {req.employee.lastName}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {req.employee.employeeNo}
-                          {req.employee.department?.name && ` · ${req.employee.department.name}`}
-                        </p>
-                      </td>
-                      <td className="p-4">
-                        <p className="font-medium text-gray-800 max-w-[200px] line-clamp-2">{req.title}</p>
-                        <p className="text-xs text-gray-400 mt-0.5 max-w-[200px] line-clamp-1 italic">{req.purpose}</p>
-                        {req.reviewNote && (
-                          <p className="text-xs text-blue-600 mt-1 max-w-[200px] line-clamp-1">
-                            <span className="font-semibold">Note:</span> {req.reviewNote}
-                          </p>
+                  {requisitions.map(req => {
+                    const dialogReq = {
+                      id: req.id,
+                      title: req.title,
+                      purpose: req.purpose,
+                      totalAmount: Number(req.totalAmount),
+                      status: req.status as string,
+                      neededBy: req.neededBy ? new Date(req.neededBy).toISOString() : null,
+                      createdAt: new Date(req.createdAt).toISOString(),
+                      employee: req.employee,
+                      items: req.items.map(it => ({
+                        id: it.id,
+                        description: it.description,
+                        quantity: it.quantity != null ? Number(it.quantity) : undefined,
+                        unit: it.unit,
+                        unitCost: it.unitCost != null ? Number(it.unitCost) : null,
+                        lineTotal: it.totalCost != null ? Number(it.totalCost) : undefined,
+                      })),
+                      attachments: req.attachments.map(a => ({
+                        id: a.id,
+                        filename: a.fileName,
+                      })),
+                    }
+                    return (
+                      <RequestRowOpener
+                        key={req.id}
+                        renderDialog={(open, onClose) => (
+                          <BudgetReqDetailDialog
+                            open={open}
+                            onClose={onClose}
+                            request={dialogReq}
+                            isHR={isHR}
+                          />
                         )}
-                      </td>
-                      <td className="p-4">
-                        <span className="font-bold text-gray-900">{fmtPeso(req.totalAmount)}</span>
-                      </td>
-                      <td className="p-4 text-gray-600">{req.items.length}</td>
-                      <td className="p-4">
-                        <BudgetReqAttachmentsModal
-                          attachments={req.attachments}
-                          requisitionTitle={req.title}
-                        />
-                      </td>
-                      <td className="p-4 text-gray-600 text-xs">{fmtDate(req.neededBy)}</td>
-                      <td className="p-4 text-gray-600 text-xs">{fmtDate(req.createdAt)}</td>
-                      <td className="p-4">{statusBadge(req.status as string)}</td>
-                      <td className="p-4">
-                        <div className="inline-flex items-center gap-1.5">
-                          {req.status === 'PENDING' && (
-                            <BudgetReqActionButtons
-                              id={req.id}
-                              title={req.title}
-                              amount={fmtPeso(req.totalAmount)}
-                            />
+                      >
+                        <td className="p-4">
+                          <p className="font-semibold text-gray-900">
+                            {req.employee.firstName} {req.employee.lastName}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {req.employee.employeeNo}
+                            {req.employee.department?.name && ` · ${req.employee.department.name}`}
+                          </p>
+                        </td>
+                        <td className="p-4">
+                          <p className="font-medium text-gray-800 max-w-[200px] line-clamp-2">{req.title}</p>
+                          <p className="text-xs text-gray-400 mt-0.5 max-w-[200px] line-clamp-1 italic">{req.purpose}</p>
+                          {req.reviewNote && (
+                            <p className="text-xs text-blue-600 mt-1 max-w-[200px] line-clamp-1">
+                              <span className="font-semibold">Note:</span> {req.reviewNote}
+                            </p>
                           )}
-                          <RequestActivityPopover type="BUDGET" id={req.id} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="p-4">
+                          <span className="font-bold text-gray-900">{fmtPeso(req.totalAmount)}</span>
+                        </td>
+                        <td className="p-4 text-gray-600">{req.items.length}</td>
+                        <td className="p-4" onClick={e => e.stopPropagation()}>
+                          <BudgetReqAttachmentsModal
+                            attachments={req.attachments}
+                            requisitionTitle={req.title}
+                          />
+                        </td>
+                        <td className="p-4 text-gray-600 text-xs">{fmtDate(req.neededBy)}</td>
+                        <td className="p-4 text-gray-600 text-xs">{fmtDate(req.createdAt)}</td>
+                        <td className="p-4">{statusBadge(req.status as string)}</td>
+                        <td className="p-4 text-slate-400">
+                          <ChevronRight className="h-4 w-4" />
+                        </td>
+                      </RequestRowOpener>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
