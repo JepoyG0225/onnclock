@@ -735,7 +735,6 @@ function NavItemComponent({
             <item.icon className="w-4 h-4 flex-shrink-0" />
             {item.label}
           </span>
-          {renderBadge(item)}
           {!item.comingSoon && (isExpanded
             ? <ChevronDown  className="w-3.5 h-3.5 opacity-60" />
             : <ChevronRight className="w-3.5 h-3.5 opacity-60" />
