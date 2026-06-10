@@ -16,23 +16,28 @@ function withPgBouncerMode(url?: string) {
     // with pooled Postgres connections in dev/hot-reload environments.
     parsed.searchParams.set('pgbouncer', 'true')
 
-    const currentConnectionLimit = Number(parsed.searchParams.get('connection_limit') ?? '')
-    const currentPoolTimeout = Number(parsed.searchParams.get('pool_timeout') ?? '')
-    const targetConnectionLimit = Number(envConnectionLimit || '5')
-    const targetPoolTimeout = Number(envPoolTimeout || '30')
+    // Per-Prisma-client connection limit. Vercel serverless can spawn
+    // dozens of concurrent function instances under traffic; each one
+    // opens its own Prisma client with `connection_limit` slots into
+    // Supabase pgBouncer. With the previous default of 5 and bursts of
+    // ~30 instances we were saturating the downstream pgBouncer pool
+    // (default 200 transaction-mode connections) and queries timed out
+    // waiting 30s for a slot. Dropping to 3 per instance gives Supabase
+    // more headroom across many instances at the cost of slightly more
+    // contention within a single instance — fine because each instance
+    // typically processes 1 request at a time.
+    const targetConnectionLimit = Number(envConnectionLimit || '3')
+    // Pool wait timeout. Was 30s — too long, because the function
+    // itself only has 15s on Vercel and my own query timeout was 5s.
+    // The query timeout was firing before the pool wait, so users got
+    // a labeled "Prisma query timeout" error when the underlying issue
+    // was actually "no connection available." Trim the wait to 3s so
+    // Prisma fails fast and Next.js error boundaries can render
+    // gracefully instead of the request hanging for 15s.
+    const targetPoolTimeout = Number(envPoolTimeout || '3')
 
-    // Prevent starvation from overly strict defaults like connection_limit=1.
-    if (!Number.isFinite(currentConnectionLimit) || currentConnectionLimit < 2) {
-      if (Number.isFinite(targetConnectionLimit) && targetConnectionLimit >= 2) {
-        parsed.searchParams.set('connection_limit', String(targetConnectionLimit))
-      }
-    }
-    // Avoid short pool wait windows that frequently fail under bursty traffic.
-    if (!Number.isFinite(currentPoolTimeout) || currentPoolTimeout < 20) {
-      if (Number.isFinite(targetPoolTimeout) && targetPoolTimeout >= 20) {
-        parsed.searchParams.set('pool_timeout', String(targetPoolTimeout))
-      }
-    }
+    parsed.searchParams.set('connection_limit', String(targetConnectionLimit))
+    parsed.searchParams.set('pool_timeout', String(targetPoolTimeout))
 
     return parsed.toString()
   } catch {
@@ -55,7 +60,11 @@ const runtimeDbUrl = withPgBouncerMode(baseDbUrl)
 // (hnd1) to Singapore typically completes in <200ms, so 5s only fires
 // when something is actually wrong. Override at runtime via the
 // PRISMA_QUERY_TIMEOUT_MS env var if needed.
-const QUERY_TIMEOUT_MS = Number(process.env.PRISMA_QUERY_TIMEOUT_MS || '5000')
+// 8s gives legitimate queries room: 3s pool wait (worst case) + 5s
+// actual query. The Vercel function ceiling is ~15s so we still have
+// headroom for the rest of the route handler. Override at runtime via
+// PRISMA_QUERY_TIMEOUT_MS for ops tuning.
+const QUERY_TIMEOUT_MS = Number(process.env.PRISMA_QUERY_TIMEOUT_MS || '8000')
 
 const basePrisma =
   globalForPrisma.prisma ??
