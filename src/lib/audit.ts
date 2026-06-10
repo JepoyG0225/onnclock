@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import type { AuthContext } from '@/lib/api-auth'
+import { type Prisma } from '@prisma/client'
 import { headers } from 'next/headers'
 
 export async function logAudit(
@@ -30,8 +31,8 @@ export async function logAudit(
       action,
       entity,
       entityId,
-      oldValues: opts?.oldValues ?? undefined,
-      newValues: opts?.newValues ?? undefined,
+      oldValues: (opts?.oldValues as Prisma.InputJsonValue) ?? undefined,
+      newValues: (opts?.newValues as Prisma.InputJsonValue) ?? undefined,
       ipAddress: ip,
     },
   })
