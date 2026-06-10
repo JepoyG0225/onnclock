@@ -28,6 +28,7 @@ export default function AuditSettingsPage() {
   const [query, setQuery] = useState('')
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [summary, setSummary] = useState<AuditSummary[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function AuditSettingsPage() {
         if (!mounted || !res.ok) return
         setLogs(data.logs ?? [])
         setSummary(data.summary ?? [])
+        setTotalCount(data.totalCount ?? 0)
       } finally {
         if (mounted) setLoading(false)
       }
@@ -53,7 +55,7 @@ export default function AuditSettingsPage() {
     }
   }, [query])
 
-  const totalEvents = useMemo(() => summary.reduce((sum, item) => sum + item.count, 0), [summary])
+  const uniqueEntities = useMemo(() => summary.length, [summary])
 
   return (
     <div className="space-y-6 bg-gradient-to-b from-slate-50 to-white p-4 md:p-6 rounded-2xl">
@@ -67,11 +69,17 @@ export default function AuditSettingsPage() {
         <p className="text-sm text-slate-500 mt-1">Track every payroll-impacting action with full accountability.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Recorded events</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{totalEvents}</p>
+            <p className="text-xs text-slate-500">Total events</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{totalCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-slate-500">Entity types</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{uniqueEntities}</p>
           </CardContent>
         </Card>
         <Card className="md:col-span-2">
@@ -89,6 +97,19 @@ export default function AuditSettingsPage() {
         </Card>
       </div>
 
+      {summary.length > 0 && (
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          {summary.map(s => (
+            <Card key={s.entity}>
+              <CardContent className="p-3 text-center">
+                <p className="text-lg font-bold text-slate-900">{s.count}</p>
+                <p className="text-[11px] text-slate-500 truncate">{s.entity}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -99,22 +120,32 @@ export default function AuditSettingsPage() {
         <CardContent className="space-y-3">
           {loading ? <p className="text-sm text-slate-500">Loading audit logs...</p> : null}
           {!loading && logs.length === 0 ? <p className="text-sm text-slate-500">No matching audit logs.</p> : null}
-          {logs.map(log => (
-            <div key={log.id} className="rounded-xl border border-slate-200 bg-white p-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                  {log.action}
-                </span>
-                <span className="text-sm font-semibold text-slate-900">{log.entity}</span>
+          {logs.map(log => {
+            const actionColor =
+              log.action === 'CREATE' ? 'bg-green-100 text-green-700' :
+              log.action === 'APPROVE' ? 'bg-blue-100 text-blue-700' :
+              log.action === 'REJECT' ? 'bg-red-100 text-red-700' :
+              log.action === 'DELETE' || log.action === 'CANCEL' ? 'bg-orange-100 text-orange-700' :
+              'bg-slate-100 text-slate-600'
+            return (
+              <div key={log.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center justify-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${actionColor}`}>
+                      {log.action}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-900">{log.entity}</span>
+                    <span className="text-xs text-slate-400 font-mono">{log.entityId.slice(0, 8)}</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">{new Date(log.createdAt).toLocaleString()}</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {log.userName || log.userEmail || log.userId}
+                  {log.ipAddress ? ` · IP ${log.ipAddress}` : ''}
+                </p>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                {new Date(log.createdAt).toLocaleString()}
-                {' · '}
-                {log.userName || log.userEmail || log.userId}
-                {log.ipAddress ? ` · ${log.ipAddress}` : ''}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </CardContent>
       </Card>
     </div>

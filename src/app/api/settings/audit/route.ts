@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(url.searchParams.get('limit') || 30), LIMIT_MAX)
   const q = (url.searchParams.get('q') || '').trim().toLowerCase()
 
-  const [logs, summary] = await Promise.all([
+  const [logs, summary, totalCount] = await Promise.all([
     prisma.auditLog.findMany({
       where: { companyId: ctx.companyId },
       orderBy: { createdAt: 'desc' },
@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
       orderBy: { _count: { entity: 'desc' } },
       take: 6,
     }),
+    prisma.auditLog.count({ where: { companyId: ctx.companyId } }),
   ])
 
   const filtered = q
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     logs: filtered,
+    totalCount,
     summary: summary.map(item => ({
       entity: item.entity,
       count: item._count._all,
