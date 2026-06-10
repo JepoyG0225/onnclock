@@ -130,64 +130,41 @@ export default function TimeCorrectionAdminPage() {
                 />
               )}
             >
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  {/* Employee + status */}
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <p className="font-semibold text-gray-900">
-                      {c.employee.lastName}, {c.employee.firstName}
-                    </p>
-                    <span className="text-xs text-gray-400">{c.employee.employeeNo}</span>
-                    {c.employee.department && (
-                      <span className="text-xs text-gray-400">· {c.employee.department.name}</span>
-                    )}
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[c.status]}`}>
-                      {c.status === 'PENDING'  && <Clock className="w-3 h-3" />}
-                      {c.status === 'APPROVED' && <CheckCircle className="w-3 h-3" />}
-                      {c.status === 'REJECTED' && <XCircle className="w-3 h-3" />}
-                      {c.status}
-                    </span>
-                    {!c.dtrRecordId && (
-                      <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200">
-                        MANUAL ENTRY
+              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-gray-900">
+                        {c.employee.lastName}, {c.employee.firstName}
+                      </p>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[c.status]}`}>
+                        {c.status === 'PENDING'  && <Clock className="w-3 h-3" />}
+                        {c.status === 'APPROVED' && <CheckCircle className="w-3 h-3" />}
+                        {c.status === 'REJECTED' && <XCircle className="w-3 h-3" />}
+                        {c.status}
                       </span>
-                    )}
+                      {!c.dtrRecordId && (
+                        <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200">
+                          MANUAL ENTRY
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {format(new Date(c.date), 'MMM d, yyyy')}
+                      {c.employee.department?.name ? ` · ${c.employee.department.name}` : ''}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {[
+                        c.timeIn && `In ${c.timeIn}`,
+                        c.timeOut && `Out ${c.timeOut}`,
+                        c.breakIn && `Break ${c.breakIn}`,
+                        c.breakOut && `Resume ${c.breakOut}`,
+                      ].filter(Boolean).join(' · ') || 'No time values supplied'}
+                    </p>
                   </div>
-
-                  {/* Date + requested times */}
-                  <p className="text-sm text-gray-700 font-medium mb-1.5">
-                    {format(new Date(c.date), 'EEEE, MMMM d, yyyy')}
-                  </p>
-                  {c.dtrRecordId ? (
-                    <p className="text-[11px] text-gray-500 mb-1.5">
-                      Record ID: <span className="font-mono text-gray-700">{c.dtrRecordId}</span>
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-violet-600 mb-1.5">
-                      No existing DTR — approving this will create a new DTR row for this date.
-                    </p>
-                  )}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-0.5 text-xs text-gray-500 mb-2">
-                    {c.timeIn   && <span>Time In: <strong className="text-gray-700">{c.timeIn}</strong></span>}
-                    {c.timeOut  && <span>Time Out: <strong className="text-gray-700">{c.timeOut}</strong></span>}
-                    {c.breakIn  && <span>Break Start: <strong className="text-gray-700">{c.breakIn}</strong></span>}
-                    {c.breakOut && <span>Break End: <strong className="text-gray-700">{c.breakOut}</strong></span>}
-                  </div>
-                  <p className="text-xs text-gray-500 italic mb-1">&ldquo;{c.reason}&rdquo;</p>
-                  {c.adminNotes && (
-                    <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 mt-1">
-                      <span className="font-medium">Note:</span> {c.adminNotes}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-gray-400 mt-1.5">
-                    Submitted {format(new Date(c.createdAt), 'MMM d, yyyy h:mm a')}
-                  </p>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
                 </div>
-
-                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
               </div>
-            </div>
             </RequestCardOpener>
           ))}
         </div>
