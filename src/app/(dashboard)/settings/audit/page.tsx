@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, ShieldCheck } from 'lucide-react'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,15 +19,9 @@ type AuditLog = {
   createdAt: string
 }
 
-type AuditSummary = {
-  entity: string
-  count: number
-}
-
 export default function AuditSettingsPage() {
   const [query, setQuery] = useState('')
   const [logs, setLogs] = useState<AuditLog[]>([])
-  const [summary, setSummary] = useState<AuditSummary[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
@@ -42,7 +36,6 @@ export default function AuditSettingsPage() {
         const data = await res.json().catch(() => ({}))
         if (!mounted || !res.ok) return
         setLogs(data.logs ?? [])
-        setSummary(data.summary ?? [])
         setTotalCount(data.totalCount ?? 0)
       } finally {
         if (mounted) setLoading(false)
@@ -54,8 +47,6 @@ export default function AuditSettingsPage() {
       clearTimeout(timer)
     }
   }, [query])
-
-  const uniqueEntities = useMemo(() => summary.length, [summary])
 
   return (
     <div className="space-y-6 bg-gradient-to-b from-slate-50 to-white p-4 md:p-6 rounded-2xl">
@@ -69,17 +60,11 @@ export default function AuditSettingsPage() {
         <p className="text-sm text-slate-500 mt-1">Track every payroll-impacting action with full accountability.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-slate-500">Total events</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{totalCount}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Entity types</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{uniqueEntities}</p>
           </CardContent>
         </Card>
         <Card className="md:col-span-2">
@@ -96,19 +81,6 @@ export default function AuditSettingsPage() {
           </CardContent>
         </Card>
       </div>
-
-      {summary.length > 0 && (
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-          {summary.map(s => (
-            <Card key={s.entity}>
-              <CardContent className="p-3 text-center">
-                <p className="text-lg font-bold text-slate-900">{s.count}</p>
-                <p className="text-[11px] text-slate-500 truncate">{s.entity}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
 
       <Card>
         <CardHeader>
