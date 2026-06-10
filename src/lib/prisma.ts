@@ -64,19 +64,62 @@ const basePrisma =
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
 
+// $extends covers TYPED model operations (prisma.user.findFirst etc).
+// Raw query methods ($queryRawUnsafe, $executeRawUnsafe, $transaction)
+// bypass the extension's $allOperations handler, so we wrap those
+// directly on the base client below. 88 raw query sites across the
+// codebase would otherwise have no timeout protection.
+function withQueryTimeout<T>(p: Promise<T>, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Prisma query timeout (${QUERY_TIMEOUT_MS}ms): ${label}`)),
+        QUERY_TIMEOUT_MS,
+      ),
+    ),
+  ])
+}
+
+// Wrap raw query methods in place on the base client BEFORE applying
+// $extends. Each wrap captures the original method and races it against
+// the timeout. $transaction gets a longer ceiling (3× the per-query
+// budget) because legitimate transactions can do multiple sequential
+// queries.
+const TX_TIMEOUT_MS = QUERY_TIMEOUT_MS * 3
+
+type RawMethod = (...args: unknown[]) => Promise<unknown>
+;(function wrapRawMethods() {
+  const methods: Array<keyof PrismaClient> = [
+    '$queryRaw',
+    '$queryRawUnsafe',
+    '$executeRaw',
+    '$executeRawUnsafe',
+  ]
+  for (const m of methods) {
+    const orig = (basePrisma as unknown as Record<string, RawMethod>)[m as string]
+    if (typeof orig !== 'function') continue
+    ;(basePrisma as unknown as Record<string, RawMethod>)[m as string] = function (...args: unknown[]) {
+      return withQueryTimeout(orig.apply(basePrisma, args), String(m))
+    }
+  }
+  // $transaction is special — it accepts either an array of promises or
+  // a callback. We only intercept the callback shape (interactive tx)
+  // since that's what holds connections open.
+  const origTx = basePrisma.$transaction.bind(basePrisma) as unknown as (
+    arg: unknown,
+    opts?: unknown,
+  ) => Promise<unknown>
+  ;(basePrisma as unknown as { $transaction: unknown }).$transaction = function (arg: unknown, opts?: unknown) {
+    return withQueryTimeout(origTx(arg, opts), '$transaction') as unknown
+  }
+})()
+
 export const prisma = basePrisma.$extends({
   query: {
     $allModels: {
       async $allOperations({ model, operation, args, query }) {
-        return Promise.race([
-          query(args),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error(`Prisma query timeout (${QUERY_TIMEOUT_MS}ms): ${model}.${operation}`)),
-              QUERY_TIMEOUT_MS,
-            ),
-          ),
-        ])
+        return withQueryTimeout(query(args), `${model}.${operation}`)
       },
     },
   },
