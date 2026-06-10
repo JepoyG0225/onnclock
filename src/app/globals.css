@@ -62,7 +62,20 @@
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #ff5900;
+  /* ── Brand hierarchy ──
+   *
+   * NAVY is the primary brand color and is now used for default buttons,
+   * focus rings, primary CTAs, and links. ORANGE is reserved as the
+   * ACCENT — used sparingly on the highest-priority CTAs (e.g. "File
+   * Leave", "Run Payroll"), the active-step indicator in workflows, and
+   * the NEW badge. This separation gives the brand visual hierarchy:
+   * navy = "this is the right action", orange = "this is the action".
+   *
+   * Previously --primary, --accent, AND --ring were all #ff5900 (orange),
+   * which meant every button, focus ring, and accent looked identical
+   * and there was no way to draw the eye to the truly important CTA.
+   */
+  --primary: #021e47;
   --primary-foreground: #ffffff;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
@@ -73,10 +86,10 @@
   --destructive: #dc2626;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #ff5900;
+  --ring: #021e47;
 
-  /* Charts */
-  --chart-1: #ff5900;
+  /* Charts — navy lead, then chromatic for differentiation */
+  --chart-1: #021e47;
   --chart-2: #3b82f6;
   --chart-3: #10B981;
   --chart-4: #a78bfa;

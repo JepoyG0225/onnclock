@@ -15,9 +15,18 @@ const badgeVariants = cva(
         destructive:
           "bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
         outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+          "border-border text-foreground [a&]:hover:bg-muted",
+        ghost: "[a&]:hover:bg-muted",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
+        // ── Status variants ──
+        // Semantic tones that replace the string-returning getStatusColor()
+        // helper. Use these directly for record-status badges (PENDING,
+        // APPROVED, REJECTED, etc.) and the existing payroll/leave/dtr
+        // status enums map to them via the helper in lib/status.ts.
+        success: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+        warning: "bg-amber-100 text-amber-700 border border-amber-200",
+        info: "bg-sky-100 text-sky-700 border border-sky-200",
+        pending: "bg-slate-100 text-slate-700 border border-slate-200",
       },
     },
     defaultVariants: {

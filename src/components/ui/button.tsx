@@ -9,15 +9,22 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // Default = navy. Use for the standard "primary action" on a page
+        // (Save, Submit, Open, etc.). Reach for `accent` instead only
+        // when the action is the SINGLE most important CTA on the screen
+        // and needs to dominate (e.g. File Leave, Run Payroll, the New
+        // Request CTA on the portal home).
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        accent:
+          "bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent/40",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "hover:bg-muted hover:text-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

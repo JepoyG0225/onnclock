@@ -11,6 +11,8 @@ import { peso, formatDate, getStatusColor } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollRunRowActions from '@/components/payroll/PayrollRunRowActions'
 import { PayrollRunViewButton } from '@/components/payroll/PayrollRunViewButton'
+import { PageHeader } from '@/components/ui/page-header'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export default async function PayrollPage() {
   const session = await auth()
@@ -36,37 +38,40 @@ export default async function PayrollPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payroll</h1>
-          <p className="text-gray-500 mt-1">{runs.length} payroll runs</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/payroll/settings">
-            <Button variant="outline">
-              <Settings className="mr-2 w-4 h-4" />
-              Payroll Settings
-            </Button>
-          </Link>
-          <Link href="/payroll/new">
-            <Button>
-              <Plus className="mr-2 w-4 h-4" />
-              New Payroll Run
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Payroll"
+        subtitle={`${runs.length} payroll run${runs.length === 1 ? '' : 's'}`}
+        actions={
+          <>
+            <Link href="/payroll/settings">
+              <Button variant="outline" size="sm">
+                <Settings className="mr-2 w-4 h-4" />
+                Payroll Settings
+              </Button>
+            </Link>
+            <Link href="/payroll/new">
+              <Button variant="accent" size="sm">
+                <Plus className="mr-2 w-4 h-4" />
+                New Payroll Run
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">
           {runs.length === 0 ? (
-            <div className="text-center py-16">
-              <PesoIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No payroll runs yet</p>
-              <Link href="/payroll/new" className="mt-3 inline-block">
-                <Button size="sm">Create your first payroll run</Button>
-              </Link>
-            </div>
+            <EmptyState
+              icon={<PesoIcon className="w-6 h-6" />}
+              title="No payroll runs yet"
+              description="Start a payroll cycle so employees can see their payslips."
+              action={
+                <Link href="/payroll/new">
+                  <Button size="sm" variant="accent">Create your first payroll run</Button>
+                </Link>
+              }
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
