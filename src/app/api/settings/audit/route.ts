@@ -4,6 +4,15 @@ import { prisma } from '@/lib/prisma'
 
 const LIMIT_MAX = 100
 
+const EXCLUDED_ENTITIES = [
+  'CHAT_READ',
+  'CHAT_PRESENCE',
+  'CHAT_MESSAGE',
+  'CHAT_GROUP_MESSAGE',
+  'CHAT_GROUP_READ',
+  'CHAT_TYPING',
+]
+
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'])
   if (error) return error
@@ -12,9 +21,14 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(url.searchParams.get('limit') || 30), LIMIT_MAX)
   const q = (url.searchParams.get('q') || '').trim().toLowerCase()
 
+  const baseWhere = {
+    companyId: ctx.companyId,
+    entity: { notIn: EXCLUDED_ENTITIES },
+  }
+
   const [logs, summary, totalCount] = await Promise.all([
     prisma.auditLog.findMany({
-      where: { companyId: ctx.companyId },
+      where: baseWhere,
       orderBy: { createdAt: 'desc' },
       take: limit,
       select: {
@@ -43,12 +57,12 @@ export async function GET(req: NextRequest) {
     }),
     prisma.auditLog.groupBy({
       by: ['entity'],
-      where: { companyId: ctx.companyId },
+      where: baseWhere,
       _count: { _all: true },
       orderBy: { _count: { entity: 'desc' } },
       take: 6,
     }),
-    prisma.auditLog.count({ where: { companyId: ctx.companyId } }),
+    prisma.auditLog.count({ where: baseWhere }),
   ])
 
   const filtered = q
