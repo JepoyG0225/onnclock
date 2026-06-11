@@ -30,13 +30,16 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '50')
 
+  // Fire-and-forget: sync auto-OT from DTR records in the background.
+  // DTR upserts already sync OT per-record — this is a safety net that
+  // shouldn't block the response. It runs at most once per page load.
   const syncFrom = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 45 * 24 * 60 * 60 * 1000)
   const syncTo = dateTo ? new Date(dateTo) : new Date()
-  await syncAutoOvertimeRequestsForCompany({
+  syncAutoOvertimeRequestsForCompany({
     companyId: ctx.companyId,
     dateFrom: syncFrom,
     dateTo: syncTo,
-  })
+  }).catch(() => {})
 
   const where: Record<string, unknown> = { companyId: ctx.companyId }
   if (status) where.status = status

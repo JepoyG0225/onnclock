@@ -1,10 +1,12 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Clock3, Sparkles, ChevronRight } from 'lucide-react'
+import { Clock3, Sparkles, ChevronRight, CheckCheck, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { RequestCardOpener } from '@/components/ui/request-card-opener'
 import { OvertimeRequestDetailDialog } from '@/components/overtime/OvertimeRequestDetailDialog'
+import { toast } from 'sonner'
 
 type OtStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
@@ -53,6 +55,7 @@ export default function OvertimeRequestsPage() {
   const [requests, setRequests] = useState<OtRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<string>('PENDING')
+  const [bulkApproving, setBulkApproving] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -67,14 +70,60 @@ export default function OvertimeRequestsPage() {
 
   useEffect(() => { load() }, [load])
 
+  const approvableCount = requests.filter(r => r.status === 'PENDING' && r.canAct).length
+  const totalHours = requests.filter(r => r.status === 'PENDING' && r.canAct).reduce((sum, r) => sum + Number(r.hours), 0)
+
+  async function handleApproveAll() {
+    if (!approvableCount) return
+    const confirmed = window.confirm(
+      `Approve all ${approvableCount} pending overtime request${approvableCount === 1 ? '' : 's'} (${totalHours.toFixed(1)}h total)?`
+    )
+    if (!confirmed) return
+
+    setBulkApproving(true)
+    try {
+      const ids = requests.filter(r => r.status === 'PENDING' && r.canAct).map(r => r.id)
+      const res = await fetch('/api/overtime-requests/bulk-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error ?? 'Failed to approve')
+        return
+      }
+      toast.success(`Approved ${data.approved} overtime request${data.approved === 1 ? '' : 's'}`)
+      load()
+    } catch {
+      toast.error('Failed to approve — please try again')
+    } finally {
+      setBulkApproving(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Clock3 className="w-6 h-6 text-[#021e47]" />
-          Overtime Requests
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Review and approve overtime — including hours auto-detected from timesheets. Approved OT is paid on the next payroll recompute.</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Clock3 className="w-6 h-6 text-[#021e47]" />
+            Overtime Requests
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Review and approve overtime — including hours auto-detected from timesheets.</p>
+        </div>
+        {status === 'PENDING' && approvableCount > 0 && (
+          <Button
+            onClick={handleApproveAll}
+            disabled={bulkApproving}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shrink-0"
+          >
+            {bulkApproving
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <CheckCheck className="w-4 h-4" />}
+            {bulkApproving ? 'Approving...' : `Approve All (${approvableCount})`}
+          </Button>
+        )}
       </div>
 
       {/* Status tabs */}
@@ -89,6 +138,21 @@ export default function OvertimeRequestsPage() {
           </button>
         ))}
       </div>
+
+      {/* Summary bar for pending view */}
+      {!loading && status === 'PENDING' && requests.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+          <span className="font-semibold text-amber-800">{requests.length} pending</span>
+          <span>·</span>
+          <span>{totalHours.toFixed(1)} total hours</span>
+          {approvableCount < requests.length && (
+            <>
+              <span>·</span>
+              <span className="text-amber-600">{approvableCount} approvable by you</span>
+            </>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
