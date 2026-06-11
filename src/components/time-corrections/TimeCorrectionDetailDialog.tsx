@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Clock, FileText, User, WandSparkles } from 'lucide-react'
+import { Calendar, Clock, FileText, User, WandSparkles, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -51,6 +51,7 @@ export function TimeCorrectionDetailDialog({
 }: TimeCorrectionDetailDialogProps) {
   const [action, setAction] = useState<'approve' | 'reject' | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [reversing, setReversing] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
 
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
@@ -89,6 +90,27 @@ export function TimeCorrectionDetailDialog({
       toast.error(error instanceof Error ? error.message : 'Review failed')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function doReverse() {
+    if (!window.confirm('Reverse this approval? The correction will go back to Pending status.')) return
+    setReversing(true)
+    try {
+      const res = await fetch(`/api/time-corrections/${request.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reverse' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to reverse approval')
+      toast.success('Approval reversed — correction is now pending')
+      onActionDone()
+      closeDialog()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reverse')
+    } finally {
+      setReversing(false)
     }
   }
 
@@ -197,7 +219,20 @@ export function TimeCorrectionDetailDialog({
                   </Button>
                 </>
               )
-          : undefined
+          : request.status === 'APPROVED'
+            ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={doReverse}
+                  disabled={reversing}
+                  className="gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  {reversing ? 'Reversing...' : 'Reverse Approval'}
+                </Button>
+              )
+            : undefined
       }
     />
   )

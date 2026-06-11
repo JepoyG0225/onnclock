@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
-import { ClipboardEdit, Clock, CheckCircle, XCircle, Loader2, RefreshCw, ChevronRight } from 'lucide-react'
+import { ClipboardEdit, Clock, CheckCircle, XCircle, Loader2, RefreshCw, ChevronRight, CheckCheck } from 'lucide-react'
 import { RequestCardOpener } from '@/components/ui/request-card-opener'
 import { TimeCorrectionDetailDialog } from '@/components/time-corrections/TimeCorrectionDetailDialog'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 interface Correction {
   id: string
@@ -46,6 +48,7 @@ export default function TimeCorrectionAdminPage() {
   const [corrections, setCorrections] = useState<Correction[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('PENDING')
+  const [bulkApproving, setBulkApproving] = useState(false)
 
   const fetchCorrections = useCallback(async () => {
     setLoading(true)
@@ -62,11 +65,41 @@ export default function TimeCorrectionAdminPage() {
   useEffect(() => { fetchCorrections() }, [fetchCorrections])
 
   const pendingCount = corrections.filter(c => c.status === 'PENDING').length
+  const approvableCount = corrections.filter(c => c.status === 'PENDING' && c.canAct).length
+
+  async function handleApproveAll() {
+    if (!approvableCount) return
+    const confirmed = window.confirm(
+      `Approve all ${approvableCount} pending time correction${approvableCount === 1 ? '' : 's'}?`
+    )
+    if (!confirmed) return
+
+    setBulkApproving(true)
+    try {
+      const ids = corrections.filter(c => c.status === 'PENDING' && c.canAct).map(c => c.id)
+      const res = await fetch('/api/time-corrections/bulk-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error ?? 'Failed to approve')
+        return
+      }
+      toast.success(`Approved ${data.approved} time correction${data.approved === 1 ? '' : 's'}`)
+      fetchCorrections()
+    } catch {
+      toast.error('Failed to approve — please try again')
+    } finally {
+      setBulkApproving(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ClipboardEdit className="w-6 h-6 text-[#032b63]" />
@@ -74,14 +107,28 @@ export default function TimeCorrectionAdminPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Review and approve employee correction requests</p>
         </div>
-        <button
-          onClick={fetchCorrections}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {statusFilter === 'PENDING' && approvableCount > 0 && (
+            <Button
+              onClick={handleApproveAll}
+              disabled={bulkApproving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shrink-0"
+            >
+              {bulkApproving
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <CheckCheck className="w-4 h-4" />}
+              {bulkApproving ? 'Approving...' : `Approve All (${approvableCount})`}
+            </Button>
+          )}
+          <button
+            onClick={fetchCorrections}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -105,6 +152,19 @@ export default function TimeCorrectionAdminPage() {
           </button>
         ))}
       </div>
+
+      {/* Summary bar for pending view */}
+      {!loading && statusFilter === 'PENDING' && corrections.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+          <span className="font-semibold text-amber-800">{corrections.length} pending</span>
+          {approvableCount < corrections.length && (
+            <>
+              <span>·</span>
+              <span className="text-amber-600">{approvableCount} approvable by you</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* List */}
       {loading ? (

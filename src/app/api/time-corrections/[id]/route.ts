@@ -9,10 +9,11 @@ import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
 
 const ADMIN_ROLES = ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD']
+const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
 const trailOf = (v: unknown) => (Array.isArray(v) ? v : [])
 
 const reviewSchema = z.object({
-  action: z.enum(['approve', 'reject']),
+  action: z.enum(['approve', 'reject', 'reverse']),
   adminNotes: z.string().optional(),
 })
 
@@ -33,9 +34,6 @@ export async function PATCH(
     include: { employee: { select: { id: true, companyId: true, departmentId: true, firstName: true, lastName: true } } },
   })
   if (!correction) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (correction.status !== 'PENDING') {
-    return NextResponse.json({ error: 'This request has already been reviewed.' }, { status: 409 })
-  }
 
   const body = await req.json()
   const parsed = reviewSchema.safeParse(body)
@@ -44,6 +42,61 @@ export async function PATCH(
   }
 
   const { action, adminNotes } = parsed.data
+
+  // ── Reversal: move an APPROVED correction back to PENDING ──
+  if (action === 'reverse') {
+    if (correction.status !== 'APPROVED') {
+      return NextResponse.json({ error: 'Only approved corrections can be reversed' }, { status: 400 })
+    }
+    if (!HR_ROLES.includes(ctx.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions to reverse' }, { status: 403 })
+    }
+
+    // Undo the DTR changes that were applied on approval.
+    // For manual-entry corrections we created a DTR row — find and remove it.
+    // For corrections on existing DTR records, we can't perfectly undo (original
+    // values weren't saved), so we leave the DTR as-is and just reset the
+    // correction status so the admin can re-review.
+    if (!correction.dtrRecordId) {
+      // Manual entry: find the DTR record created by this correction and delete it
+      const createdDtr = await prisma.dTRRecord.findFirst({
+        where: {
+          employeeId: correction.employeeId,
+          date: correction.date,
+          remarks: { contains: correction.id },
+        },
+      })
+      if (createdDtr) {
+        await prisma.dTRRecord.delete({ where: { id: createdDtr.id } })
+      }
+    }
+
+    const requesterName = `${correction.employee?.firstName ?? ''} ${correction.employee?.lastName ?? ''}`.trim() || 'An employee'
+
+    const updated = await prisma.timeEntryCorrection.update({
+      where: { id },
+      data: {
+        status: 'PENDING',
+        reviewedBy: null,
+        reviewedAt: null,
+        approvalLevel: 0,
+        approvalTrail: [] as Prisma.InputJsonValue,
+        adminNotes: adminNotes || null,
+      },
+    })
+
+    logAudit(ctx, 'REVERSE', 'TimeCorrection', id, {
+      description: `Reversed approved time correction for ${requesterName} back to pending`,
+    }).catch(() => {})
+
+    return NextResponse.json({ correction: updated })
+  }
+
+  // For approve/reject the request must be PENDING
+  if (correction.status !== 'PENDING') {
+    return NextResponse.json({ error: 'This request has already been reviewed.' }, { status: 409 })
+  }
+
   const newStatus = action === 'approve' ? 'APPROVED' : 'REJECTED'
 
   const requesterDepartmentId = correction.employee?.departmentId ?? null

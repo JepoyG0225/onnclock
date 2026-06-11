@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Clock, User, FileText, Sparkles } from 'lucide-react'
+import { Calendar, Clock, User, FileText, Sparkles, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -50,7 +50,7 @@ export function OvertimeRequestDetailDialog({
   actionDisabledReason,
   onActionDone,
 }: OvertimeRequestDetailDialogProps) {
-  const [acting, setActing] = useState<'approve' | 'reject' | null>(null)
+  const [acting, setActing] = useState<'approve' | 'reject' | 'reverse' | null>(null)
   const [rejectMode, setRejectMode] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
 
@@ -85,6 +85,29 @@ export function OvertimeRequestDetailDialog({
         throw new Error(data?.error || `Failed to ${action === 'APPROVED' ? 'approve' : 'reject'} request`)
       }
       toast.success(action === 'APPROVED' ? 'Overtime approved' : 'Overtime rejected')
+      onActionDone?.()
+      closeDialog()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'An error occurred')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function doReverse() {
+    if (!window.confirm('Reverse this approval? The request will go back to Pending status.')) return
+    setActing('reverse')
+    try {
+      const res = await fetch(`/api/overtime-requests/${request.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'PENDING' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to reverse approval')
+      }
+      toast.success('Approval reversed — request is now pending')
       onActionDone?.()
       closeDialog()
     } catch (e) {
@@ -204,7 +227,20 @@ export function OvertimeRequestDetailDialog({
                 )}
               </>
             )
-          : undefined
+          : request.status === 'APPROVED'
+            ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={doReverse}
+                  disabled={!!acting}
+                  className="gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  {acting === 'reverse' ? 'Reversing…' : 'Reverse Approval'}
+                </Button>
+              )
+            : undefined
       }
     />
   )

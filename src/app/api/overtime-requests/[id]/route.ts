@@ -14,7 +14,7 @@ const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
 const trailOf = (v: unknown) => (Array.isArray(v) ? v : [])
 
 const patchSchema = z.object({
-  status: z.enum(['APPROVED', 'REJECTED', 'CANCELLED']),
+  status: z.enum(['APPROVED', 'REJECTED', 'CANCELLED', 'PENDING']),
   rejectionReason: z.string().optional(),
 })
 
@@ -101,6 +101,31 @@ export async function PATCH(
     })
     logAudit(ctx, 'CANCEL', 'OvertimeRequest', id, {
       description: `Cancelled overtime request for ${existing.employee?.firstName ?? ''} ${existing.employee?.lastName ?? ''}`.trim(),
+    }).catch(() => {})
+    return NextResponse.json({ request: updated })
+  }
+
+  // Reversal: move an APPROVED request back to PENDING
+  if (status === 'PENDING') {
+    if (existing.status !== 'APPROVED') {
+      return NextResponse.json({ error: 'Only approved requests can be reversed' }, { status: 400 })
+    }
+    if (!HR_ROLES.includes(ctx.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions to reverse' }, { status: 403 })
+    }
+    const updated = await prisma.overtimeRequest.update({
+      where: { id },
+      data: {
+        status: 'PENDING',
+        approvedById: null,
+        approvedAt: null,
+        approvalLevel: 0,
+        approvalTrail: [] as Prisma.InputJsonValue,
+      },
+      include: includeEmployee,
+    })
+    logAudit(ctx, 'REVERSE', 'OvertimeRequest', id, {
+      description: `Reversed approved overtime for ${existing.employee?.firstName ?? ''} ${existing.employee?.lastName ?? ''} (${existing.hours}h) back to pending`.trim(),
     }).catch(() => {})
     return NextResponse.json({ request: updated })
   }
