@@ -231,23 +231,24 @@ export default function BudgetRequisitionsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Budget Requisitions</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Submit and track your purchase requests</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Budget Requisitions</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Submit and track your purchase requests</p>
         </div>
         <Button
           onClick={() => { setShowForm(true); setFormErr(''); setFormFiles([]) }}
-          className="gap-1.5"
+          className="gap-1.5 shrink-0"
+          size="sm"
           style={{ background: '#ff5900', color: '#fff' }}
         >
           <Plus className="w-4 h-4" />
-          New Request
+          <span className="hidden sm:inline">New Request</span>
         </Button>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t}
@@ -282,7 +283,7 @@ export default function BudgetRequisitionsPage() {
               className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden"
             >
               <div
-                className="flex items-start gap-3 p-4 cursor-pointer"
+                className="flex items-start gap-2.5 sm:gap-3 p-3 sm:p-4 cursor-pointer"
                 onClick={() => setExpanded(expanded === req.id ? null : req.id)}
               >
                 <div
@@ -322,11 +323,11 @@ export default function BudgetRequisitionsPage() {
 
               {/* Expanded detail */}
               {expanded === req.id && (
-                <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-3">
+                <div className="border-t border-gray-100 px-3 sm:px-4 pb-3 sm:pb-4 pt-3 space-y-3">
                   <p className="text-xs text-gray-600 italic leading-relaxed">{req.purpose}</p>
 
-                  {/* Items table */}
-                  <div className="rounded-lg overflow-hidden border border-gray-100">
+                  {/* Items — table on desktop, cards on mobile */}
+                  <div className="hidden sm:block rounded-lg overflow-hidden border border-gray-100">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="bg-gray-50 text-gray-500 uppercase text-[10px] font-semibold tracking-wide">
@@ -356,6 +357,27 @@ export default function BudgetRequisitionsPage() {
                         </tr>
                       </tfoot>
                     </table>
+                  </div>
+                  {/* Mobile card layout for items */}
+                  <div className="sm:hidden space-y-2">
+                    {req.items.map(it => (
+                      <div key={it.id} className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-medium text-gray-800 flex-1">
+                            {it.description}
+                            {it.unit && <span className="text-gray-400"> ({it.unit})</span>}
+                          </p>
+                          <p className="text-xs font-bold text-gray-900 shrink-0">{fmtPeso(it.totalCost)}</p>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {it.quantity} × {fmtPeso(it.unitCost)}
+                        </p>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Total</span>
+                      <span className="text-sm font-bold" style={{ color: '#021e47' }}>{fmtPeso(req.totalAmount)}</span>
+                    </div>
                   </div>
 
                   {/* Attachments */}

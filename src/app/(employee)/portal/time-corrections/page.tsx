@@ -198,26 +198,26 @@ export default function TimeCorrectionPortalPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardEdit className="w-5 h-5 text-[#032b63]" />
-            Time Entry Corrections
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+            <ClipboardEdit className="w-5 h-5 text-[#032b63] shrink-0" />
+            <span className="truncate">Time Entry Corrections</span>
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Request corrections to your attendance records</p>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Request corrections to your attendance records</p>
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-[#021e47] transition"
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-[#021e47] transition shrink-0"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Cancel' : 'New Request'}
+          <span className="hidden sm:inline">{showForm ? 'Cancel' : 'New Request'}</span>
         </button>
       </div>
 
       {/* New Request Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h2 className="text-sm font-semibold text-gray-700">New Correction Request</h2>
             {/* Mode toggle — "pick existing" vs "manual entry". The two
@@ -381,11 +381,11 @@ export default function TimeCorrectionPortalPage() {
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-500 mb-2">
-                    {c.timeIn  && <span>Time In: <strong>{c.timeIn}</strong></span>}
-                    {c.timeOut && <span>Time Out: <strong>{c.timeOut}</strong></span>}
-                    {c.breakIn && <span>Break Start: <strong>{c.breakIn}</strong></span>}
-                    {c.breakOut && <span>Break End: <strong>{c.breakOut}</strong></span>}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 mb-2">
+                    {c.timeIn  && <span>In: <strong>{c.timeIn}</strong></span>}
+                    {c.timeOut && <span>Out: <strong>{c.timeOut}</strong></span>}
+                    {c.breakIn && <span>Break: <strong>{c.breakIn}</strong></span>}
+                    {c.breakOut && <span>Resume: <strong>{c.breakOut}</strong></span>}
                   </div>
                   <p className="text-xs text-gray-500 italic">&ldquo;{c.reason}&rdquo;</p>
                   {c.adminNotes && (
