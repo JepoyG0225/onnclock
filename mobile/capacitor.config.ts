@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
     // For production: replace with your real portal subdomain.
     // For local dev: point at `http://<your-mac-ip>:3000/portal` and add it to
     //   `allowNavigation`. Use HTTPS in production.
-    url: 'https://portal.onclockph.com/portal',
+    url: 'https://onclockph.com/portal',
     cleartext: false,
     androidScheme: 'https',
     iosScheme: 'https',
