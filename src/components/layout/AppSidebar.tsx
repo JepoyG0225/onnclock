@@ -21,6 +21,7 @@ import {
   Gift,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
   CheckCircle,
   Shield,
   ClipboardList,
@@ -34,7 +35,7 @@ import {
   Fingerprint,
   Send,
 } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { useSidebar } from './SidebarContext'
@@ -210,7 +211,7 @@ export function AppSidebar({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const currentTab = searchParams.get('tab')
-  const { collapsed, toggle } = useSidebar()
+  const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebar()
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl)
   const [userRole] = useState<string | null>(initialUserRole)
   const [expanded, setExpanded] = useState<string[]>([
@@ -332,74 +333,122 @@ export function AppSidebar({
     ? SYSTEM_ADMIN_NAV_ITEMS
     : filterByPermissions(applyNavOverrides(NAV_ITEMS))
 
-  return (
-    <aside
-      className="fixed left-0 top-0 h-screen flex flex-col z-20 transition-all duration-300"
-      style={{ background: BRAND, width: collapsed ? '4rem' : '16rem' }}
-    >
-      {/* Logo / Icon */}
-      <div
-        className="flex items-center justify-center border-b border-white/15 transition-all duration-300 overflow-hidden"
-        style={{ height: '4rem', padding: collapsed ? '0 0.75rem' : '0 1.25rem' }}
-      >
-        {collapsed ? (
-          <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {logoUrl
-              ? <img src={logoUrl} alt="Company logo" className="w-full h-full object-contain" />
-              : <span className="text-white font-black text-sm">O</span>
-            }
-          </div>
-        ) : (
-          <img
-            src={logoUrl || '/onclock-logo.png'}
-            alt="Company logo"
-            className="h-8 w-auto"
-            style={{ filter: logoUrl ? undefined : 'brightness(0) invert(1)' }}
-          />
+  // Close mobile sidebar when navigating
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  const sidebarContent = (isMobileDrawer: boolean) => {
+    const isCollapsedView = isMobileDrawer ? false : collapsed
+    return (
+      <>
+        {/* Logo / Icon */}
+        <div
+          className="flex items-center border-b border-white/15 transition-all duration-300 overflow-hidden"
+          style={{
+            height: '4rem',
+            padding: isCollapsedView ? '0 0.75rem' : '0 1.25rem',
+            justifyContent: isMobileDrawer ? 'space-between' : 'center',
+          }}
+        >
+          {isCollapsedView ? (
+            <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {logoUrl
+                ? <img src={logoUrl} alt="Company logo" className="w-full h-full object-contain" />
+                : <span className="text-white font-black text-sm">O</span>
+              }
+            </div>
+          ) : (
+            <img
+              src={logoUrl || '/onclock-logo.png'}
+              alt="Company logo"
+              className="h-8 w-auto"
+              style={{ filter: logoUrl ? undefined : 'brightness(0) invert(1)' }}
+            />
+          )}
+          {isMobileDrawer && (
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+
+        {/* Trial countdown banner */}
+        {!isSystemAdmin && trialEndsAtMs !== null && (
+          <TrialCountdownBanner trialEndsAtMs={trialEndsAtMs} collapsed={isCollapsedView} />
         )}
-      </div>
 
-      {/* Trial countdown banner — isolated to its own subtree so the
-          per-second tick doesn't re-render the entire 800-line sidebar. */}
-      {!isSystemAdmin && trialEndsAtMs !== null && (
-        <TrialCountdownBanner trialEndsAtMs={trialEndsAtMs} collapsed={collapsed} />
-      )}
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5 sidebar-scroll-minimal"
+          style={{ padding: isCollapsedView ? '0.75rem 0.5rem' : '0.75rem 0.75rem' }}
+        >
+          {navItems.map(item => (
+            <NavItemComponent
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              currentTab={currentTab}
+              expanded={expanded}
+              onToggle={toggleExpand}
+              collapsed={isCollapsedView}
+              counts={counts}
+              hrisProEnabled={hrisProEnabled}
+            />
+          ))}
+        </nav>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5 sidebar-scroll-minimal"
-        style={{ padding: collapsed ? '0.75rem 0.5rem' : '0.75rem 0.75rem' }}
+        {/* Collapse toggle button — hidden on mobile drawer */}
+        {!isMobileDrawer && (
+          <div className="border-t border-white/15 p-2 flex items-center" style={{ justifyContent: isCollapsedView ? 'center' : 'flex-end' }}>
+            <Tooltip label={isCollapsedView ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!isCollapsedView}>
+              <button
+                onClick={toggle}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15 transition-all"
+                title={isCollapsedView ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {isCollapsedView
+                  ? <PanelLeftOpen  className="w-4 h-4" />
+                  : <PanelLeftClose className="w-4 h-4" />
+                }
+              </button>
+            </Tooltip>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      {/* Desktop sidebar — hidden on mobile */}
+      <aside
+        className="fixed left-0 top-0 h-screen flex-col z-20 transition-all duration-300 hidden md:flex"
+        style={{ background: BRAND, width: collapsed ? '4rem' : '16rem' }}
       >
-        {navItems.map(item => (
-          <NavItemComponent
-            key={item.href}
-            item={item}
-            pathname={pathname}
-            currentTab={currentTab}
-            expanded={expanded}
-            onToggle={toggleExpand}
-            collapsed={collapsed}
-            counts={counts}
-            hrisProEnabled={hrisProEnabled}
-          />
-        ))}
-      </nav>
+        {sidebarContent(false)}
+      </aside>
 
-      {/* Collapse toggle button */}
-      <div className="border-t border-white/15 p-2 flex items-center" style={{ justifyContent: collapsed ? 'center' : 'flex-end' }}>
-        <Tooltip label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!collapsed}>
-          <button
-            onClick={toggle}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15 transition-all"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      {/* Mobile drawer overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" />
+          {/* Drawer */}
+          <aside
+            className="absolute left-0 top-0 h-full w-72 flex flex-col shadow-2xl animate-in slide-in-from-left duration-200"
+            style={{ background: BRAND }}
+            onClick={e => e.stopPropagation()}
           >
-            {collapsed
-              ? <PanelLeftOpen  className="w-4 h-4" />
-              : <PanelLeftClose className="w-4 h-4" />
-            }
-          </button>
-        </Tooltip>
-      </div>
-    </aside>
+            {sidebarContent(true)}
+          </aside>
+        </div>
+      )}
+    </>
   )
 }
 

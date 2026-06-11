@@ -162,11 +162,11 @@ export default async function EmployeesPage({
                 <thead>
                   <tr className="border-b bg-gray-50">
                     <th className="text-left p-4 font-semibold text-gray-600">Employee</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Department</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Position</th>
+                    <th className="text-left p-4 font-semibold text-gray-600 hidden md:table-cell">Department</th>
+                    <th className="text-left p-4 font-semibold text-gray-600 hidden lg:table-cell">Position</th>
                     <th className="text-left p-4 font-semibold text-gray-600">Status</th>
-                    <th className="text-right p-4 font-semibold text-gray-600">Rate</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Hire Date</th>
+                    <th className="text-right p-4 font-semibold text-gray-600 hidden sm:table-cell">Rate</th>
+                    <th className="text-left p-4 font-semibold text-gray-600 hidden lg:table-cell">Hire Date</th>
                     <th className="text-center p-4 font-semibold text-gray-600">Actions</th>
                   </tr>
                 </thead>
@@ -194,20 +194,20 @@ export default async function EmployeesPage({
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-gray-600">{emp.department?.name || '—'}</td>
-                      <td className="p-4 text-gray-600">{emp.position?.title || '—'}</td>
+                      <td className="p-4 text-gray-600 hidden md:table-cell">{emp.department?.name || '—'}</td>
+                      <td className="p-4 text-gray-600 hidden lg:table-cell">{emp.position?.title || '—'}</td>
                       <td className="p-4">
                         <Badge className={`text-xs border-0 ${getStatusColor(emp.employmentStatus)}`}>
                           {emp.employmentStatus}
                         </Badge>
                       </td>
-                      <td className="p-4 text-right font-medium text-gray-800">
+                      <td className="p-4 text-right font-medium text-gray-800 hidden sm:table-cell">
                         <span>{fmt(emp.basicSalary.toNumber())}</span>
                         <span className="block text-[10px] text-gray-400 font-normal">
                           {emp.rateType === 'HOURLY' ? '/hr' : emp.rateType === 'DAILY' ? '/day' : '/mo'}
                         </span>
                       </td>
-                      <td className="p-4 text-gray-600">{formatDate(emp.hireDate)}</td>
+                      <td className="p-4 text-gray-600 hidden lg:table-cell">{formatDate(emp.hireDate)}</td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <EmployeeViewButton employeeId={emp.id} />
@@ -225,7 +225,7 @@ export default async function EmployeesPage({
 
       {/* Pagination */}
       {total > limit && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-sm text-gray-500">
             Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
           </p>

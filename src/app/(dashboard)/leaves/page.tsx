@@ -145,7 +145,7 @@ export default async function LeavesPage({
       />
 
       {/* Filter */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {['', 'PENDING', 'APPROVED', 'REJECTED'].map(s => (
           <Link key={s || 'all'} href={s ? `?status=${s}` : '/leaves'}>
             <Button
@@ -172,11 +172,11 @@ export default async function LeavesPage({
                 <thead>
                   <tr className="border-b bg-gray-50">
                     <th className="text-left p-4 font-semibold text-gray-600">Employee</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Leave Type</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Period</th>
-                    <th className="text-center p-4 font-semibold text-gray-600">Days</th>
+                    <th className="text-left p-4 font-semibold text-gray-600 hidden sm:table-cell">Leave Type</th>
+                    <th className="text-left p-4 font-semibold text-gray-600 hidden md:table-cell">Period</th>
+                    <th className="text-center p-4 font-semibold text-gray-600 hidden sm:table-cell">Days</th>
                     <th className="text-left p-4 font-semibold text-gray-600">Status</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Filed On</th>
+                    <th className="text-left p-4 font-semibold text-gray-600 hidden lg:table-cell">Filed On</th>
                     <th className="w-12 p-4" aria-label="Open details" />
                   </tr>
                 </thead>
@@ -212,22 +212,22 @@ export default async function LeavesPage({
                           <p className="font-medium">{req.employee.lastName}, {req.employee.firstName}</p>
                           <p className="text-xs text-gray-500">{req.employee.employeeNo} · {req.employee.department?.name}</p>
                         </td>
-                        <td className="border-b border-slate-100 p-4">
+                        <td className="border-b border-slate-100 p-4 hidden sm:table-cell">
                           <p className="font-medium">{req.leaveType.name}</p>
                           <Badge variant="outline" className="text-xs mt-0.5">
                             {req.leaveType.isWithPay ? 'With Pay' : 'Without Pay'}
                           </Badge>
                         </td>
-                        <td className="border-b border-slate-100 p-4 text-gray-600">
+                        <td className="border-b border-slate-100 p-4 text-gray-600 hidden md:table-cell">
                           {formatDate(req.startDate)} – {formatDate(req.endDate)}
                         </td>
-                        <td className="border-b border-slate-100 p-4 text-center font-medium">{req.totalDays.toString()}</td>
+                        <td className="border-b border-slate-100 p-4 text-center font-medium hidden sm:table-cell">{req.totalDays.toString()}</td>
                         <td className="border-b border-slate-100 p-4">
                           <Badge className={`text-xs border-0 ${getStatusColor(req.status)}`}>
                             {req.status}
                           </Badge>
                         </td>
-                        <td className="border-b border-slate-100 p-4 text-gray-500 text-xs">{formatDate(req.createdAt)}</td>
+                        <td className="border-b border-slate-100 p-4 text-gray-500 text-xs hidden lg:table-cell">{formatDate(req.createdAt)}</td>
                         <td className="border-b border-slate-100 p-4 text-slate-400">
                           <ChevronRight className="h-4 w-4" />
                         </td>

@@ -13,9 +13,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Bell, LogOut, Settings, User, X } from 'lucide-react'
+import { Bell, LogOut, Menu, Settings, User, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSidebar } from './SidebarContext'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { NexaChat } from './NexaChat'
 import { DesktopAppPopup } from './DesktopAppPopup'
 
@@ -29,7 +30,8 @@ interface AppHeaderProps {
 
 export function AppHeader({ user, companyName }: AppHeaderProps) {
   const router = useRouter()
-  const { collapsed } = useSidebar()
+  const { collapsed, setMobileOpen } = useSidebar()
+  const isMobile = useIsMobile()
   const [allItems, setAllItems] = useState<Array<{
     id: string
     type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION' | 'OVERTIME'
@@ -128,21 +130,33 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
 
   return (
     <header
-      className="fixed top-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-10 transition-all duration-300"
-      style={{ left: collapsed ? '4rem' : '16rem' }}
+      className="fixed top-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-6 z-10 transition-all duration-300"
+      style={{ left: isMobile ? 0 : collapsed ? '4rem' : '16rem' }}
     >
-      {/* Company name */}
-      <div>
-        <p className="text-sm font-semibold text-gray-800">{companyName || 'Company'}</p>
-        <p className="text-xs text-gray-500">HR & Payroll System</p>
+      {/* Mobile hamburger + Company name */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden text-gray-600 -ml-1"
+          onClick={() => setMobileOpen(true)}
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+        <div>
+          <p className="text-sm font-semibold text-gray-800">{companyName || 'Company'}</p>
+          <p className="text-xs text-gray-500 hidden sm:block">HR & Payroll System</p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1 sm:gap-3">
         {/* Nexa AI Assistant */}
         <NexaChat />
 
-        {/* Download desktop app */}
-        <DesktopAppPopup />
+        {/* Download desktop app — hidden on mobile */}
+        <span className="hidden sm:inline-flex">
+          <DesktopAppPopup />
+        </span>
 
         {/* Notifications */}
         <DropdownMenu>
