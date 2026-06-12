@@ -1096,11 +1096,13 @@ export async function POST(
         absenceDeduction:   manual.absenceDeduction   ?? cur.absenceDeduction.toNumber(),
         otherDeductions:    manual.otherDeductions    ?? cur.otherDeductions.toNumber(),
       }
+      // otherEarnings already includes non-taxable income (which is also
+      // stored in otherAllowances for display). Adding both would double-count.
       const grossPayManual = parseFloat((
         merged.basicSalary + merged.regularOtAmount + merged.restDayOtAmount
         + merged.holidayOtAmount + merged.nightDiffAmount + merged.holidayPayAmount
         + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance
-        + merged.otherAllowances + merged.otherEarnings
+        + merged.otherEarnings
       ).toFixed(2))
       const totalDeductionsManual = parseFloat((
         merged.sssEmployee + merged.sssEc + merged.philhealthEmployee + merged.pagibigEmployee

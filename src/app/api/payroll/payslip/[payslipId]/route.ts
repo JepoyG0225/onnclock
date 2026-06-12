@@ -122,11 +122,13 @@ export async function PATCH(
     otherDeductions:    data.otherDeductions    ?? cur.otherDeductions.toNumber(),
   }
 
+  // otherEarnings already includes non-taxable income (which is also
+  // stored in otherAllowances for display). Adding both would double-count.
   const grossPay = parseFloat((
     merged.basicSalary
     + merged.regularOtAmount + merged.restDayOtAmount + merged.holidayOtAmount
     + merged.nightDiffAmount + merged.holidayPayAmount
-    + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance + merged.otherAllowances
+    + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance
     + merged.otherEarnings
   ).toFixed(2))
 
