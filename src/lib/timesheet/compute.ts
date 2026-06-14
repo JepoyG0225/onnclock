@@ -222,7 +222,34 @@ export function computeHours(
     Math.min(Math.max(1, rawCap - allowed), MAX_SHIFT_MINUTES),
   )
   const regularMinutes = Math.min(workedMinutes, cap)
-  const overtimeMinutes = Math.max(0, workedMinutes - cap)
+  let overtimeMinutes = Math.max(0, workedMinutes - cap)
+
+  // Early clock-in cap: if the employee clocked in before the scheduled start,
+  // those pre-shift minutes should NOT count as overtime. Only time worked AFTER
+  // the scheduled end should generate OT. This mirrors the ND early-clock-in
+  // cap below (lines 259-267) but applied to the regular/OT split.
+  //
+  // Example: 09:00–18:00 shift (8h cap). Employee clocks in at 07:00, out at
+  // 18:00. Without cap: 10h worked → 2h OT. With cap: the 2h before 09:00 are
+  // excluded from OT → 0h OT.
+  if (overtimeMinutes > 0 && opts.scheduledTimeIn) {
+    const schedInMins = parseTimeToMinutes(opts.scheduledTimeIn)
+    if (schedInMins != null) {
+      const actualInMins = getManilaMinutes(timeIn)
+      // Handle overnight shifts: if schedule starts at e.g. 22:00 and actual
+      // clock-in is at e.g. 20:00, the difference is 2h early. But if schedule
+      // is 09:00 and actual is 23:00 (previous day), that's not early — that's
+      // a different shift or overnight arrival handled elsewhere.
+      let earlyMinutes = 0
+      if (actualInMins < schedInMins) {
+        // Same-day early: e.g. actual 07:00 (420) < scheduled 09:00 (540) → 120 min early
+        earlyMinutes = schedInMins - actualInMins
+      }
+      // Only subtract early minutes if they'd actually create phantom OT.
+      // Cap at overtimeMinutes so we never go negative.
+      overtimeMinutes = Math.max(0, overtimeMinutes - earlyMinutes)
+    }
+  }
 
   // Night differential: minute-by-minute walk through the actual shift window
   // counting only minutes that are (a) inside the configured ND window AND
