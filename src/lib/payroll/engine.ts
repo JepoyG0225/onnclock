@@ -178,7 +178,18 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // So suppressing late deductions also suppresses overbreak penalties.
   // If you want overbreaks deducted but not arrival-late, that's a
   // future split — track them separately on the DTR.
-  const skipLate = period.disableLateDeductions || employee.disableLateDeduction === true
+  //
+  // HOURLY / DAILY rate-type guard: regularHours (and therefore basicPay)
+  // is computed from the ACTUAL clock-in time — if an employee is 30 min
+  // late, regularHours is already 30 min shorter and basic pay is already
+  // reduced proportionally. Applying a separate minuteRate × lateMinutes
+  // deduction on top would double-count the penalty. Only MONTHLY
+  // employees need the explicit deduction because their basic pay is a
+  // fixed period salary that doesn't shrink with fewer hours.
+  const skipLate = period.disableLateDeductions
+    || employee.disableLateDeduction === true
+    || employee.rateType === 'HOURLY'
+    || employee.rateType === 'DAILY'
   const lateDeduction = skipLate
     ? 0
     : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
