@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Loader2 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Loader2, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface IncomeTypeItem {
@@ -76,15 +77,63 @@ export default function PayrollIncomeTypesManager() {
     }
   }
 
-  async function deactivateIncomeType(id: string) {
-    const res = await fetch(`/api/income-types/${id}`, { method: 'DELETE' })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      toast.error(data.error || 'Failed to deactivate income type')
+  const [editingType, setEditingType] = useState<IncomeTypeItem | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', code: '', mode: 'VARIABLE' as 'FIXED' | 'VARIABLE', defaultAmount: 0, isTaxable: true, excludeFrom2316: false })
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  function openEdit(type: IncomeTypeItem) {
+    setEditingType(type)
+    setEditForm({
+      name: type.name,
+      code: type.code ?? '',
+      mode: type.mode,
+      defaultAmount: type.defaultAmount,
+      isTaxable: type.isTaxable,
+      excludeFrom2316: type.excludeFrom2316,
+    })
+  }
+
+  async function saveEdit() {
+    if (!editingType) return
+    if (!editForm.name.trim()) {
+      toast.error('Income type name is required')
       return
     }
-    toast.success('Income type deactivated')
-    await loadIncomeTypes()
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/income-types/${editingType.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to update income type')
+        return
+      }
+      toast.success('Income type updated')
+      setEditingType(null)
+      await loadIncomeTypes()
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  async function deleteIncomeType(id: string) {
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/income-types/${id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to deactivate income type')
+        return
+      }
+      toast.success('Income type deactivated')
+      await loadIncomeTypes()
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   async function toggleExcludeFrom2316(id: string, current: boolean) {
@@ -196,16 +245,96 @@ export default function PayrollIncomeTypesManager() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                    onClick={() => deactivateIncomeType(type.id)}
+                    onClick={() => openEdit(type)}
                   >
-                    Deactivate
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                    disabled={deletingId === type.id}
+                    onClick={() => deleteIncomeType(type.id)}
+                  >
+                    {deletingId === type.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               </div>
             ))
           )}
         </div>
+
+        <Dialog open={!!editingType} onOpenChange={open => { if (!open) setEditingType(null) }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Income Type</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Name</label>
+                <Input
+                  value={editForm.name}
+                  onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Code (optional)</label>
+                <Input
+                  value={editForm.code}
+                  onChange={e => setEditForm(prev => ({ ...prev, code: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Mode</label>
+                <Select
+                  value={editForm.mode}
+                  onValueChange={v => setEditForm(prev => ({ ...prev, mode: v as 'FIXED' | 'VARIABLE' }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="VARIABLE">Variable (input per payroll run)</SelectItem>
+                    <SelectItem value="FIXED">Fixed amount</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Default Fixed Amount</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  disabled={editForm.mode !== 'FIXED'}
+                  value={editForm.defaultAmount}
+                  onChange={e => setEditForm(prev => ({ ...prev, defaultAmount: Number(e.target.value || 0) }))}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                <span className="text-sm font-medium">Taxable</span>
+                <Switch
+                  checked={editForm.isTaxable}
+                  onCheckedChange={v => setEditForm(prev => ({ ...prev, isTaxable: v }))}
+                />
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border px-3 py-2 bg-amber-50 border-amber-200">
+                <Switch
+                  checked={editForm.excludeFrom2316}
+                  onCheckedChange={v => setEditForm(prev => ({ ...prev, excludeFrom2316: v }))}
+                />
+                <div>
+                  <p className="text-sm font-medium">Exclude from BIR Form 2316</p>
+                  <p className="text-xs text-gray-500">This income type will not appear in the employee&apos;s annual BIR 2316 totals.</p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingType(null)}>Cancel</Button>
+              <Button onClick={saveEdit} disabled={savingEdit}>
+                {savingEdit ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   )
