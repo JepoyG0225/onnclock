@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { prisma } from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
@@ -49,6 +50,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
       data: { status: 'APPROVED' },
     })
   })
+
+  await logAudit(ctx, 'UNLOCK', 'PayrollRun', runId, {
+    description: 'Unlocked payroll run',
+    oldValues: { status: 'LOCKED' },
+    newValues: { status: 'APPROVED' },
+  }).catch(() => {})
 
   return NextResponse.json({ ok: true, status: 'APPROVED' })
 }

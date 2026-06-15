@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { logAudit } from '@/lib/audit'
 
 // PATCH /api/payroll/payslip/[payslipId]
 // Allows HR/admin to manually adjust earnings and deductions on a computed payslip.
@@ -30,6 +31,7 @@ export async function PATCH(
       medicalAllowance: true,
       otherAllowances: true,
       payrollRun: { select: { status: true } },
+      employee: { select: { firstName: true, lastName: true } },
     },
   })
 
@@ -192,6 +194,22 @@ export async function PATCH(
       totalPagibigEr:  agg._sum.pagibigEmployer  ?? 0,
     },
   })
+
+  // Build a human-readable summary of changed fields for the audit log
+  const changedFields = Object.keys(data)
+  const employeeName = `${payslip.employee.firstName} ${payslip.employee.lastName}`.trim()
+  const oldVals: Record<string, number> = {}
+  const newVals: Record<string, number> = {}
+  for (const key of changedFields) {
+    oldVals[key] = (cur as Record<string, { toNumber: () => number }>)[key]?.toNumber?.() ?? 0
+    newVals[key] = data[key]
+  }
+
+  logAudit(ctx, 'EDIT_PAYSLIP', 'PayrollRun', payslip.payrollRunId, {
+    description: `Manually edited payslip for ${employeeName} (${changedFields.join(', ')})`,
+    oldValues: oldVals,
+    newValues: { ...newVals, employeeName, payslipId },
+  }).catch(() => {})
 
   return NextResponse.json({ ok: true, grossPay, totalDeductions, netPay })
 }

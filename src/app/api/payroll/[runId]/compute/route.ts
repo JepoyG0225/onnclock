@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { buildOtMapKey, getApprovedOtHoursMap } from '@/lib/overtime-requests'
 import { computePayroll } from '@/lib/payroll/engine'
 import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const variableIncomeEntrySchema = z.object({
@@ -1188,6 +1189,18 @@ export async function POST(
       totalPagibigEr:  aggregated._sum.pagibigEmployer?.toNumber()   ?? totalPagibigEr,
     },
   })
+
+  const isRecompute = priorByLoan.size > 0 || priorManualEdits.length > 0
+  await logAudit(ctx, isRecompute ? 'RECOMPUTE' : 'COMPUTE', 'PayrollRun', runId, {
+    description: isRecompute
+      ? `Recomputed payroll for ${employees.length} employees`
+      : `Computed payroll for ${employees.length} employees`,
+    newValues: {
+      employeeCount: employees.length,
+      totalGross: aggregated._sum.grossPay?.toNumber() ?? totalGross,
+      totalNetPay: aggregated._sum.netPay?.toNumber() ?? totalNetPay,
+    },
+  }).catch(() => {})
 
   return NextResponse.json({
     success:       true,

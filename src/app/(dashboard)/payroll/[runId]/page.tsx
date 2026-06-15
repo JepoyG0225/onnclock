@@ -15,6 +15,7 @@ import { resolveWorkflow, buildPlan, authorizeAdvance } from '@/lib/approvals/en
 import {Users, TrendingDown, AlertTriangle, Clock3, ClipboardCheck} from 'lucide-react'
 import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
+import PayrollActivityLog from '@/components/payroll/PayrollActivityLog'
 
 export default async function PayrollRunPage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
@@ -397,6 +398,9 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
         </CardContent>
       </Card>
       </PayrollPayslipsLoader>
+
+      {/* Activity Log */}
+      <PayrollActivityLog runId={run.id} />
 
       {/* Pay Details */}
       {(() => {
