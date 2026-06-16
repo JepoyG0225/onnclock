@@ -195,25 +195,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
       }
     }
 
+    // Address/TIN start just BELOW the logo (or the company name) so they
+    // never overlap it. metaY is derived from the logo's actual bottom edge.
+    let metaY: number
     if (logoImg) {
-      const maxW = 190, maxH = 50
+      const maxW = 180, maxH = 44
       const scale = Math.min(maxW / logoImg.width, maxH / logoImg.height, 1)
       const w = logoImg.width * scale
       const h = logoImg.height * scale
-      page.drawImage(logoImg, { x: 24, y: 828 - h, width: w, height: h })
+      const logoTop = 828
+      page.drawImage(logoImg, { x: 24, y: logoTop - h, width: w, height: h })
+      metaY = (logoTop - h) - 12
     } else {
       draw(company.name, 24, 812, 16, true, C.deep)
+      metaY = 794
     }
 
-    let metaY = 786
     if (company.address) { draw(company.address, 24, metaY, 8, false, C.muted); metaY -= 11 }
-    if (company.tin) draw(`TIN: ${company.tin}`, 24, metaY, 8, false, C.muted)
+    if (company.tin) { draw(`TIN: ${company.tin}`, 24, metaY, 8, false, C.muted); metaY -= 11 }
 
     drawRight('PAYSLIP', 571, 816, 14, true, C.deep)
     drawRight(`Period: ${periodStart} - ${periodEnd}`, 571, 800, 8, false, C.muted)
     drawRight(`Pay Date: ${payDate}`, 571, 788, 8, false, C.muted)
 
-    page.drawLine({ start: { x: 24, y: 770 }, end: { x: 571, y: 770 }, thickness: 1, color: C.light })
+    // Separator sits just under the meta text, clamped so it stays above the
+    // employee info card (top at y=748).
+    const sepY = Math.max(Math.min(metaY + 2, 770), 751)
+    page.drawLine({ start: { x: 24, y: sepY }, end: { x: 571, y: sepY }, thickness: 1, color: C.light })
 
     // Employee info card — give Department and Position their OWN lines
     // (each spanning the full card width) so long values don't overlap the
