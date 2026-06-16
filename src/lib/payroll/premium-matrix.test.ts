@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import {
   classifyShiftHours,
   priceShiftPremiums,
+  premiumLineItems,
+  premiumRollups,
+  categoryEarning,
   PREMIUM_MULTIPLIERS,
   type HolidayClass,
 } from './premium-matrix'
@@ -84,6 +87,44 @@ describe('classifyShiftHours — OT split', () => {
     expect(h.ORDINARY).toBeCloseTo(8, 1)
     expect(h.ORDINARY_OT).toBeCloseTo(2, 1)
     expect(h.ORDINARY_ND ?? 0).toBe(0)
+  })
+})
+
+describe('earnings (premium-only) — no double-count of basic 100%', () => {
+  it('non-OT category earns (mult-1)×base×h; OT earns full mult×base×h', () => {
+    // LHND non-OT: 6h @ base 100 → (2.2-1.0)×100×6 = 720 premium on top of basic
+    expect(categoryEarning('REGULAR_HOLIDAY_ND', 6, 100)).toBeCloseTo(720, 2)
+    // LH non-OT: 1h → (2.0-1.0)×100×1 = 100
+    expect(categoryEarning('REGULAR_HOLIDAY', 1, 100)).toBeCloseTo(100, 2)
+    // Ordinary ND: 2h → (1.1-1.0)×100×2 = 20
+    expect(categoryEarning('ORDINARY_ND', 2, 100)).toBeCloseTo(20, 2)
+    // Ordinary OT (not in basic): full 1.25×100×2 = 250
+    expect(categoryEarning('ORDINARY_OT', 2, 100)).toBeCloseTo(250, 2)
+  })
+})
+
+describe('premiumRollups — buckets sum to total premium', () => {
+  const holidayJun12: (k: string) => HolidayClass = (k) =>
+    k === '2026-06-12' ? 'REGULAR' : 'NONE'
+  it('MKG shift rollups equal the itemized line-item total', () => {
+    const h = classifyShiftHours({
+      timeIn: pht('2026-06-11T22:00'),
+      timeOut: pht('2026-06-12T07:00'),
+      allowedBreakMinutes: 0,
+      regularCapMinutes: 9 * 60,
+      holidayFor: holidayJun12,
+      isRestDayDate: noRestDay,
+    })
+    const base = 100
+    const items = premiumLineItems(h, base)
+    const r = premiumRollups(h, base)
+    const itemsTotal = items.reduce((s, i) => s + i.amount, 0)
+    // Sum of rollup buckets must equal sum of line items (money conserved)
+    expect(r.totalPremium).toBeCloseTo(itemsTotal, 2)
+    // ND increment rollup: ordinary-ND 2h×10 + LHND 6h×20 = 20 + 120 = 140
+    expect(r.nightDiffAmount).toBeCloseTo(2 * base * 0.1 + 6 * base * 0.2, 2)
+    // Holiday (non-OT, excl ND): LH 1h×100 + LHND holiday-portion 6h×100 = 700
+    expect(r.holidayPayAmount).toBeCloseTo(1 * base * 1.0 + 6 * base * 1.0, 2)
   })
 })
 

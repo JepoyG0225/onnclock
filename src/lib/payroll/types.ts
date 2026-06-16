@@ -74,6 +74,18 @@ export interface PayrollInput {
     regularHolidayHoursWorked?: number
     /** Same as above, for SPECIAL_NON_WORKING holidays (+30% premium). */
     specialHolidayHoursWorked?: number
+    /**
+     * Pre-classified DOLE premium hours by category (from
+     * src/lib/payroll/premium-matrix.ts classifyShiftHours, aggregated across
+     * the period's worked shifts). When present, the engine prices ALL
+     * premium pay (night diff, holiday, rest day, OT and their combinations
+     * incl. LHND) from this matrix and IGNORES the legacy day-count holiday /
+     * standalone night-diff inputs above — so a night shift crossing midnight
+     * into a legal holiday yields the correct LH + LHND split. When absent,
+     * the engine falls back to the legacy per-field computation (used by
+     * callers that don't yet classify, e.g. final-pay).
+     */
+    premiums?: import('./premium-matrix').CategoryHours
   }
   loans: Array<{
     id: string
@@ -113,6 +125,11 @@ export interface PayrollResult {
   holidayOtAmount: number
   nightDiffAmount: number
   holidayPayAmount: number
+  /**
+   * Itemized premium lines (only populated when attendance.premiums was
+   * provided). The compute route persists these as PayslipPremium rows.
+   */
+  premiumLineItems?: import('./premium-matrix').PremiumLineItem[]
   allowancesTotal: number         // taxable allowances
   deMinimisTotal: number          // non-taxable de minimis
   otherEarnings: number

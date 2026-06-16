@@ -1054,6 +1054,7 @@ model Payslip {
   employee       Employee               @relation(fields: [employeeId], references: [id])
   loanDeductions PayslipLoanDeduction[]
   incomes        PayslipIncome[]
+  premiums       PayslipPremium[]
 
   @@unique([payrollRunId, employeeId])
   @@index([employeeId])
@@ -1168,6 +1169,31 @@ model PayslipIncome {
   @@index([payslipId])
   @@index([incomeTypeId])
   @@map("payslip_incomes")
+}
+
+/// Itemized DOLE premium-pay lines for a payslip (one row per non-zero
+/// category from src/lib/payroll/premium-matrix.ts). Lets the payslip show
+/// Legal Holiday, LHND, Rest Day, Night Differential, OT variants, etc. as
+/// distinct lines without bloating the Payslip table with ~40 columns.
+/// `amount` is the EARNING for these hours as added to gross (premium-only
+/// for non-OT categories, full pay for OT categories — see the engine).
+model PayslipPremium {
+  id         String   @id @default(cuid())
+  payslipId  String
+  /// PremiumCategory enum value, e.g. "REGULAR_HOLIDAY_ND" (LHND).
+  category   String
+  /// Human-readable label snapshot, e.g. "Legal Holiday (Night Diff)".
+  label      String
+  hours      Decimal  @db.Decimal(8, 2)
+  /// Multiplier of base hourly rate this category pays (e.g. 2.2 for LHND).
+  multiplier Decimal  @db.Decimal(6, 3)
+  amount     Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now())
+
+  payslip Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  @@index([payslipId])
+  @@map("payslip_premiums")
 }
 
 // ─────────────────────────────────────────────

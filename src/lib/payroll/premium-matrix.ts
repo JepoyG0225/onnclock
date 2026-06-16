@@ -238,6 +238,110 @@ export function classifyShiftHours(input: ClassifyShiftInput): CategoryHours {
   return out
 }
 
+function isOtCategory(c: PremiumCategory): boolean {
+  return c.includes('_OT')
+}
+
+/** Sibling category with the trailing _ND removed (for ND-increment math). */
+function siblingWithoutNd(c: PremiumCategory): PremiumCategory {
+  return (c.endsWith('_ND') ? c.slice(0, -3) : c) as PremiumCategory
+}
+
+/**
+ * EARNING added to gross for one category's hours, i.e. the amount ON TOP of
+ * the basic 100% the engine's basicPay already pays for worked regular hours.
+ *
+ *   non-OT → (multiplier − 1.0) × base × hours   (premium only)
+ *   OT     →  multiplier        × base × hours   (full — OT hours are NOT in
+ *                                                 basicPay/regularHours)
+ */
+export function categoryEarning(c: PremiumCategory, hours: number, baseHourly: number): number {
+  const mult = PREMIUM_MULTIPLIERS[c]
+  const factor = isOtCategory(c) ? mult : mult - 1.0
+  return Math.round(baseHourly * hours * factor * 100) / 100
+}
+
+/** The pure night-differential increment within a category (0 when not _ND). */
+function categoryNdIncrement(c: PremiumCategory, hours: number, baseHourly: number): number {
+  if (!c.endsWith('_ND')) return 0
+  const sib = siblingWithoutNd(c)
+  return Math.round(baseHourly * hours * (PREMIUM_MULTIPLIERS[c] - PREMIUM_MULTIPLIERS[sib]) * 100) / 100
+}
+
+export interface PremiumLineItem {
+  category: PremiumCategory
+  label: string
+  hours: number
+  multiplier: number
+  /** Earning added to gross (premium-only for non-OT, full for OT). */
+  amount: number
+}
+
+/**
+ * Itemized premium lines for persistence/display. Skips ORDINARY (pure basic,
+ * amount 0) and any zero-hour category.
+ */
+export function premiumLineItems(hoursByCat: CategoryHours, baseHourly: number): PremiumLineItem[] {
+  const out: PremiumLineItem[] = []
+  for (const cat of Object.keys(hoursByCat) as PremiumCategory[]) {
+    const hours = hoursByCat[cat] ?? 0
+    if (hours <= 0) continue
+    const amount = categoryEarning(cat, hours, baseHourly)
+    if (amount === 0) continue // plain ORDINARY hours — already in basic pay
+    out.push({ category: cat, label: PREMIUM_LABELS[cat], hours, multiplier: PREMIUM_MULTIPLIERS[cat], amount })
+  }
+  return out
+}
+
+export interface PremiumRollups {
+  nightDiffAmount: number   // all ND increments across every category
+  holidayPayAmount: number  // worked-holiday premium (excl. ND increment)
+  holidayOtAmount: number   // holiday OT (excl. ND increment)
+  regularOtAmount: number   // ordinary-day OT (excl. ND increment)
+  restDayOtAmount: number   // rest-day premium + rest-day OT (excl. ND increment)
+  totalPremium: number      // = sum of all the above = Σ categoryEarning
+}
+
+/**
+ * Decompose the categories into the legacy Payslip aggregate columns. The ND
+ * increment of every category is pulled into `nightDiffAmount`; the remaining
+ * "base" earning of each category is routed to the column that best matches
+ * its nature. The five buckets sum to the total premium (no money lost), so
+ * grossPay stays identical whether derived from columns or from the itemized
+ * line items.
+ */
+export function premiumRollups(hoursByCat: CategoryHours, baseHourly: number): PremiumRollups {
+  let nightDiffAmount = 0, holidayPayAmount = 0, holidayOtAmount = 0, regularOtAmount = 0, restDayOtAmount = 0
+  for (const cat of Object.keys(hoursByCat) as PremiumCategory[]) {
+    const hours = hoursByCat[cat] ?? 0
+    if (hours <= 0) continue
+    const nd = categoryNdIncrement(cat, hours, baseHourly)
+    nightDiffAmount += nd
+    const base = categoryEarning(cat, hours, baseHourly) - nd
+    if (base === 0) continue
+    const isHoliday = cat.startsWith('REGULAR_HOLIDAY') || cat.startsWith('SPECIAL')
+    const isOt = isOtCategory(cat)
+    if (isHoliday) {
+      if (isOt) holidayOtAmount += base
+      else holidayPayAmount += base
+    } else if (cat.startsWith('REST_DAY')) {
+      restDayOtAmount += base
+    } else if (isOt) {
+      regularOtAmount += base
+    }
+  }
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  nightDiffAmount = r2(nightDiffAmount)
+  holidayPayAmount = r2(holidayPayAmount)
+  holidayOtAmount = r2(holidayOtAmount)
+  regularOtAmount = r2(regularOtAmount)
+  restDayOtAmount = r2(restDayOtAmount)
+  return {
+    nightDiffAmount, holidayPayAmount, holidayOtAmount, regularOtAmount, restDayOtAmount,
+    totalPremium: r2(nightDiffAmount + holidayPayAmount + holidayOtAmount + regularOtAmount + restDayOtAmount),
+  }
+}
+
 export interface PricedPremium {
   category: PremiumCategory
   label: string

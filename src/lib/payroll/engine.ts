@@ -8,6 +8,7 @@ import {
   computeNightDifferential,
   computeAbsenceDeduction,
 } from './overtime'
+import { premiumLineItems, premiumRollups, type PremiumLineItem } from './premium-matrix'
 
 /**
  * Master payroll computation engine.
@@ -82,69 +83,72 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // ── 2. OVERTIME & PREMIUM PAY ─────────────────
   const hourlyRate = employee.hourlyRate > 0 ? employee.hourlyRate : employee.dailyRate / 8
 
-  const regularOtAmount = parseFloat((hourlyRate * attendance.regularOtHours * regularOtRate).toFixed(2))
-  const restDayOtAmount = parseFloat((hourlyRate * attendance.restDayOtHours * restDayOtRate).toFixed(2))
-
-  // Holiday OT: total of regular holiday OT + special holiday OT
-  const regularHolidayOt = attendance.regularHolidayOtHours > 0
-    ? parseFloat((hourlyRate * attendance.regularHolidayOtHours * regularHolidayOtRate).toFixed(2))
-    : 0
-  const specialHolidayOt = attendance.specialHolidayOtHours > 0
-    ? parseFloat((hourlyRate * attendance.specialHolidayOtHours * specialHolidayOtRate).toFixed(2))
-    : 0
-  const holidayOtAmount = regularHolidayOt + specialHolidayOt
-
-  const nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours, period.nightDifferentialRate)
-
-  // Holiday pay premium — ONLY for holidays the employee actually clocked in
-  // on. This is the visible holidayPayAmount on the payslip.
-  //
-  //   Worked REGULAR holiday → +100% of daily rate (premium on top of the
-  //                            basic 100% they earn for working that day)
-  //   Worked SPECIAL holiday → +30% of daily rate
-  //
-  // Unworked holidays don't appear here — they're rolled into basic pay
-  // below (treating the employee as "present" for the holiday).
-  //
   // Per-employee override: if disableHolidayPay is set on the Employee
-  // record, zero out BOTH premiums AND the Art. 94 non-work credit
-  // regardless of company calendar / rate type. Used for project-based /
-  // contractor roles where holidays aren't paid.
+  // record, zero out worked-holiday premiums AND the Art. 94 non-work
+  // credit. (In the matrix path the compute route also suppresses holiday
+  // categories so the rollups carry no holiday premium.)
   const disableHoliday = employee.disableHolidayPay === true
 
-  // HOURLY employees: pro-rate the holiday premium by the actual regular
-  // hours they clocked into on the holiday(s) — not the full daily rate.
-  // A 4-hour shift on a regular holiday gets +100% on those 4 hours
-  // (hourlyRate × 1.0 × 4), not a full day's premium.
-  //
-  // DAILY / MONTHLY employees keep the daily-rate-based premium: their
-  // wage isn't pegged to hours, so the day-count formula matches PH
-  // practice (DOLE Handbook Ch. 6 §3: regular holiday worked = 200%
-  // of daily rate; special non-working worked = 130% of daily rate).
-  let regularHolidayPremium = 0
-  let specialHolidayPremium = 0
-  if (!disableHoliday) {
-    if (employee.rateType === 'HOURLY') {
-      const regHrs = attendance.regularHolidayHoursWorked ?? 0
-      const spcHrs = attendance.specialHolidayHoursWorked ?? 0
-      // +100% premium for REGULAR holiday hours
-      regularHolidayPremium = regHrs > 0
-        ? parseFloat((hourlyRate * regHrs).toFixed(2))
-        : 0
-      // +30% premium for SPECIAL non-working holiday hours
-      specialHolidayPremium = spcHrs > 0
-        ? parseFloat((hourlyRate * spcHrs * 0.3).toFixed(2))
-        : 0
-    } else {
-      regularHolidayPremium = computeHolidayPayAdditional(
-        employee.dailyRate, attendance.regularHolidaysWorked, 'REGULAR'
-      )
-      specialHolidayPremium = computeHolidayPayAdditional(
-        employee.dailyRate, attendance.specialHolidaysWorked, 'SPECIAL_NON_WORKING'
-      )
+  let regularOtAmount: number
+  let restDayOtAmount: number
+  let holidayOtAmount: number
+  let nightDiffAmount: number
+  let holidayPayAmount: number
+  let premiumLineItemsResult: PremiumLineItem[] | undefined
+
+  if (attendance.premiums) {
+    // ── DOLE premium-matrix path ──────────────────────────────────────────
+    // All premium pay (night diff, holiday, rest day, OT and their
+    // combinations incl. LHND) is priced from the per-minute classification
+    // of worked shifts. Each non-OT category contributes only its premium
+    // ON TOP of the basic 100% (already paid via basicPay); OT categories
+    // contribute their full multiplier (OT hours aren't in basicPay).
+    const rollups = premiumRollups(attendance.premiums, hourlyRate)
+    regularOtAmount = rollups.regularOtAmount
+    restDayOtAmount = rollups.restDayOtAmount
+    holidayOtAmount = rollups.holidayOtAmount
+    nightDiffAmount = rollups.nightDiffAmount
+    holidayPayAmount = rollups.holidayPayAmount
+    premiumLineItemsResult = premiumLineItems(attendance.premiums, hourlyRate)
+  } else {
+    // ── Legacy per-field path (callers that don't classify yet) ───────────
+    regularOtAmount = parseFloat((hourlyRate * attendance.regularOtHours * regularOtRate).toFixed(2))
+    restDayOtAmount = parseFloat((hourlyRate * attendance.restDayOtHours * restDayOtRate).toFixed(2))
+
+    // Holiday OT: total of regular holiday OT + special holiday OT
+    const regularHolidayOt = attendance.regularHolidayOtHours > 0
+      ? parseFloat((hourlyRate * attendance.regularHolidayOtHours * regularHolidayOtRate).toFixed(2))
+      : 0
+    const specialHolidayOt = attendance.specialHolidayOtHours > 0
+      ? parseFloat((hourlyRate * attendance.specialHolidayOtHours * specialHolidayOtRate).toFixed(2))
+      : 0
+    holidayOtAmount = regularHolidayOt + specialHolidayOt
+
+    nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours, period.nightDifferentialRate)
+
+    // Holiday pay premium — ONLY for holidays the employee actually clocked in
+    // on. HOURLY pro-rates by hours; DAILY/MONTHLY use the day-count formula
+    // (DOLE Handbook Ch. 6 §3: regular holiday worked = 200% of daily rate;
+    // special non-working worked = 130%).
+    let regularHolidayPremium = 0
+    let specialHolidayPremium = 0
+    if (!disableHoliday) {
+      if (employee.rateType === 'HOURLY') {
+        const regHrs = attendance.regularHolidayHoursWorked ?? 0
+        const spcHrs = attendance.specialHolidayHoursWorked ?? 0
+        regularHolidayPremium = regHrs > 0 ? parseFloat((hourlyRate * regHrs).toFixed(2)) : 0
+        specialHolidayPremium = spcHrs > 0 ? parseFloat((hourlyRate * spcHrs * 0.3).toFixed(2)) : 0
+      } else {
+        regularHolidayPremium = computeHolidayPayAdditional(
+          employee.dailyRate, attendance.regularHolidaysWorked, 'REGULAR'
+        )
+        specialHolidayPremium = computeHolidayPayAdditional(
+          employee.dailyRate, attendance.specialHolidaysWorked, 'SPECIAL_NON_WORKING'
+        )
+      }
     }
+    holidayPayAmount = regularHolidayPremium + specialHolidayPremium
   }
-  const holidayPayAmount = regularHolidayPremium + specialHolidayPremium
 
   // Unworked-holiday handling — fold into basic pay (no separate line):
   //
@@ -316,6 +320,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     nightDiffAmount,
     // Only premium for WORKED holidays — unworked is absorbed into basic
     holidayPayAmount,
+    premiumLineItems: premiumLineItemsResult,
     allowancesTotal,
     deMinimisTotal,
     otherEarnings,
