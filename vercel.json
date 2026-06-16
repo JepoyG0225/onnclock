@@ -1,0 +1,17 @@
+{
+  "regions": ["hnd1"],
+  "functions": {
+    "src/app/api/disbursement/[runId]/route.ts": { "maxDuration": 300 },
+    "src/app/api/disbursement/[runId]/retry/route.ts": { "maxDuration": 300 }
+  },
+  "crons": [
+    {
+      "path": "/api/holidays/sync-google/cron",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/subscription-expiry",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

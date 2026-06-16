@@ -1,0 +1,115 @@
+﻿'use client'
+
+import { useState } from 'react'
+import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
+
+export default function AdminLoginPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const result = await signIn('credentials', {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+      })
+      if (result?.error) {
+        setError('Invalid credentials or account role. This page is for Super Admin only. Company Admin accounts should use /login.')
+        return
+      }
+      window.location.href = '/admin/companies'
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#032b63]/10 border border-[#032b63]/20 mb-4">
+            <ShieldCheck className="w-7 h-7 text-[#c4d9ff]" />
+          </div>
+          <h1 className="text-xl font-black text-white tracking-tight">System Admin</h1>
+          <p className="text-sm text-slate-400 mt-1">Onclock Control Panel</p>
+        </div>
+
+        {/* Card */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="admin@onclockph.com"
+                required
+                autoFocus
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#032b63] focus:ring-1 focus:ring-[#032b63]/30"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••••"
+                  required
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 pr-10 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#032b63] focus:ring-1 focus:ring-[#032b63]/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                >
+                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-[#032b63] hover:bg-[#032b63] disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {loading ? 'Signing in…' : 'Sign In'}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-xs text-slate-600 mt-6">
+          Restricted access — authorized personnel only
+        </p>
+        <p className="text-center text-xs text-slate-500 mt-1">
+          Company Admin account? Use the standard sign-in page at <span className="font-semibold">/login</span>.
+        </p>
+      </div>
+    </div>
+  )
+}

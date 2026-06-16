@@ -1,0 +1,214 @@
+                                                                                                                                                               
+                                                    Procurement of Payroll System 
+          Issued by: Philippine Business Bank (PBB) 
+          Project: Payroll System (with Bank Integration for SME Cash Management Ecosystem) 
+          RFP Release Date: 1 April 2026 
+          Proposal Submission Deadline: 15 April 2026 
+          1. IntroducƟon 
+          Philippine Business Bank (PBB) invites qualiﬁed vendors to submit proposals for the supply, implementaƟon, and 
+          support of a Payroll Management System designed for: 
+                   Commercial deployment to SME clients (Payroll-as-a-Service)  
+                   Full integraƟon with the Bank’s Core Banking System (CBS) and Digital Banking Channels  
+          The system must comply with all Philippine statutory, tax, and labor regulaƟons and enable the Bank to posiƟon itself as 
+          a leading payroll partner for SMEs. 
+                                                                                                                                                               
+          2. Project ObjecƟves 
+          The Bank aims to: 
+               1.  Oﬀer end-to-end payroll services to SME clients with various opƟons to enable/disable funcƟons based on PBB 
+                    product oﬀering 
+               2.  Strengthen CASA growth through payroll account acquisiƟon  
+               3.  Enable automated salary crediƟng and disbursement with PBB accounts only 
+               4.  Ensure 100% compliance with Philippine regulatory requirements  
+               5.  Integrate payroll into the Bank’s cash management ecosystem  
+                                                                                                                                                               
+          3. Scope of Work 
+          The selected vendor shall: 
+                   Supply a conﬁgurable, mulƟ-tenant Payroll System  
+                         o    Cloud-enabled and secured, API-driven architecture 
+                   Implement and customize for:  
+                         o    Bank internal payroll templates 
+                         o    SME client onboarding  
+                   Integrate with:  
+                                                                                                                                    
+                     o   Internet Banking / Corporate Banking plaƞorm  
+                     o   Payment gateways (InstaPay, PESONet)  
+                Provide (to PBB clients):  
+                     o   Data migraƟon  
+                     o   Training  
+                     o   DocumentaƟon  
+                     o   Ongoing support and SLA  
+                                                                                                                                    
+         4. Regulatory & Statutory Compliance (Philippines) 
+         The system must fully support compliance with: 
+         4.1 Government Agencies 
+                Bureau of Internal Revenue (BIR)  
+                Social Security System (SSS)  
+                Philippine Health Insurance CorporaƟon  
+                Home Development Mutual Fund  
+         4.2 Mandatory CapabiliƟes 
+                Automated computaƟon of:  
+                     o   Withholding Tax (BIR-compliant)  
+                     o   SSS contribuƟons (ER/EE share)  
+                     o   PhilHealth contribuƟons  
+                     o   Pag-IBIG contribuƟons  
+                GeneraƟon of statutory reports:  
+                     o   BIR Form 1601-C  
+                     o   BIR Form 2316  
+                     o   Alphalist (DAT ﬁle format)  
+                     o   SSS R3/R5  
+                     o   PhilHealth RF-1  
+                     o   Pag-IBIG MCRF  
+                eFPS / eBIR compaƟbility  
+                Compliance with:  
+                                                                                                                                    
+                     o   Philippine Labor Code  
+                     o   TRAIN Law updates  
+                     o   Data Privacy Act (NPC compliance)  
+                                                                                                                                    
+         5. FuncƟonal Requirements 
+         5.1 Core Payroll 
+                Employee master data management  
+                Conﬁgurable salary structures  
+                MulƟ-frequency payroll (weekly, semi-monthly, monthly)  
+                Allowances, deducƟons, loans, beneﬁts  
+                OverƟme, holiday, night diﬀerenƟal computaƟon  
+                Final pay processing  
+                Salary Loan management (auto deducƟon and monitoring) 
+         5.2 Time & AƩendance IntegraƟon 
+                Biometric / Ɵmekeeping system integraƟon  
+                Leave management  
+                ShiŌ scheduling  
+         5.3 Payroll Processing 
+                Bulk payroll processing  
+                RetroacƟve adjustments  
+                MulƟ-company / mulƟ-branch capability  
+                MulƟ-tenant environment (for SME clients)  
+         5.4 Disbursement & Bank IntegraƟon 
+                Direct credit to employee accounts  
+                Batch ﬁle upload / API integraƟon to CBS  
+                Auto-reconciliaƟon of payroll credits  
+                Payroll funding account validaƟon  
+         5.5 Employee Self-Service Portal (ESS) with Mobile App/Access 
+                Payslip viewing/download  
+                Leave ﬁling  
+                                                                                                                                                               
+                   Personal data update (with approval workﬂow)  
+                   PBB Loan ApplicaƟon 
+          5.6 Employer (SME) Portal 
+                   Payroll preparaƟon dashboard  
+                   Approval workﬂows  
+                   Downloadable reports  
+                   IntegraƟon to Corporate Internet Banking  
+                                                                                                                                                               
+          6. IntegraƟon Requirements 
+          Vendor must support: 
+                   REST / SOAP APIs  
+                   Secure ﬁle transfer (SFTP)  
+                   IntegraƟon with:  
+                         o    Core Banking System  
+                         o    Corporate Internet Banking  
+                         o    HRIS (opƟonal)  
+                   Real-Ɵme and batch processing opƟons  
+                                                                                                                                                               
+          7. Security & Compliance 
+                   Role-based access control (RBAC)  
+                   MulƟ-factor authenƟcaƟon (MFA)  
+                   Audit trail (user acƟvity logs)  
+                   Data encrypƟon:  
+                         o    At rest  
+                         o    In transit  
+                   Compliance with:  
+                         o    BSP IT Risk Management guidelines  
+                         o    Data Privacy Act of 2012  
+                   HosƟng opƟons:  
+                                                                                                                                    
+                     o   Private cloud / BSP-compliant cloud  
+                                                                                                                                    
+         8. ReporƟng & AnalyƟcs 
+                Standard payroll reports  
+                Government compliance reports  
+                Custom report builder  
+                Dashboard analyƟcs for:  
+                     o   Payroll costs  
+                     o   Headcount trends  
+                     o   SME porƞolio insights (for the bank)  
+                                                                                                                                    
+         9. ImplementaƟon Requirements 
+         Vendor must provide: 
+                Project plan and Ɵmeline  
+                Business requirements validaƟon  
+                System conﬁguraƟon & customizaƟon  
+                User Acceptance TesƟng (UAT)  
+                Go-live support  
+                Training:  
+                     o   Bank admin users  
+                     o   SME clients  
+                                                                                                                                    
+         10. Service Level Agreement (SLA) 
+                System availability: ≥ 99.5%  
+                Incident response:  
+                     o   CriƟcal: < 1 hour  
+                     o   High: < 4 hours  
+                ResoluƟon Ɵmelines deﬁned per severity  
+                                                                                                                                                               
+                   Dedicated support team  
+                                                                                                                                                               
+          11. Vendor QualiﬁcaƟons 
+                   Local Support and Presence 
+                   Has proven execuƟon of payroll soluƟon to at least 5k employees 
+                   Knowledge of Philippine regulatory requirements  
+                   Full compliance with PBB AccreditaƟon Requirements 
+                                                                                                                                                               
+          12. Commercial Model 
+          Vendors must submit: 
+          Cost Breakdown (as applicable) 
+                   Software licensing 
+                   Implementation cost 
+                   Integration cost 
+                   Annual maintenance 
+                   Cloud infrastructure (if applicable) 
+                   5 year TCO format 
+                                                                                              
+          Specify pricing Model (If applicable) 
+                   Per user 
+                   Per transaction 
+                   Enterprise license 
+          13. Deliverables 
+                   Fully conﬁgured Payroll System  
+                   IntegraƟon interfaces  
+                   DocumentaƟon:  
+                         o    User manuals  
+                                                                                                                                    
+                     o   Technical manuals  
+                Training materials  
+                Post-go-live support  
+                                                                                                                                    
+         14. Proposal Format  
+         Vendor must submit proposal to include contents within the set deadline in a sealed brown envelope. Label should 
+         reﬂect company name and project name. Contents must include: 
+         Company proﬁle  
+             1.  Company Proﬁle 
+             2.  SoluƟon overview  
+             3.  Technical architecture  
+             4.  FuncƟonal Summary 
+             5.  ImplementaƟon plan  
+             6.  Commercial proposal  
+             7.  Client references  
+             8.  Demo access (if available)  
+                                                                                                                                    
+         15. EvaluaƟon Criteria 
+          Criteria                          Weight 
+          Functional Fit                                       20% 
+          Regulatory Compliance                                20% 
+          Integration Capability                               10% 
+          Security & Architecture                              10% 
+          Vendor Experience and 
+                                                               10% 
+          Support 
+          Cost                                                 30% 
+          
+         Submission to: 
+         Ms. Jenelyne T. Herrera 
+         General Services Center, Philippine Business Bank 
+         PBB Corporate Center 350 J.P. Rizal Ave. Ext. corner 8th Ave., Grace Park, Caloocan City, Philippines 
+          

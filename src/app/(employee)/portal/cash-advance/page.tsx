@@ -1,0 +1,282 @@
+﻿'use client'
+
+import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
+import { Banknote, Plus, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+
+type Status = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+
+interface CARequest {
+  id: string
+  amountRequested: number
+  reason: string
+  repaymentMonths: number
+  status: Status
+  rejectionReason: string | null
+  approvedAt: string | null
+  createdAt: string
+  loan?: { id: string; balance: number; monthlyAmortization: number; status: string } | null
+}
+
+function peso(n: number) {
+  return `₱${Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function StatusBadge({ status }: { status: Status }) {
+  const map: Record<Status, { cls: string; icon: React.ReactNode }> = {
+    PENDING:   { cls: 'bg-amber-50 text-amber-700 border-amber-200',   icon: <Clock className="w-3 h-3" /> },
+    APPROVED:  { cls: 'bg-green-50 text-green-700 border-green-200',   icon: <CheckCircle2 className="w-3 h-3" /> },
+    REJECTED:  { cls: 'bg-red-50 text-red-700 border-red-200',         icon: <XCircle className="w-3 h-3" /> },
+    CANCELLED: { cls: 'bg-gray-50 text-gray-500 border-gray-200',      icon: <Ban className="w-3 h-3" /> },
+  }
+  const { cls, icon } = map[status]
+  return <Badge className={`${cls} inline-flex items-center gap-1`}>{icon}{status}</Badge>
+}
+
+export default function PortalCashAdvancePage() {
+  const [requests,     setRequests]     = useState<CARequest[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [showForm,     setShowForm]     = useState(false)
+  const [submitting,   setSubmitting]   = useState(false)
+  const [myLimit,      setMyLimit]      = useState<{
+    monthlyIncome: number
+    rawCap: number
+    outstanding: number
+    available: number
+  } | null>(null)
+  const [form, setForm] = useState({
+    amount: '',
+    reason: '',
+    repaymentMonths: 1,
+  })
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [okMsg,    setOkMsg]    = useState<string | null>(null)
+
+  async function load() {
+    setLoading(true)
+    try {
+      // /api/cash-advance?own=true now also returns the rate-type-aware
+      // monthly limit (with outstanding-balance subtracted) so we don't
+      // need a separate /me lookup.
+      const reqRes = await fetch('/api/cash-advance?own=true&limit=50')
+      const reqData = await reqRes.json().catch(() => ({}))
+      setRequests(reqData.requests ?? [])
+      setMyLimit(reqData.myLimit ?? null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function submit() {
+    setErrorMsg(null)
+    setOkMsg(null)
+    const amt = Number(form.amount)
+    if (!amt || amt <= 0) { setErrorMsg('Please enter a valid amount'); return }
+    if (!form.reason.trim() || form.reason.trim().length < 3) { setErrorMsg('Please tell us why you need this'); return }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/cash-advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountRequested: amt,
+          reason: form.reason.trim(),
+          repaymentMonths: form.repaymentMonths,
+        }),
+      })
+      if (res.ok) {
+        setOkMsg('Request submitted — HR will review shortly.')
+        setForm({ amount: '', reason: '', repaymentMonths: 1 })
+        setShowForm(false)
+        load()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setErrorMsg(err?.error ?? 'Failed to submit request')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const maxAllowed = myLimit?.available ?? null
+  const hasPending = requests.some(r => r.status === 'PENDING')
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-900">Cash Advance</h1>
+          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Request an advance against your salary</p>
+        </div>
+        {!showForm && !hasPending && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors shrink-0"
+            style={{ background: '#ff5900' }}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Request</span>
+          </button>
+        )}
+      </div>
+
+      {okMsg && (
+        <div className="rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2">{okMsg}</div>
+      )}
+      {hasPending && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-2 flex items-center gap-2">
+          <Clock className="w-4 h-4" />
+          You have a pending request. Please wait for HR review before filing another.
+        </div>
+      )}
+
+      {/* New request form */}
+      {showForm && (
+        <div className="border rounded-xl p-4 sm:p-5 space-y-4 bg-white shadow-sm">
+          <div className="flex items-center gap-2">
+            <Banknote className="w-4 h-4 text-[#ff5900]" />
+            <h2 className="font-semibold text-gray-900">New Cash Advance Request</h2>
+          </div>
+
+          {myLimit && (
+            <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 space-y-0.5">
+              <div>
+                You may request up to{' '}
+                <span className="font-semibold text-gray-800">{peso(myLimit.available)}</span>
+                {' '}— 30% of your monthly income ({peso(myLimit.rawCap)})
+                {myLimit.outstanding > 0 && (
+                  <> minus your outstanding balance ({peso(myLimit.outstanding)})</>
+                )}.
+              </div>
+              {myLimit.outstanding > 0 && (
+                <div className="text-amber-700">
+                  You currently have {peso(myLimit.outstanding)} unpaid from a previous cash advance.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Amount Requested</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={form.amount}
+              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
+              placeholder="e.g. 5000"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Reason</label>
+            <textarea
+              value={form.reason}
+              onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+              rows={3}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
+              placeholder="Short explanation"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Repay Over</label>
+            <div className="grid grid-cols-3 rounded-lg border overflow-hidden">
+              {[1, 2, 3].map(m => (
+                <button
+                  type="button"
+                  key={m}
+                  onClick={() => setForm(f => ({ ...f, repaymentMonths: m }))}
+                  className={`px-2 py-1.5 text-sm transition-colors ${
+                    form.repaymentMonths === m ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {m} {m === 1 ? 'month' : 'months'}
+                </button>
+              ))}
+            </div>
+            {form.amount && (
+              <p className="text-xs text-gray-400 mt-2">
+                ≈ {peso(Number(form.amount) / form.repaymentMonths)} deducted per month
+              </p>
+            )}
+          </div>
+
+          {errorMsg && (
+            <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{errorMsg}</div>
+          )}
+
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setErrorMsg(null) }}
+              className="px-4 py-2 rounded-lg text-sm font-medium border bg-white text-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={submitting}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+              style={{ background: '#ff5900' }}
+            >
+              {submitting ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* History */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold text-gray-700">Requests</h2>
+        {loading ? (
+          <div className="text-sm text-gray-400 py-6 text-center">Loading…</div>
+        ) : requests.length === 0 ? (
+          <div className="text-sm text-gray-400 py-8 text-center border rounded-lg bg-white">
+            <FileTextIcon /> You haven&apos;t filed any cash advance requests yet.
+          </div>
+        ) : (
+          requests.map(r => (
+            <div key={r.id} className="border rounded-xl bg-white p-3.5 sm:p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="font-semibold text-gray-900 text-sm">{peso(Number(r.amountRequested))}</span>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-gray-500">
+                    {format(new Date(r.createdAt), 'MMM d, yyyy')} · {r.repaymentMonths} {r.repaymentMonths === 1 ? 'mo' : 'mos'} repay
+                  </div>
+                </div>
+                {r.status === 'APPROVED' && r.loan && (
+                  <div className="text-right text-xs text-gray-500 shrink-0">
+                    <div className="text-[10px] text-gray-400">Balance</div>
+                    <div className="font-semibold text-red-600">{peso(Number(r.loan.balance))}</div>
+                  </div>
+                )}
+              </div>
+              {r.reason && (
+                <p className="text-sm text-gray-700 mt-2 italic">&ldquo;{r.reason}&rdquo;</p>
+              )}
+              {r.status === 'REJECTED' && r.rejectionReason && (
+                <p className="text-xs text-red-600 mt-2">Reason: {r.rejectionReason}</p>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FileTextIcon() {
+  return <Banknote className="w-6 h-6 mx-auto mb-2 text-gray-300" />
+}

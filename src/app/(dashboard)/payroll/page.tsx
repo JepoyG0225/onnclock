@@ -1,0 +1,147 @@
+﻿import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { redirect } from 'next/navigation'
+import { resolveEffectiveCompanyId } from '@/lib/effective-company'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Plus, Settings } from 'lucide-react'
+import { peso, formatDate, getStatusColor } from '@/lib/utils'
+import { PesoIcon } from '@/components/ui/PesoIcon'
+import PayrollRunRowActions from '@/components/payroll/PayrollRunRowActions'
+import { PayrollRunViewButton } from '@/components/payroll/PayrollRunViewButton'
+import { PageHeader } from '@/components/ui/page-header'
+import { EmptyState } from '@/components/ui/empty-state'
+
+export default async function PayrollPage() {
+  const session = await auth()
+  if (!session?.user) redirect('/login')
+
+  const companyId = await resolveEffectiveCompanyId(session.user)
+  if (!companyId) redirect('/login')
+
+  const runs = await prisma.payrollRun.findMany({
+    where: { companyId },
+    orderBy: { periodStart: 'desc' },
+    take: 30,
+  })
+
+  const STATUS_LABELS: Record<string, string> = {
+    DRAFT: 'Draft',
+    COMPUTED: 'Computed',
+    FOR_APPROVAL: 'For Approval',
+    APPROVED: 'Approved',
+    LOCKED: 'Locked',
+    CANCELLED: 'Cancelled',
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Payroll"
+        subtitle={`${runs.length} payroll run${runs.length === 1 ? '' : 's'}`}
+        actions={
+          <>
+            <Link href="/payroll/settings">
+              <Button variant="outline" size="sm">
+                <Settings className="mr-2 w-4 h-4" />
+                Payroll Settings
+              </Button>
+            </Link>
+            <Link href="/payroll/new">
+              <Button variant="accent" size="sm">
+                <Plus className="mr-2 w-4 h-4" />
+                New Payroll Run
+              </Button>
+            </Link>
+          </>
+        }
+      />
+
+      <Card>
+        <CardContent className="p-0">
+          {runs.length === 0 ? (
+            <EmptyState
+              icon={<PesoIcon className="w-6 h-6" />}
+              title="No payroll runs yet"
+              description="Start a payroll cycle so employees can see their payslips."
+              action={
+                <Link href="/payroll/new">
+                  <Button size="sm" variant="accent">Create your first payroll run</Button>
+                </Link>
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left p-4 font-semibold text-gray-600">Period</th>
+                    <th className="text-left p-4 font-semibold text-gray-600">Pay Date</th>
+                    <th className="text-left p-4 font-semibold text-gray-600">Status</th>
+                    <th className="text-right p-4 font-semibold text-gray-600">Gross Pay</th>
+                    <th className="text-right p-4 font-semibold text-gray-600">Total Deductions</th>
+                    <th className="text-right p-4 font-semibold text-gray-600">Net Pay</th>
+                    <th className="text-center p-4 font-semibold text-gray-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {runs.map((run) => {
+                    const scope = run as unknown as {
+                      payGroupLabel?: string | null
+                      employeeScopeMode?: string | null
+                      employmentTypeFilter?: string[] | null
+                      employeeIds?: string[] | null
+                    }
+                    const scopeBadge = (() => {
+                      if (scope.employeeScopeMode === 'EMPLOYMENT_TYPE' && (scope.employmentTypeFilter?.length ?? 0) > 0) {
+                        return scope.employmentTypeFilter!.map(t => t.replace('_', ' ').toLowerCase()).join(', ')
+                      }
+                      if (scope.employeeScopeMode === 'CUSTOM' && (scope.employeeIds?.length ?? 0) > 0) {
+                        return `${scope.employeeIds!.length} selected`
+                      }
+                      return null
+                    })()
+                    return (
+                    <tr key={run.id} className="border-b hover:bg-gray-50">
+                      <td className="p-4">
+                        <p className="font-medium text-gray-900">{run.periodLabel}</p>
+                        <p className="text-xs text-gray-500">{run.payFrequency}</p>
+                        {scope.payGroupLabel && (
+                          <p className="text-[11px] font-semibold text-[#c44d00] bg-orange-50 inline-block px-1.5 py-0.5 rounded mt-1">
+                            {scope.payGroupLabel}
+                          </p>
+                        )}
+                        {scopeBadge && (
+                          <p className="text-[10px] text-gray-500 mt-0.5">Scope: {scopeBadge}</p>
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-600">{formatDate(run.payDate)}</td>
+                      <td className="p-4">
+                        <Badge className={`text-xs border-0 ${getStatusColor(run.status)}`}>
+                          {STATUS_LABELS[run.status]}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-right font-medium">{peso(run.totalGross.toNumber())}</td>
+                      <td className="p-4 text-right text-red-600">{peso(run.totalDeductions.toNumber())}</td>
+                      <td className="p-4 text-right font-bold text-green-700">{peso(run.totalNetPay.toNumber())}</td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <PayrollRunViewButton runId={run.id} />
+                          <PayrollRunRowActions runId={run.id} status={run.status} />
+                        </div>
+                      </td>
+                    </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+

@@ -1,0 +1,443 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { requireAuth } from '@/lib/api-auth'
+import { prisma } from '@/lib/prisma'
+import { getPeriodLabel } from '@/lib/utils'
+import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
+import { recomputeCompanyDtrHours } from '@/lib/timesheet/recompute'
+
+const HHMM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/
+
+const payrollSettingsSchema = z.object({
+  payFrequency: z.enum(['SEMI_MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY']),
+  firstCutoffStartDay: z.coerce.number().int().min(1).max(31),
+  firstCutoffEndDay: z.coerce.number().int().min(1).max(31),
+  secondCutoffStartDay: z.coerce.number().int().min(1).max(31),
+  secondCutoffEndDay: z.coerce.number().int().min(1).max(31),
+  defaultPayDelayDays: z.coerce.number().int().min(0).max(60),
+  enableOvertime: z.boolean().optional(),
+  disableLateDeductions: z.boolean().optional(),
+  enableNightDifferential: z.boolean().optional(),
+  nightDifferentialStart: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
+  nightDifferentialEnd: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
+  nightDifferentialIncludesBreak: z.boolean().optional(),
+  timezone: z.string().min(1).max(100).optional(),
+  payrollCurrency: z.string().min(3).max(10).optional(),
+})
+
+function atStartOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+type PayrollCycleConfigRow = {
+  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
+  firstCutoffStartDay: number
+  firstCutoffEndDay: number
+  secondCutoffStartDay: number
+  secondCutoffEndDay: number
+  defaultPayDelayDays: number
+  enableOvertime: boolean
+  disableLateDeductions?: boolean
+  enableNightDifferential: boolean
+  nightDifferentialStart: string
+  nightDifferentialEnd: string
+  // Optional because older DBs may not have the column yet — see migration
+  // 20260513120000_add_nd_includes_break + the fallback raw query in
+  // safeReadPayrollCycleConfig().
+  nightDifferentialIncludesBreak?: boolean
+}
+type PayrollCycleConfigWrite = Omit<PayrollCycleConfigRow, 'nightDifferentialIncludesBreak'>
+  & { companyId: string; nightDifferentialIncludesBreak?: boolean }
+
+function getPayrollCycleConfigDelegate() {
+  const delegate = (prisma as unknown as {
+    payrollCycleConfig?: {
+      findUnique: (args: { where: { companyId: string } }) => Promise<PayrollCycleConfigRow | null>
+      upsert: (args: {
+        where: { companyId: string }
+        create: PayrollCycleConfigWrite
+        update: Omit<PayrollCycleConfigRow, 'nightDifferentialIncludesBreak'> & { nightDifferentialIncludesBreak?: boolean }
+      }) => Promise<unknown>
+    }
+  }).payrollCycleConfig
+  return delegate ?? null
+}
+
+function isMissingPayrollCycleConfigTableError(e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e)
+  const code = e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : ''
+  return code === 'P2021' || msg.includes('payroll_cycle_configs')
+}
+
+function isMissingPayrollRunSchemaError(e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e)
+  const code = e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : ''
+  return code === 'P2021' || code === 'P2022' || msg.includes('payroll_runs')
+}
+
+async function safeReadPayrollCycleConfig(companyId: string) {
+  const delegate = getPayrollCycleConfigDelegate()
+  if (!delegate) return null
+  try {
+    return await delegate.findUnique({ where: { companyId } })
+  } catch (e: unknown) {
+    if (isMissingPayrollCycleConfigTableError(e)) return null
+    // Missing column (P2022) — likely the new nightDifferentialIncludesBreak
+    // column isn't in the DB yet. Fall back to a raw query of the known-stable
+    // columns so the page keeps working until the migration is applied.
+    const msg = e instanceof Error ? e.message : String(e)
+    const code = e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : ''
+    if (code === 'P2022' || msg.toLowerCase().includes('does not exist')) {
+      try {
+        const rows = await prisma.$queryRaw<PayrollCycleConfigRow[]>`
+          SELECT
+            "payFrequency", "firstCutoffStartDay", "firstCutoffEndDay",
+            "secondCutoffStartDay", "secondCutoffEndDay", "defaultPayDelayDays",
+            "enableOvertime", "enableNightDifferential",
+            "nightDifferentialStart", "nightDifferentialEnd",
+            false AS "nightDifferentialIncludesBreak",
+            false AS "disableLateDeductions"
+          FROM "payroll_cycle_configs"
+          WHERE "companyId" = ${companyId}
+          LIMIT 1
+        `
+        return rows[0] ?? null
+      } catch {
+        return null
+      }
+    }
+    throw e
+  }
+}
+
+async function safeReadLastPayrollRunEnd(companyId: string) {
+  try {
+    return await prisma.payrollRun.findFirst({
+      where: { companyId },
+      orderBy: { periodEnd: 'desc' },
+      select: { periodEnd: true },
+    })
+  } catch (e: unknown) {
+    if (isMissingPayrollRunSchemaError(e)) return null
+    throw e
+  }
+}
+
+async function safeReadCompanyPayrollLocale(companyId: string) {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ timezone: string | null; payrollCurrency: string | null }>>`
+      SELECT "timezone", "payrollCurrency"
+      FROM "companies"
+      WHERE "id" = ${companyId}
+      LIMIT 1
+    `
+    const row = rows?.[0]
+    return {
+      timezone: row?.timezone || 'Asia/Manila',
+      payrollCurrency: (row?.payrollCurrency || 'PHP').toUpperCase(),
+    }
+  } catch {
+    return { timezone: 'Asia/Manila', payrollCurrency: 'PHP' }
+  }
+}
+
+async function safeWriteCompanyPayrollLocale(companyId: string, timezone: string, payrollCurrency: string) {
+  try {
+    await prisma.$executeRaw`
+      UPDATE "companies"
+      SET "timezone" = ${timezone},
+          "payrollCurrency" = ${payrollCurrency},
+          "updatedAt" = NOW()
+      WHERE "id" = ${companyId}
+    `
+    return true
+  } catch {
+    return false
+  }
+}
+
+function generateSemiMonthlyPeriods(
+  year: number,
+  month: number,
+  cfg: {
+    firstCutoffStartDay: number
+    firstCutoffEndDay: number
+    secondCutoffStartDay: number
+    secondCutoffEndDay: number
+  }
+) {
+  const buildPeriod = (startDay: number, endDay: number) => {
+    if (startDay <= endDay) {
+      const endOfMonth = new Date(year, month + 1, 0).getDate()
+      return {
+        start: atStartOfDay(new Date(year, month, Math.min(startDay, endOfMonth))),
+        end: atStartOfDay(new Date(year, month, Math.min(endDay, endOfMonth))),
+      }
+    }
+
+    // Wrapped cutoff: e.g., 26-10 means previous month 26 up to current month 10.
+    const prevYear = month === 0 ? year - 1 : year
+    const prevMonth = month === 0 ? 11 : month - 1
+    const prevEndOfMonth = new Date(prevYear, prevMonth + 1, 0).getDate()
+    const currentEndOfMonth = new Date(year, month + 1, 0).getDate()
+    return {
+      start: atStartOfDay(new Date(prevYear, prevMonth, Math.min(startDay, prevEndOfMonth))),
+      end: atStartOfDay(new Date(year, month, Math.min(endDay, currentEndOfMonth))),
+    }
+  }
+
+  return [
+    buildPeriod(cfg.firstCutoffStartDay, cfg.firstCutoffEndDay),
+    buildPeriod(cfg.secondCutoffStartDay, cfg.secondCutoffEndDay),
+  ]
+}
+
+function getNextWeeklyPeriod(reference: Date) {
+  const r = atStartOfDay(reference)
+  const day = r.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  const start = addDays(r, mondayOffset)
+  const end = addDays(start, 6)
+  return { start, end }
+}
+
+function getNextPeriod(args: {
+  payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
+  cfg: {
+    firstCutoffStartDay: number
+    firstCutoffEndDay: number
+    secondCutoffStartDay: number
+    secondCutoffEndDay: number
+    defaultPayDelayDays: number
+  }
+  lastRunEnd: Date | null
+}) {
+  const today = atStartOfDay(new Date())
+  const threshold = args.lastRunEnd ? addDays(atStartOfDay(args.lastRunEnd), 1) : today
+
+  if (args.payFrequency === 'DAILY') {
+    const start = threshold
+    const end = threshold
+    return { start, end, payDate: addDays(end, args.cfg.defaultPayDelayDays) }
+  }
+
+  if (args.payFrequency === 'WEEKLY') {
+    let period = getNextWeeklyPeriod(threshold)
+    if (args.lastRunEnd && period.end <= atStartOfDay(args.lastRunEnd)) {
+      period = { start: addDays(period.start, 7), end: addDays(period.end, 7) }
+    }
+    return { start: period.start, end: period.end, payDate: addDays(period.end, args.cfg.defaultPayDelayDays) }
+  }
+
+  if (args.payFrequency === 'MONTHLY') {
+    const base = threshold
+    let start = new Date(base.getFullYear(), base.getMonth(), 1)
+    let end = new Date(base.getFullYear(), base.getMonth() + 1, 0)
+    if (args.lastRunEnd && end <= atStartOfDay(args.lastRunEnd)) {
+      start = new Date(base.getFullYear(), base.getMonth() + 1, 1)
+      end = new Date(base.getFullYear(), base.getMonth() + 2, 0)
+    }
+    start = atStartOfDay(start)
+    end = atStartOfDay(end)
+    return { start, end, payDate: addDays(end, args.cfg.defaultPayDelayDays) }
+  }
+
+  // SEMI_MONTHLY
+  const periods = [
+    ...generateSemiMonthlyPeriods(threshold.getFullYear(), threshold.getMonth() - 1, args.cfg),
+    ...generateSemiMonthlyPeriods(threshold.getFullYear(), threshold.getMonth(), args.cfg),
+    ...generateSemiMonthlyPeriods(threshold.getFullYear(), threshold.getMonth() + 1, args.cfg),
+    ...generateSemiMonthlyPeriods(threshold.getFullYear(), threshold.getMonth() + 2, args.cfg),
+  ]
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
+
+  const lastEnd = args.lastRunEnd ? atStartOfDay(args.lastRunEnd) : null
+  const candidate = periods.find(p => {
+    if (lastEnd) return p.start > lastEnd
+    return threshold >= p.start && threshold <= p.end
+  }) || periods.find(p => p.start >= threshold) || periods[0]
+
+  return {
+    start: candidate.start,
+    end: candidate.end,
+    payDate: addDays(candidate.end, args.cfg.defaultPayDelayDays),
+  }
+}
+
+export async function GET() {
+  try {
+    const { ctx, error } = await requireAuth()
+    if (error) return error
+
+    const [config, lastRun, locale] = await Promise.all([
+      safeReadPayrollCycleConfig(ctx.companyId),
+      safeReadLastPayrollRunEnd(ctx.companyId),
+      safeReadCompanyPayrollLocale(ctx.companyId),
+    ])
+
+    const resolved = {
+      payFrequency: config?.payFrequency ?? 'SEMI_MONTHLY',
+      firstCutoffStartDay: config?.firstCutoffStartDay ?? 1,
+      firstCutoffEndDay: config?.firstCutoffEndDay ?? 15,
+      secondCutoffStartDay: config?.secondCutoffStartDay ?? 16,
+      secondCutoffEndDay: config?.secondCutoffEndDay ?? 31,
+      defaultPayDelayDays: config?.defaultPayDelayDays ?? 5,
+      enableOvertime: config?.enableOvertime ?? true,
+      disableLateDeductions: (config as { disableLateDeductions?: boolean } | null)?.disableLateDeductions ?? false,
+      enableNightDifferential: config?.enableNightDifferential ?? true,
+      nightDifferentialStart: config?.nightDifferentialStart ?? '22:00',
+      nightDifferentialEnd: config?.nightDifferentialEnd ?? '06:00',
+      nightDifferentialIncludesBreak: config?.nightDifferentialIncludesBreak ?? false,
+    } as const
+
+    const next = getNextPeriod({
+      payFrequency: resolved.payFrequency,
+      cfg: resolved,
+      lastRunEnd: lastRun?.periodEnd ?? null,
+    })
+
+    // Surface Pro entitlement so the UI can lock Pro-only toggles like
+    // "Include break in ND" without making a separate request.
+    const sub = await getCompanySubscription(ctx.companyId)
+    const proEntitled = sub.isTrial || hasHrisProFeature(sub.pricePerSeat)
+
+    return NextResponse.json({
+      settings: resolved,
+      proEntitled,
+      locale,
+      nextPeriod: {
+        periodStart: next.start.toISOString().slice(0, 10),
+        periodEnd: next.end.toISOString().slice(0, 10),
+        payDate: next.payDate.toISOString().slice(0, 10),
+        periodLabel: getPeriodLabel(next.start, next.end),
+      },
+    })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const code = e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : 'UNKNOWN'
+    return NextResponse.json({ error: 'Failed to load payroll settings', detail: msg, code }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const { ctx, error } = await requireAuth()
+  if (error) return error
+
+  if (!['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(ctx.role)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+  }
+
+  const body = await req.json().catch(() => null)
+  const parsed = payrollSettingsSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
+  }
+
+  const data = parsed.data
+  const delegate = getPayrollCycleConfigDelegate()
+  if (!delegate) {
+    return NextResponse.json(
+      { error: 'Payroll settings are unavailable. Run prisma generate and apply latest payroll migrations.' },
+      { status: 500 }
+    )
+  }
+
+  const ndStart = data.nightDifferentialStart ?? '22:00'
+  const ndEnd = data.nightDifferentialEnd ?? '06:00'
+  const ndIncludesBreak = data.nightDifferentialIncludesBreak ?? false
+
+  // Snapshot the old ND config so we can decide post-save whether to
+  // auto-recompute existing DTRs (when start/end/includesBreak/enable change).
+  const priorConfig = await safeReadPayrollCycleConfig(ctx.companyId)
+  const ndChanged =
+    !priorConfig ||
+    priorConfig.nightDifferentialStart !== ndStart ||
+    priorConfig.nightDifferentialEnd !== ndEnd ||
+    (priorConfig.nightDifferentialIncludesBreak ?? false) !== ndIncludesBreak ||
+    priorConfig.enableNightDifferential !== (data.enableNightDifferential ?? true)
+  // Build the upsert payload. nightDifferentialIncludesBreak is omitted when
+  // the column doesn't exist yet in production (migration not applied). We
+  // detect that on the first attempt and retry without the field so older
+  // databases keep working.
+  const baseFields = {
+    payFrequency: data.payFrequency,
+    firstCutoffStartDay: data.firstCutoffStartDay,
+    firstCutoffEndDay: data.firstCutoffEndDay,
+    secondCutoffStartDay: data.secondCutoffStartDay,
+    secondCutoffEndDay: data.secondCutoffEndDay,
+    defaultPayDelayDays: data.defaultPayDelayDays,
+    enableOvertime: data.enableOvertime ?? true,
+    disableLateDeductions: data.disableLateDeductions ?? false,
+    enableNightDifferential: data.enableNightDifferential ?? true,
+    nightDifferentialStart: ndStart,
+    nightDifferentialEnd: ndEnd,
+  }
+
+  const upsertDelegate = delegate
+  const upsertCompanyId = ctx.companyId
+  async function doUpsert(includeBreakField: boolean) {
+    return upsertDelegate.upsert({
+      where: { companyId: upsertCompanyId },
+      create: {
+        companyId: upsertCompanyId,
+        ...baseFields,
+        ...(includeBreakField ? { nightDifferentialIncludesBreak: ndIncludesBreak } : {}),
+      },
+      update: {
+        ...baseFields,
+        ...(includeBreakField ? { nightDifferentialIncludesBreak: ndIncludesBreak } : {}),
+      },
+    })
+  }
+
+  let settings
+  let breakColumnMissing = false
+  try {
+    settings = await doUpsert(true)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes('nightDifferentialIncludesBreak') && (msg.toLowerCase().includes('does not exist') || msg.includes('P2022'))) {
+      // Migration not applied to this DB yet — retry without the new field.
+      breakColumnMissing = true
+      settings = await doUpsert(false)
+    } else {
+      throw e
+    }
+  }
+
+  const currentLocale = await safeReadCompanyPayrollLocale(ctx.companyId)
+  const timezone = (data.timezone ?? currentLocale.timezone).trim()
+  const payrollCurrency = (data.payrollCurrency ?? currentLocale.payrollCurrency).trim().toUpperCase()
+  const localeSaved = await safeWriteCompanyPayrollLocale(ctx.companyId, timezone, payrollCurrency)
+
+  // Auto-recompute DTRs when ND settings actually changed. Scoped to the
+  // last 90 days so the function returns within Vercel's timeout for most
+  // companies; older records are usually in closed pay periods anyway.
+  let recompute: Awaited<ReturnType<typeof recomputeCompanyDtrHours>> | null = null
+  if (ndChanged) {
+    try {
+      recompute = await recomputeCompanyDtrHours(ctx.companyId, { daysBack: 90 })
+    } catch (e) {
+      console.error('[payroll-settings] auto-recompute failed', e)
+    }
+  }
+
+  return NextResponse.json({
+    settings,
+    locale: {
+      timezone,
+      payrollCurrency,
+      persisted: localeSaved,
+    },
+    ...(recompute ? { recompute } : {}),
+    ...(breakColumnMissing
+      ? { warning: 'nightDifferentialIncludesBreak column not yet applied to DB — toggle was saved but ignored. Run the db-apply migration endpoint.' }
+      : {}),
+  })
+}

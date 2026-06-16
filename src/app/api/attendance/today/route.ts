@@ -1,0 +1,129 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/api-auth'
+import { prisma } from '@/lib/prisma'
+import { resolvePortalEmployeeId } from '@/lib/portal-employee'
+import { getManilaDateOnly, getManilaDayOfWeek } from '@/lib/date-manila'
+
+function normalizeWorkDays(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((v): v is number => typeof v === 'number' && v >= 0 && v <= 6)
+}
+
+function normalizeBreakMinutes(value: unknown): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 60
+  return Math.max(0, Math.min(720, Math.round(n)))
+}
+
+async function getCompanyDefaultBreakMinutes(companyId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ defaultBreakMinutes: number | null }>>`
+      SELECT "defaultBreakMinutes"
+      FROM "companies"
+      WHERE "id" = ${companyId}
+      LIMIT 1
+    `
+    return normalizeBreakMinutes(rows?.[0]?.defaultBreakMinutes)
+  } catch {
+    return 60
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const { ctx, error } = await requireAuth(undefined, req)
+  if (error) return error
+
+  const employeeId = await resolvePortalEmployeeId(ctx)
+  const employee = employeeId ? await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      workScheduleId: true,
+      workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true, breakMinutes: true, breakEnabled: true, workDays: true } },
+    },
+  }) : null
+  if (!employee) return NextResponse.json({ record: null })
+
+  const manilaDate = getManilaDateOnly()
+  const dayOfWeek = getManilaDayOfWeek()
+
+  const activeRecord = await prisma.dTRRecord.findFirst({
+    where: { employeeId: employee.id, timeIn: { not: null }, timeOut: null },
+    orderBy: { timeIn: 'desc' },
+  })
+  const record = activeRecord ?? await prisma.dTRRecord.findFirst({
+    where: { employeeId: employee.id, date: manilaDate },
+  })
+
+  const fixedScheduleSet = !!employee.workScheduleId
+  let scheduleReady = false
+  let scheduleMessage: string | null = null
+  const companyDefaultBreakMinutes = await getCompanyDefaultBreakMinutes(ctx.companyId)
+
+  // Look up ALL shift assignments for today (multi-shift support).
+  const assignmentsToday = await prisma.employeeShiftAssignment.findMany({
+    where: { companyId: ctx.companyId, employeeId: employee.id, date: manilaDate },
+    select: {
+      scheduleId: true,
+      timeIn: true,
+      timeOut: true,
+      isRestDay: true,
+      schedule: { select: { breakMinutes: true, breakEnabled: true } },
+    },
+  })
+
+  // First non-rest-day assignment (used for break minutes priority)
+  const workAssignment = assignmentsToday.find(
+    a => !a.isRestDay && (!!a.scheduleId || (!!a.timeIn && !!a.timeOut))
+  )
+  const assignmentIsWorkDay = !!workAssignment
+  const allMarkedRestDay = assignmentsToday.length > 0 && assignmentsToday.every(a => a.isRestDay)
+
+  if (fixedScheduleSet) {
+    // Fixed schedule: check if today is in the scheduled work days
+    const workDays = normalizeWorkDays(employee.workSchedule?.workDays)
+    const isScheduledWorkDay = workDays.includes(dayOfWeek)
+
+    if (isScheduledWorkDay || assignmentIsWorkDay) {
+      // Either a normal work day OR an explicit shift-assignment override
+      scheduleReady = true
+    } else {
+      scheduleReady = false
+      scheduleMessage = allMarkedRestDay
+        ? 'Today is marked as rest day in your schedule.'
+        : 'Today is your rest day based on your fixed schedule.'
+    }
+  } else {
+    // Flexible employee: must have at least one non-rest-day assignment today
+    if (assignmentIsWorkDay) {
+      scheduleReady = true
+    } else if (allMarkedRestDay) {
+      scheduleReady = false
+      scheduleMessage = 'Today is marked as rest day in your flexible schedule.'
+    } else {
+      scheduleReady = false
+      scheduleMessage = 'No work schedule is set for you yet. Please contact your admin.'
+    }
+  }
+
+  // breakMinutes: 0 = break disabled, >0 = allowed break duration in minutes
+  // Priority: explicit assignment schedule override > fixed employee schedule > company default.
+  // If either source's schedule has breakEnabled=false, return 0 — the portal
+  // uses this value to hide the Start/End Break buttons entirely.
+  const breakDisabled =
+    workAssignment?.schedule?.breakEnabled === false ||
+    (!workAssignment && employee.workSchedule?.breakEnabled === false)
+  const breakMinutes = breakDisabled ? 0 : normalizeBreakMinutes(
+    workAssignment?.schedule?.breakMinutes ??
+      employee.workSchedule?.breakMinutes ??
+      companyDefaultBreakMinutes
+  )
+
+  // Strip clockInPhoto — large base64 payload not needed by the clock page
+  const safeRecord = record ? Object.fromEntries(
+    Object.entries(record).filter(([k]) => k !== 'clockInPhoto')
+  ) : null
+  return NextResponse.json({ record: safeRecord, employee, scheduleReady, scheduleMessage, breakMinutes })
+}

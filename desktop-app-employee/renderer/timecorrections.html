@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Time Fix - OnClock</title>
+<style>
+@font-face{font-family:'Montserrat';src:url('../assets/fonts/Montserrat-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'Montserrat';src:url('../assets/fonts/Montserrat-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap;}
+:root{
+  --navy:#0d1b2a;--navy-mid:#1a2d42;--orange:#fa5e01;--orange-dim:#c44d00;
+  --bg:#eef2f7;--surface:#fff;--border:#e2e8f0;--border-mid:#cbd5e1;
+  --text:#0f172a;--muted:#64748b;--subtle:#94a3b8;
+  --amber:#92400e;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --green:#166534;--green-bg:#f0fdf4;--green-border:#bbf7d0;
+  --red:#b91c1c;--red-bg:#fef2f2;--red-border:#fecaca;
+  --radius:12px;--radius-sm:8px;--shadow-sm:0 1px 3px rgba(13,27,42,.07),0 1px 2px rgba(13,27,42,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+body{display:flex;flex-direction:column;overflow:hidden;}
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:0 20px;height:56px;display:flex;align-items:center;gap:12px;flex-shrink:0;-webkit-app-region:drag;}
+.hdr-icon{width:30px;height:30px;border-radius:7px;background:var(--orange);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.hdr-icon img{width:100%;height:100%;object-fit:cover;}
+.hdr-title{font-size:14px;font-weight:700;color:#fff;flex:1;}
+.hdr-new{background:var(--orange);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;-webkit-app-region:no-drag;}
+.hdr-new:hover{background:var(--orange-dim);}
+.main{flex:1;overflow-y:auto;padding:16px 20px 24px;}
+.main::-webkit-scrollbar{width:5px;}
+.main::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:3px;}
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:42px 16px;color:var(--subtle);}
+.spin{display:inline-block;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow-sm);}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.title{font-size:13px;font-weight:700;color:var(--text);}
+.meta{font-size:11px;color:var(--muted);margin-top:3px;}
+.badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;border:1px solid transparent;}
+.pending{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-border);}
+.approved{background:var(--green-bg);color:var(--green);border-color:var(--green-border);}
+.rejected{background:var(--red-bg);color:var(--red);border-color:var(--red-border);}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 10px;margin-top:8px;}
+.kv{font-size:11px;color:var(--muted);}
+.reason{font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;line-height:1.4;}
+.note{font-size:11px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 8px;margin-top:8px;}
+.actions{display:flex;justify-content:flex-end;margin-top:8px;}
+.cancel-btn{background:transparent;border:none;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;}
+.cancel-btn:disabled{opacity:.5;cursor:not-allowed;}
+.modal-bg{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border-radius:18px 18px 0 0;padding:20px 20px 28px;width:100%;max-height:92vh;overflow-y:auto;}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:14px;}
+.lbl{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;}
+select.inp,input.inp,textarea.inp{
+  width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);
+  background:var(--surface);outline:none;margin-bottom:12px;
+}
+textarea.inp{resize:vertical;min-height:72px;}
+select.inp:focus,input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(250,94,1,.12);}
+.row{display:flex;gap:10px;}
+.row > div{flex:1;}
+.btn-row{display:flex;gap:10px;margin-top:4px;}
+.btn{padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;font-family:inherit;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-orange{background:var(--orange);color:#fff;flex:1;}
+.btn-orange:hover:not(:disabled){background:var(--orange-dim);}
+.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);flex:1;}
+.btn-ghost:hover:not(:disabled){background:var(--bg);}
+.err{display:none;background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);padding:8px 10px;border-radius:var(--radius-sm);font-size:12px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-icon"><img src="../assets/icon.png" alt="" onerror="this.style.display='none'"/></div>
+  <div class="hdr-title">Time Fix</div>
+  <button class="hdr-new" id="new-btn">+ New Request</button>
+</div>
+
+<div class="main">
+  <div id="loading" class="state"><div class="spin" style="font-size:28px;">&#8635;</div><div>Loading time corrections...</div></div>
+  <div id="list"></div>
+  <div id="empty" class="state" style="display:none;"><div style="font-size:36px;opacity:.35;">&#128221;</div><div>No correction requests yet.</div></div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-title">New Time Correction Request</div>
+    <div class="err" id="err"></div>
+    <label class="lbl">Time Entry Record *</label>
+    <select class="inp" id="dtr"></select>
+    <label class="lbl">Date *</label>
+    <input class="inp" type="date" id="date" readonly />
+    <div class="row">
+      <div><label class="lbl">Time In</label><input class="inp" type="time" id="timeIn"/></div>
+      <div><label class="lbl">Time Out</label><input class="inp" type="time" id="timeOut"/></div>
+    </div>
+    <div class="row">
+      <div><label class="lbl">Break Start</label><input class="inp" type="time" id="breakIn"/></div>
+      <div><label class="lbl">Break End</label><input class="inp" type="time" id="breakOut"/></div>
+    </div>
+    <label class="lbl">Reason *</label>
+    <textarea class="inp" id="reason" placeholder="Explain why this correction is needed..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
+      <button class="btn btn-orange" id="submit-btn">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict'
+const api = window.onclock
+
+let corrections = []
+let timeEntries = []
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtDate(v){
+  if(!v) return '-'
+  const d = new Date(v)
+  if(Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
+}
+function fmtDateTime(v){
+  if(!v) return '-'
+  const d = new Date(v)
+  if(Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})
+}
+function timeInputFromIso(v){
+  if(!v) return ''
+  const d = new Date(v)
+  if(Number.isNaN(d.getTime())) return ''
+  const hh = String(d.getHours()).padStart(2,'0')
+  const mm = String(d.getMinutes()).padStart(2,'0')
+  return `${hh}:${mm}`
+}
+function statusClass(s){
+  if(s === 'APPROVED') return 'approved'
+  if(s === 'REJECTED') return 'rejected'
+  return 'pending'
+}
+
+function renderList(){
+  const list = document.getElementById('list')
+  const empty = document.getElementById('empty')
+  if(!corrections.length){
+    list.innerHTML = ''
+    empty.style.display = 'flex'
+    return
+  }
+  empty.style.display = 'none'
+  list.innerHTML = corrections.map(c => `
+    <div class="card">
+      <div class="top">
+        <div>
+          <div class="title">${fmtDate(c.date)}</div>
+          <div class="meta">Submitted ${fmtDateTime(c.createdAt)}</div>
+        </div>
+        <span class="badge ${statusClass(c.status)}">${esc(c.status)}</span>
+      </div>
+      <div class="grid">
+        ${c.timeIn ? `<div class="kv">Time In: <strong>${esc(c.timeIn)}</strong></div>` : ''}
+        ${c.timeOut ? `<div class="kv">Time Out: <strong>${esc(c.timeOut)}</strong></div>` : ''}
+        ${c.breakIn ? `<div class="kv">Break Start: <strong>${esc(c.breakIn)}</strong></div>` : ''}
+        ${c.breakOut ? `<div class="kv">Break End: <strong>${esc(c.breakOut)}</strong></div>` : ''}
+      </div>
+      <div class="reason">"${esc(c.reason || '')}"</div>
+      ${c.adminNotes ? `<div class="note"><strong>Admin note:</strong> ${esc(c.adminNotes)}</div>` : ''}
+      ${c.status === 'PENDING' ? `<div class="actions"><button class="cancel-btn" data-id="${esc(c.id)}">Cancel request</button></div>` : ''}
+    </div>
+  `).join('')
+
+  list.querySelectorAll('.cancel-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id')
+      if(!id) return
+      btn.disabled = true
+      btn.textContent = 'Cancelling...'
+      const res = await api.cancelTimeCorrection(id)
+      if(res?.ok) await loadCorrections()
+      else {
+        btn.disabled = false
+        btn.textContent = 'Cancel request'
+      }
+    })
+  })
+}
+
+function openModal(){ document.getElementById('modal').classList.add('open') }
+function closeModal(){ document.getElementById('modal').classList.remove('open') }
+function showErr(msg){
+  const err = document.getElementById('err')
+  err.textContent = msg
+  err.style.display = 'block'
+}
+function clearErr(){
+  const err = document.getElementById('err')
+  err.textContent = ''
+  err.style.display = 'none'
+}
+
+function fillEntrySelect(){
+  const dtr = document.getElementById('dtr')
+  if(!timeEntries.length){
+    dtr.innerHTML = '<option value="">No attendance records found</option>'
+    return
+  }
+  dtr.innerHTML = '<option value="">Select a time entry</option>' + timeEntries.map(r => {
+    const tIn = r.timeIn ? timeInputFromIso(r.timeIn) : '--:--'
+    const tOut = r.timeOut ? timeInputFromIso(r.timeOut) : '--:--'
+    return `<option value="${esc(r.id)}">${fmtDate(r.date)} - In ${tIn} - Out ${tOut}</option>`
+  }).join('')
+}
+
+function applySelectedRecord(recordId){
+  const r = timeEntries.find(x => x.id === recordId)
+  if(!r) return
+  const d = new Date(r.date)
+  if(!Number.isNaN(d.getTime())){
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth()+1).padStart(2,'0')
+    const dd = String(d.getDate()).padStart(2,'0')
+    document.getElementById('date').value = `${yyyy}-${mm}-${dd}`
+  }
+  document.getElementById('timeIn').value = timeInputFromIso(r.timeIn)
+  document.getElementById('timeOut').value = timeInputFromIso(r.timeOut)
+  document.getElementById('breakIn').value = timeInputFromIso(r.breakIn)
+  document.getElementById('breakOut').value = timeInputFromIso(r.breakOut)
+}
+
+async function loadCorrections(){
+  const loading = document.getElementById('loading')
+  loading.style.display = 'flex'
+  try{
+    const res = await api.getTimeCorrections()
+    corrections = res?.data?.corrections || []
+  }catch{
+    corrections = []
+  }finally{
+    loading.style.display = 'none'
+    renderList()
+  }
+}
+
+async function loadTimeEntries(){
+  try{
+    const res = await api.getAttendanceLogs(60)
+    timeEntries = res?.data?.records || []
+  }catch{
+    timeEntries = []
+  }
+  fillEntrySelect()
+}
+
+document.getElementById('new-btn').addEventListener('click', () => {
+  clearErr()
+  openModal()
+})
+document.getElementById('cancel-btn').addEventListener('click', closeModal)
+document.getElementById('modal').addEventListener('click', (e) => {
+  if(e.target === document.getElementById('modal')) closeModal()
+})
+document.getElementById('dtr').addEventListener('change', (e) => {
+  applySelectedRecord(e.target.value)
+})
+
+document.getElementById('submit-btn').addEventListener('click', async () => {
+  clearErr()
+  const btn = document.getElementById('submit-btn')
+  const dtrRecordId = document.getElementById('dtr').value
+  const date = document.getElementById('date').value
+  const timeIn = document.getElementById('timeIn').value
+  const timeOut = document.getElementById('timeOut').value
+  const breakIn = document.getElementById('breakIn').value
+  const breakOut = document.getElementById('breakOut').value
+  const reason = document.getElementById('reason').value.trim()
+
+  if(!dtrRecordId){ showErr('Please select a time entry record.'); return }
+  if(!date){ showErr('Date is required.'); return }
+  if(!reason){ showErr('Reason is required.'); return }
+  if(!timeIn && !timeOut){ showErr('Enter at least Time In or Time Out.'); return }
+
+  btn.disabled = true
+  btn.textContent = 'Submitting...'
+  try{
+    const res = await api.createTimeCorrection({
+      dtrRecordId,
+      date,
+      timeIn: timeIn || null,
+      timeOut: timeOut || null,
+      breakIn: breakIn || null,
+      breakOut: breakOut || null,
+      reason,
+    })
+    if(!res?.ok){
+      showErr(res?.data?.error || 'Failed to submit request.')
+      return
+    }
+    closeModal()
+    document.getElementById('reason').value = ''
+    await loadCorrections()
+  }catch{
+    showErr('Failed to submit request.')
+  }finally{
+    btn.disabled = false
+    btn.textContent = 'Submit Request'
+  }
+})
+
+async function init(){
+  await Promise.all([loadCorrections(), loadTimeEntries()])
+}
+init()
+</script>
+</body>
+</html>
+

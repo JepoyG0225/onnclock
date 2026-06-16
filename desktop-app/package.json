@@ -1,0 +1,99 @@
+{
+  "name": "onclock-desktop",
+  "version": "1.1.15",
+  "description": "OnClock Desktop — Silent screen monitoring for remote employees",
+  "main": "main.js",
+  "author": "OnClock PH",
+  "private": true,
+  "scripts": {
+    "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
+    "start:mac": "electron .",
+    "build": "electron-builder --win --x64 --config.directories.output=dist/employee",
+    "build:win": "electron-builder --win --x64 --config.directories.output=dist/employee",
+    "build:mac": "electron-builder --mac zip --x64 --arm64 --config.directories.output=dist/employee",
+    "build:mac:dmg": "electron-builder --mac dmg --x64 --arm64 --config.directories.output=dist/employee",
+    "build:employee:mac": "electron-builder --mac zip --x64 --arm64 --config builder.employee.json --config.directories.output=dist/employee",
+    "build:employee:mac:dmg": "bash -c 'set -a && . ./.env && set +a && electron-builder --mac dmg --x64 --arm64 --config builder.employee.json --config.directories.output=dist/employee'",
+    "build:employee:win": "electron-builder --win --x64 --config builder.employee.json --config.directories.output=dist/employee",
+    "build:dir": "electron-builder --win --x64 --dir --config.directories.output=dist/employee",
+    "build:mac:dir": "electron-builder --mac --x64 --arm64 --dir --config.directories.output=dist/employee",
+    "build:admin:win": "electron-builder --win --x64 --config builder.admin.json --config.directories.output=dist/admin",
+    "build:admin:mac": "electron-builder --mac zip --x64 --arm64 --config builder.admin.json --config.directories.output=dist/admin",
+    "build:admin:mac:dmg": "bash -c 'set -a && . ./.env && set +a && electron-builder --mac dmg --x64 --arm64 --config builder.admin.json --config.directories.output=dist/admin'",
+    "start:sysadmin": "electron . --sysadmin-app",
+    "build:sysadmin:win": "electron-builder --win --x64 --config builder.sysadmin.json --config.directories.output=dist/sysadmin",
+    "build:sysadmin:mac": "electron-builder --mac zip --x64 --arm64 --config builder.sysadmin.json --config.directories.output=dist/sysadmin",
+    "build:sysadmin:mac:dmg": "bash -c 'set -a && . ./.env && set +a && electron-builder --mac dmg --x64 --arm64 --config builder.sysadmin.json --config.directories.output=dist/sysadmin'",
+    "build:selfsigned:employee:win": "electron-builder --win --x64 --config.directories.output=dist/employee --config.win.certificateSubjectName=\"OnClock Employee Desktop Self Signed\"",
+    "build:selfsigned:admin:win": "electron-builder --win --x64 --config builder.admin.json --config.directories.output=dist/admin --config.win.certificateSubjectName=\"OnClock Admin Desktop Self Signed\""
+  },
+  "build": {
+    "appId": "com.onclock.desktop",
+    "productName": "OnClock Desktop",
+    "copyright": "Copyright © 2026 OnClock PH",
+    "win": {
+      "publisherName": "OnClock PH",
+      "certificateSubjectName": "OnClock Employee Desktop Self Signed",
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.business",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "extendInfo": {
+        "LSUIElement": false,
+        "NSLocationWhenInUseUsageDescription": "OnClock uses your location for attendance geofence checks while clocking in and out."
+      }
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OnClock Desktop"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [],
+    "publish": null
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.3"
+  },
+  "devDependencies": {
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3"
+  }
+}

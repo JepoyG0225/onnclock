@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>My Profile — OnClock</title>
+<style>
+@font-face{
+  font-family:'Montserrat';
+  src:url('../assets/fonts/Montserrat-Regular.ttf') format('truetype');
+  font-weight:400;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:'Montserrat';
+  src:url('../assets/fonts/Montserrat-Bold.ttf') format('truetype');
+  font-weight:700;font-style:normal;font-display:swap;
+}
+:root{
+  --navy:#0d1b2a;--navy-mid:#1a2d42;--navy-light:#2e4a6a;
+  --orange:#fa5e01;--orange-dim:#c44d00;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --bg:#eef2f7;--surface:#fff;--border:#e2e8f0;--border-mid:#cbd5e1;
+  --text:#0f172a;--muted:#64748b;--subtle:#94a3b8;
+  --radius:12px;--radius-sm:8px;
+  --shadow-sm:0 1px 3px rgba(13,27,42,.07),0 1px 2px rgba(13,27,42,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+body{display:flex;flex-direction:column;overflow:hidden;}
+
+/* Header */
+.hdr{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);
+  padding:0 20px;height:56px;display:flex;align-items:center;gap:12px;
+  flex-shrink:0;-webkit-app-region:drag;
+}
+.hdr-icon{width:30px;height:30px;border-radius:7px;background:var(--orange);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.hdr-icon img{width:100%;height:100%;object-fit:cover;}
+.hdr-title{font-size:14px;font-weight:700;color:#fff;flex:1;}
+/* Main */
+.main{flex:1;overflow-y:auto;padding:20px;}
+.main::-webkit-scrollbar{width:5px;}
+.main::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:3px;}
+
+/* Profile hero */
+.hero{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);
+  border-radius:var(--radius);padding:24px 20px;margin-bottom:16px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  box-shadow:0 4px 16px rgba(13,27,42,.18);
+}
+.hero-avatar{
+  width:72px;height:72px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--orange),#ff8c42);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:700;color:#fff;
+  border:3px solid rgba(255,255,255,.25);
+}
+.hero-info{min-width:0;text-align:center;}
+.hero-name{font-size:18px;font-weight:700;color:#fff;line-height:1.2;}
+.hero-role{font-size:12px;color:rgba(255,255,255,.7);margin-top:5px;}
+.hero-dept{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px;}
+.hero-edit{
+  margin-top:10px;display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.25);
+  border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:background .15s;-webkit-app-region:no-drag;
+}
+.hero-edit:hover{background:rgba(255,255,255,.22);}
+.hero-edit.saving{opacity:.6;cursor:not-allowed;}
+
+/* Section cards */
+.section{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--radius);margin-bottom:12px;
+  box-shadow:var(--shadow-sm);overflow:hidden;
+}
+.section-hdr{
+  padding:12px 16px;background:var(--bg);border-bottom:1.5px solid var(--border);
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+}
+
+/* View mode rows */
+.info-row{display:flex;align-items:baseline;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);}
+.info-row:last-child{border-bottom:none;}
+.info-lbl{font-size:11px;font-weight:700;color:var(--subtle);text-transform:uppercase;width:110px;flex-shrink:0;}
+.info-val{font-size:13px;color:var(--text);flex:1;word-break:break-all;}
+.info-val.empty{color:var(--subtle);font-style:italic;}
+
+/* Edit mode */
+.edit-grid{padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.edit-grid.single{grid-template-columns:1fr;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-lbl{font-size:11px;font-weight:600;color:var(--muted);}
+.form-inp{
+  border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 11px;font-size:13px;font-family:inherit;color:var(--text);
+  background:var(--surface);outline:none;width:100%;
+}
+.form-inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(250,94,1,.10);}
+.form-inp:disabled{background:var(--bg);color:var(--muted);cursor:not-allowed;}
+select.form-inp{cursor:pointer;}
+
+/* Status messages */
+.success-banner{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green);
+  padding:10px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;
+  display:flex;align-items:center;gap:7px;margin-bottom:12px;}
+.err-banner{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);
+  padding:10px 14px;border-radius:var(--radius-sm);font-size:12px;
+  display:flex;align-items:flex-start;gap:7px;margin-bottom:12px;}
+
+/* Save/cancel row */
+.save-row{display:flex;gap:10px;padding:0 0 4px;}
+.btn{padding:10px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;
+  font-family:inherit;border:none;cursor:pointer;transition:opacity .15s,background .15s;
+  display:flex;align-items:center;gap:6px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-orange{background:var(--orange);color:#fff;}
+.btn-orange:hover:not(:disabled){background:var(--orange-dim);}
+.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);}
+.btn-ghost:hover:not(:disabled){background:var(--bg);}
+
+/* Empty / loading */
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:60px 20px;color:var(--subtle);}
+.spin{display:inline-block;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-icon">
+    <img src="../assets/icon.png" alt="" onerror="this.style.display='none'"/>
+  </div>
+  <div class="hdr-title">My Profile</div>
+</div>
+
+<div class="main" id="main">
+  <div class="state"><div class="spin" style="font-size:28px;">&#8635;</div></div>
+</div>
+
+<script>
+'use strict'
+const api = window.onclock
+
+let emp       = null
+let editMode  = false
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtDate(d){if(!d)return'';return new Date(d).toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'})}
+function val(v){return v||''}
+
+function getInitials(f,l){
+  return((f||'?')[0]+(l||'?')[0]).toUpperCase()
+}
+
+function renderView(){
+  const main=document.getElementById('main')
+  const ini=getInitials(emp.firstName,emp.lastName)
+  const name=`${emp.firstName||''} ${emp.lastName||''}`.trim()
+  const role=emp.position?.title||''
+  const dept=emp.department?.name||''
+  const sched=emp.workSchedule?.name||''
+  main.innerHTML=`
+    <div class="hero">
+      <div class="hero-avatar">${ini}</div>
+      <div class="hero-info">
+        <div class="hero-name">${esc(name)}</div>
+        ${role?`<div class="hero-role">${esc(role)}</div>`:''}
+        ${dept?`<div class="hero-dept">${esc(dept)}</div>`:''}
+        <button class="hero-edit" id="edit-btn">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2l4 4-10 10H4v-4L14 2z"/></svg>
+          Edit
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-hdr">Personal Information</div>
+      ${row('First Name',emp.firstName)}
+      ${row('Last Name',emp.lastName)}
+      ${row('Middle Name',emp.middleName)}
+      ${row('Gender',capitalize(emp.gender))}
+      ${row('Birthday',fmtDate(emp.birthDate))}
+      ${row('Civil Status',capitalize(emp.civilStatus))}
+      ${row('Nationality',emp.nationality)}
+    </div>
+
+    <div class="section">
+      <div class="section-hdr">Contact</div>
+      ${row('Email',emp.personalEmail)}
+      ${row('Mobile',emp.mobileNo)}
+    </div>
+
+    ${emp.sssNo||emp.philhealthNo||emp.pagibigNo||emp.tinNo?`
+    <div class="section">
+      <div class="section-hdr">Government IDs</div>
+      ${row('SSS No.',emp.sssNo)}
+      ${row('PhilHealth No.',emp.philhealthNo)}
+      ${row('Pag-IBIG No.',emp.pagibigNo)}
+      ${row('TIN',emp.tinNo)}
+    </div>`:''}
+
+    ${sched?`
+    <div class="section">
+      <div class="section-hdr">Work Details</div>
+      ${row('Schedule',sched)}
+    </div>`:''}
+  `
+  bindEditButton()
+  updateHdrBtn()
+}
+
+function row(lbl,v){
+  const display=v?esc(v):`<span class="empty">Not set</span>`
+  return`<div class="info-row"><div class="info-lbl">${lbl}</div><div class="info-val">${display}</div></div>`
+}
+function capitalize(s){return s?(s.charAt(0).toUpperCase()+s.slice(1).toLowerCase()):''}
+
+function renderEdit(successMsg=''){
+  const main=document.getElementById('main')
+  const ini=getInitials(emp.firstName,emp.lastName)
+  const name=`${emp.firstName||''} ${emp.lastName||''}`.trim()
+  main.innerHTML=`
+    <div class="hero" style="margin-bottom:16px;">
+      <div class="hero-avatar">${ini}</div>
+      <div class="hero-info">
+        <div class="hero-name">${esc(name)}</div>
+        <div class="hero-role" style="color:rgba(255,255,255,.7);font-size:12px;">Editing profile</div>
+        <button class="hero-edit saving" id="edit-btn" disabled>
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2l4 4-10 10H4v-4L14 2z"/></svg>
+          Editing...
+        </button>
+      </div>
+    </div>
+
+    ${successMsg?`<div class="success-banner">&#10003; ${esc(successMsg)}</div>`:''}
+    <div id="save-err" class="err-banner" style="display:none;"><span>!</span><span id="save-err-text"></span></div>
+
+    <div class="save-row" style="margin-bottom:14px;">
+      <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
+      <button class="btn btn-orange" id="save-btn">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 10l5 5 8-8"/></svg>
+        Save Changes
+      </button>
+    </div>
+
+    <div class="section">
+      <div class="section-hdr">Personal Information</div>
+      <div class="edit-grid">
+        ${field('firstName','First Name',emp.firstName,'text')}
+        ${field('lastName','Last Name',emp.lastName,'text')}
+        ${field('middleName','Middle Name',emp.middleName,'text')}
+        ${field('suffix','Suffix',emp.suffix,'text')}
+        ${selectField('gender','Gender',emp.gender,[['','Select...'],['MALE','Male'],['FEMALE','Female'],['OTHER','Other']])}
+        ${field('birthDate','Birthday',emp.birthDate?emp.birthDate.slice(0,10):'','date')}
+        ${selectField('civilStatus','Civil Status',emp.civilStatus,[['','Select...'],['SINGLE','Single'],['MARRIED','Married'],['WIDOWED','Widowed'],['SEPARATED','Separated']])}
+        ${field('nationality','Nationality',emp.nationality,'text')}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-hdr">Contact</div>
+      <div class="edit-grid">
+        ${field('personalEmail','Personal Email',emp.personalEmail,'email')}
+        ${field('mobileNo','Mobile No.',emp.mobileNo,'text')}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-hdr">Government IDs</div>
+      <div class="edit-grid">
+        ${field('sssNo','SSS No.',emp.sssNo,'text')}
+        ${field('philhealthNo','PhilHealth No.',emp.philhealthNo,'text')}
+        ${field('pagibigNo','Pag-IBIG No.',emp.pagibigNo,'text')}
+        ${field('tinNo','TIN',emp.tinNo,'text')}
+      </div>
+    </div>
+  `
+
+  bindEditButton()
+  updateHdrBtn()
+  document.getElementById('cancel-btn').addEventListener('click',()=>{editMode=false;renderView();updateHdrBtn()})
+  document.getElementById('save-btn').addEventListener('click',saveProfile)
+}
+
+function field(id,lbl,value,type){
+  return`<div class="form-group">
+    <label class="form-lbl">${lbl}</label>
+    <input class="form-inp" id="f-${id}" type="${type}" value="${esc(value||'')}"/>
+  </div>`
+}
+function selectField(id,lbl,value,opts){
+  const options=opts.map(([v,l])=>`<option value="${v}"${value===v?' selected':''}>${l}</option>`).join('')
+  return`<div class="form-group">
+    <label class="form-lbl">${lbl}</label>
+    <select class="form-inp" id="f-${id}">${options}</select>
+  </div>`
+}
+
+function getFieldVal(id){
+  const el=document.getElementById('f-'+id)
+  return el?el.value.trim()||null:null
+}
+
+async function saveProfile(){
+  const errEl=document.getElementById('save-err')
+  const errTxt=document.getElementById('save-err-text')
+  const saveBtn=document.getElementById('save-btn')
+  errEl.style.display='none'
+  const payload={
+    firstName:    getFieldVal('firstName'),
+    lastName:     getFieldVal('lastName'),
+    middleName:   getFieldVal('middleName'),
+    suffix:       getFieldVal('suffix'),
+    gender:       getFieldVal('gender')||undefined,
+    birthDate:    getFieldVal('birthDate')||undefined,
+    civilStatus:  getFieldVal('civilStatus')||undefined,
+    nationality:  getFieldVal('nationality'),
+    personalEmail:getFieldVal('personalEmail'),
+    mobileNo:     getFieldVal('mobileNo'),
+    sssNo:        getFieldVal('sssNo'),
+    philhealthNo: getFieldVal('philhealthNo'),
+    pagibigNo:    getFieldVal('pagibigNo'),
+    tinNo:        getFieldVal('tinNo'),
+  }
+  // Remove null/undefined
+  Object.keys(payload).forEach(k=>{if(payload[k]===null||payload[k]===undefined)delete payload[k]})
+  saveBtn.disabled=true;saveBtn.innerHTML='<span class="spin">&#8635;</span> Saving...'
+  try{
+    const res=await api.updateProfile(payload)
+    if(res.ok){
+      // Refresh employee data
+      const r2=await api.getProfile()
+      if(r2.ok&&r2.data?.employee){emp=r2.data.employee}
+      renderEdit('Profile updated successfully!')
+      updateHdrBtn()
+    }else{
+      errTxt.textContent=res.data?.error||'Failed to save changes.'
+      errEl.style.display='flex'
+    }
+  }catch(e){errTxt.textContent=e?.message||'Connection error.';errEl.style.display='flex'}
+  finally{const b=document.getElementById('save-btn');if(b){b.disabled=false;b.innerHTML='<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 10l5 5 8-8"/></svg> Save Changes'}}
+}
+
+function updateHdrBtn(){
+  const btn=document.getElementById('edit-btn')
+  if(!btn)return
+  if(editMode){btn.innerHTML='<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2l4 4-10 10H4v-4L14 2z"/></svg> Editing...';btn.style.opacity='.5'}
+  else{btn.innerHTML='<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2l4 4-10 10H4v-4L14 2z"/></svg> Edit';btn.style.opacity='1'}
+}
+
+function bindEditButton(){
+  const btn=document.getElementById('edit-btn')
+  if(!btn || btn.dataset.bound==='1') return
+  btn.dataset.bound='1'
+  btn.addEventListener('click',()=>{
+    if(!emp)return
+    editMode=!editMode
+    if(editMode)renderEdit()
+    else renderView()
+    updateHdrBtn()
+  })
+}
+
+async function load(){
+  const main=document.getElementById('main')
+  try{
+    const res=await api.getProfile()
+    if(res.ok&&res.data?.employee){
+      emp=res.data.employee
+      renderView()
+    }else{
+      main.innerHTML='<div class="state"><div style="font-size:36px;opacity:.3;">&#128100;</div><div style="font-size:12px;">Profile not found.</div></div>'
+    }
+  }catch{
+    main.innerHTML='<div class="state"><div style="font-size:36px;opacity:.3;">&#9888;</div><div style="font-size:12px;">Failed to load profile.</div></div>'
+  }
+}
+load()
+</script>
+</body>
+</html>
+
+

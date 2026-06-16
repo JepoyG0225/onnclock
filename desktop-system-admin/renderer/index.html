@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Admin Interface</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>SysAdmin</h1>
+      <button class="nav active" data-view="dashboard">Dashboard</button>
+      <button class="nav" data-view="users">Users</button>
+      <button class="nav" data-view="services">Services</button>
+      <button class="nav" data-view="logs">Logs</button>
+      <button class="nav" data-view="settings">Settings</button>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <h2 id="viewTitle">Dashboard</h2>
+          <p id="viewSubtitle">System health and activity overview</p>
+        </div>
+        <button id="refreshBtn">Refresh</button>
+      </header>
+
+      <section id="dashboard" class="view active">
+        <div class="cards">
+          <article class="card"><h3>Server Uptime</h3><p id="uptime">--</p></article>
+          <article class="card"><h3>Active Users</h3><p id="activeUsers">--</p></article>
+          <article class="card"><h3>CPU Load</h3><p id="cpuLoad">--</p></article>
+          <article class="card"><h3>Memory Usage</h3><p id="memoryUsage">--</p></article>
+          <article class="card"><h3>Open Incidents</h3><p id="incidents">--</p></article>
+        </div>
+      </section>
+
+      <section id="users" class="view">
+        <h3>Admin Users</h3>
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Alice Santos</td><td>Super Admin</td><td><span class="ok">Online</span></td></tr>
+            <tr><td>Mark Reyes</td><td>Security Admin</td><td><span class="warn">Idle</span></td></tr>
+            <tr><td>John Cruz</td><td>Ops Admin</td><td><span class="ok">Online</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="services" class="view">
+        <h3>Services</h3>
+        <ul class="service-list">
+          <li><span>Auth API</span><span class="ok">Running</span></li>
+          <li><span>Payroll Engine</span><span class="ok">Running</span></li>
+          <li><span>Notification Queue</span><span class="warn">Degraded</span></li>
+          <li><span>Database</span><span class="ok">Running</span></li>
+        </ul>
+      </section>
+
+      <section id="logs" class="view">
+        <h3>Recent Logs</h3>
+        <pre class="log-box" id="logBox">[INFO] System started.
+[INFO] User alice.santos signed in.
+[WARN] Notification queue latency increased.
+[INFO] Backup completed successfully.</pre>
+      </section>
+
+      <section id="settings" class="view">
+        <h3>Settings</h3>
+        <div class="settings-grid">
+          <label>Alert Email
+            <input type="email" value="admin@company.com" />
+          </label>
+          <label>Auto Refresh Interval (sec)
+            <input type="number" value="30" min="5" />
+          </label>
+          <button class="save-btn">Save Settings</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./renderer.js"></script>
+</body>
+</html>
