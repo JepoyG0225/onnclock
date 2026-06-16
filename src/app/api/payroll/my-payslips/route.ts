@@ -20,6 +20,9 @@ export async function GET() {
       payrollRun: {
         select: { periodLabel: true, periodStart: true, periodEnd: true, payDate: true, status: true },
       },
+      incomes: {
+        select: { typeName: true, amount: true },
+      },
     },
     orderBy: { payrollRun: { periodStart: 'desc' } },
     take: 24,

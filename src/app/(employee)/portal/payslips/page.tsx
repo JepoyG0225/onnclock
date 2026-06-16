@@ -19,6 +19,7 @@ interface Payslip {
   medicalAllowance: number
   otherAllowances: number
   otherEarnings: number
+  incomes: { typeName: string; amount: number }[]
   grossPay: number
   totalDeductions: number
   netPay: number
@@ -164,16 +165,28 @@ export default function PayslipsPage() {
                         <span>{peso(selected.nightDiffAmount)}</span>
                       </div>
                     )}
-                    {/* otherAllowances is the non-taxable subset of
-                       otherEarnings (same money, two storage columns —
-                       see compute route). Use otherEarnings only to
-                       avoid double-counting. */}
-                    {(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance + selected.otherEarnings) > 0 && (
+                    {(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance) > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Allowances &amp; Others</span>
-                        <span>{peso(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance + selected.otherEarnings)}</span>
+                        <span className="text-gray-600">Allowances</span>
+                        <span>{peso(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance)}</span>
                       </div>
                     )}
+                    {selected.incomes?.filter(i => i.amount > 0).map((inc, idx) => (
+                      <div key={idx} className="flex justify-between">
+                        <span className="text-gray-600">{inc.typeName}</span>
+                        <span>{peso(typeof inc.amount === 'number' ? inc.amount : Number(inc.amount))}</span>
+                      </div>
+                    ))}
+                    {(() => {
+                      const incomesSum = (selected.incomes ?? []).reduce((s, i) => s + (typeof i.amount === 'number' ? i.amount : Number(i.amount)), 0)
+                      const residual = selected.otherEarnings - incomesSum
+                      return residual > 0.01 ? (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Other Earnings</span>
+                          <span>{peso(residual)}</span>
+                        </div>
+                      ) : null
+                    })()}
                     <div className="flex justify-between border-t border-gray-100 pt-1.5 font-semibold">
                       <span>Gross</span>
                       <span style={{ color: '#032b63' }}>{peso(selected.grossPay)}</span>

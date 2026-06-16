@@ -42,6 +42,9 @@ export async function GET(
           position: { select: { title: true } },
         },
       },
+      incomes: {
+        select: { typeName: true, amount: true },
+      },
     },
     orderBy: [{ employee: { lastName: 'asc' } }],
   })
@@ -52,11 +55,27 @@ export async function GET(
       ps.restDayOtAmount.toNumber() +
       ps.holidayOtAmount.toNumber() +
       ps.nightDiffAmount.toNumber()
-    const allowances =
+
+    // Build per-income-type breakdown
+    const incomeItems: Record<string, number> = {}
+    let incomesSum = 0
+    for (const inc of ps.incomes) {
+      const amt = inc.amount.toNumber()
+      if (amt > 0) {
+        incomeItems[inc.typeName] = (incomeItems[inc.typeName] ?? 0) + amt
+        incomesSum += amt
+      }
+    }
+
+    // Allowances = de minimis only; residual otherEarnings (not covered by
+    // income items) goes into the base "Allowances" column so totals still tie.
+    const deminimis =
       ps.riceAllowance.toNumber() +
       ps.clothingAllowance.toNumber() +
-      ps.medicalAllowance.toNumber() +
-      ps.otherEarnings.toNumber()
+      ps.medicalAllowance.toNumber()
+    const residualOther = ps.otherEarnings.toNumber() - incomesSum
+    const allowances = deminimis + (residualOther > 0.01 ? residualOther : 0)
+
     const loans =
       ps.sssLoanDeduction.toNumber() +
       ps.pagibigLoan.toNumber() +
@@ -73,6 +92,7 @@ export async function GET(
       position: ps.employee.position?.title || '',
       basicPay: ps.basicSalary.toNumber(),
       allowances,
+      incomeItems,
       otAmount,
       grossPay: ps.grossPay.toNumber(),
       sssEmployee: ps.sssEmployee.toNumber(),

@@ -8,6 +8,8 @@ export interface PayrollRunRow {
   position: string
   basicPay: number
   allowances: number
+  /** Per-income-type amounts keyed by typeName */
+  incomeItems?: Record<string, number>
   otAmount: number
   grossPay: number
   // Employee contributions
@@ -46,6 +48,15 @@ export function generatePayrollRunExcel(
   const peso = makePeso(currency)
   const wb = XLSX.utils.book_new()
 
+  // ── Discover unique income type names across all employees ────────────────
+  const incomeTypeSet = new Set<string>()
+  for (const r of rows) {
+    if (r.incomeItems) {
+      for (const key of Object.keys(r.incomeItems)) incomeTypeSet.add(key)
+    }
+  }
+  const incomeTypeNames = [...incomeTypeSet].sort()
+
   // ── Sheet 1: Payroll Summary ──────────────────────────────────────────────
   const summaryHeader = [
     [`${companyName} — PAYROLL REGISTER`],
@@ -54,7 +65,9 @@ export function generatePayrollRunExcel(
     [],
     [
       'Emp No.', 'Last Name', 'First Name', 'Department', 'Position',
-      'Basic Pay', 'Allowances', 'OT / ND', 'Gross Pay',
+      'Basic Pay', 'Allowances',
+      ...incomeTypeNames,
+      'OT / ND', 'Gross Pay',
       'SSS (EE)', 'PhilHealth (EE)', 'Pag-IBIG (EE)', 'W/Tax',
       'Loans', 'Other Ded.', 'Total Ded.', 'Net Pay',
       // Employer shares
@@ -67,27 +80,36 @@ export function generatePayrollRunExcel(
 
   const bodyData = rows.map(r => [
     r.employeeNo, r.lastName, r.firstName, r.department, r.position,
-    r.basicPay, r.allowances, r.otAmount, r.grossPay,
+    r.basicPay, r.allowances,
+    ...incomeTypeNames.map(name => r.incomeItems?.[name] ?? 0),
+    r.otAmount, r.grossPay,
     r.sssEmployee, r.philhealthEmployee, r.pagibigEmployee, r.withholdingTax,
     r.loans, r.otherDeductions, r.totalDeductions, r.netPay,
     r.sssEmployer, r.sssEc, r.philhealthEmployer, r.pagibigEmployer, r.totalEmployerCost,
   ])
 
+  const incomeTypeTotals = incomeTypeNames.map(name =>
+    rows.reduce((s, r) => s + (r.incomeItems?.[name] ?? 0), 0)
+  )
+
   const totalRow = [
     '', '', '', '', 'TOTAL',
-    totals('basicPay'), totals('allowances'), totals('otAmount'), totals('grossPay'),
+    totals('basicPay'), totals('allowances'),
+    ...incomeTypeTotals,
+    totals('otAmount'), totals('grossPay'),
     totals('sssEmployee'), totals('philhealthEmployee'), totals('pagibigEmployee'), totals('withholdingTax'),
     totals('loans'), totals('otherDeductions'), totals('totalDeductions'), totals('netPay'),
     totals('sssEmployer'), totals('sssEc'), totals('philhealthEmployer'), totals('pagibigEmployer'), totals('totalEmployerCost'),
   ]
 
+  const colCount = 22 + incomeTypeNames.length
   const ws1Data = [...summaryHeader, ...bodyData, [], totalRow]
   const ws1 = XLSX.utils.aoa_to_sheet(ws1Data)
-  ws1['!cols'] = Array(22).fill({ wch: 14 })
+  ws1['!cols'] = Array(colCount).fill({ wch: 14 })
   ws1['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 21 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 21 } },
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 21 } },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: colCount - 1 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: colCount - 1 } },
   ]
   XLSX.utils.book_append_sheet(wb, ws1, 'Payroll Register')
 

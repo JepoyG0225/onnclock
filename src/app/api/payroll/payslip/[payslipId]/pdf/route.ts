@@ -61,11 +61,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   }
 
   const emp = payslip.employee
+
+  // Fetch individual other-income items for this payslip
+  const payslipIncomes = await prisma.payslipIncome.findMany({
+    where: { payslipId },
+    select: { typeName: true, amount: true },
+    orderBy: { typeName: 'asc' },
+  })
+
   const allowancesTotal =
     payslip.riceAllowance.toNumber() +
     payslip.clothingAllowance.toNumber() +
-    payslip.medicalAllowance.toNumber() +
-    payslip.otherEarnings.toNumber()
+    payslip.medicalAllowance.toNumber()
 
   const loanDeductionsTotal =
     payslip.sssLoanDeduction.toNumber() +
@@ -76,6 +83,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   const periodEnd = payslip.payrollRun?.periodEnd ? format(new Date(payslip.payrollRun.periodEnd), 'MMMM d, yyyy') : '-'
   const payDate = payslip.payrollRun?.payDate ? format(new Date(payslip.payrollRun.payDate), 'MMMM d, yyyy') : '-'
 
+  // Build itemized income lines from PayslipIncome records
+  const incomeLines: [string, number][] = payslipIncomes
+    .map(i => [i.typeName, i.amount.toNumber()] as [string, number])
+    .filter(([, v]) => v > 0)
+
+  // Any residual otherEarnings not accounted for by the itemized incomes
+  const incomesSum = incomeLines.reduce((s, [, v]) => s + v, 0)
+  const residualOther = payslip.otherEarnings.toNumber() - incomesSum
+
   const earnings: [string, number][] = [
     ['Basic Pay', payslip.basicSalary.toNumber()],
     ['Regular Overtime (125%)', payslip.regularOtAmount.toNumber()],
@@ -84,6 +100,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     ['Holiday Pay', payslip.holidayPayAmount.toNumber()],
     ['Night Differential', payslip.nightDiffAmount.toNumber()],
     ['Allowances', allowancesTotal],
+    ...incomeLines,
+    ...(residualOther > 0.01 ? [['Other Earnings', residualOther] as [string, number]] : []),
   ]
   const earningsRows: Array<[string, number]> = earnings.filter(([, v]) => v > 0)
 
