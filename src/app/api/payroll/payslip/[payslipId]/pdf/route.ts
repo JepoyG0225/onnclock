@@ -92,13 +92,39 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   const incomesSum = incomeLines.reduce((s, [, v]) => s + v, 0)
   const residualOther = payslip.otherEarnings.toNumber() - incomesSum
 
-  const earnings: [string, number][] = [
-    ['Basic Pay', payslip.basicSalary.toNumber()],
+  // Itemized DOLE premium lines (Legal Holiday, LHND, Rest Day, Night Diff,
+  // OT variants, …). When present they REPLACE the legacy aggregate
+  // OT/holiday/ND rows so the payslip shows the precise breakdown — including
+  // the LH vs LHND split for night shifts crossing into a holiday. Older
+  // payslips computed before this feature have no premium rows and fall back
+  // to the aggregate columns.
+  // Fetched separately + guarded: the payslip_premiums table may not exist on
+  // environments where the migration hasn't been applied yet.
+  let premiumRows: { label: string; hours: number; amount: number }[] = []
+  try {
+    const rows = await prisma.payslipPremium.findMany({
+      where: { payslipId },
+      select: { label: true, hours: true, amount: true },
+      orderBy: { amount: 'desc' },
+    })
+    premiumRows = rows.map(r => ({ label: r.label, hours: r.hours.toNumber(), amount: r.amount.toNumber() }))
+  } catch { premiumRows = [] }
+
+  const premiumLines: [string, number][] = premiumRows
+    .map(p => [`${p.label}${p.hours ? ` (${p.hours}h)` : ''}`, p.amount] as [string, number])
+    .filter(([, v]) => v > 0)
+
+  const legacyPremiumRows: [string, number][] = [
     ['Regular Overtime (125%)', payslip.regularOtAmount.toNumber()],
     ['Rest Day OT (130%)', payslip.restDayOtAmount.toNumber()],
     ['Holiday OT', payslip.holidayOtAmount.toNumber()],
     ['Holiday Pay', payslip.holidayPayAmount.toNumber()],
     ['Night Differential', payslip.nightDiffAmount.toNumber()],
+  ]
+
+  const earnings: [string, number][] = [
+    ['Basic Pay', payslip.basicSalary.toNumber()],
+    ...(premiumLines.length > 0 ? premiumLines : legacyPremiumRows),
     ['Allowances', allowancesTotal],
     ...incomeLines,
     ...(residualOther > 0.01 ? [['Other Earnings', residualOther] as [string, number]] : []),

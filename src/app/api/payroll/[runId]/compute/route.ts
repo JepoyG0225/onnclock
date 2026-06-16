@@ -3,6 +3,13 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { buildOtMapKey, getApprovedOtHoursMap } from '@/lib/overtime-requests'
 import { computePayroll } from '@/lib/payroll/engine'
+import {
+  classifyShiftHours,
+  phtDateKey,
+  type CategoryHours,
+  type HolidayClass,
+  type PremiumCategory,
+} from '@/lib/payroll/premium-matrix'
 import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
@@ -40,6 +47,30 @@ function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
   if (timeOut.getTime() > timeIn.getTime()) return timeOut
   return new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
 }
+
+// ── Premium-matrix helpers ───────────────────────────────────────────────────
+function holidayClassOf(type: string | null | undefined): HolidayClass {
+  return type === 'REGULAR' ? 'REGULAR'
+    : type === 'SPECIAL_NON_WORKING' ? 'SPECIAL_NON_WORKING'
+    : 'NONE'
+}
+/** Weekday (0=Sun..6=Sat) of a PHT YYYY-MM-DD date key. */
+function weekdayOfDateKey(dateKey: string): number {
+  return new Date(`${dateKey}T00:00:00Z`).getUTCDay()
+}
+function addCats(into: CategoryHours, from: CategoryHours): void {
+  for (const k of Object.keys(from) as PremiumCategory[]) {
+    into[k] = Math.round(((into[k] ?? 0) + (from[k] ?? 0)) * 100) / 100
+  }
+}
+function sumCats(c: CategoryHours, pred: (cat: PremiumCategory) => boolean): number {
+  let s = 0
+  for (const k of Object.keys(c) as PremiumCategory[]) if (pred(k)) s += c[k] ?? 0
+  return Math.round(s * 100) / 100
+}
+const isOt = (c: PremiumCategory) => c.includes('_OT')
+const isNd = (c: PremiumCategory) => c.endsWith('_ND')
+const isHolidayCat = (c: PremiumCategory) => c.startsWith('REGULAR_HOLIDAY') || c.startsWith('SPECIAL')
 
 // Hard ceiling on per-shift night-differential. Matches PH practice of an
 // 8-hour shift minus a 1-hour unpaid break = 7 paid hours, all of which
@@ -533,6 +564,7 @@ export async function POST(
     data: Parameters<typeof prisma.payslip.create>[0]['data']
     loanDeductions: { id: string; amount: number }[]
     incomes: { incomeTypeId: string; typeName: string; amount: number; isTaxable: boolean }[]
+    premiums: { category: string; label: string; hours: number; multiplier: number; amount: number }[]
   }
 
   const builds: PayslipBuildItem[] = []
@@ -654,6 +686,80 @@ export async function POST(
     } else {
       regularHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
     }
+
+    // ── DOLE premium-matrix classification ────────────────────────────────
+    // Split every worked shift minute-by-minute into premium categories by
+    // (a) PHT calendar date → holiday / rest-day, (b) the ND window, and
+    // (c) the regular cap → regular vs OT. This is what lets a night shift
+    // crossing midnight into a legal holiday produce LH + LHND correctly.
+    // Regular minutes are capped at the shift's stored regularHours and total
+    // paid minutes at regular + approved OT (unpaid overstay dropped), so the
+    // matrix non-OT hours equal the existing basic-pay basis — premiums stack
+    // without double-counting the basic 100%.
+    const disableHolidayEmp = (emp as { disableHolidayPay?: boolean }).disableHolidayPay === true
+    const workDaySet = new Set(
+      Array.isArray(emp.workSchedule?.workDays)
+        ? (emp.workSchedule!.workDays as unknown[]).map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6)
+        : [],
+    )
+    const isRestDayDate = (dateKey: string): boolean =>
+      workDaySet.size > 0 ? !workDaySet.has(weekdayOfDateKey(dateKey)) : false
+    const holidayForDate = (dateKey: string): HolidayClass =>
+      disableHolidayEmp ? 'NONE' : holidayClassOf(holidayMap.get(dateKey)?.type as string | undefined)
+    const ndStartForMatrix = nightDifferentialEnabled ? nightDiffStartMinutes : 0
+    const ndEndForMatrix = nightDifferentialEnabled ? nightDiffEndMinutes : 0
+
+    const premiumHoursByCat: CategoryHours = {}
+    let hadTimestampedShift = false
+    if (hasDtr) {
+      for (const d of enhancedDtr) {
+        if (d.isAbsent) continue
+        if (d.isLeave && !d.isLeavePaid) continue
+        const otPaid = overtimeEnabled ? (d.overtimeHours ?? 0) : 0
+        if (d.timeIn && d.timeOut) {
+          hadTimestampedShift = true
+          const effOut = normalizeOvernightOut(d.timeIn, d.timeOut)
+          const spanMin = (effOut.getTime() - d.timeIn.getTime()) / 60000
+          const breakMin = spanMin >= 300 ? Number(emp.workSchedule?.breakMinutes ?? 60) : 0
+          let regHrs = d.regularHours?.toNumber?.() ?? Number(d.regularHours ?? 0)
+          if (regHrs <= 0) regHrs = Math.max(0, (spanMin - breakMin) / 60)
+          const usesRealBreak = !!(d.breakIn && d.breakOut)
+          addCats(premiumHoursByCat, classifyShiftHours({
+            timeIn: d.timeIn,
+            timeOut: effOut,
+            breakIn: d.breakIn ?? null,
+            breakOut: d.breakOut ?? null,
+            allowedBreakMinutes: usesRealBreak ? undefined : breakMin,
+            regularCapMinutes: Math.round(regHrs * 60),
+            maxWorkedMinutes: Math.round((regHrs + otPaid) * 60),
+            ndStartMins: ndStartForMatrix,
+            ndEndMins: ndEndForMatrix,
+            holidayFor: holidayForDate,
+            isRestDayDate,
+          }))
+        } else {
+          // No timestamps (manual present / paid leave): synthesize a daytime
+          // block so holiday / rest-day premiums aren't lost.
+          const dateKey = phtDateKey(new Date(d.date))
+          const hol = holidayForDate(dateKey)
+          const rest = isRestDayDate(dateKey)
+          if (hol === 'NONE' && !rest) continue
+          const halfDay = (d as { isHalfDay?: boolean }).isHalfDay ?? false
+          const hrs = halfDay ? workHoursPerDayForCap / 2 : workHoursPerDayForCap
+          if (hrs <= 0) continue
+          const synthCat: PremiumCategory =
+            hol === 'REGULAR' ? (rest ? 'REGULAR_HOLIDAY_RD' : 'REGULAR_HOLIDAY')
+            : hol === 'SPECIAL_NON_WORKING' ? (rest ? 'SPECIAL_RD' : 'SPECIAL')
+            : 'REST_DAY'
+          premiumHoursByCat[synthCat] = Math.round(((premiumHoursByCat[synthCat] ?? 0) + hrs) * 100) / 100
+        }
+      }
+    }
+    const usePremiums = hadTimestampedShift || Object.keys(premiumHoursByCat).length > 0
+    const matrixRegularOtHours = sumCats(premiumHoursByCat, c => c.startsWith('ORDINARY') && isOt(c))
+    const matrixRestDayOtHours = sumCats(premiumHoursByCat, c => c.startsWith('REST_DAY') && isOt(c))
+    const matrixHolidayOtHours = sumCats(premiumHoursByCat, c => isHolidayCat(c) && isOt(c))
+    const matrixNightDiffHours = sumCats(premiumHoursByCat, isNd)
 
     const regularOtHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
@@ -891,6 +997,11 @@ export async function POST(
         regularHolidayNonWorkDays,
         regularHolidayHoursWorked,
         specialHolidayHoursWorked,
+        // When present, the engine prices ALL premium pay from this matrix
+        // (incl. LHND) and ignores the legacy day-count holiday / standalone
+        // ND inputs above. Absent → legacy path (e.g. monthly night-shift
+        // hires with no DTR keep the schedule-derived ND fallback).
+        premiums: usePremiums ? premiumHoursByCat : undefined,
       },
       loans: loanDeductions,
       deMinimis:  { riceSubsidy: 0, clothing: 0, medical: 0, laundry: 0, meal: 0, other: 0 },
@@ -920,6 +1031,9 @@ export async function POST(
 
     builds.push({
       employeeId: emp.id,
+      premiums: (result.premiumLineItems ?? []).map(p => ({
+        category: p.category, label: p.label, hours: p.hours, multiplier: p.multiplier, amount: p.amount,
+      })),
       loanDeductions: loanDeductions.map(l => ({ id: l.id, amount: l.amount })),
       data: {
         payrollRunId:               runId,
@@ -928,13 +1042,13 @@ export async function POST(
         dailyRate,
         daysWorked,
         hoursWorked:                regularHoursTotal,
-        regularOtHours,
+        regularOtHours:             usePremiums ? matrixRegularOtHours : regularOtHours,
         regularOtAmount:            result.regularOtAmount,
-        restDayOtHours:             0,
+        restDayOtHours:             usePremiums ? matrixRestDayOtHours : 0,
         restDayOtAmount:            result.restDayOtAmount,
-        holidayOtHours:             0,
+        holidayOtHours:             usePremiums ? matrixHolidayOtHours : 0,
         holidayOtAmount:            result.holidayOtAmount,
-        nightDiffHours,
+        nightDiffHours:             usePremiums ? matrixNightDiffHours : nightDiffHours,
         nightDiffAmount:            result.nightDiffAmount,
         holidayPayAmount:           result.holidayPayAmount,
         otherAllowances:            additionalNonTaxableIncome,
@@ -1147,6 +1261,29 @@ export async function POST(
           isTaxable: income.isTaxable,
         })),
       })
+    }
+
+    if (build.premiums.length > 0) {
+      // Best-effort: the payslip_premiums table may not exist yet on
+      // environments where the migration hasn't been applied. The premium
+      // AMOUNTS are already persisted in the aggregate Payslip columns
+      // (nightDiffAmount / holidayPayAmount / holidayOtAmount / OT), so a
+      // missing itemized table only drops the line-item breakdown — payroll
+      // pay is unaffected.
+      try {
+        await prisma.payslipPremium.createMany({
+          data: build.premiums.map(p => ({
+            payslipId: payslip.id,
+            category: p.category,
+            label: p.label,
+            hours: p.hours,
+            multiplier: p.multiplier,
+            amount: p.amount,
+          })),
+        })
+      } catch (err) {
+        console.error('[payroll compute] payslip_premiums unavailable (run migration)', err)
+      }
     }
   }
 

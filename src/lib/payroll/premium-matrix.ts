@@ -162,6 +162,12 @@ export interface ClassifyShiftInput {
   allowedBreakMinutes?: number
   /** Worked minutes up to this cap are "regular"; beyond it are OT. */
   regularCapMinutes: number
+  /**
+   * Stop classifying once this many PAID (worked, non-break) minutes are
+   * counted. Used to drop unpaid overstay beyond regular + approved OT while
+   * keeping the real shift timeline (and break) intact. Omit for no cap.
+   */
+  maxWorkedMinutes?: number
   /** ND window in PHT minutes-of-day. Defaults 22:00 / 06:00. */
   ndStartMins?: number
   ndEndMins?: number
@@ -213,8 +219,10 @@ export function classifyShiftHours(input: ClassifyShiftInput): CategoryHours {
   const buckets = new Map<PremiumCategory, number>()
   let workedMin = 0
   const cap = Math.max(0, input.regularCapMinutes)
+  const maxWorked = input.maxWorkedMinutes != null ? Math.max(0, input.maxWorkedMinutes) : Infinity
 
   for (let t = timeIn.getTime(); t < timeOut.getTime(); t += 60_000) {
+    if (workedMin >= maxWorked) break
     if (breakStart != null && breakEnd != null && t >= breakStart && t < breakEnd) continue
     const cur = new Date(t)
     const dateKey = phtDateKey(cur)
