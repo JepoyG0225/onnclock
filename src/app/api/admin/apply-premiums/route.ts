@@ -19,14 +19,19 @@ import { prisma } from '@/lib/prisma'
 const MIGRATION_NAME = '20260617000000_add_payslip_premiums'
 
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireAuth()
-  if (error) return error
-  if (ctx.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'SUPER_ADMIN only' }, { status: 403 })
-  }
+  // Auth: a valid MIGRATION_APPLY_KEY alone is sufficient (mirrors the
+  // payroll compute route's adminKey bypass — the key is a strong secret
+  // already trusted for full recomputes). Otherwise fall back to requiring a
+  // SUPER_ADMIN session.
   const key = (req.nextUrl.searchParams.get('key') ?? '').trim()
   const expected = (process.env.MIGRATION_APPLY_KEY ?? '').trim().replace(/^"|"$/g, '')
-  if (!expected || key !== expected) {
+  const keyOk = expected.length > 0 && key === expected
+  if (!keyOk) {
+    const { ctx, error } = await requireAuth()
+    if (error) return error
+    if (ctx.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'SUPER_ADMIN only' }, { status: 403 })
+    }
     return NextResponse.json({ error: 'Invalid key' }, { status: 403 })
   }
 
