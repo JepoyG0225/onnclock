@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { weekStart, weekEnd, approveOvertime, overtimeRequestIds } = parsed.data
+  const { weekStart, weekEnd, overtimeRequestIds } = parsed.data
   const start = new Date(weekStart)
   const end = new Date(weekEnd)
   const endPlus = new Date(end)
@@ -56,12 +56,15 @@ export async function POST(req: NextRequest) {
   let otApproved = 0
   if (await isOvertimeEnabledForCompany(companyId)) {
     if (overtimeRequestIds !== undefined) {
+      // Explicit picker (empty array = "approve regular hours only" opt-out).
       otApproved = await approveAutoOtByIds({
         companyId,
         ids: overtimeRequestIds,
         approvedById: ctx.userId,
       })
-    } else if (approveOvertime) {
+    } else {
+      // Default approve: keep timesheets and OT in sync by approving every
+      // PENDING auto-OT request in the range so approved hours get paid.
       otApproved = await approveAutoOtForRange({
         companyId,
         dateFrom: start,

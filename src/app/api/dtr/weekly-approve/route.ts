@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { employeeId, weekStart, weekEnd, action, approveOvertime, overtimeRequestIds } = parsed.data
+  const { employeeId, weekStart, weekEnd, action, overtimeRequestIds } = parsed.data
 
   const start = new Date(weekStart)
   const end = new Date(weekEnd)
@@ -71,14 +71,19 @@ export async function POST(req: NextRequest) {
   let otApproved = 0
   if (action === 'APPROVED' && await isOvertimeEnabledForCompany(companyId)) {
     // Per-timesheet picker takes precedence — when the client passes an
-    // explicit list (empty included), respect it exactly.
+    // explicit list (empty included), respect it exactly. An empty array is
+    // the deliberate "approve regular hours only" opt-out.
     if (overtimeRequestIds !== undefined) {
       otApproved = await approveAutoOtByIds({
         companyId,
         ids: overtimeRequestIds,
         approvedById: ctx.userId,
       })
-    } else if (approveOvertime) {
+    } else {
+      // Default approve (no explicit picker): keep the timesheet and its OT
+      // in sync — approve every PENDING auto-OT request in the week so the
+      // approved hours are actually paid in payroll. (`approveOvertime` is
+      // still accepted from legacy clients but no longer required.)
       otApproved = await approveAutoOtForRange({
         companyId,
         employeeId: employee.id,

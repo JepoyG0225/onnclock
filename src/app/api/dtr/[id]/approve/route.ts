@@ -15,10 +15,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const body = await req.json()
   const action = body.action as 'APPROVED' | 'REJECTED'
-  const approveOvertime = !!body.approveOvertime
   // Optional explicit OT picker — when provided, ONLY these ids are
-  // approved. Takes precedence over `approveOvertime`. Empty array =
-  // approve none.
+  // approved. Empty array = approve none ("approve regular hours only").
+  // When omitted entirely, the default-approve path below approves the
+  // DTR's linked auto-OT so the timesheet and OT requests stay in sync.
   const overtimeRequestIds: string[] | undefined = Array.isArray(body.overtimeRequestIds)
     ? body.overtimeRequestIds
     : undefined
@@ -41,12 +41,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let otApproved = 0
   if (action === 'APPROVED' && await isOvertimeEnabledForCompany(companyId)) {
     if (overtimeRequestIds !== undefined) {
+      // Explicit picker (empty array = "approve regular hours only" opt-out).
       otApproved = await approveAutoOtByIds({
         companyId,
         ids: overtimeRequestIds,
         approvedById: ctx.userId,
       })
-    } else if (approveOvertime && Number(record.overtimeHours ?? 0) > 0) {
+    } else {
+      // Default approve: keep the timesheet and its OT in sync — approve any
+      // PENDING auto-OT request for this DTR's day so the approved hours are
+      // actually paid in payroll. (`approveOvertime` is still accepted from
+      // legacy clients but no longer required.)
       otApproved = await approveAutoOtForDtr({
         companyId,
         employeeId: record.employeeId,
