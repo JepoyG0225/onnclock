@@ -60,21 +60,29 @@ export async function PATCH(req: NextRequest) {
   if (error) return error
 
   const body = await req.json()
+  // Partial-update safety: only touch fields the profile form actually sent.
+  //   n(undefined) → undefined → Prisma skips (preserve existing value)
+  //   n('')        → null       → employee explicitly cleared the field
+  // Previously every field used `?? null`, so any field omitted by the portal
+  // form (or sent as undefined) silently wiped the stored value.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const n = (v: any) => (v === undefined ? undefined : (v === '' ? null : v))
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
   const data = {
     firstName: body.firstName,
-    middleName: body.middleName ?? null,
+    middleName: n(body.middleName),
     lastName: body.lastName,
-    suffix: body.suffix ?? null,
+    suffix: n(body.suffix),
     gender: body.gender,
-    birthDate: body.birthDate ? new Date(body.birthDate) : undefined,
+    ...(body.birthDate ? { birthDate: new Date(body.birthDate) } : {}),
     civilStatus: body.civilStatus,
     nationality: body.nationality,
-    personalEmail: body.personalEmail ?? null,
-    mobileNo: body.mobileNo ?? null,
-    sssNo: body.sssNo ?? null,
-    philhealthNo: body.philhealthNo ?? null,
-    pagibigNo: body.pagibigNo ?? null,
-    tinNo: body.tinNo ?? null,
+    personalEmail: n(body.personalEmail),
+    mobileNo: n(body.mobileNo),
+    sssNo: n(body.sssNo),
+    philhealthNo: n(body.philhealthNo),
+    pagibigNo: n(body.pagibigNo),
+    tinNo: n(body.tinNo),
   }
 
   const employeeId = await resolvePortalEmployeeId(ctx)

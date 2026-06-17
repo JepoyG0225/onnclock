@@ -107,9 +107,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    // Convert empty strings / undefined to null for nullable fields
+    // Partial-update safety: this PATCH endpoint is hit with BOTH full edit
+    // forms AND tiny partial bodies (e.g. the schedule picker sends only
+    // { workScheduleId }, the portal profile sends only a few fields). A field
+    // the caller DID NOT send must be left untouched — never wiped.
+    //
+    //   n(undefined) → undefined  → Prisma skips the column (preserve existing)
+    //   n('')        → null       → caller explicitly cleared the field
+    //   n(value)     → value
+    //
+    // (Previously n() mapped BOTH '' and undefined to null, so any partial
+    // update nulled out personalEmail/workEmail, addresses, gov IDs, bank
+    // details, emergency contacts, etc. — and disconnected dept/position/
+    // manager. That's the data-loss bug this guards against.)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const n = (v: any) => (v === '' || v === undefined ? null : v)
+    const n = (v: any) => (v === undefined ? undefined : (v === '' ? null : v))
+    const has = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
 
     // Use the workScheduleId directly — never auto-create "Custom Day Offs" schedules.
     // dayOffDays is intentionally ignored: day-off customisation is handled via
@@ -119,11 +132,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ? (body.workScheduleId || null)
         : existing.workScheduleId
 
-    // Relation FK fields require connect/disconnect syntax in Prisma v5 EmployeeUpdateInput
-    const deptOp       = body.departmentId   ? { connect: { id: body.departmentId   } } : { disconnect: true }
-    const posOp        = body.positionId     ? { connect: { id: body.positionId     } } : { disconnect: true }
-    const scheduleOp   = resolvedWorkScheduleId ? { connect: { id: resolvedWorkScheduleId } } : { disconnect: true }
-    const managerOp    = body.directManagerId ? { connect: { id: body.directManagerId } } : { disconnect: true }
+    // Relation FK fields require connect/disconnect syntax in Prisma v5
+    // EmployeeUpdateInput. Only touch a relation when the caller actually
+    // sent its key — otherwise a partial update (e.g. schedule-only PATCH)
+    // would disconnect the employee's department / position / manager.
+    const deptOp     = has('departmentId')    ? (body.departmentId    ? { connect: { id: body.departmentId } }    : { disconnect: true }) : undefined
+    const posOp      = has('positionId')      ? (body.positionId      ? { connect: { id: body.positionId } }      : { disconnect: true }) : undefined
+    const managerOp  = has('directManagerId') ? (body.directManagerId ? { connect: { id: body.directManagerId } } : { disconnect: true }) : undefined
+    // workSchedule resolves to the EXISTING id when the key is absent, so the
+    // op is a no-op connect/disconnect in that case (schedule preserved).
+    const scheduleOp = resolvedWorkScheduleId ? { connect: { id: resolvedWorkScheduleId } } : { disconnect: true }
 
     await prisma.employee.update({
       where: { id },
@@ -138,7 +156,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         birthDate:                body.birthDate ? new Date(body.birthDate) : undefined,
         birthPlace:               n(body.birthPlace),
         civilStatus:              body.civilStatus,
-        nationality:              body.nationality || 'Filipino',
+        ...(has('nationality') ? { nationality: body.nationality || 'Filipino' } : {}),
         religion:                 n(body.religion),
         personalEmail:            n(body.personalEmail),
         workEmail:                n(body.workEmail),
@@ -160,9 +178,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         employmentStatus:         body.employmentStatus,
         employmentType:           body.employmentType,
         hireDate:                 body.hireDate           ? new Date(body.hireDate)           : undefined,
-        regularizationDate:       body.regularizationDate ? new Date(body.regularizationDate) : null,
-        resignationDate:          body.resignationDate    ? new Date(body.resignationDate)    : null,
-        terminationDate:          body.terminationDate    ? new Date(body.terminationDate)    : null,
+        // Only clear these when the caller explicitly sent the (empty) key —
+        // a partial update that omits them must leave them untouched.
+        ...(has('regularizationDate') ? { regularizationDate: body.regularizationDate ? new Date(body.regularizationDate) : null } : {}),
+        ...(has('resignationDate')    ? { resignationDate:    body.resignationDate    ? new Date(body.resignationDate)    : null } : {}),
+        ...(has('terminationDate')    ? { terminationDate:    body.terminationDate    ? new Date(body.terminationDate)    : null } : {}),
         rateType:                 body.rateType,
         basicSalary:              body.basicSalary != null ? Number(body.basicSalary) : undefined,
         // Re-derive dailyRate / hourlyRate whenever basicSalary or rateType is updated.
