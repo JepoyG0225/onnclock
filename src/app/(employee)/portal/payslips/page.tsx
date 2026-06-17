@@ -20,6 +20,7 @@ interface Payslip {
   otherAllowances: number
   otherEarnings: number
   incomes: { typeName: string; amount: number }[]
+  premiums?: { category: string; label: string; hours: number; multiplier: number; amount: number }[]
   grossPay: number
   totalDeductions: number
   netPay: number
@@ -147,23 +148,40 @@ export default function PayslipsPage() {
                       <span className="text-gray-600">Basic Pay</span>
                       <span className="font-medium">{peso(selected.basicSalary)}</span>
                     </div>
-                    {(selected.regularOtAmount + selected.restDayOtAmount + selected.holidayOtAmount) > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Overtime Pay</span>
-                        <span>{peso(selected.regularOtAmount + selected.restDayOtAmount + selected.holidayOtAmount)}</span>
-                      </div>
-                    )}
-                    {selected.holidayPayAmount > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Holiday Pay</span>
-                        <span>{peso(selected.holidayPayAmount)}</span>
-                      </div>
-                    )}
-                    {selected.nightDiffAmount > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Night Differential</span>
-                        <span>{peso(selected.nightDiffAmount)}</span>
-                      </div>
+                    {/* Itemized DOLE premium lines (Legal Holiday, LHND, Night
+                        Diff, OT variants) when available. Older payslips have no
+                        premium rows — fall back to the aggregate lines below. */}
+                    {(selected.premiums?.length ?? 0) > 0 ? (
+                      selected.premiums!.filter(p => p.amount > 0).map((p, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span className="text-gray-600">
+                            {p.label}
+                            {p.hours > 0 && <span className="text-gray-400"> · {p.hours}h</span>}
+                          </span>
+                          <span>{peso(p.amount)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        {(selected.regularOtAmount + selected.restDayOtAmount + selected.holidayOtAmount) > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Overtime Pay</span>
+                            <span>{peso(selected.regularOtAmount + selected.restDayOtAmount + selected.holidayOtAmount)}</span>
+                          </div>
+                        )}
+                        {selected.holidayPayAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Holiday Pay</span>
+                            <span>{peso(selected.holidayPayAmount)}</span>
+                          </div>
+                        )}
+                        {selected.nightDiffAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Night Differential</span>
+                            <span>{peso(selected.nightDiffAmount)}</span>
+                          </div>
+                        )}
+                      </>
                     )}
                     {(selected.riceAllowance + selected.clothingAllowance + selected.medicalAllowance) > 0 && (
                       <div className="flex justify-between">

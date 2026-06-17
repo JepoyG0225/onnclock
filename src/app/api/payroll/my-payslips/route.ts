@@ -43,5 +43,30 @@ export async function GET() {
     otherDeductionItems = []
   }
 
-  return NextResponse.json({ payslips, otherDeductionItems })
+  // Itemized DOLE premium lines (Legal Holiday, LHND, Night Diff, OT, …) for
+  // these payslips. Guarded so a not-yet-migrated payslip_premiums table can't
+  // break the list — the aggregate amounts still show via the payslip columns.
+  const premiumsByPayslip: Record<string, { category: string; label: string; hours: number; multiplier: number; amount: number }[]> = {}
+  try {
+    const rows = await prisma.payslipPremium.findMany({
+      where: { payslipId: { in: payslips.map(p => p.id) } },
+      select: { payslipId: true, category: true, label: true, hours: true, multiplier: true, amount: true },
+      orderBy: { amount: 'desc' },
+    })
+    for (const r of rows) {
+      (premiumsByPayslip[r.payslipId] ??= []).push({
+        category: r.category,
+        label: r.label,
+        hours: Number(r.hours),
+        multiplier: Number(r.multiplier),
+        amount: Number(r.amount),
+      })
+    }
+  } catch {
+    // table missing — leave premiumsByPayslip empty
+  }
+
+  const payslipsWithPremiums = payslips.map(p => ({ ...p, premiums: premiumsByPayslip[p.id] ?? [] }))
+
+  return NextResponse.json({ payslips: payslipsWithPremiums, otherDeductionItems })
 }
