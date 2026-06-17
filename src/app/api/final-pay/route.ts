@@ -99,13 +99,29 @@ export async function POST(req: NextRequest) {
       basicSalary: true,
       taxableIncome: true,
       withholdingTax: true,
-      thirteenthMonthContribution: true,
     },
   })
   const basicEarnedYTD     = payslips.reduce((s, p) => s + p.basicSalary.toNumber(),          0)
   const taxableIncomeYTD   = payslips.reduce((s, p) => s + p.taxableIncome.toNumber(),         0)
   const taxWithheldYTD     = payslips.reduce((s, p) => s + p.withholdingTax.toNumber(),        0)
-  const thirteenthPaidYTD  = payslips.reduce((s, p) => s + p.thirteenthMonthContribution.toNumber(), 0)
+
+  // 13th-month "already paid" must be the ACTUAL disbursement for the year,
+  // NOT the per-period accrual (payslip.thirteenthMonthContribution). The
+  // accrual is basicPay/12 each period, so it sums to basicEarnedYTD/12 —
+  // exactly the prorated 13th — which would cancel it out and pay the
+  // separating employee ₱0. Source the real payout from ThirteenthMonthLog
+  // (only when isPaid); default 0 (full prorated 13th still owed) when no
+  // run has disbursed it yet or the table isn't migrated.
+  let thirteenthPaidYTD = 0
+  try {
+    const log = await prisma.thirteenthMonthLog.findUnique({
+      where: { employeeId_year: { employeeId: input.employeeId, year } },
+      select: { thirteenthAmount: true, isPaid: true },
+    })
+    if (log?.isPaid) thirteenthPaidYTD = log.thirteenthAmount.toNumber()
+  } catch {
+    thirteenthPaidYTD = 0
+  }
 
   // ── Leave balance (auto-fill if not provided) ─────────────────────────────
   let unusedLeaveDays = input.unusedLeaveDays
