@@ -1219,8 +1219,11 @@ export async function POST(
         + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance
         + merged.otherEarnings
       ).toFixed(2))
+      // sssEc (Employees' Compensation) is excluded — it's an employer-only
+      // contribution and must not reduce the employee's net pay. Mirrors the
+      // engine's totalDeductions (see src/lib/payroll/engine.ts).
       const totalDeductionsManual = parseFloat((
-        merged.sssEmployee + merged.sssEc + merged.philhealthEmployee + merged.pagibigEmployee
+        merged.sssEmployee + merged.philhealthEmployee + merged.pagibigEmployee
         + merged.withholdingTax + merged.sssLoanDeduction + merged.pagibigLoan + merged.companyLoan
         + merged.lateDeduction + merged.undertimeDeduction + merged.absenceDeduction
         + merged.otherDeductions

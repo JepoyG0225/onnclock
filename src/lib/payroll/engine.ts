@@ -293,9 +293,13 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const thirteenthMonthContribution = parseFloat((basicPayWithHolidayCredit / 12).toFixed(2))
 
   // ── 10. TOTALS ────────────────────────────────
+  // NOTE: sss.ec (Employees' Compensation) is deliberately NOT included here.
+  // EC is a 100% EMPLOYER contribution under PH law — the employee's EC share
+  // is always ₱0. It's still computed/stored (sssEc) for the SSS R3 employer
+  // remittance report, but it must never reduce the employee's net pay.
+  // (Including it was charging employees a phantom ₱5/₱15 per period.)
   const totalDeductions = parseFloat((
     sss.employee
-    + sss.ec
     + ph.employee
     + pagibig.employee
     + taxResult.withholdingTax

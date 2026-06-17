@@ -134,8 +134,10 @@ export async function PATCH(
     + merged.otherEarnings
   ).toFixed(2))
 
+  // sssEc (Employees' Compensation) excluded — employer-only contribution,
+  // never deducted from the employee (see src/lib/payroll/engine.ts).
   const totalDeductions = parseFloat((
-    merged.sssEmployee + merged.sssEc
+    merged.sssEmployee
     + merged.philhealthEmployee
     + merged.pagibigEmployee
     + merged.withholdingTax
