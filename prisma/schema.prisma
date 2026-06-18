@@ -422,6 +422,11 @@ model PayrollCycleConfig {
   // (company policy: ND coverage applies to entire stretch on premises).
   // Default FALSE — break is deducted from ND.
   nightDifferentialIncludesBreak Boolean @default(false)
+  // Working days per month used to convert between monthly salary and daily
+  // rate (the EMR divisor). Drives final-pay daily-rate / monthly-equivalent
+  // math. Default 22 (≈261 working days/yr ÷ 12); companies can set 26, 26.08
+  // (313/12), etc. per their pay structure.
+  workingDaysPerMonth    Decimal      @default(22) @db.Decimal(5, 2)
   updatedAt              DateTime     @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

@@ -21,6 +21,9 @@ const payrollSettingsSchema = z.object({
   nightDifferentialStart: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
   nightDifferentialEnd: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
   nightDifferentialIncludesBreak: z.boolean().optional(),
+  // Working days per month (EMR divisor) — used to convert monthly salary ↔
+  // daily rate in final pay. Allows fractional values (e.g. 26.08 = 313/12).
+  workingDaysPerMonth: z.coerce.number().min(1).max(31).optional(),
   timezone: z.string().min(1).max(100).optional(),
   payrollCurrency: z.string().min(3).max(10).optional(),
 })
@@ -51,6 +54,7 @@ type PayrollCycleConfigRow = {
   // 20260513120000_add_nd_includes_break + the fallback raw query in
   // safeReadPayrollCycleConfig().
   nightDifferentialIncludesBreak?: boolean
+  workingDaysPerMonth?: number
 }
 type PayrollCycleConfigWrite = Omit<PayrollCycleConfigRow, 'nightDifferentialIncludesBreak'>
   & { companyId: string; nightDifferentialIncludesBreak?: boolean }
@@ -294,6 +298,7 @@ export async function GET() {
       nightDifferentialStart: config?.nightDifferentialStart ?? '22:00',
       nightDifferentialEnd: config?.nightDifferentialEnd ?? '06:00',
       nightDifferentialIncludesBreak: config?.nightDifferentialIncludesBreak ?? false,
+      workingDaysPerMonth: Number((config as { workingDaysPerMonth?: number | { toString(): string } } | null)?.workingDaysPerMonth ?? 22),
     } as const
 
     const next = getNextPeriod({
@@ -377,6 +382,7 @@ export async function PATCH(req: NextRequest) {
     enableNightDifferential: data.enableNightDifferential ?? true,
     nightDifferentialStart: ndStart,
     nightDifferentialEnd: ndEnd,
+    ...(data.workingDaysPerMonth != null ? { workingDaysPerMonth: data.workingDaysPerMonth } : {}),
   }
 
   const upsertDelegate = delegate

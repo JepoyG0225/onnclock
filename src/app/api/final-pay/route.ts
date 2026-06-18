@@ -102,11 +102,21 @@ export async function POST(req: NextRequest) {
   // rate) produced nonsense — e.g. an HOURLY employee at ₱74.71/hr showed
   // "Monthly Salary ₱74.71" and "Daily Rate ₱2.87". Derive the monthly
   // equivalent from the stored daily rate so all rate types compute correctly.
-  // 22 = the system-wide EMR divisor (engine + Employee record both derive a
-  // monthly employee's daily rate as monthlySalary / 22). Use the SAME number
-  // here so a daily/hourly employee's monthly-equivalent round-trips to their
-  // stored daily rate, and so the daily rate matches regular payroll.
-  const FINAL_PAY_DAYS_PER_MONTH = 22
+  // Working-days-per-month (EMR) divisor — used to convert between monthly
+  // salary and daily rate. Configurable per company (PayrollCycleConfig);
+  // defaults to 22, matching the engine/Employee record. Guarded so a missing
+  // column/table can't break final pay.
+  let FINAL_PAY_DAYS_PER_MONTH = 22
+  try {
+    const cfg = await prisma.payrollCycleConfig.findUnique({
+      where: { companyId: ctx.companyId },
+      select: { workingDaysPerMonth: true },
+    })
+    const v = Number(cfg?.workingDaysPerMonth ?? 22)
+    if (Number.isFinite(v) && v >= 1 && v <= 31) FINAL_PAY_DAYS_PER_MONTH = v
+  } catch {
+    FINAL_PAY_DAYS_PER_MONTH = 22
+  }
   const storedDaily  = employee.dailyRate?.toNumber() ?? 0
   const storedHourly = employee.hourlyRate?.toNumber() ?? 0
   const workHoursPerDay = Number(employee.workSchedule?.workHoursPerDay ?? 8) || 8

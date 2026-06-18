@@ -23,6 +23,7 @@ type PayrollSettings = {
   nightDifferentialStart: string  // "HH:MM" 24-hour, default 22:00
   nightDifferentialEnd: string    // "HH:MM" 24-hour, default 06:00
   nightDifferentialIncludesBreak: boolean  // when true, break time inside ND window counts toward ND
+  workingDaysPerMonth: number  // EMR divisor: monthly salary ↔ daily rate (default 22)
   timezone: string
   payrollCurrency: string
 }
@@ -40,6 +41,7 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   nightDifferentialStart: '22:00',
   nightDifferentialEnd: '06:00',
   nightDifferentialIncludesBreak: false,
+  workingDaysPerMonth: 22,
   timezone: 'Asia/Manila',
   payrollCurrency: 'PHP',
 }
@@ -82,6 +84,7 @@ export default function PayrollCycleSettingsCard() {
         secondCutoffStartDay: Number(settings.secondCutoffStartDay),
         secondCutoffEndDay: Number(settings.secondCutoffEndDay),
         defaultPayDelayDays: Number(settings.defaultPayDelayDays),
+        workingDaysPerMonth: Number(settings.workingDaysPerMonth) || 22,
         timezone: settings.timezone,
         payrollCurrency: settings.payrollCurrency.toUpperCase(),
       }
@@ -142,6 +145,21 @@ export default function PayrollCycleSettingsCard() {
                   value={settings.defaultPayDelayDays}
                   onChange={e => setSettings(prev => ({ ...prev, defaultPayDelayDays: Number(e.target.value || 0) }))}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Working Days per Month</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  step={0.01}
+                  value={settings.workingDaysPerMonth}
+                  onChange={e => setSettings(prev => ({ ...prev, workingDaysPerMonth: Number(e.target.value || 22) }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Divisor for converting monthly salary ↔ daily rate (e.g. 22, 26, or 26.08 = 313÷12).
+                  Used for final-pay unpaid wages, leave conversion, and separation pay.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Company Timezone</Label>
