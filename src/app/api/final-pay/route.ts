@@ -82,12 +82,40 @@ export async function POST(req: NextRequest) {
       lastName: true,
       middleName: true,
       basicSalary: true,
+      rateType: true,
+      dailyRate: true,
+      hourlyRate: true,
       hireDate: true,
       department: { select: { name: true } },
       position:   { select: { title: true } },
+      workSchedule: { select: { workHoursPerDay: true } },
     },
   })
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+
+  // Resolve a true MONTHLY-equivalent salary for the final-pay math.
+  // `basicSalary` means different things per rateType:
+  //   MONTHLY → the monthly salary
+  //   DAILY   → the daily rate
+  //   HOURLY  → the hourly rate
+  // Treating a daily/hourly rate as a monthly salary (then ÷26 for the daily
+  // rate) produced nonsense — e.g. an HOURLY employee at ₱74.71/hr showed
+  // "Monthly Salary ₱74.71" and "Daily Rate ₱2.87". Derive the monthly
+  // equivalent from the stored daily rate so all rate types compute correctly.
+  const FINAL_PAY_DAYS_PER_MONTH = 26  // matches the daily-rate divisor in computeFinalPay
+  const storedDaily  = employee.dailyRate?.toNumber() ?? 0
+  const storedHourly = employee.hourlyRate?.toNumber() ?? 0
+  const workHoursPerDay = Number(employee.workSchedule?.workHoursPerDay ?? 8) || 8
+  let monthlySalary: number
+  if (employee.rateType === 'DAILY') {
+    const daily = storedDaily || employee.basicSalary.toNumber()
+    monthlySalary = daily * FINAL_PAY_DAYS_PER_MONTH
+  } else if (employee.rateType === 'HOURLY') {
+    const daily = storedDaily || (storedHourly || employee.basicSalary.toNumber()) * workHoursPerDay
+    monthlySalary = daily * FINAL_PAY_DAYS_PER_MONTH
+  } else {
+    monthlySalary = employee.basicSalary.toNumber()
+  }
 
   // ── YTD aggregates from payslips ─────────────────────────────────────────
   const payslips = await prisma.payslip.findMany({
@@ -174,12 +202,15 @@ export async function POST(req: NextRequest) {
   // ── Compute ───────────────────────────────────────────────────────────────
   const result = computeFinalPay({
     employeeId:                  employee.id,
-    monthlySalary:               employee.basicSalary.toNumber(),
+    monthlySalary,
     hireDate:                    employee.hireDate,
     lastWorkingDay:              lastDay,
     reason:                      input.reason as SeparationReason,
     thirteenthMonthAlreadyPaid:  thirteenthPaidYTD,
-    basicEarnedYTD:              basicEarnedYTD || (employee.basicSalary.toNumber() * 1), // fallback in case no payslips
+    // When the employee has payslips, basicEarnedYTD is their real earnings.
+    // Otherwise let the lib fall back to monthlySalary × monthsServed (it does
+    // this for an undefined value) — a daily/hourly RATE was the wrong fallback.
+    basicEarnedYTD:              basicEarnedYTD || undefined,
     unusedLeaveDays,
     unpaidWorkedDays:            input.unpaidWorkedDays,
     taxWithheldYTD,
@@ -199,7 +230,7 @@ export async function POST(req: NextRequest) {
       department: employee.department?.name ?? null,
       position:   employee.position?.title ?? null,
       hireDate:   employee.hireDate,
-      monthlySalary: employee.basicSalary.toNumber(),
+      monthlySalary,
     },
     snapshot: {
       lastWorkingDay: input.lastWorkingDay,
