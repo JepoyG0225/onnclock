@@ -102,19 +102,25 @@ export async function POST(req: NextRequest) {
   // rate) produced nonsense — e.g. an HOURLY employee at ₱74.71/hr showed
   // "Monthly Salary ₱74.71" and "Daily Rate ₱2.87". Derive the monthly
   // equivalent from the stored daily rate so all rate types compute correctly.
-  const FINAL_PAY_DAYS_PER_MONTH = 26  // matches the daily-rate divisor in computeFinalPay
+  // 22 = the system-wide EMR divisor (engine + Employee record both derive a
+  // monthly employee's daily rate as monthlySalary / 22). Use the SAME number
+  // here so a daily/hourly employee's monthly-equivalent round-trips to their
+  // stored daily rate, and so the daily rate matches regular payroll.
+  const FINAL_PAY_DAYS_PER_MONTH = 22
   const storedDaily  = employee.dailyRate?.toNumber() ?? 0
   const storedHourly = employee.hourlyRate?.toNumber() ?? 0
   const workHoursPerDay = Number(employee.workSchedule?.workHoursPerDay ?? 8) || 8
   let monthlySalary: number
+  let resolvedDailyRate: number
   if (employee.rateType === 'DAILY') {
-    const daily = storedDaily || employee.basicSalary.toNumber()
-    monthlySalary = daily * FINAL_PAY_DAYS_PER_MONTH
+    resolvedDailyRate = storedDaily || employee.basicSalary.toNumber()
+    monthlySalary = resolvedDailyRate * FINAL_PAY_DAYS_PER_MONTH
   } else if (employee.rateType === 'HOURLY') {
-    const daily = storedDaily || (storedHourly || employee.basicSalary.toNumber()) * workHoursPerDay
-    monthlySalary = daily * FINAL_PAY_DAYS_PER_MONTH
+    resolvedDailyRate = storedDaily || (storedHourly || employee.basicSalary.toNumber()) * workHoursPerDay
+    monthlySalary = resolvedDailyRate * FINAL_PAY_DAYS_PER_MONTH
   } else {
     monthlySalary = employee.basicSalary.toNumber()
+    resolvedDailyRate = storedDaily || (monthlySalary / FINAL_PAY_DAYS_PER_MONTH)
   }
 
   // ── YTD aggregates from payslips ─────────────────────────────────────────
@@ -203,6 +209,7 @@ export async function POST(req: NextRequest) {
   const result = computeFinalPay({
     employeeId:                  employee.id,
     monthlySalary,
+    dailyRate:                   resolvedDailyRate,
     hireDate:                    employee.hireDate,
     lastWorkingDay:              lastDay,
     reason:                      input.reason as SeparationReason,

@@ -39,6 +39,15 @@ export type SeparationReason =
 export interface FinalPayInput {
   employeeId: string
   monthlySalary: number
+  /**
+   * The employee's ACTUAL daily rate (₱). When provided it's used directly
+   * for unpaid-wage and leave-conversion math, instead of re-deriving it as
+   * monthlySalary / DAYS_PER_MONTH. This keeps final pay consistent with
+   * regular payroll, which derives the daily rate as monthlySalary / 22.
+   * Passing it avoids the bug where final pay used a /26 divisor while the
+   * rest of the system uses /22 — understating the daily rate.
+   */
+  dailyRate?: number
   hireDate: Date
   lastWorkingDay: Date
   reason: SeparationReason
@@ -108,7 +117,12 @@ export interface FinalPayResult {
   netFinalPay: number
 }
 
-const DAYS_PER_MONTH = 26   // SC / DOLE convention for daily-rate divisor on monthly employees
+// Fallback daily-rate divisor, used ONLY when an explicit dailyRate isn't
+// passed in. Aligned to 22 to match the rest of the system (the engine and
+// the Employee record both derive a monthly employee's daily rate as
+// monthlySalary / 22). Callers should pass the employee's stored dailyRate
+// so this fallback rarely applies.
+const DAYS_PER_MONTH = 22
 
 function asDate(d: Date | string): Date {
   return d instanceof Date ? d : new Date(d)
@@ -169,8 +183,11 @@ export function computeFinalPay(input: FinalPayInput): FinalPayResult {
   const hireDate  = asDate(input.hireDate)
   const yearStart = new Date(lastDay.getFullYear(), 0, 1)
 
-  // Daily rate from monthly salary using DOLE 26-day divisor
-  const dailyRate = parseFloat((input.monthlySalary / DAYS_PER_MONTH).toFixed(2))
+  // Use the employee's actual daily rate when provided (consistent with
+  // regular payroll); only fall back to deriving it from the monthly salary.
+  const dailyRate = input.dailyRate && input.dailyRate > 0
+    ? parseFloat(input.dailyRate.toFixed(2))
+    : parseFloat((input.monthlySalary / DAYS_PER_MONTH).toFixed(2))
 
   // Months served in the calendar year (Jan 1 of the separation year → last working day)
   const startOfService = hireDate > yearStart ? hireDate : yearStart
