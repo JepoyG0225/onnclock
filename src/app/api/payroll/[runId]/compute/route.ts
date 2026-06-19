@@ -724,7 +724,7 @@ export async function POST(
           let regHrs = d.regularHours?.toNumber?.() ?? Number(d.regularHours ?? 0)
           if (regHrs <= 0) regHrs = Math.max(0, (spanMin - breakMin) / 60)
           const usesRealBreak = !!(d.breakIn && d.breakOut)
-          addCats(premiumHoursByCat, classifyShiftHours({
+          const dtrCats = classifyShiftHours({
             timeIn: d.timeIn,
             timeOut: effOut,
             breakIn: d.breakIn ?? null,
@@ -736,7 +736,30 @@ export async function POST(
             ndEndMins: ndEndForMatrix,
             holidayFor: holidayForDate,
             isRestDayDate,
-          }))
+          })
+          // Company policy: an UN-CLOCKED meal break reduces basic hours, NOT
+          // night differential. The matrix can under-count ND when an assumed
+          // (mid-shift) break or the worked cap trims the night window — so
+          // reconcile its ND categories up to the DTR's authoritative
+          // nightDiffHours (countNightMinutes: PHT-aware, clocked-break-only,
+          // per-shift capped). Basic is unaffected (it comes from the DTR's
+          // regularHours). When a real break was clocked we trust its placement
+          // and skip the bump. The holiday/ordinary ND ratio is preserved.
+          if (nightDifferentialEnabled && !usesRealBreak) {
+            const targetNd = Number(d.nightDiffHours ?? 0)
+            const classifiedNd = sumCats(dtrCats, isNd)
+            if (targetNd > classifiedNd + 0.01) {
+              if (classifiedNd > 0.01) {
+                const factor = targetNd / classifiedNd
+                for (const c of Object.keys(dtrCats) as PremiumCategory[]) {
+                  if (isNd(c)) dtrCats[c] = Math.round((dtrCats[c]! * factor) * 100) / 100
+                }
+              } else {
+                dtrCats.ORDINARY_ND = Math.round(((dtrCats.ORDINARY_ND ?? 0) + targetNd) * 100) / 100
+              }
+            }
+          }
+          addCats(premiumHoursByCat, dtrCats)
         } else {
           // No timestamps (manual present / paid leave): synthesize a daytime
           // block so holiday / rest-day premiums aren't lost.
