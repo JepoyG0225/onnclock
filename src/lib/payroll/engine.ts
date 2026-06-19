@@ -51,6 +51,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
       restDayOtAmount: 0,
       holidayOtAmount: 0,
       nightDiffAmount: 0,
+      holidayNightDiffAmount: 0,
       holidayPayAmount: 0,
       allowancesTotal: 0,
       deMinimisTotal: 0,
@@ -93,6 +94,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   let restDayOtAmount: number
   let holidayOtAmount: number
   let nightDiffAmount: number
+  let holidayNightDiffAmount: number  // the "Holiday ND" slice of nightDiffAmount
   let holidayPayAmount: number
   let premiumLineItemsResult: PremiumLineItem[] | undefined
 
@@ -108,6 +110,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     restDayOtAmount = rollups.restDayOtAmount
     holidayOtAmount = rollups.holidayOtAmount
     nightDiffAmount = rollups.nightDiffAmount
+    holidayNightDiffAmount = rollups.holidayNdAmount
     holidayPayAmount = rollups.holidayPayAmount
     premiumLineItemsResult = premiumLineItems(attendance.premiums, hourlyRate)
   } else {
@@ -125,6 +128,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     holidayOtAmount = regularHolidayOt + specialHolidayOt
 
     nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours, period.nightDifferentialRate)
+    holidayNightDiffAmount = 0  // legacy path doesn't classify holiday-vs-regular ND
 
     // Holiday pay premium — ONLY for holidays the employee actually clocked in
     // on. HOURLY pro-rates by hours; DAILY/MONTHLY use the day-count formula
@@ -322,6 +326,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     restDayOtAmount,
     holidayOtAmount,
     nightDiffAmount,
+    holidayNightDiffAmount,
     // Only premium for WORKED holidays — unworked is absorbed into basic
     holidayPayAmount,
     premiumLineItems: premiumLineItemsResult,

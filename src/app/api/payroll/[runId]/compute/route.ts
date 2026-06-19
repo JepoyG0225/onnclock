@@ -1073,6 +1073,7 @@ export async function POST(
         holidayOtAmount:            result.holidayOtAmount,
         nightDiffHours:             usePremiums ? matrixNightDiffHours : nightDiffHours,
         nightDiffAmount:            result.nightDiffAmount,
+        holidayNightDiffAmount:     result.holidayNightDiffAmount,
         holidayPayAmount:           result.holidayPayAmount,
         otherAllowances:            additionalNonTaxableIncome,
         otherEarnings:              totalOtherIncome,

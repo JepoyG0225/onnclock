@@ -1015,6 +1015,9 @@ model Payslip {
   holidayOtAmount             Decimal  @default(0) @db.Decimal(12, 2)
   nightDiffHours              Decimal  @default(0) @db.Decimal(6, 2)
   nightDiffAmount             Decimal  @default(0) @db.Decimal(12, 2)
+  /// The "Holiday ND" slice of nightDiffAmount (night-diff earned on holiday
+  /// hours). Regular ND = nightDiffAmount − holidayNightDiffAmount.
+  holidayNightDiffAmount      Decimal  @default(0) @db.Decimal(12, 2)
   holidayPayAmount            Decimal  @default(0) @db.Decimal(12, 2)
   riceAllowance               Decimal  @default(0) @db.Decimal(12, 2)
   clothingAllowance           Decimal  @default(0) @db.Decimal(12, 2)

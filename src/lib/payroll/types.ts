@@ -123,7 +123,8 @@ export interface PayrollResult {
   regularOtAmount: number
   restDayOtAmount: number
   holidayOtAmount: number
-  nightDiffAmount: number
+  nightDiffAmount: number          // total ND (regular + holiday)
+  holidayNightDiffAmount: number   // the "Holiday ND" slice of nightDiffAmount
   holidayPayAmount: number
   /**
    * Itemized premium lines (only populated when attendance.premiums was

@@ -110,21 +110,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     premiumRows = rows.map(r => ({ label: r.label, hours: r.hours.toNumber(), amount: r.amount.toNumber() }))
   } catch { premiumRows = [] }
 
-  const premiumLines: [string, number][] = premiumRows
-    .map(p => [`${p.label}${p.hours ? ` (${p.hours}h)` : ''}`, p.amount] as [string, number])
-    .filter(([, v]) => v > 0)
+  void premiumRows
+  // Night differential is shown as two explicit lines: the regular-day part
+  // and the holiday part (the ND earned on holiday hours). holidayNightDiff is
+  // the slice of nightDiffAmount attributable to holiday hours; the remainder
+  // is the regular ND. (Old payslips have holidayNightDiff = 0 → all ND shows
+  // as Regular ND until recomputed.)
+  const ndTotal = payslip.nightDiffAmount.toNumber()
+  const holidayNd = (payslip as { holidayNightDiffAmount?: { toNumber(): number } }).holidayNightDiffAmount?.toNumber?.() ?? 0
+  const regularNd = Math.max(0, parseFloat((ndTotal - holidayNd).toFixed(2)))
 
-  const legacyPremiumRows: [string, number][] = [
+  const premiumLineItems: [string, number][] = [
     ['Regular Overtime (125%)', payslip.regularOtAmount.toNumber()],
     ['Rest Day OT (130%)', payslip.restDayOtAmount.toNumber()],
     ['Holiday OT', payslip.holidayOtAmount.toNumber()],
+    ['Regular Night Differential', regularNd],
     ['Holiday Pay', payslip.holidayPayAmount.toNumber()],
-    ['Night Differential', payslip.nightDiffAmount.toNumber()],
+    ['Holiday Night Differential', holidayNd],
   ]
 
   const earnings: [string, number][] = [
     ['Basic Pay', payslip.basicSalary.toNumber()],
-    ...(premiumLines.length > 0 ? premiumLines : legacyPremiumRows),
+    ...premiumLineItems,
     ['Allowances', allowancesTotal],
     ...incomeLines,
     ...(residualOther > 0.01 ? [['Other Earnings', residualOther] as [string, number]] : []),

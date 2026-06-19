@@ -302,7 +302,9 @@ export function premiumLineItems(hoursByCat: CategoryHours, baseHourly: number):
 }
 
 export interface PremiumRollups {
-  nightDiffAmount: number   // all ND increments across every category
+  nightDiffAmount: number   // ALL ND increments (regular + holiday) — total
+  holidayNdAmount: number   // ND increment on HOLIDAY hours only (the "Holiday ND")
+  // regularNd = nightDiffAmount − holidayNdAmount (the "Regular ND")
   holidayPayAmount: number  // worked-holiday premium (excl. ND increment)
   holidayOtAmount: number   // holiday OT (excl. ND increment)
   regularOtAmount: number   // ordinary-day OT (excl. ND increment)
@@ -319,15 +321,16 @@ export interface PremiumRollups {
  * line items.
  */
 export function premiumRollups(hoursByCat: CategoryHours, baseHourly: number): PremiumRollups {
-  let nightDiffAmount = 0, holidayPayAmount = 0, holidayOtAmount = 0, regularOtAmount = 0, restDayOtAmount = 0
+  let nightDiffAmount = 0, holidayNdAmount = 0, holidayPayAmount = 0, holidayOtAmount = 0, regularOtAmount = 0, restDayOtAmount = 0
   for (const cat of Object.keys(hoursByCat) as PremiumCategory[]) {
     const hours = hoursByCat[cat] ?? 0
     if (hours <= 0) continue
+    const isHoliday = cat.startsWith('REGULAR_HOLIDAY') || cat.startsWith('SPECIAL')
     const nd = categoryNdIncrement(cat, hours, baseHourly)
     nightDiffAmount += nd
+    if (isHoliday) holidayNdAmount += nd   // ND earned on a holiday → "Holiday ND"
     const base = categoryEarning(cat, hours, baseHourly) - nd
     if (base === 0) continue
-    const isHoliday = cat.startsWith('REGULAR_HOLIDAY') || cat.startsWith('SPECIAL')
     const isOt = isOtCategory(cat)
     if (isHoliday) {
       if (isOt) holidayOtAmount += base
@@ -340,12 +343,13 @@ export function premiumRollups(hoursByCat: CategoryHours, baseHourly: number): P
   }
   const r2 = (n: number) => Math.round(n * 100) / 100
   nightDiffAmount = r2(nightDiffAmount)
+  holidayNdAmount = r2(holidayNdAmount)
   holidayPayAmount = r2(holidayPayAmount)
   holidayOtAmount = r2(holidayOtAmount)
   regularOtAmount = r2(regularOtAmount)
   restDayOtAmount = r2(restDayOtAmount)
   return {
-    nightDiffAmount, holidayPayAmount, holidayOtAmount, regularOtAmount, restDayOtAmount,
+    nightDiffAmount, holidayNdAmount, holidayPayAmount, holidayOtAmount, regularOtAmount, restDayOtAmount,
     totalPremium: r2(nightDiffAmount + holidayPayAmount + holidayOtAmount + regularOtAmount + restDayOtAmount),
   }
 }
