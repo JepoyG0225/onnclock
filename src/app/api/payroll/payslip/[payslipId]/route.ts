@@ -170,6 +170,18 @@ export async function PATCH(
     },
   })
 
+  // When a manual edit overrides any PREMIUM aggregate (OT / night-diff /
+  // holiday pay), the itemized PayslipPremium breakdown — which the PDF and
+  // employee portal render in preference to the aggregate fields — is no
+  // longer authoritative and would still show the old engine-computed lines.
+  // Clear it so those surfaces fall back to the edited aggregate amounts.
+  const PREMIUM_FIELDS = ['regularOtAmount', 'restDayOtAmount', 'holidayOtAmount', 'nightDiffAmount', 'holidayPayAmount']
+  if (PREMIUM_FIELDS.some(f => f in data)) {
+    try {
+      await prisma.payslipPremium.deleteMany({ where: { payslipId } })
+    } catch { /* table may not exist on un-migrated DBs — ignore */ }
+  }
+
   // Recalculate run-level totals from all payslips
   const agg = await prisma.payslip.aggregate({
     where: { payrollRunId: payslip.payrollRunId },

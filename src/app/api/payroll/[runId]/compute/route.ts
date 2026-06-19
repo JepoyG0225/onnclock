@@ -1289,7 +1289,14 @@ export async function POST(
       })
     }
 
-    if (build.premiums.length > 0) {
+    // If this employee's payslip has manual overrides on any premium
+    // aggregate, the engine-computed itemized breakdown would contradict the
+    // override (and the PDF/portal prefer the itemized rows). Skip writing it
+    // so those surfaces fall back to the overridden aggregate amounts.
+    const PREMIUM_OVERRIDE_FIELDS = ['regularOtAmount', 'restDayOtAmount', 'holidayOtAmount', 'nightDiffAmount', 'holidayPayAmount']
+    const manualOverridesPremiums = !!manual && PREMIUM_OVERRIDE_FIELDS.some(f => f in manual)
+
+    if (build.premiums.length > 0 && !manualOverridesPremiums) {
       // Best-effort: the payslip_premiums table may not exist yet on
       // environments where the migration hasn't been applied. The premium
       // AMOUNTS are already persisted in the aggregate Payslip columns
