@@ -634,9 +634,14 @@ export async function POST(
       if (d.isLeave && !d.isLeavePaid) return sum
       return sum + ((d as { isHalfDay?: boolean }).isHalfDay ? 0.5 : 1)
     }, 0)
+    // Time-tracking OFF → bypass the timesheet for pay basis: credit the FULL
+    // working days in the period (daily rate × days covered by the run), not
+    // the attendance-prorated count. Absences are still deducted separately
+    // (absenceDeduction), and late minutes still drive the late deduction —
+    // so the gross shows the full amount with late shown as its own line.
     const daysWorked = emp.trackTime
       ? dtrWorked
-      : (hasDtr ? dtrWorked : workingDays)
+      : workingDays
 
     // ── Resolve effective work hours per day (used for regular-hour cap
     //   below and as a fallback when DTR timestamps are missing). For
@@ -656,7 +661,13 @@ export async function POST(
     // timestamps). When the employee has no DTR rows at all (legacy /
     // time-tracking-off) use daysWorked × workHoursPerDay.
     let regularHoursTotal = 0
-    if (hasDtr) {
+    if (!emp.trackTime) {
+      // Time-tracking off: don't read timesheet hours at all for the pay
+      // basis. Credit full scheduled hours per working day so basic pay is
+      // the full daily rate × days (DAILY/HOURLY) — not shrunk by a late
+      // arrival's hour shortfall. The late deduction handles tardiness.
+      regularHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
+    } else if (hasDtr) {
       for (const d of enhancedDtr) {
         if (d.isAbsent) continue
         if (d.isLeave && !d.isLeavePaid) continue
@@ -980,6 +991,7 @@ export async function POST(
         dailyRate,
         hourlyRate,
         rateType:            emp.rateType,
+        trackTime:           emp.trackTime,
         payFrequency:        run.payFrequency,
         isMinimumWageEarner:   emp.isMinimumWageEarner,
         isExemptFromTax:       emp.isExemptFromTax,

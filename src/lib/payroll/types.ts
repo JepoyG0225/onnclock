@@ -5,6 +5,13 @@ export interface PayrollInput {
     dailyRate: number
     hourlyRate: number
     rateType: 'MONTHLY' | 'DAILY' | 'HOURLY'
+    /**
+     * Whether timesheet/DTR time-tracking drives this employee's pay. When
+     * FALSE, basic pay is the full daily-rate × days (not hour-prorated), so
+     * a late arrival must be charged via the late deduction rather than a
+     * silent hour shortfall — see the skipLate logic in the engine.
+     */
+    trackTime?: boolean
     payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
     isMinimumWageEarner: boolean
     isExemptFromTax: boolean
