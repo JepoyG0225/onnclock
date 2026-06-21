@@ -1,0 +1,1 @@
+ALTER TABLE "income_types" ADD COLUMN IF NOT EXISTS "prorate" BOOLEAN NOT NULL DEFAULT false;

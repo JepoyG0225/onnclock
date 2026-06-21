@@ -1094,6 +1094,10 @@ model IncomeType {
   code          String?
   mode          IncomeTypeMode @default(VARIABLE)
   defaultAmount Decimal        @default(0) @db.Decimal(12, 2)
+  /// When TRUE, this income (e.g. a monthly allowance) is pro-rated by the
+  /// fraction of the pay period the employee was actually employed — so a
+  /// mid-period joiner/leaver gets a partial amount instead of the full one.
+  prorate         Boolean        @default(false)
   isTaxable       Boolean        @default(true)
   excludeFrom2316 Boolean        @default(false) // exclude this income from BIR Form 2316 totals
   isActive        Boolean        @default(true)

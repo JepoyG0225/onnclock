@@ -18,6 +18,7 @@ interface IncomeTypeItem {
   defaultAmount: number
   isTaxable: boolean
   excludeFrom2316: boolean
+  prorate: boolean
 }
 
 export default function PayrollIncomeTypesManager() {
@@ -31,6 +32,7 @@ export default function PayrollIncomeTypesManager() {
     defaultAmount: 0,
     isTaxable: true,
     excludeFrom2316: false,
+    prorate: false,
   })
 
   async function loadIncomeTypes() {
@@ -70,7 +72,7 @@ export default function PayrollIncomeTypesManager() {
         return
       }
       toast.success('Income type created')
-      setNewIncomeType({ name: '', code: '', mode: 'VARIABLE', defaultAmount: 0, isTaxable: true, excludeFrom2316: false })
+      setNewIncomeType({ name: '', code: '', mode: 'VARIABLE', defaultAmount: 0, isTaxable: true, excludeFrom2316: false, prorate: false })
       await loadIncomeTypes()
     } finally {
       setCreatingIncomeType(false)
@@ -78,7 +80,7 @@ export default function PayrollIncomeTypesManager() {
   }
 
   const [editingType, setEditingType] = useState<IncomeTypeItem | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', code: '', mode: 'VARIABLE' as 'FIXED' | 'VARIABLE', defaultAmount: 0, isTaxable: true, excludeFrom2316: false })
+  const [editForm, setEditForm] = useState({ name: '', code: '', mode: 'VARIABLE' as 'FIXED' | 'VARIABLE', defaultAmount: 0, isTaxable: true, excludeFrom2316: false, prorate: false })
   const [savingEdit, setSavingEdit] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -91,6 +93,7 @@ export default function PayrollIncomeTypesManager() {
       defaultAmount: type.defaultAmount,
       isTaxable: type.isTaxable,
       excludeFrom2316: type.excludeFrom2316,
+      prorate: type.prorate,
     })
   }
 
@@ -205,6 +208,16 @@ export default function PayrollIncomeTypesManager() {
           <div>
             <p className="text-sm font-medium">Exclude from BIR Form 2316</p>
             <p className="text-xs text-gray-500">This income type will not appear in the employee&apos;s annual BIR 2316 totals.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg border px-3 py-2 bg-blue-50 border-blue-200">
+          <Switch
+            checked={newIncomeType.prorate}
+            onCheckedChange={v => setNewIncomeType(prev => ({ ...prev, prorate: v }))}
+          />
+          <div>
+            <p className="text-sm font-medium">Pro-rate by days employed</p>
+            <p className="text-xs text-gray-500">A mid-period joiner/leaver gets a partial amount (amount × employed working days ÷ period working days) instead of the full one.</p>
           </div>
         </div>
 
@@ -324,6 +337,16 @@ export default function PayrollIncomeTypesManager() {
                 <div>
                   <p className="text-sm font-medium">Exclude from BIR Form 2316</p>
                   <p className="text-xs text-gray-500">This income type will not appear in the employee&apos;s annual BIR 2316 totals.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border px-3 py-2 bg-blue-50 border-blue-200">
+                <Switch
+                  checked={editForm.prorate}
+                  onCheckedChange={v => setEditForm(prev => ({ ...prev, prorate: v }))}
+                />
+                <div>
+                  <p className="text-sm font-medium">Pro-rate by days employed</p>
+                  <p className="text-xs text-gray-500">A mid-period joiner/leaver gets a partial amount instead of the full one.</p>
                 </div>
               </div>
             </div>

@@ -959,13 +959,30 @@ export async function POST(
       return { id: loan.id, type: loan.loanType, amount }
     }).filter(l => l.amount > 0)
 
+    // Employment ratio for pro-rated allowances: the share of the period's
+    // working days the employee was actually employed (hire date → resignation/
+    // termination, clamped to the period). A full-period employee = 1.0; a
+    // mid-period joiner gets a fraction (e.g. joined with 5 of 10 working days
+    // left → 0.5). Used only for income types flagged `prorate`.
+    const empHire = (emp as { hireDate?: Date | null }).hireDate
+    const empTerm = (emp as { resignationDate?: Date | null; terminationDate?: Date | null }).resignationDate
+      ?? (emp as { terminationDate?: Date | null }).terminationDate ?? null
+    const emplStart = empHire && empHire > run.periodStart ? empHire : run.periodStart
+    const emplEnd = empTerm && empTerm < run.periodEnd ? empTerm : run.periodEnd
+    const emplWorkingDays = emplStart > emplEnd ? 0 : getWorkingDays(emplStart, emplEnd)
+    const employmentRatio = rawWorkingDays > 0 ? Math.min(1, emplWorkingDays / rawWorkingDays) : 1
+
     const incomeBreakdown = emp.incomeAssignments
       .map(assignment => {
         const type = assignment.incomeType
         const key = `${emp.id}:${type.id}`
-        const amount = type.mode === 'VARIABLE'
+        const baseAmount = type.mode === 'VARIABLE'
           ? (variableIncomeEntriesByKey.get(key) ?? 0)
           : Number(assignment.fixedAmount ?? type.defaultAmount)
+        // Pro-rate the allowance by employment ratio when the type opts in.
+        const amount = (type as { prorate?: boolean }).prorate
+          ? baseAmount * employmentRatio
+          : baseAmount
 
         return {
           incomeTypeId: type.id,

@@ -10,6 +10,7 @@ const createIncomeTypeSchema = z.object({
   defaultAmount: z.coerce.number().min(0).optional().default(0),
   isTaxable: z.boolean().default(true),
   excludeFrom2316: z.boolean().default(false),
+  prorate: z.boolean().default(false),
   isActive: z.boolean().optional().default(true),
 })
 
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
         defaultAmount: data.mode === 'FIXED' ? data.defaultAmount : 0,
         isTaxable: data.isTaxable,
         excludeFrom2316: data.excludeFrom2316,
+        prorate: data.prorate,
       },
     })
     return NextResponse.json({ incomeType: reactivated }, { status: 201 })
@@ -81,6 +83,7 @@ export async function POST(req: NextRequest) {
         defaultAmount: data.mode === 'FIXED' ? data.defaultAmount : 0,
         isTaxable: data.isTaxable,
         excludeFrom2316: data.excludeFrom2316,
+        prorate: data.prorate,
         isActive: data.isActive,
       },
     })
