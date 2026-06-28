@@ -3,6 +3,7 @@
 import { Building2, User, FileText, Calendar, ClipboardList, Paperclip, Download } from 'lucide-react'
 import { RequestDetailDialog, DetailRow } from '@/components/ui/request-detail-dialog'
 import { BudgetReqActionButtons } from '@/components/budget/BudgetReqActionButtons'
+import { BudgetReqAttachmentUploader } from '@/components/budget/BudgetReqAttachmentUploader'
 
 export interface BudgetReqDetailDialogProps {
   open: boolean
@@ -41,6 +42,8 @@ export interface BudgetReqDetailDialogProps {
   }
   canAct: boolean
   actionDisabledReason?: string
+  /** HR/admin can add attachments to this requisition regardless of status. */
+  canAddAttachments?: boolean
 }
 
 function formatDate(iso: string | null): string {
@@ -64,6 +67,7 @@ export function BudgetReqDetailDialog({
   request,
   canAct,
   actionDisabledReason,
+  canAddAttachments = false,
 }: BudgetReqDetailDialogProps) {
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
   const positionLine = [
@@ -149,27 +153,32 @@ export function BudgetReqDetailDialog({
               </div>
             </div>
           )}
-          {request.attachments.length > 0 && (
+          {(request.attachments.length > 0 || canAddAttachments) && (
             <div className="sm:col-span-2">
               <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <Paperclip className="h-3.5 w-3.5" />
                 Attachments ({request.attachments.length})
               </p>
-              <ul className="space-y-1.5 text-xs text-slate-700">
-                {request.attachments.map(a => (
-                  <li key={a.id}>
-                    <a
-                      href={a.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-2.5 py-2 hover:bg-slate-50"
-                    >
-                      <span className="truncate">{a.fileName}</span>
-                      <Download className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    </a>
-                  </li>
-                ))}
-              </ul>
+              {request.attachments.length > 0 && (
+                <ul className="space-y-1.5 text-xs text-slate-700">
+                  {request.attachments.map(a => (
+                    <li key={a.id}>
+                      <a
+                        href={a.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-2.5 py-2 hover:bg-slate-50"
+                      >
+                        <span className="truncate">{a.fileName}</span>
+                        <Download className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canAddAttachments && (
+                <BudgetReqAttachmentUploader requisitionId={request.id} count={request.attachments.length} />
+              )}
             </div>
           )}
         </>

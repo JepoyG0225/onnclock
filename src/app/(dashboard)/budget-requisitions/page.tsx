@@ -51,6 +51,9 @@ export default async function BudgetRequisitionsAdminPage({
   const status = params.status || undefined
   const permissions = await getEffectivePermissions(session.user.role, companyId, session.user.id)
   const legacyCanApprove = permissions.includes('budget:approve')
+  // HR/admin roles may add attachments to any requisition (incl. approved) —
+  // mirrors the role gate on POST /api/budget-requisitions/[id]/attachments.
+  const canAddAttachments = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN'].includes(session.user.role)
 
   const requisitions = await prisma.budgetRequisition.findMany({
     where: {
@@ -218,6 +221,7 @@ export default async function BudgetRequisitionsAdminPage({
                         request={dialogReq}
                         canAct={gate.canAct}
                         actionDisabledReason={gate.reason}
+                        canAddAttachments={canAddAttachments}
                       >
                         <td className="p-4">
                           <p className="font-semibold text-gray-900">

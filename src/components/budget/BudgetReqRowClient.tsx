@@ -9,9 +9,10 @@ export interface BudgetReqRowClientProps {
   request: any
   canAct: boolean
   actionDisabledReason?: string | undefined
+  canAddAttachments?: boolean
 }
 
-export function BudgetReqRowClient({ children, request, canAct, actionDisabledReason }: BudgetReqRowClientProps) {
+export function BudgetReqRowClient({ children, request, canAct, actionDisabledReason, canAddAttachments }: BudgetReqRowClientProps) {
   return (
     <RequestRowOpener
       renderDialog={(open, onClose) => (
@@ -21,6 +22,7 @@ export function BudgetReqRowClient({ children, request, canAct, actionDisabledRe
           request={request}
           canAct={canAct}
           actionDisabledReason={actionDisabledReason}
+          canAddAttachments={canAddAttachments}
         />
       )}
     >
