@@ -64,6 +64,7 @@ function actionToEventType(action: string | undefined): RequestActivityEventType
   if (a === 'approve' || a === 'approved') return 'approve'
   if (a === 'reject' || a === 'rejected') return 'reject'
   if (a === 'comment') return 'comment'
+  if (a === 'upload' || a === 'uploaded') return 'upload'
   return 'approve' // sensible default for unknown actions
 }
 

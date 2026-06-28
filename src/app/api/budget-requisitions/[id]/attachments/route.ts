@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
@@ -125,7 +126,7 @@ export async function POST(
         : { employeeId: employee?.id ?? '__none__', status: 'PENDING' }
       ),
     },
-    select: { id: true, companyId: true },
+    select: { id: true, companyId: true, approvalTrail: true },
   })
   if (!req) {
     return NextResponse.json({ error: 'Not found or not editable' }, { status: 404 })
@@ -190,6 +191,25 @@ export async function POST(
         uploadedBy: ctx.userId,
       },
     })
+
+    // Record the upload in the requisition's activity trail
+    try {
+      const existingTrail = Array.isArray(req.approvalTrail) ? req.approvalTrail : []
+      const trailEntry = {
+        userId: ctx.userId,
+        action: 'upload',
+        notes: attachment.fileName,
+        at: new Date().toISOString(),
+      }
+      await prisma.budgetRequisition.update({
+        where: { id },
+        data: { approvalTrail: [...existingTrail, trailEntry] as Prisma.InputJsonValue },
+      })
+    } catch (trailErr) {
+      // Non-fatal: the attachment is already saved; just log if the trail update fails
+      console.error('[budget-req attachments] Failed to append activity trail:', trailErr)
+    }
+
     return NextResponse.json({ attachment }, { status: 201 })
   } catch (e) {
     // Clean up uploaded file if DB insert fails

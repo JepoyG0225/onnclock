@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Clock, FileText, MessageCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, FileText, MessageCircle, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils'
  *   })
  *   return <RequestActivityFeed events={events} />
  */
-export type RequestActivityEventType = 'submit' | 'approve' | 'reject' | 'pending' | 'comment'
+export type RequestActivityEventType = 'submit' | 'approve' | 'reject' | 'pending' | 'comment' | 'upload'
 
 export interface RequestActivityEvent {
   type: RequestActivityEventType
@@ -59,6 +59,7 @@ const TYPE_STYLES: Record<RequestActivityEventType, {
   reject:  { icon: XCircle,       iconBg: 'bg-rose-100',    iconColor: 'text-rose-600',    defaultVerb: 'rejected the request' },
   pending: { icon: Clock,         iconBg: 'bg-slate-50',    iconColor: 'text-slate-400',   defaultVerb: 'is the next approver' },
   comment: { icon: MessageCircle, iconBg: 'bg-slate-100',   iconColor: 'text-slate-600',   defaultVerb: 'left a comment' },
+  upload:  { icon: Paperclip,     iconBg: 'bg-blue-100',    iconColor: 'text-blue-600',    defaultVerb: 'uploaded an attachment' },
 }
 
 function formatTimestamp(at: string): string {
