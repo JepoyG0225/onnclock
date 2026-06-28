@@ -52,8 +52,21 @@ export async function GET() {
     where: { companyId: ctx.companyId, isActive: true },
   })
 
-  // Check if trial has expired and auto-update status
-  if (sub.status === 'TRIAL' && sub.trialEndsAt && sub.trialEndsAt < new Date()) {
+  // A paid period still running means the subscription is genuinely active,
+  // even if the row was left with a stale TRIAL status / trialEndsAt (e.g.
+  // an activation that didn't fully sync). Never expire — or keep on TRIAL —
+  // a company whose currentPeriodEnd is in the future.
+  const hasPaidPeriodRemaining = !!sub.currentPeriodEnd && sub.currentPeriodEnd > new Date()
+
+  if (sub.status === 'TRIAL' && hasPaidPeriodRemaining) {
+    // Self-heal: paid period exists but status is stuck on TRIAL. Promote to
+    // ACTIVE and clear the leftover trial date so the expiry check can't fire.
+    sub = await prisma.subscription.update({
+      where: { companyId: ctx.companyId },
+      data: { status: 'ACTIVE', trialEndsAt: null, seatCount: employeeCount, updatedAt: new Date() },
+    })
+  } else if (sub.status === 'TRIAL' && sub.trialEndsAt && sub.trialEndsAt < new Date()) {
+    // Check if trial has expired and auto-update status
     sub = await prisma.subscription.update({
       where: { companyId: ctx.companyId },
       data: { status: 'EXPIRED', seatCount: employeeCount, updatedAt: new Date() },

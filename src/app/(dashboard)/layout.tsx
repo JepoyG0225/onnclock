@@ -118,8 +118,12 @@ export default async function DashboardLayout({
   let expiryNoticeIsTrial = true
   let hrisProEnabled = true // default on for SUPER_ADMIN / no subscription
   if (sub) {
+    // A paid period still running keeps the company active even if the row
+    // was left with a stale TRIAL status / trialEndsAt, so never show EXPIRED
+    // while currentPeriodEnd is in the future.
+    const hasPaidPeriodRemaining = !!sub.currentPeriodEnd && sub.currentPeriodEnd > new Date()
     const computedStatus =
-      sub.status === 'TRIAL' && sub.trialEndsAt && sub.trialEndsAt < new Date()
+      sub.status === 'TRIAL' && sub.trialEndsAt && sub.trialEndsAt < new Date() && !hasPaidPeriodRemaining
         ? 'EXPIRED'
         : sub.status
     subStatus = computedStatus
