@@ -203,15 +203,26 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const lateDeduction = skipLate
     ? 0
     : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
-  // Undertime deductions are GLOBALLY DISABLED.
-  //   1. HOURLY / DAILY: basic pay already pro-rates by actual hours
-  //      worked (no work, no pay) — deducting UT on top double-counts.
-  //   2. MONTHLY: company policy decision — undertime is handled via
-  //      disciplinary process, not payroll docking.
-  // The DTR's undertimeMinutes is still recorded for audit + late /
-  // overbreak (which the clock-out route stores inside lateMinutes)
-  // remain deductible.
-  const undertimeDeduction = 0
+  // Undertime deductions follow the SAME rule as late deductions:
+  //   1. MONTHLY: not docked — company policy decision (undertime is
+  //      handled via the disciplinary process, and monthly salary is not
+  //      hour-based anyway).
+  //   2. HOURLY / DAILY with time-tracking ON: basic pay already pro-rates
+  //      by actual hours worked (no work, no pay), so docking UT on top
+  //      would double-count.
+  //   3. HOURLY / DAILY with time-tracking OFF: basic pay is the FULL daily
+  //      rate × days (not hour-prorated), so leaving early is paid-but-not-
+  //      worked time that must be deducted — exactly like the late shortfall
+  //      above. Without this, undertime would silently be free for these
+  //      employees even though their late minutes are docked.
+  // The DTR's undertimeMinutes is always recorded for audit regardless.
+  const undertimeDeductible =
+    !skipLate
+    && (employee.rateType === 'HOURLY' || employee.rateType === 'DAILY')
+    && !hourProrated
+  const undertimeDeduction = undertimeDeductible
+    ? parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
+    : 0
   const absenceDeduction = computeAbsenceDeduction(employee.dailyRate, attendance.absentDays)
 
   // ── 4. ALLOWANCES & DE MINIMIS ────────────────
