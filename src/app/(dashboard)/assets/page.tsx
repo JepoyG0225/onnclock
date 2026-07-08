@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Boxes, Plus, UserPlus, Undo2, Trash2, Search, X } from 'lucide-react'
+import { Boxes, Plus, UserPlus, Undo2, Trash2, Pencil, Search, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +48,14 @@ export default function AssetsPage() {
   const [form, setForm] = useState({
     assetTag: '', category: 'Laptop', name: '', serialNumber: '',
     purchaseDate: '', purchaseCost: '', warrantyUntil: '', notes: '',
+  })
+
+  // Edit asset modal
+  const [editFor, setEditFor] = useState<Asset | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState({
+    assetTag: '', category: 'Laptop', name: '', serialNumber: '',
+    purchaseDate: '', purchaseCost: '', warrantyUntil: '', notes: '', status: 'AVAILABLE',
   })
 
   // Assign modal
@@ -122,6 +130,50 @@ export default function AssetsPage() {
       setForm({ assetTag: '', category: 'Laptop', name: '', serialNumber: '', purchaseDate: '', purchaseCost: '', warrantyUntil: '', notes: '' })
       await load()
     } finally { setAdding(false) }
+  }
+
+  function openEdit(a: Asset) {
+    setEditForm({
+      assetTag: a.assetTag ?? '',
+      category: a.category,
+      name: a.name,
+      serialNumber: a.serialNumber ?? '',
+      purchaseDate: a.purchaseDate ? a.purchaseDate.slice(0, 10) : '',
+      purchaseCost: a.purchaseCost != null ? String(a.purchaseCost) : '',
+      warrantyUntil: a.warrantyUntil ? a.warrantyUntil.slice(0, 10) : '',
+      notes: a.notes ?? '',
+      status: a.status,
+    })
+    setEditFor(a)
+  }
+
+  async function submitEdit() {
+    if (!editFor) return
+    if (!editForm.name.trim() || !editForm.category.trim()) { toast.error('Name + category required'); return }
+    setEditing(true)
+    try {
+      const payload = {
+        assetTag: editForm.assetTag.trim() || null,
+        category: editForm.category,
+        name: editForm.name.trim(),
+        serialNumber: editForm.serialNumber.trim() || null,
+        purchaseDate: editForm.purchaseDate || null,
+        purchaseCost: editForm.purchaseCost.trim() === '' ? null : editForm.purchaseCost,
+        warrantyUntil: editForm.warrantyUntil || null,
+        notes: editForm.notes.trim() || null,
+        status: editForm.status,
+      }
+      const res = await fetch(`/api/assets/${editFor.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data.error ?? 'Failed to update asset'); return }
+      toast.success('Asset updated')
+      setEditFor(null)
+      await load()
+    } finally { setEditing(false) }
   }
 
   async function submitAssign() {
@@ -267,6 +319,9 @@ export default function AssetsPage() {
                                 <Undo2 className="w-3 h-3" /> Return
                               </Button>
                             )}
+                            <Button size="sm" variant="outline" onClick={() => openEdit(a)} className="h-7 text-xs gap-1">
+                              <Pencil className="w-3 h-3" /> Edit
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => deleteAsset(a.id)} className="h-7 text-xs text-red-600 hover:bg-red-50">
                               <Trash2 className="w-3 h-3" />
                             </Button>
@@ -309,6 +364,49 @@ export default function AssetsPage() {
               <div className="flex gap-2 justify-end pt-2">
                 <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button onClick={submitAdd} disabled={adding} className="bg-blue-600 hover:bg-blue-700 text-white">{adding ? 'Saving…' : 'Add Asset'}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditFor(null)} />
+          <Card className="relative w-full max-w-md shadow-2xl">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Edit Asset</CardTitle>
+              <button onClick={() => setEditFor(null)}><X className="w-4 h-4 text-slate-400" /></button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-xs font-medium">Asset Tag</label><Input value={editForm.assetTag} onChange={(e) => setEditForm({ ...editForm, assetTag: e.target.value })} placeholder="LK12-LP-001" /></div>
+                <div><label className="text-xs font-medium">Category *</label><select className="w-full border rounded px-3 py-2 text-sm" value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>{categories.map((c) => <option key={c}>{c}</option>)}</select></div>
+              </div>
+              <div><label className="text-xs font-medium">Name / Description *</label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="Lenovo ThinkPad T14" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-xs font-medium">Serial</label><Input value={editForm.serialNumber} onChange={(e) => setEditForm({ ...editForm, serialNumber: e.target.value })} /></div>
+                <div><label className="text-xs font-medium">Purchase ₱</label><Input type="number" value={editForm.purchaseCost} onChange={(e) => setEditForm({ ...editForm, purchaseCost: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-xs font-medium">Purchase date</label><Input type="date" value={editForm.purchaseDate} onChange={(e) => setEditForm({ ...editForm, purchaseDate: e.target.value })} /></div>
+                <div><label className="text-xs font-medium">Warranty until</label><Input type="date" value={editForm.warrantyUntil} onChange={(e) => setEditForm({ ...editForm, warrantyUntil: e.target.value })} /></div>
+              </div>
+              <div>
+                <label className="text-xs font-medium">Status</label>
+                <select className="w-full border rounded px-3 py-2 text-sm" value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+                  <option value="AVAILABLE">Available</option>
+                  <option value="ASSIGNED">Assigned</option>
+                  <option value="IN_REPAIR">In Repair</option>
+                  <option value="RETIRED">Retired</option>
+                  <option value="LOST">Lost</option>
+                </select>
+              </div>
+              <div><label className="text-xs font-medium">Notes</label><Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button variant="outline" onClick={() => setEditFor(null)}>Cancel</Button>
+                <Button onClick={submitEdit} disabled={editing} className="bg-blue-600 hover:bg-blue-700 text-white">{editing ? 'Saving…' : 'Save Changes'}</Button>
               </div>
             </CardContent>
           </Card>
