@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
   const TYPE_LABELS: Record<string, string> = {
     NOTICE_TO_EXPLAIN: 'Notice to Explain',
     NOTICE_OF_DECISION: 'Notice of Decision',
+    VERBAL_WARNING: 'Verbal Warning',
     WRITTEN_WARNING: 'Written Warning',
     SUSPENSION: 'Suspension',
     DEMOTION: 'Demotion',

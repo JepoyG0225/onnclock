@@ -30,6 +30,7 @@ import { toast } from 'sonner'
 type DisciplinaryType =
   | 'NOTICE_TO_EXPLAIN'
   | 'NOTICE_OF_DECISION'
+  | 'VERBAL_WARNING'
   | 'WRITTEN_WARNING'
   | 'SUSPENSION'
   | 'DEMOTION'
@@ -66,6 +67,7 @@ interface DisciplinaryRecord {
 const TYPE_LABELS: Record<DisciplinaryType, string> = {
   NOTICE_TO_EXPLAIN:  'Notice to Explain',
   NOTICE_OF_DECISION: 'Notice of Decision',
+  VERBAL_WARNING:     'Verbal Warning',
   WRITTEN_WARNING:    'Written Warning',
   SUSPENSION:         'Suspension',
   DEMOTION:           'Demotion',
@@ -75,6 +77,7 @@ const TYPE_LABELS: Record<DisciplinaryType, string> = {
 const TYPE_COLORS: Record<DisciplinaryType, string> = {
   NOTICE_TO_EXPLAIN:  'bg-blue-100 text-blue-800',
   NOTICE_OF_DECISION: 'bg-gray-100 text-gray-700',
+  VERBAL_WARNING:     'bg-amber-100 text-amber-800',
   WRITTEN_WARNING:    'bg-yellow-100 text-yellow-800',
   SUSPENSION:         'bg-orange-100 text-orange-800',
   DEMOTION:           'bg-purple-100 text-purple-800',
@@ -97,6 +100,7 @@ const STATUS_TABS: Array<{ value: string; label: string }> = [
 const TYPE_OPTIONS: Array<{ value: DisciplinaryType; label: string }> = [
   { value: 'NOTICE_TO_EXPLAIN',  label: 'Notice to Explain' },
   { value: 'NOTICE_OF_DECISION', label: 'Notice of Decision' },
+  { value: 'VERBAL_WARNING',     label: 'Verbal Warning' },
   { value: 'WRITTEN_WARNING',    label: 'Written Warning' },
   { value: 'SUSPENSION',         label: 'Suspension' },
   { value: 'DEMOTION',           label: 'Demotion' },
