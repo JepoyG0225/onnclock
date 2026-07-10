@@ -138,8 +138,8 @@ function log(msg) {
   }
 }
 
-/** Perform an authenticated JSON request to the server */
-async function apiRequest(method, path, body) {
+/** Low-level authenticated JSON request (no auto-refresh). */
+async function performRequest(method, path, body) {
   return new Promise((resolve, reject) => {
     const url = `${getServerUrl()}${path}`
     const token = getToken()
@@ -217,6 +217,63 @@ async function apiRequest(method, path, body) {
     if (bodyStr) request.write(bodyStr)
     request.end()
   })
+}
+
+// De-duped in-flight refresh so a burst of parallel 401s triggers only one
+// refresh call instead of a stampede.
+let refreshInFlight = null
+
+/**
+ * Exchange the stored (possibly just-expired) token for a fresh one via
+ * /api/desktop-app/refresh — no password needed. Returns true on success.
+ * On hard failure (expired beyond grace, deactivated) the token is cleared
+ * and the renderer is told to send the user back to the login screen.
+ */
+async function refreshToken() {
+  if (!getToken()) return false
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = (async () => {
+    try {
+      const res = await performRequest('POST', '/api/desktop-app/refresh', null)
+      if (res.ok && res.data && res.data.token) {
+        store.set('token', res.data.token)
+        log('Desktop session token refreshed')
+        return true
+      }
+      // Non-renewable (expired beyond grace / account inactive) → force re-login.
+      // Clearing the token + broadcasting status flips the UI (which listens on
+      // 'status:update' → loggedIn:false) back to the sign-in screen.
+      if (res.status === 401 || res.status === 403 || res.data?.reauth) {
+        store.set('token', null)
+        log('Desktop session expired — sign-in required')
+        broadcastStatus()
+      }
+      return false
+    } catch {
+      return false
+    } finally {
+      refreshInFlight = null
+    }
+  })()
+  return refreshInFlight
+}
+
+/**
+ * Authenticated JSON request with automatic token refresh. On a 401 for an
+ * authed call, it silently renews the token once and retries — so a lapsed
+ * 90-day token no longer surfaces as "invalid desktop token" to the user.
+ */
+async function apiRequest(method, path, body) {
+  const res = await performRequest(method, path, body)
+  const isAuthPath =
+    path.startsWith('/api/desktop-app/auth') || path.startsWith('/api/desktop-app/refresh')
+  if (res.status === 401 && getToken() && !isAuthPath) {
+    const refreshed = await refreshToken()
+    if (refreshed) {
+      return performRequest(method, path, body)
+    }
+  }
+  return res
 }
 
 function shouldStartHidden() {
