@@ -571,6 +571,21 @@ export async function POST(
   let totalBasic = 0, totalGross = 0, totalDeductions = 0, totalNetPay = 0
   let totalSssEr = 0, totalPhEr = 0, totalPagibigEr = 0
 
+  // Prior loan deductions for THIS run, summed per loan. On a recompute the
+  // loan balances fetched above were already drawn down by the previous
+  // compute, so we credit these back when computing each period's deduction
+  // (below) — otherwise the final payment gets dropped once the remaining
+  // balance falls below one period's amortization. The same map drives the
+  // balance restore in the persistence transaction further down.
+  const priorLoanDeductions = await prisma.payslipLoanDeduction.findMany({
+    where: { payslip: { payrollRunId: runId } },
+    select: { loanId: true, amount: true },
+  })
+  const priorByLoan = new Map<string, number>()
+  for (const d of priorLoanDeductions) {
+    priorByLoan.set(d.loanId, (priorByLoan.get(d.loanId) ?? 0) + Number(d.amount))
+  }
+
   for (const emp of employees) {
     const dtrRecords = await prisma.dTRRecord.findMany({
       where: {
@@ -954,8 +969,13 @@ export async function POST(
       : 1
     const loanDeductions = emp.loans.map(loan => {
       const periodAmount = loan.monthlyAmortization.toNumber() / periodDivisor
+      // Use the pre-run balance: on a recompute the stored balance was already
+      // drawn down by the previous compute of THIS run, so credit that amount
+      // back before capping. Without this the final payment (remaining balance
+      // < one period's amortization) is silently dropped on recompute.
+      const effectiveBalance = loan.balance.toNumber() + (priorByLoan.get(loan.id) ?? 0)
       // Never deduct more than the remaining balance
-      const amount = Math.min(periodAmount, loan.balance.toNumber())
+      const amount = Math.min(periodAmount, effectiveBalance)
       return { id: loan.id, type: loan.loanType, amount }
     }).filter(l => l.amount > 0)
 
@@ -1166,20 +1186,13 @@ export async function POST(
 
   // ── Persist everything in a transaction ───────────────────────────────────
   // Step 1: recompute-safe cleanup.
-  //   (a) Read every PRIOR PayslipLoanDeduction for this run so we can credit
-  //       those amounts back to the source loans — otherwise repeated
-  //       recomputes silently double-debit the loan balance.
+  //   (a) priorByLoan (computed before the build loop) holds every PRIOR
+  //       PayslipLoanDeduction for this run so we can credit those amounts
+  //       back to the source loans — otherwise repeated recomputes silently
+  //       double-debit the loan balance.
   //   (b) Delete the ledger rows + payslips.
   //   (c) Restore each loan: balance += prior debit, flip FULLY_PAID → ACTIVE
   //       and clear endDate; the new pass below will re-deduct + re-flag.
-  const priorDeductions = await prisma.payslipLoanDeduction.findMany({
-    where: { payslip: { payrollRunId: runId } },
-    select: { loanId: true, amount: true },
-  })
-  const priorByLoan = new Map<string, number>()
-  for (const d of priorDeductions) {
-    priorByLoan.set(d.loanId, (priorByLoan.get(d.loanId) ?? 0) + Number(d.amount))
-  }
 
   // Snapshot manual edits BEFORE deleting payslips so we can re-apply them
   // to the freshly-built payslips below. Key by employeeId — that's stable
