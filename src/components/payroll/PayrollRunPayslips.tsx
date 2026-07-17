@@ -661,6 +661,23 @@ function PerDayBreakdown({
   const grandUtMin = rows.reduce((s, r) => s + r.undertimeMinutes, 0)
   const grandLateUtDed = round2(ps.lateDeduction + ps.undertimeDeduction)
 
+  // Period-level deductions (loans, statutory, tax, attendance, other) that
+  // aren't part of the per-day earnings table. Shown as their own section so
+  // the breakdown reconciles gross → net and surfaces things like company
+  // loan amortizations that otherwise only appear in the summary row.
+  const deductionItems: [string, number][] = [
+    ['SSS', ps.sssEmployee],
+    ['PhilHealth', ps.philhealthEmployee],
+    ['Pag-IBIG', ps.pagibigEmployee],
+    ['Withholding Tax', ps.withholdingTax],
+    ['SSS Loan', ps.sssLoanDeduction],
+    ['Pag-IBIG Loan', ps.pagibigLoan],
+    ['Company Loan', ps.companyLoan],
+    ['Late / Undertime', grandLateUtDed],
+    ['Absence', ps.absenceDeduction],
+    ['Other Deductions', ps.otherDeductions],
+  ].filter(([, v]) => Number(v) > 0) as [string, number][]
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
       <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -780,6 +797,37 @@ function PerDayBreakdown({
         deduction from net pay (not part of gross) — shown here per day; its column total
         equals the payslip&apos;s stored late + undertime deduction.
       </p>
+
+      {/* Period-level deductions (statutory, loans, tax, attendance) */}
+      <div className="border-t border-slate-200">
+        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Deductions</p>
+        </div>
+        <table className="w-full text-xs">
+          <tbody>
+            {deductionItems.length === 0 ? (
+              <tr>
+                <td className="px-3 py-1.5 text-slate-400" colSpan={2}>No deductions this period.</td>
+              </tr>
+            ) : (
+              deductionItems.map(([label, val]) => (
+                <tr key={label} className="border-b last:border-b-0">
+                  <td className="px-3 py-1.5 text-slate-600">{label}</td>
+                  <td className="px-3 py-1.5 text-right font-medium text-rose-600 whitespace-nowrap">-{peso(val)}</td>
+                </tr>
+              ))
+            )}
+            <tr className="bg-slate-50 border-t-2 border-slate-300">
+              <td className="px-3 py-1.5 font-bold text-slate-700">Total deductions</td>
+              <td className="px-3 py-1.5 text-right font-bold text-rose-700 whitespace-nowrap">-{peso(ps.totalDeductions)}</td>
+            </tr>
+            <tr className="bg-slate-50">
+              <td className="px-3 py-1.5 font-bold text-slate-700">Net pay</td>
+              <td className="px-3 py-1.5 text-right font-bold text-emerald-700 whitespace-nowrap">{peso(ps.netPay)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
