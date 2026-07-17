@@ -134,7 +134,11 @@ export function LeaveRequestDetailDialog({
         </>
       }
       actionsSlot={
-        isHR && request.status === 'PENDING'
+        // Show approval actions to HR roles OR to anyone the approval
+        // workflow authorizes for this step (canApprove) — e.g. a
+        // PAYROLL_OFFICER explicitly configured as an approver. Gating on
+        // isHR alone hid the buttons from non-HR workflow approvers.
+        (isHR || canApprove) && request.status === 'PENDING'
           ? (
               <LeaveApprovalButtons
                 requestId={request.id}
