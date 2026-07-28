@@ -27,6 +27,18 @@ const patchSchema = z.object({
   rejectionReason: z.string().max(500).optional().nullable(),
 })
 
+// HR/admins may adjust a PENDING request's terms before approving it.
+const editSchema = z
+  .object({
+    amountRequested: z.number().positive().max(10_000_000).optional(),
+    repaymentMonths: z.number().int().min(1).max(3).optional(),
+    reason: z.string().min(1).max(500).optional(),
+  })
+  .refine(
+    d => d.amountRequested !== undefined || d.repaymentMonths !== undefined || d.reason !== undefined,
+    { message: 'Provide at least one field to update' },
+  )
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { ctx, error } = await requireAuth()
   if (error) return error
@@ -215,6 +227,55 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   logAudit(ctx, action === 'APPROVE' ? 'APPROVE' : 'REJECT', 'CashAdvance', id, {
     description: `${action === 'APPROVE' ? 'Approved' : 'Rejected'} ₱${Number(existing.amountRequested).toLocaleString()} cash advance for ${requesterName}`,
     newValues: { status: updated.status },
+  }).catch(() => {})
+
+  return NextResponse.json({ request: updated })
+}
+
+/**
+ * PUT /api/cash-advance/[id] — HR/admin edits a PENDING request's terms
+ * (amount, repayment months, reason) before approving it. Once approved the
+ * loan is created from these values, so edits must happen while PENDING.
+ */
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { ctx, error } = await requireAuth()
+  if (error) return error
+  if (!HR_ROLES.includes(ctx.role)) {
+    return NextResponse.json({ error: 'Only HR/admins can edit cash advance requests' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const body = await req.json().catch(() => ({}))
+  const parsed = editSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
+  }
+
+  const existing = await prisma.cashAdvanceRequest.findFirst({
+    where: { id, companyId: ctx.companyId },
+    include: { employee: { select: { firstName: true, lastName: true } } },
+  })
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (existing.status !== 'PENDING') {
+    return NextResponse.json({ error: `Only pending requests can be edited (this one is ${existing.status.toLowerCase()})` }, { status: 400 })
+  }
+
+  const data: Prisma.CashAdvanceRequestUpdateInput = {}
+  if (parsed.data.amountRequested !== undefined) data.amountRequested = parsed.data.amountRequested
+  if (parsed.data.repaymentMonths !== undefined) data.repaymentMonths = parsed.data.repaymentMonths
+  if (parsed.data.reason !== undefined) data.reason = parsed.data.reason
+
+  const updated = await prisma.cashAdvanceRequest.update({ where: { id }, data })
+
+  const requesterName = `${existing.employee?.firstName ?? ''} ${existing.employee?.lastName ?? ''}`.trim() || 'an employee'
+  logAudit(ctx, 'UPDATE', 'CashAdvance', id, {
+    description: `Edited cash advance terms for ${requesterName}`,
+    oldValues: {
+      amountRequested: Number(existing.amountRequested),
+      repaymentMonths: existing.repaymentMonths,
+      reason: existing.reason,
+    },
+    newValues: parsed.data,
   }).catch(() => {})
 
   return NextResponse.json({ request: updated })

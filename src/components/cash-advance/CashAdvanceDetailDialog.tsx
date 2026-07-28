@@ -53,6 +53,11 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
   const [acting, setActing] = useState<'approve' | 'reject' | null>(null)
   const [rejectMode, setRejectMode] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [editMode, setEditMode] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editAmount, setEditAmount] = useState(String(Number(request.amountRequested)))
+  const [editMonths, setEditMonths] = useState(request.repaymentMonths)
+  const [editReason, setEditReason] = useState(request.reason)
 
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
   const department = request.employee.department?.name || 'Employee'
@@ -89,6 +94,49 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
     }
   }
 
+  function startEdit() {
+    setEditAmount(String(Number(request.amountRequested)))
+    setEditMonths(request.repaymentMonths)
+    setEditReason(request.reason)
+    setRejectMode(false)
+    setEditMode(true)
+  }
+
+  async function doSave() {
+    const amt = parseFloat(editAmount)
+    if (!Number.isFinite(amt) || amt <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    if (!editReason.trim()) {
+      toast.error('Reason is required')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/cash-advance/${request.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountRequested: amt,
+          repaymentMonths: editMonths,
+          reason: editReason.trim(),
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || 'Failed to save changes')
+      }
+      toast.success('Cash advance updated')
+      onActionDone?.()
+      onClose()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save changes')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function doReject() {
     setActing('reject')
     try {
@@ -122,18 +170,66 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
       status={request.status}
       detailsSlot={
         <>
-          <DetailRow
-            icon={<Wallet className="h-4 w-4" />}
-            label="Amount Requested"
-            value={<span className="text-base font-bold">{peso(amount)}</span>}
-            hint={`Repayable over ${request.repaymentMonths} month${request.repaymentMonths === 1 ? '' : 's'}`}
-          />
-          <DetailRow
-            icon={<TrendingDown className="h-4 w-4" />}
-            label="Monthly Deduction"
-            value={peso(monthlyAmort)}
-            hint={`${amortPct.toFixed(1)}% of semi-monthly basic`}
-          />
+          {editMode ? (
+            <div className="sm:col-span-2 space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                Edit request before approving
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block text-sm">
+                  <span className="text-slate-600">Amount Requested (₱)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={editAmount}
+                    onChange={e => setEditAmount(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-slate-600">Repayment</span>
+                  <select
+                    value={editMonths}
+                    onChange={e => setEditMonths(Number(e.target.value))}
+                    className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                  >
+                    <option value={1}>1 month</option>
+                    <option value={2}>2 months</option>
+                    <option value={3}>3 months</option>
+                  </select>
+                </label>
+              </div>
+              <label className="block text-sm">
+                <span className="text-slate-600">Reason</span>
+                <textarea
+                  value={editReason}
+                  onChange={e => setEditReason(e.target.value)}
+                  rows={2}
+                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                />
+              </label>
+              <p className="text-xs text-slate-500">
+                New monthly deduction:{' '}
+                <strong>{peso((parseFloat(editAmount) || 0) / Math.max(1, editMonths))}</strong>
+              </p>
+            </div>
+          ) : (
+            <>
+              <DetailRow
+                icon={<Wallet className="h-4 w-4" />}
+                label="Amount Requested"
+                value={<span className="text-base font-bold">{peso(amount)}</span>}
+                hint={`Repayable over ${request.repaymentMonths} month${request.repaymentMonths === 1 ? '' : 's'}`}
+              />
+              <DetailRow
+                icon={<TrendingDown className="h-4 w-4" />}
+                label="Monthly Deduction"
+                value={peso(monthlyAmort)}
+                hint={`${amortPct.toFixed(1)}% of semi-monthly basic`}
+              />
+            </>
+          )}
           <DetailRow
             icon={<User className="h-4 w-4" />}
             label="Filed By"
@@ -141,16 +237,18 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
             hint={`${department} · Submitted ${formatDate(request.createdAt)}`}
             className="sm:col-span-2"
           />
-          <DetailRow
-            icon={<FileText className="h-4 w-4" />}
-            label="Reason"
-            value={
-              <p className="whitespace-pre-wrap text-sm text-slate-700 leading-relaxed">
-                {request.reason}
-              </p>
-            }
-            className="sm:col-span-2"
-          />
+          {!editMode && (
+            <DetailRow
+              icon={<FileText className="h-4 w-4" />}
+              label="Reason"
+              value={
+                <p className="whitespace-pre-wrap text-sm text-slate-700 leading-relaxed">
+                  {request.reason}
+                </p>
+              }
+              className="sm:col-span-2"
+            />
+          )}
           {request.status === 'APPROVED' && request.loan && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 sm:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
@@ -189,38 +287,56 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
       }
       actionsSlot={
         isHR && request.status === 'PENDING'
-          ? (
+          ? editMode ? (
               <>
-                {!rejectMode ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setRejectMode(true)}
-                      disabled={!!acting}
-                      className="border-rose-200 text-rose-600 hover:bg-rose-50"
-                    >
-                      Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={doApprove}
-                      disabled={!!acting}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      {acting === 'approve' ? 'Approving…' : 'Approve'}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => { setRejectMode(false); setRejectReason('') }} disabled={!!acting}>
-                      Cancel reject
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={doReject} disabled={!!acting}>
-                      {acting === 'reject' ? 'Rejecting…' : 'Confirm reject'}
-                    </Button>
-                  </>
-                )}
+                <Button size="sm" variant="outline" onClick={() => setEditMode(false)} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={doSave}
+                  disabled={saving}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {saving ? 'Saving…' : 'Save changes'}
+                </Button>
+              </>
+            ) : !rejectMode ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={startEdit}
+                  disabled={!!acting}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRejectMode(true)}
+                  disabled={!!acting}
+                  className="border-rose-200 text-rose-600 hover:bg-rose-50"
+                >
+                  Reject
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={doApprove}
+                  disabled={!!acting}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {acting === 'approve' ? 'Approving…' : 'Approve'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="sm" variant="outline" onClick={() => { setRejectMode(false); setRejectReason('') }} disabled={!!acting}>
+                  Cancel reject
+                </Button>
+                <Button size="sm" variant="destructive" onClick={doReject} disabled={!!acting}>
+                  {acting === 'reject' ? 'Rejecting…' : 'Confirm reject'}
+                </Button>
               </>
             )
           : undefined
