@@ -232,6 +232,7 @@ enum OvertimeRequestStatus {
 }
 
 enum DisciplinaryType {
+  INCIDENT_REPORT
   NOTICE_TO_EXPLAIN
   NOTICE_OF_DECISION
   VERBAL_WARNING

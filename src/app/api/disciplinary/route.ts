@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 const createSchema = z.object({
   employeeId:    z.string().min(1),
-  type:          z.enum(['NOTICE_TO_EXPLAIN', 'NOTICE_OF_DECISION', 'VERBAL_WARNING', 'WRITTEN_WARNING', 'SUSPENSION', 'DEMOTION', 'TERMINATION']),
+  type:          z.enum(['INCIDENT_REPORT', 'NOTICE_TO_EXPLAIN', 'NOTICE_OF_DECISION', 'VERBAL_WARNING', 'WRITTEN_WARNING', 'SUSPENSION', 'DEMOTION', 'TERMINATION']),
   incident:      z.string().min(1),
   description:   z.string().min(1),
   dateOfIncident: z.string(),
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       companyId: ctx.companyId,
       ...(status             && { status:     status     as 'OPEN' | 'RESPONDED' | 'CLOSED' }),
       ...(scopedEmployeeId   && { employeeId: scopedEmployeeId }),
-      ...(type               && { type:       type       as 'NOTICE_TO_EXPLAIN' | 'NOTICE_OF_DECISION' | 'VERBAL_WARNING' | 'WRITTEN_WARNING' | 'SUSPENSION' | 'DEMOTION' | 'TERMINATION' }),
+      ...(type               && { type:       type       as 'INCIDENT_REPORT' | 'NOTICE_TO_EXPLAIN' | 'NOTICE_OF_DECISION' | 'VERBAL_WARNING' | 'WRITTEN_WARNING' | 'SUSPENSION' | 'DEMOTION' | 'TERMINATION' }),
     },
     include: {
       employee: {

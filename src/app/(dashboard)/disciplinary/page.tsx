@@ -28,6 +28,7 @@ import { toast } from 'sonner'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type DisciplinaryType =
+  | 'INCIDENT_REPORT'
   | 'NOTICE_TO_EXPLAIN'
   | 'NOTICE_OF_DECISION'
   | 'VERBAL_WARNING'
@@ -65,6 +66,7 @@ interface DisciplinaryRecord {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<DisciplinaryType, string> = {
+  INCIDENT_REPORT:    'Incident Report',
   NOTICE_TO_EXPLAIN:  'Notice to Explain',
   NOTICE_OF_DECISION: 'Notice of Decision',
   VERBAL_WARNING:     'Verbal Warning',
@@ -75,6 +77,7 @@ const TYPE_LABELS: Record<DisciplinaryType, string> = {
 }
 
 const TYPE_COLORS: Record<DisciplinaryType, string> = {
+  INCIDENT_REPORT:    'bg-slate-100 text-slate-700',
   NOTICE_TO_EXPLAIN:  'bg-blue-100 text-blue-800',
   NOTICE_OF_DECISION: 'bg-gray-100 text-gray-700',
   VERBAL_WARNING:     'bg-amber-100 text-amber-800',
@@ -98,6 +101,7 @@ const STATUS_TABS: Array<{ value: string; label: string }> = [
 ]
 
 const TYPE_OPTIONS: Array<{ value: DisciplinaryType; label: string }> = [
+  { value: 'INCIDENT_REPORT',    label: 'Incident Report' },
   { value: 'NOTICE_TO_EXPLAIN',  label: 'Notice to Explain' },
   { value: 'NOTICE_OF_DECISION', label: 'Notice of Decision' },
   { value: 'VERBAL_WARNING',     label: 'Verbal Warning' },
