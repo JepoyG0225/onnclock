@@ -73,6 +73,13 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
   const monthlyAmort = amount / Math.max(1, request.repaymentMonths)
   const semiMonthlyBasic = monthlySalary / 2
   const amortPct = semiMonthlyBasic > 0 ? (monthlyAmort / semiMonthlyBasic) * 100 : 0
+  // Approved advances stay editable until repayment starts — i.e. the linked
+  // loan's balance still equals the principal (no cutoff has deducted yet).
+  const notYetRepaid =
+    request.status === 'APPROVED' &&
+    !!request.loan &&
+    Number(request.loan.balance) >= amount - 0.01
+  const canEdit = request.status === 'PENDING' || notYetRepaid
 
   async function doApprove() {
     setActing('approve')
@@ -177,7 +184,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
           {editMode ? (
             <div className="sm:col-span-2 space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                Edit request before approving
+                {request.status === 'APPROVED' ? 'Edit approved request (no repayment yet)' : 'Edit request before approving'}
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block text-sm">
@@ -268,7 +275,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
               className="sm:col-span-2"
             />
           )}
-          {request.status === 'APPROVED' && request.loan && (
+          {!editMode && request.status === 'APPROVED' && request.loan && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 sm:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
                 Linked Loan
@@ -305,7 +312,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
         </>
       }
       actionsSlot={
-        isHR && request.status === 'PENDING'
+        isHR && canEdit
           ? editMode ? (
               <>
                 <Button size="sm" variant="outline" onClick={() => setEditMode(false)} disabled={saving}>
@@ -320,7 +327,16 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                   {saving ? 'Saving…' : 'Save changes'}
                 </Button>
               </>
-            ) : !rejectMode ? (
+            ) : rejectMode ? (
+              <>
+                <Button size="sm" variant="outline" onClick={() => { setRejectMode(false); setRejectReason('') }} disabled={!!acting}>
+                  Cancel reject
+                </Button>
+                <Button size="sm" variant="destructive" onClick={doReject} disabled={!!acting}>
+                  {acting === 'reject' ? 'Rejecting…' : 'Confirm reject'}
+                </Button>
+              </>
+            ) : (
               <>
                 <Button
                   size="sm"
@@ -330,32 +346,27 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                 >
                   Edit
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRejectMode(true)}
-                  disabled={!!acting}
-                  className="border-rose-200 text-rose-600 hover:bg-rose-50"
-                >
-                  Reject
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={doApprove}
-                  disabled={!!acting}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {acting === 'approve' ? 'Approving…' : 'Approve'}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="outline" onClick={() => { setRejectMode(false); setRejectReason('') }} disabled={!!acting}>
-                  Cancel reject
-                </Button>
-                <Button size="sm" variant="destructive" onClick={doReject} disabled={!!acting}>
-                  {acting === 'reject' ? 'Rejecting…' : 'Confirm reject'}
-                </Button>
+                {request.status === 'PENDING' && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRejectMode(true)}
+                      disabled={!!acting}
+                      className="border-rose-200 text-rose-600 hover:bg-rose-50"
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={doApprove}
+                      disabled={!!acting}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      {acting === 'approve' ? 'Approving…' : 'Approve'}
+                    </Button>
+                  </>
+                )}
               </>
             )
           : undefined

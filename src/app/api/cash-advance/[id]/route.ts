@@ -282,11 +282,33 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true,
         },
       },
+      loan: { select: { id: true, balance: true, principalAmount: true, status: true } },
     },
   })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (existing.status !== 'PENDING') {
-    return NextResponse.json({ error: `Only pending requests can be edited (this one is ${existing.status.toLowerCase()})` }, { status: 400 })
+
+  // Editable while PENDING, or after approval as long as repayment hasn't
+  // started yet — no payroll deduction has ever been recorded against the
+  // linked loan. Once a cutoff has deducted from it, the terms are locked.
+  let editingApprovedLoanId: string | null = null
+  if (existing.status === 'PENDING') {
+    // editable
+  } else if (existing.status === 'APPROVED' && existing.linkedLoanId) {
+    const priorDeductions = await prisma.payslipLoanDeduction.count({
+      where: { loanId: existing.linkedLoanId },
+    })
+    if (priorDeductions > 0) {
+      return NextResponse.json(
+        { error: 'Repayment has already started on this cash advance — its terms can no longer be edited.' },
+        { status: 400 },
+      )
+    }
+    editingApprovedLoanId = existing.linkedLoanId
+  } else {
+    return NextResponse.json(
+      { error: `This ${existing.status.toLowerCase()} request can no longer be edited.` },
+      { status: 400 },
+    )
   }
 
   // Guardrail on the effective (post-edit) terms: the deduction from a single
@@ -319,11 +341,33 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (parsed.data.singleCutoff !== undefined) data.singleCutoff = parsed.data.singleCutoff
   if (parsed.data.reason !== undefined) data.reason = parsed.data.reason
 
-  const updated = await prisma.cashAdvanceRequest.update({ where: { id }, data })
+  // When editing an already-approved (not-yet-repaid) advance, recompute the
+  // linked loan's terms so the payroll engine deducts the corrected amount.
+  const newMonths = Math.max(1, Math.min(3, effMonths))
+  const newMonthlyAmort = effSingleCutoff
+    ? parseFloat((effAmount * periodsPerMo).toFixed(2))
+    : parseFloat((effAmount / newMonths).toFixed(2))
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.cashAdvanceRequest.update({ where: { id }, data })
+    if (editingApprovedLoanId) {
+      await tx.employeeLoan.update({
+        where: { id: editingApprovedLoanId },
+        data: {
+          principalAmount: effAmount,
+          balance: effAmount, // no repayment yet → balance tracks principal
+          monthlyAmortization: newMonthlyAmort,
+          status: 'ACTIVE',
+          endDate: null,
+        },
+      })
+    }
+    return u
+  })
 
   const requesterName = `${existing.employee?.firstName ?? ''} ${existing.employee?.lastName ?? ''}`.trim() || 'an employee'
   logAudit(ctx, 'UPDATE', 'CashAdvance', id, {
-    description: `Edited cash advance terms for ${requesterName}`,
+    description: `Edited cash advance terms for ${requesterName}${editingApprovedLoanId ? ' (approved, pre-repayment — linked loan updated)' : ''}`,
     oldValues: {
       amountRequested: Number(existing.amountRequested),
       repaymentMonths: existing.repaymentMonths,
