@@ -16,6 +16,7 @@ import { logAudit } from '@/lib/audit'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
+import { periodsPerMonth, perCutoffDeduction, monthlyEquivalent } from '@/lib/cash-advance-limit'
 import { z } from 'zod'
 
 const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN']
@@ -32,10 +33,15 @@ const editSchema = z
   .object({
     amountRequested: z.number().positive().max(10_000_000).optional(),
     repaymentMonths: z.number().int().min(1).max(3).optional(),
+    singleCutoff: z.boolean().optional(),
     reason: z.string().min(1).max(500).optional(),
   })
   .refine(
-    d => d.amountRequested !== undefined || d.repaymentMonths !== undefined || d.reason !== undefined,
+    d =>
+      d.amountRequested !== undefined ||
+      d.repaymentMonths !== undefined ||
+      d.singleCutoff !== undefined ||
+      d.reason !== undefined,
     { message: 'Provide at least one field to update' },
   )
 
@@ -169,7 +175,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // updated to point at it via linkedLoanId.
   const amount = Number(existing.amountRequested)
   const months = Math.max(1, Math.min(3, existing.repaymentMonths))
-  const monthlyAmortization = parseFloat((amount / months).toFixed(2))
+  // Single-cutoff: repay the whole amount in ONE cutoff. Payroll deducts
+  // monthlyAmortization / periodDivisor each cutoff, so setting the monthly
+  // amortization to amount × cutoffs-per-month makes the per-cutoff deduction
+  // equal the full amount (fully paid after one cutoff). Otherwise spread the
+  // amount across the chosen months as before.
+  const cycleCfg = existing.singleCutoff
+    ? await prisma.payrollCycleConfig.findUnique({
+        where: { companyId: ctx.companyId },
+        select: { payFrequency: true },
+      }).catch(() => null)
+    : null
+  const periodsPerMo = periodsPerMonth(cycleCfg?.payFrequency)
+  const monthlyAmortization = existing.singleCutoff
+    ? parseFloat((amount * periodsPerMo).toFixed(2))
+    : parseFloat((amount / months).toFixed(2))
 
   const updated = await prisma.$transaction(async (tx) => {
     const loan = await tx.employeeLoan.create({
@@ -209,7 +229,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       userId: existing.employee.userId,
       type: 'GENERIC',
       title: 'Cash advance approved',
-      body: `Your ₱${amount.toLocaleString()} cash advance was approved. Repayment: ₱${monthlyAmortization.toLocaleString()}/month over ${months} month${months > 1 ? 's' : ''}.`,
+      body: existing.singleCutoff
+        ? `Your ₱${amount.toLocaleString()} cash advance was approved. Repayment: ₱${amount.toLocaleString()} in a single cutoff.`
+        : `Your ₱${amount.toLocaleString()} cash advance was approved. Repayment: ₱${monthlyAmortization.toLocaleString()}/month over ${months} month${months > 1 ? 's' : ''}.`,
       link: '/portal/cash-advance',
     })
   }
@@ -253,16 +275,48 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const existing = await prisma.cashAdvanceRequest.findFirst({
     where: { id, companyId: ctx.companyId },
-    include: { employee: { select: { firstName: true, lastName: true } } },
+    include: {
+      employee: {
+        select: {
+          firstName: true, lastName: true,
+          rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true,
+        },
+      },
+    },
   })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (existing.status !== 'PENDING') {
     return NextResponse.json({ error: `Only pending requests can be edited (this one is ${existing.status.toLowerCase()})` }, { status: 400 })
   }
 
+  // Guardrail on the effective (post-edit) terms: the deduction from a single
+  // cutoff must not exceed the employee's salary for that cutoff.
+  const effAmount = parsed.data.amountRequested ?? Number(existing.amountRequested)
+  const effMonths = parsed.data.repaymentMonths ?? existing.repaymentMonths
+  const effSingleCutoff = parsed.data.singleCutoff ?? existing.singleCutoff
+  const cycleCfg = await prisma.payrollCycleConfig.findUnique({
+    where: { companyId: ctx.companyId },
+    select: { payFrequency: true },
+  }).catch(() => null)
+  const periodsPerMo = periodsPerMonth(cycleCfg?.payFrequency)
+  const monthlyIncome = monthlyEquivalent({
+    rateType: existing.employee.rateType as 'MONTHLY' | 'DAILY' | 'HOURLY',
+    basicSalary: Number(existing.employee.basicSalary),
+    dailyRate: existing.employee.dailyRate ? Number(existing.employee.dailyRate) : null,
+    hourlyRate: existing.employee.hourlyRate ? Number(existing.employee.hourlyRate) : null,
+  })
+  const perCutoffSalary = parseFloat((monthlyIncome / periodsPerMo).toFixed(2))
+  const cutoffDeduction = perCutoffDeduction(effAmount, { singleCutoff: effSingleCutoff, repaymentMonths: effMonths }, periodsPerMo)
+  if (cutoffDeduction > perCutoffSalary) {
+    return NextResponse.json({
+      error: `Per-cutoff deduction (₱${cutoffDeduction.toLocaleString()}) exceeds the employee's ₱${perCutoffSalary.toLocaleString()} salary for one cutoff. Lower the amount or spread it over more cutoffs.`,
+    }, { status: 400 })
+  }
+
   const data: Prisma.CashAdvanceRequestUpdateInput = {}
   if (parsed.data.amountRequested !== undefined) data.amountRequested = parsed.data.amountRequested
   if (parsed.data.repaymentMonths !== undefined) data.repaymentMonths = parsed.data.repaymentMonths
+  if (parsed.data.singleCutoff !== undefined) data.singleCutoff = parsed.data.singleCutoff
   if (parsed.data.reason !== undefined) data.reason = parsed.data.reason
 
   const updated = await prisma.cashAdvanceRequest.update({ where: { id }, data })
@@ -273,6 +327,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     oldValues: {
       amountRequested: Number(existing.amountRequested),
       repaymentMonths: existing.repaymentMonths,
+      singleCutoff: existing.singleCutoff,
       reason: existing.reason,
     },
     newValues: parsed.data,

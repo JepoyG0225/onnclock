@@ -14,6 +14,7 @@ export interface CashAdvanceDetailDialogProps {
     amountRequested: number
     reason: string
     repaymentMonths: number
+    singleCutoff?: boolean
     status: string
     rejectionReason: string | null
     approvedAt: string | null
@@ -57,6 +58,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
   const [saving, setSaving] = useState(false)
   const [editAmount, setEditAmount] = useState(String(Number(request.amountRequested)))
   const [editMonths, setEditMonths] = useState(request.repaymentMonths)
+  const [editSingleCutoff, setEditSingleCutoff] = useState(!!request.singleCutoff)
   const [editReason, setEditReason] = useState(request.reason)
 
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
@@ -97,6 +99,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
   function startEdit() {
     setEditAmount(String(Number(request.amountRequested)))
     setEditMonths(request.repaymentMonths)
+    setEditSingleCutoff(!!request.singleCutoff)
     setEditReason(request.reason)
     setRejectMode(false)
     setEditMode(true)
@@ -120,6 +123,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
         body: JSON.stringify({
           amountRequested: amt,
           repaymentMonths: editMonths,
+          singleCutoff: editSingleCutoff,
           reason: editReason.trim(),
         }),
       })
@@ -190,13 +194,21 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                 <label className="block text-sm">
                   <span className="text-slate-600">Repayment</span>
                   <select
-                    value={editMonths}
-                    onChange={e => setEditMonths(Number(e.target.value))}
+                    value={editSingleCutoff ? 'cutoff' : String(editMonths)}
+                    onChange={e => {
+                      if (e.target.value === 'cutoff') {
+                        setEditSingleCutoff(true)
+                      } else {
+                        setEditSingleCutoff(false)
+                        setEditMonths(Number(e.target.value))
+                      }
+                    }}
                     className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
                   >
-                    <option value={1}>1 month</option>
-                    <option value={2}>2 months</option>
-                    <option value={3}>3 months</option>
+                    <option value="cutoff">1 cutoff (full)</option>
+                    <option value="1">1 month</option>
+                    <option value="2">2 months</option>
+                    <option value="3">3 months</option>
                   </select>
                 </label>
               </div>
@@ -210,8 +222,11 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                 />
               </label>
               <p className="text-xs text-slate-500">
-                New monthly deduction:{' '}
-                <strong>{peso((parseFloat(editAmount) || 0) / Math.max(1, editMonths))}</strong>
+                {editSingleCutoff ? (
+                  <>Deducted in one cutoff: <strong>{peso(parseFloat(editAmount) || 0)}</strong></>
+                ) : (
+                  <>New monthly deduction: <strong>{peso((parseFloat(editAmount) || 0) / Math.max(1, editMonths))}</strong></>
+                )}
               </p>
             </div>
           ) : (
@@ -220,13 +235,17 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                 icon={<Wallet className="h-4 w-4" />}
                 label="Amount Requested"
                 value={<span className="text-base font-bold">{peso(amount)}</span>}
-                hint={`Repayable over ${request.repaymentMonths} month${request.repaymentMonths === 1 ? '' : 's'}`}
+                hint={request.singleCutoff
+                  ? 'Repayable in a single cutoff'
+                  : `Repayable over ${request.repaymentMonths} month${request.repaymentMonths === 1 ? '' : 's'}`}
               />
               <DetailRow
                 icon={<TrendingDown className="h-4 w-4" />}
-                label="Monthly Deduction"
-                value={peso(monthlyAmort)}
-                hint={`${amortPct.toFixed(1)}% of semi-monthly basic`}
+                label={request.singleCutoff ? 'Cutoff Deduction' : 'Monthly Deduction'}
+                value={peso(request.singleCutoff ? amount : monthlyAmort)}
+                hint={request.singleCutoff
+                  ? 'Full amount deducted in one cutoff'
+                  : `${amortPct.toFixed(1)}% of semi-monthly basic`}
               />
             </>
           )}

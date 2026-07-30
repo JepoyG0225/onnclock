@@ -1249,6 +1249,10 @@ model CashAdvanceRequest {
   amountRequested Decimal           @db.Decimal(12, 2)
   reason          String
   repaymentMonths Int               @default(1) // 1 to 3 typically
+  // When true, the whole advance is repaid in ONE pay-period cutoff instead
+  // of spread over repaymentMonths. Guarded so the single deduction can't
+  // exceed the employee's salary for that cutoff.
+  singleCutoff    Boolean           @default(false)
   status          CashAdvanceStatus @default(PENDING)
   approvedById    String?
   approvedAt      DateTime?

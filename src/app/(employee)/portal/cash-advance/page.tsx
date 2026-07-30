@@ -12,6 +12,7 @@ interface CARequest {
   amountRequested: number
   reason: string
   repaymentMonths: number
+  singleCutoff?: boolean
   status: Status
   rejectionReason: string | null
   approvedAt: string | null
@@ -44,11 +45,14 @@ export default function PortalCashAdvancePage() {
     rawCap: number
     outstanding: number
     available: number
+    periodsPerMonth?: number
+    perCutoffSalary?: number
   } | null>(null)
   const [form, setForm] = useState({
     amount: '',
     reason: '',
     repaymentMonths: 1,
+    singleCutoff: false,
   })
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [okMsg,    setOkMsg]    = useState<string | null>(null)
@@ -76,6 +80,14 @@ export default function PortalCashAdvancePage() {
     const amt = Number(form.amount)
     if (!amt || amt <= 0) { setErrorMsg('Please enter a valid amount'); return }
     if (!form.reason.trim() || form.reason.trim().length < 3) { setErrorMsg('Please tell us why you need this'); return }
+    if (myLimit?.perCutoffSalary != null) {
+      const ppm = myLimit.periodsPerMonth ?? 2
+      const perCutoff = form.singleCutoff ? amt : (amt / form.repaymentMonths) / ppm
+      if (perCutoff > myLimit.perCutoffSalary) {
+        setErrorMsg(`That deducts ${peso(perCutoff)} from one cutoff, over your ${peso(myLimit.perCutoffSalary)} cutoff salary. Choose a longer term or lower the amount.`)
+        return
+      }
+    }
     setSubmitting(true)
     try {
       const res = await fetch('/api/cash-advance', {
@@ -85,11 +97,12 @@ export default function PortalCashAdvancePage() {
           amountRequested: amt,
           reason: form.reason.trim(),
           repaymentMonths: form.repaymentMonths,
+          singleCutoff: form.singleCutoff,
         }),
       })
       if (res.ok) {
         setOkMsg('Request submitted — HR will review shortly.')
-        setForm({ amount: '', reason: '', repaymentMonths: 1 })
+        setForm({ amount: '', reason: '', repaymentMonths: 1, singleCutoff: false })
         setShowForm(false)
         load()
       } else {
@@ -188,25 +201,50 @@ export default function PortalCashAdvancePage() {
 
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Repay Over</label>
-            <div className="grid grid-cols-3 rounded-lg border overflow-hidden">
+            <div className="grid grid-cols-4 rounded-lg border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, singleCutoff: true }))}
+                className={`px-2 py-1.5 text-sm transition-colors ${
+                  form.singleCutoff ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                1 cutoff
+              </button>
               {[1, 2, 3].map(m => (
                 <button
                   type="button"
                   key={m}
-                  onClick={() => setForm(f => ({ ...f, repaymentMonths: m }))}
+                  onClick={() => setForm(f => ({ ...f, repaymentMonths: m, singleCutoff: false }))}
                   className={`px-2 py-1.5 text-sm transition-colors ${
-                    form.repaymentMonths === m ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    !form.singleCutoff && form.repaymentMonths === m ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {m} {m === 1 ? 'month' : 'months'}
                 </button>
               ))}
             </div>
-            {form.amount && (
-              <p className="text-xs text-gray-400 mt-2">
-                ≈ {peso(Number(form.amount) / form.repaymentMonths)} deducted per month
-              </p>
-            )}
+            {form.amount && (() => {
+              const amt = Number(form.amount) || 0
+              const ppm = myLimit?.periodsPerMonth ?? 2
+              const perCutoff = form.singleCutoff ? amt : (amt / form.repaymentMonths) / ppm
+              const ceiling = myLimit?.perCutoffSalary
+              const exceeds = ceiling != null && perCutoff > ceiling
+              return (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-400">
+                    ≈ {peso(perCutoff)} deducted per cutoff{form.singleCutoff ? ' · one-time' : ''}
+                  </p>
+                  {ceiling != null && (
+                    <p className={`text-xs ${exceeds ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                      {exceeds
+                        ? `Exceeds your ${peso(ceiling)} salary for one cutoff — choose a longer term or lower the amount.`
+                        : `Within your ${peso(ceiling)} salary per cutoff.`}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {errorMsg && (
@@ -253,7 +291,7 @@ export default function PortalCashAdvancePage() {
                     <StatusBadge status={r.status} />
                   </div>
                   <div className="text-[11px] sm:text-xs text-gray-500">
-                    {format(new Date(r.createdAt), 'MMM d, yyyy')} · {r.repaymentMonths} {r.repaymentMonths === 1 ? 'mo' : 'mos'} repay
+                    {format(new Date(r.createdAt), 'MMM d, yyyy')} · {r.singleCutoff ? '1 cutoff' : `${r.repaymentMonths} ${r.repaymentMonths === 1 ? 'mo' : 'mos'}`} repay
                   </div>
                 </div>
                 {r.status === 'APPROVED' && r.loan && (

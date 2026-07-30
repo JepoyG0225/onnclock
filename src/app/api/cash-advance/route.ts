@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/lib/notifications'
-import { computeCashAdvanceLimit } from '@/lib/cash-advance-limit'
+import { computeCashAdvanceLimit, periodsPerMonth, perCutoffDeduction } from '@/lib/cash-advance-limit'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -28,6 +28,8 @@ const createSchema = z.object({
   amountRequested: z.number().positive(),
   reason: z.string().min(3).max(500),
   repaymentMonths: z.number().int().min(1).max(3).default(1),
+  // Repay the whole advance in a single pay-period cutoff instead of over months.
+  singleCutoff: z.boolean().default(false),
   // HR can file on behalf of an employee
   employeeId: z.string().optional(),
 })
@@ -95,13 +97,24 @@ export async function GET(req: NextRequest) {
       select: { id: true, rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true },
     })
     if (me) {
-      myLimit = await computeCashAdvanceLimit({
+      const base = await computeCashAdvanceLimit({
         id:          me.id,
         rateType:    me.rateType,
         basicSalary: Number(me.basicSalary),
         dailyRate:   me.dailyRate ? Number(me.dailyRate) : null,
         hourlyRate:  me.hourlyRate ? Number(me.hourlyRate) : null,
       })
+      const cfg = await prisma.payrollCycleConfig.findUnique({
+        where: { companyId: ctx.companyId },
+        select: { payFrequency: true },
+      }).catch(() => null)
+      const ppm = periodsPerMonth(cfg?.payFrequency)
+      myLimit = {
+        ...base,
+        periodsPerMonth: ppm,
+        // Salary for one cutoff — ceiling for a single-cutoff repayment.
+        perCutoffSalary: parseFloat((base.monthlyIncome / ppm).toFixed(2)),
+      }
     }
   }
 
@@ -118,7 +131,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { amountRequested, reason, repaymentMonths, employeeId: targetEmployeeId } = parsed.data
+  const { amountRequested, reason, repaymentMonths, singleCutoff, employeeId: targetEmployeeId } = parsed.data
   const isHR = HR_ROLES.includes(ctx.role ?? '')
 
   // Resolve who the request is for.
@@ -178,6 +191,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: reason }, { status: 400 })
   }
 
+  // Guardrail: the amount deducted from a single cutoff must never exceed the
+  // employee's salary for that cutoff — otherwise a single-cutoff repayment
+  // (or an over-aggressive schedule) would wipe out or go negative on net pay.
+  const cycleCfg = await prisma.payrollCycleConfig.findUnique({
+    where: { companyId: ctx.companyId },
+    select: { payFrequency: true },
+  }).catch(() => null)
+  const periodsPerMo = periodsPerMonth(cycleCfg?.payFrequency)
+  const perCutoffSalary = parseFloat((limit.monthlyIncome / periodsPerMo).toFixed(2))
+  const cutoffDeduction = perCutoffDeduction(amountRequested, { singleCutoff, repaymentMonths }, periodsPerMo)
+  if (cutoffDeduction > perCutoffSalary) {
+    return NextResponse.json({
+      error: singleCutoff
+        ? `A single-cutoff repayment of ₱${amountRequested.toLocaleString()} exceeds your ₱${perCutoffSalary.toLocaleString()} salary for one cutoff. Spread it over more cutoffs or lower the amount.`
+        : `The per-cutoff deduction (₱${cutoffDeduction.toLocaleString()}) exceeds your ₱${perCutoffSalary.toLocaleString()} salary for one cutoff. Spread it over more months or lower the amount.`,
+    }, { status: 400 })
+  }
+
   // Prevent overlapping pending requests (one outstanding at a time)
   const pendingCount = await prisma.cashAdvanceRequest.count({
     where: { employeeId, status: 'PENDING' },
@@ -195,6 +226,7 @@ export async function POST(req: NextRequest) {
       amountRequested,
       reason,
       repaymentMonths,
+      singleCutoff,
       status:          'PENDING',
     },
   })

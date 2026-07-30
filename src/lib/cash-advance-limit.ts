@@ -18,6 +18,37 @@ const DOLE_WORKDAYS_PER_MONTH = 22
 const STANDARD_HOURS_PER_DAY  = 8
 export const CASH_ADVANCE_MAX_PERCENTAGE = 0.30   // 30% of monthly income
 
+/**
+ * How many payroll cutoffs fall in a month for each pay frequency — matches
+ * the periodDivisor used by the payroll engine when it splits a loan's
+ * monthly amortization across cutoffs.
+ */
+export function periodsPerMonth(payFrequency: string | null | undefined): number {
+  switch (payFrequency) {
+    case 'WEEKLY': return 4
+    case 'DAILY':  return 22
+    case 'MONTHLY': return 1
+    case 'SEMI_MONTHLY':
+    default:        return 2
+  }
+}
+
+/**
+ * The peso amount that will actually be deducted from ONE cutoff for a given
+ * repayment plan. Single-cutoff repays the whole advance in one deduction;
+ * otherwise the monthly amortization (amount / months) is split across the
+ * cutoffs in that month.
+ */
+export function perCutoffDeduction(
+  amount: number,
+  plan: { singleCutoff?: boolean; repaymentMonths?: number },
+  periodsPerMo: number,
+): number {
+  if (plan.singleCutoff) return parseFloat(amount.toFixed(2))
+  const months = Math.max(1, Math.min(3, plan.repaymentMonths ?? 1))
+  return parseFloat(((amount / months) / Math.max(1, periodsPerMo)).toFixed(2))
+}
+
 export interface MonthlyEquivalentEmployee {
   rateType: 'MONTHLY' | 'DAILY' | 'HOURLY'
   basicSalary: number
