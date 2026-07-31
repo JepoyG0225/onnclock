@@ -553,6 +553,25 @@ export async function POST(
     )
   }
 
+  // Per-date shift assignments for the period, counted per employee.
+  //
+  // This is the most authoritative statement of "days this employee was
+  // rostered to work": many companies never set Employee.workScheduleId and
+  // instead publish a shift roster, so emp.workSchedule is null and its
+  // workDays array can't be consulted. Rest days on the roster don't count.
+  const shiftAssignments = await prisma.employeeShiftAssignment.groupBy({
+    by: ['employeeId'],
+    where: {
+      companyId: scopedCompanyId,
+      date: { gte: run.periodStart, lte: run.periodEnd },
+      isRestDay: false,
+    },
+    _count: { _all: true },
+  })
+  const rosteredDaysByEmployee = new Map(
+    shiftAssignments.map(a => [a.employeeId, a._count._all]),
+  )
+
   // Fetch all company holidays for the pay period
   const companyHolidays = await prisma.holiday.findMany({
     where: { companyId: scopedCompanyId, date: { gte: run.periodStart, lte: run.periodEnd } }
@@ -695,11 +714,21 @@ export async function POST(
     // food-service employee who works Saturdays) was previously shorted down
     // to a 5-day week's worth of days even though every one of those extra
     // days is on their actual roster.
-    const empScheduledWorkingDays = Math.max(
-      1,
-      getScheduledWorkingDays(run.periodStart, run.periodEnd, workDaySet)
-        - countHolidaysOnWorkDays(companyHolidays, workDaySet),
-    )
+    //
+    // Preference order:
+    //   1. Published shift roster (EmployeeShiftAssignment) — the only source
+    //      that's per-date and correct for companies that never set
+    //      Employee.workScheduleId.
+    //   2. The employee's WorkSchedule.workDays weekday pattern.
+    //   3. Mon-Fri, for employees with neither.
+    const rosteredDays = rosteredDaysByEmployee.get(emp.id) ?? 0
+    const empScheduledWorkingDays = rosteredDays > 0
+      ? rosteredDays
+      : Math.max(
+          1,
+          getScheduledWorkingDays(run.periodStart, run.periodEnd, workDaySet)
+            - countHolidaysOnWorkDays(companyHolidays, workDaySet),
+        )
     const daysWorked = emp.trackTime
       ? dtrWorked
       : empScheduledWorkingDays
