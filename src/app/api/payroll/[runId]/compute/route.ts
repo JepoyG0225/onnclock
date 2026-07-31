@@ -703,11 +703,15 @@ export async function POST(
         ? (emp.workSchedule!.workDays as unknown[]).map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6)
         : [],
     )
-    // Time-tracking OFF → bypass the timesheet for pay basis: credit the FULL
-    // working days in the period (daily rate × days covered by the run), not
-    // the attendance-prorated count. Absences are still deducted separately
-    // (absenceDeduction), and late minutes still drive the late deduction —
-    // so the gross shows the full amount with late shown as its own line.
+    // Time-tracking OFF → still count the DAYS the employee actually showed
+    // up for (from the DTR), but never the HOURS: each of those days is paid
+    // a full workHoursPerDay below, so a short shift or a late arrival never
+    // shrinks basic pay. That's the whole point of the toggle — "no work, no
+    // pay" at day granularity, without hour-level proration.
+    //
+    // Only when there is NO timesheet at all for the period do we fall back
+    // to the roster / schedule below, so employees whose attendance simply
+    // isn't captured still get their contracted days.
     //
     // Use THIS employee's own schedule, not the company-wide `workingDays`
     // (which assumes a Mon-Fri week) — a 6/7-day-a-week schedule (e.g. a
@@ -729,7 +733,7 @@ export async function POST(
           getScheduledWorkingDays(run.periodStart, run.periodEnd, workDaySet)
             - countHolidaysOnWorkDays(companyHolidays, workDaySet),
         )
-    const daysWorked = emp.trackTime
+    const daysWorked = emp.trackTime || hasDtr
       ? dtrWorked
       : empScheduledWorkingDays
 
@@ -939,9 +943,13 @@ export async function POST(
       if (d.isLeave && !d.isLeavePaid && (d as { isHalfDay?: boolean }).isHalfDay) return sum + 0.5
       return sum
     }, 0)
-    // If trackTime is enabled, basic pay is already pro-rated by daysWorked,
-    // so do not apply absence deductions again.
-    const absentDays = emp.trackTime ? 0 : dtrAbsent
+    // Whenever basic pay was derived from the DTR (trackTime on, OR off with
+    // a timesheet present), daysWorked already EXCLUDES absent days — the
+    // employee was never paid for them, so charging absenceDeduction on top
+    // would dock the same day twice. Only the no-timesheet fallback path,
+    // which pays the full roster regardless of attendance, needs the explicit
+    // deduction.
+    const absentDays = emp.trackTime || hasDtr ? 0 : dtrAbsent
     const regularHolidaysWorked  = enhancedDtr.filter(d => d.isHoliday && d.holidayType === 'REGULAR'             && !d.isAbsent).length
     const specialHolidaysWorked  = enhancedDtr.filter(d => d.isHoliday && d.holidayType === 'SPECIAL_NON_WORKING' && !d.isAbsent).length
 
