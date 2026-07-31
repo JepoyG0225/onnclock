@@ -58,6 +58,34 @@ function holidayClassOf(type: string | null | undefined): HolidayClass {
 function weekdayOfDateKey(dateKey: string): number {
   return new Date(`${dateKey}T00:00:00Z`).getUTCDay()
 }
+/**
+ * Count days in [start,end] (inclusive) that fall on one of `workDays`
+ * (0=Sun..6=Sat). Falls back to Mon-Fri when `workDays` is empty, matching
+ * getWorkingDays()'s assumption for employees with no configured schedule.
+ *
+ * Used for the trackTime=false pay basis so a 6/7-day-a-week schedule (e.g.
+ * retail/food service employees who work Saturdays) isn't silently shorted
+ * down to a 5-day week's worth of days.
+ */
+function getScheduledWorkingDays(start: Date, end: Date, workDays: Set<number>): number {
+  let count = 0
+  const current = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()))
+  const endUtc = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()))
+  while (current <= endUtc) {
+    const day = current.getUTCDay()
+    const isWorkDay = workDays.size > 0 ? workDays.has(day) : day !== 0 && day !== 6
+    if (isWorkDay) count++
+    current.setUTCDate(current.getUTCDate() + 1)
+  }
+  return count
+}
+/** Same Mon-Fri-fallback rule as getScheduledWorkingDays, applied to holiday dates. */
+function countHolidaysOnWorkDays(holidays: { date: Date }[], workDays: Set<number>): number {
+  return holidays.filter(h => {
+    const day = h.date.getUTCDay()
+    return workDays.size > 0 ? workDays.has(day) : day !== 0 && day !== 6
+  }).length
+}
 function addCats(into: CategoryHours, from: CategoryHours): void {
   for (const k of Object.keys(from) as PremiumCategory[]) {
     into[k] = Math.round(((into[k] ?? 0) + (from[k] ?? 0)) * 100) / 100
@@ -649,14 +677,32 @@ export async function POST(
       if (d.isLeave && !d.isLeavePaid) return sum
       return sum + ((d as { isHalfDay?: boolean }).isHalfDay ? 0.5 : 1)
     }, 0)
+    // Employee's own scheduled work days (0=Sun..6=Sat), used below for the
+    // trackTime=false pay basis AND (further down) for rest-day classification.
+    const workDaySet = new Set(
+      Array.isArray(emp.workSchedule?.workDays)
+        ? (emp.workSchedule!.workDays as unknown[]).map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6)
+        : [],
+    )
     // Time-tracking OFF → bypass the timesheet for pay basis: credit the FULL
     // working days in the period (daily rate × days covered by the run), not
     // the attendance-prorated count. Absences are still deducted separately
     // (absenceDeduction), and late minutes still drive the late deduction —
     // so the gross shows the full amount with late shown as its own line.
+    //
+    // Use THIS employee's own schedule, not the company-wide `workingDays`
+    // (which assumes a Mon-Fri week) — a 6/7-day-a-week schedule (e.g. a
+    // food-service employee who works Saturdays) was previously shorted down
+    // to a 5-day week's worth of days even though every one of those extra
+    // days is on their actual roster.
+    const empScheduledWorkingDays = Math.max(
+      1,
+      getScheduledWorkingDays(run.periodStart, run.periodEnd, workDaySet)
+        - countHolidaysOnWorkDays(companyHolidays, workDaySet),
+    )
     const daysWorked = emp.trackTime
       ? dtrWorked
-      : workingDays
+      : empScheduledWorkingDays
 
     // ── Resolve effective work hours per day (used for regular-hour cap
     //   below and as a fallback when DTR timestamps are missing). For
@@ -723,11 +769,6 @@ export async function POST(
     // matrix non-OT hours equal the existing basic-pay basis — premiums stack
     // without double-counting the basic 100%.
     const disableHolidayEmp = (emp as { disableHolidayPay?: boolean }).disableHolidayPay === true
-    const workDaySet = new Set(
-      Array.isArray(emp.workSchedule?.workDays)
-        ? (emp.workSchedule!.workDays as unknown[]).map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6)
-        : [],
-    )
     const isRestDayDate = (dateKey: string): boolean =>
       workDaySet.size > 0 ? !workDaySet.has(weekdayOfDateKey(dateKey)) : false
     const holidayForDate = (dateKey: string): HolidayClass =>
