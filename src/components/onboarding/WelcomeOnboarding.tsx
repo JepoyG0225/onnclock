@@ -9,9 +9,13 @@
  */
 import { useEffect, useState, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { markTourSeen } from '@/lib/onboarding/tour-state'
 import { Sparkles, UserPlus, Upload, Compass, ArrowRight, X } from 'lucide-react'
 
 const welcomeKey = (u: string) => `onclock_welcome_seen_${u}`
+
+/** Server-side key for the first-login welcome. */
+const WELCOME_TOUR_KEY = 'welcome'
 const nextKey = (u: string) => `onclock_nextsteps_seen_${u}`
 
 export function WelcomeOnboarding({
@@ -47,6 +51,7 @@ export function WelcomeOnboarding({
 
   const dismissWelcome = useCallback(() => {
     window.localStorage.setItem(welcomeKey(userId), '1')
+    void markTourSeen(WELCOME_TOUR_KEY)
     setShowWelcome(false)
   }, [userId])
 

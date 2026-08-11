@@ -262,6 +262,15 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
+  /// Guided-tour progress, keyed by tour id: { "employees": true, ... } plus
+  /// an "__off" flag when the user opts out of tours entirely.
+  ///
+  /// Server-side on purpose. This used to live only in localStorage, which is
+  /// per-BROWSER — the same person saw every tour again on a second device or
+  /// after clearing site data. "Once per user" has to be stored against the
+  /// user.
+  tourState Json?
+
   companies       UserCompany[]
   approverConfigs ApproverConfig[]
 

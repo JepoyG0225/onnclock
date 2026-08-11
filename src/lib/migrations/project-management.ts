@@ -358,6 +358,13 @@ const GROUPS: StatementGroup[] = [
     ],
   },
   {
+    // Guided-tour progress, stored per USER rather than per browser.
+    group: 'pm_tour_state',
+    statements: [
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tourState" JSONB;`,
+    ],
+  },
+  {
     group: 'pm_task_dependencies',
     statements: [
       `CREATE TABLE IF NOT EXISTS "task_dependencies" (

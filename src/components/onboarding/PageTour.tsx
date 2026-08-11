@@ -14,6 +14,28 @@ import { resolvePageTour, type PageTour as TourDef } from '@/lib/onboarding/page
 const seenKey = (uid: string, key: string) => `onclock_pagetour_${uid}_${key}`
 const offKey = (uid: string) => `onclock_tours_off_${uid}`
 
+/**
+ * Persist a tour as seen against the USER, not the browser.
+ *
+ * localStorage alone made "show once" mean "once per browser" - the same
+ * person saw every tour again on a second device or after clearing site data.
+ * We still write localStorage so the current tab reacts instantly and so
+ * behaviour degrades sensibly if the request fails.
+ */
+async function persistSeen(uid: string, key: string, off = false) {
+  try { window.localStorage.setItem(seenKey(uid, key), '1') } catch {}
+  if (off) { try { window.localStorage.setItem(offKey(uid), '1') } catch {} }
+  try {
+    await fetch('/api/tours', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(off ? { key, off: true } : { key }),
+    })
+  } catch {
+    // Non-fatal: the localStorage copy still suppresses it in this browser.
+  }
+}
+
 export function PageTour({ userId, role, actorRole, enabled = false }: { userId: string; role: string; actorRole?: string; enabled?: boolean }) {
   const pathname = usePathname()
   const [tour, setTour] = useState<TourDef | null>(null)
@@ -24,19 +46,36 @@ export function PageTour({ userId, role, actorRole, enabled = false }: { userId:
 
   const allowed = enabled && !!userId && actorRole !== 'SUPER_ADMIN' && ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'DEPARTMENT_HEAD'].includes(role)
 
+  // Server-side seen state, fetched once per mount. Until it arrives we do
+  // NOT start a tour: showing one and retracting it would be worse than a
+  // brief delay, and this is the whole point of persisting server-side.
+  const [remote, setRemote] = useState<{ seen: Record<string, boolean>; off: boolean } | null>(null)
+  useEffect(() => {
+    if (!allowed) return
+    let cancelled = false
+    fetch('/api/tours')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled) setRemote(d ?? { seen: {}, off: false }) })
+      .catch(() => { if (!cancelled) setRemote({ seen: {}, off: false }) })
+    return () => { cancelled = true }
+  }, [allowed])
+
   // Decide whether to start a tour when the path changes.
   useEffect(() => {
-    if (!allowed || typeof window === 'undefined') return
-    const off = !!window.localStorage.getItem(offKey(userId))
+    if (!allowed || typeof window === 'undefined' || !remote) return
+    const off = remote.off || !!window.localStorage.getItem(offKey(userId))
     const t = off ? null : resolvePageTour(pathname)
-    const shouldStart = !!t && !window.localStorage.getItem(seenKey(userId, t.key))
+    // Seen if EITHER store says so - the server is authoritative across
+    // devices, localStorage covers the gap before the fetch resolves.
+    const shouldStart =
+      !!t && !remote.seen[t.key] && !window.localStorage.getItem(seenKey(userId, t.key))
     // Defer all state updates out of the effect body. A short delay also lets
     // the page DOM mount before we anchor the spotlight.
     const id = window.setTimeout(() => {
       if (shouldStart && t) { setI(0); setTour(t) } else setTour(null)
     }, shouldStart ? 650 : 0)
     return () => window.clearTimeout(id)
-  }, [pathname, allowed, userId])
+  }, [pathname, allowed, userId, remote])
 
   const step = tour?.steps[i] ?? null
   const isLast = !!tour && i >= tour.steps.length - 1
@@ -76,13 +115,18 @@ export function PageTour({ userId, role, actorRole, enabled = false }: { userId:
   }, [tour, step, i])
 
   const finish = useCallback(() => {
-    if (tour) window.localStorage.setItem(seenKey(userId, tour.key), '1')
+    if (tour) {
+      void persistSeen(userId, tour.key)
+      // Keep local state in step so the tour cannot restart on a same-session
+      // navigation before the next /api/tours fetch.
+      setRemote(prev => (prev ? { ...prev, seen: { ...prev.seen, [tour.key]: true } } : prev))
+    }
     setTour(null); setRect(null)
   }, [tour, userId])
 
   const turnOff = useCallback(() => {
-    window.localStorage.setItem(offKey(userId), '1')
-    if (tour) window.localStorage.setItem(seenKey(userId, tour.key), '1')
+    void persistSeen(userId, tour?.key ?? '__none__', true)
+    setRemote(prev => (prev ? { ...prev, off: true } : { seen: {}, off: true }))
     setTour(null); setRect(null)
   }, [tour, userId])
 

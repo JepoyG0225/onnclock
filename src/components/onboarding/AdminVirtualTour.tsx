@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { canAccessPath } from '@/lib/auth/page-access'
+import { markTourSeen } from '@/lib/onboarding/tour-state'
 import type { Permission } from '@/lib/auth/permissions'
 
 type TourStep = {
@@ -297,6 +298,9 @@ export function AdminVirtualTour({
 
   function completeTour() {
     window.localStorage.setItem(seenKey, '1')
+    // Also record it against the user, so "seen" survives a different device
+    // or a cleared browser.
+    void markTourSeen('admin-tour')
     window.sessionStorage.removeItem(progressKey)
     setActive(false)
   }
