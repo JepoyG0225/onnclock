@@ -1,0 +1,1868 @@
+﻿'use client'
+
+import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  format,
+  parseISO,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  compareDesc,
+  compareAsc,
+} from 'date-fns'
+import {
+  Plus,
+  Check,
+  X,
+  Search,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  CalendarRange,
+  Users,
+  CheckCheck,
+  Clock,
+  ZoomIn,
+  MapPin,
+  Pencil,
+  Upload,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { DatePicker } from '@/components/ui/date-picker'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+import { DtrImportModal } from '@/components/dtr/DtrImportModal'
+
+interface DTRRecord {
+  id: string
+  employeeId: string
+  date: string
+  timeIn: string | null
+  timeOut: string | null
+  breakIn: string | null
+  breakOut: string | null
+  regularHours: number | null
+  overtimeHours: number | null
+  nightDiffHours: number | null
+  lateMinutes: number | null
+  undertimeMinutes: number | null
+  isAbsent: boolean
+  isRestDay: boolean
+  isHoliday: boolean
+  holidayType: string | null
+  isLeave: boolean
+  approvedBy: string | null
+  remarks: string | null
+  clockInLat: number | null
+  clockInLng: number | null
+  clockInAddress: string | null
+  clockOutLat: number | null
+  clockOutLng: number | null
+  clockOutAddress: string | null
+  employee: {
+    firstName: string
+    lastName: string
+    employeeNo: string
+    department: { name: string } | null
+  }
+  screenCaptureCount?: number
+  screenCaptures?: {
+    id: string
+    imageDataUrl: string
+    capturedAt: string
+  }[]
+}
+
+interface Employee {
+  id: string
+  firstName: string
+  lastName: string
+  employeeNo: string
+}
+
+type ViewMode = 'daily' | 'weekly' | 'monthly'
+
+/**
+ * One approval-unit row in the timesheets table. Period = a single day
+ * (Daily mode), Mon–Sun week (Weekly), or full calendar month (Monthly).
+ * Field names use weekStart/weekEnd because the existing approval API
+ * accepts a generic date range under those param names.
+ */
+interface WeeklyGroup {
+  key: string
+  employeeId: string
+  employeeName: string
+  employeeNo: string
+  department: string
+  weekStart: Date
+  weekEnd: Date
+  records: DTRRecord[]
+  totalRegular: number
+  totalOvertime: number
+  totalNightDiff: number
+  totalLate: number
+  totalUndertime: number
+  pendingCount: number
+  approvedCount: number
+  rejectedCount: number
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'MIXED'
+}
+
+interface WeekOption {
+  start: string
+  end: string
+  recordCount: number
+  employeeCount: number
+}
+
+interface CompanyOption {
+  id: string
+  name: string
+}
+
+const STATUS_BADGE: Record<WeeklyGroup['status'], string> = {
+  PENDING: 'bg-yellow-100 text-yellow-800',
+  APPROVED: 'bg-green-100 text-green-800',
+  REJECTED: 'bg-red-100 text-red-800',
+  MIXED: 'bg-indigo-100 text-indigo-800',
+}
+
+const DAILY_STATUS_BADGE: Record<'PENDING' | 'APPROVED' | 'REJECTED', string> = {
+  PENDING: 'bg-yellow-100 text-yellow-800',
+  APPROVED: 'bg-green-100 text-green-800',
+  REJECTED: 'bg-red-100 text-red-800',
+}
+
+
+function dailyStatus(record: DTRRecord): 'PENDING' | 'APPROVED' | 'REJECTED' {
+  if (record.approvedBy) return 'APPROVED'
+  if (record.remarks === 'REJECTED') return 'REJECTED'
+  return 'PENDING'
+}
+
+function weekStatus(records: DTRRecord[]): WeeklyGroup['status'] {
+  let pending = 0
+  let approved = 0
+  let rejected = 0
+  for (const r of records) {
+    const s = dailyStatus(r)
+    if (s === 'PENDING') pending++
+    if (s === 'APPROVED') approved++
+    if (s === 'REJECTED') rejected++
+  }
+  if (pending > 0 && approved === 0 && rejected === 0) return 'PENDING'
+  if (pending === 0 && approved > 0 && rejected === 0) return 'APPROVED'
+  if (pending === 0 && rejected > 0 && approved === 0) return 'REJECTED'
+  return 'MIXED'
+}
+
+function formatTime(dt: string | null): string {
+  if (!dt) return '-'
+  try {
+    return format(parseISO(dt), 'HH:mm')
+  } catch {
+    return '-'
+  }
+}
+
+function formatMinutes(mins: number): string {
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return m === 0 ? `${h}hr` : `${h}hr ${m}m`
+}
+
+function calcBreakDuration(breakIn: string | null, breakOut: string | null): number {
+  if (!breakIn || !breakOut) return 0
+  try {
+    const diff = (new Date(breakOut).getTime() - new Date(breakIn).getTime()) / (1000 * 60 * 60)
+    return diff > 0 ? parseFloat(diff.toFixed(2)) : 0
+  } catch {
+    return 0
+  }
+}
+
+function formatLocation(address: string | null, lat: number | null, lng: number | null): string | null {
+  if (address && address.trim()) return address.trim()
+  if (lat == null || lng == null) return null
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+}
+
+
+export function TimesheetsTab() {
+  const now = new Date()
+  const initialWeekStart = useMemo(() => format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), [])
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false)
+  const [companies, setCompanies] = useState<CompanyOption[]>([])
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [weekOptions, setWeekOptions] = useState<WeekOption[]>([])
+  const [selectedWeek, setSelectedWeek] = useState('')
+  // View mode + per-mode date selectors. Default to weekly so existing flow is unchanged.
+  const [viewMode, setViewMode] = useState<ViewMode>('weekly')
+  const [selectedDate, setSelectedDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'))
+  const [records, setRecords] = useState<DTRRecord[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [expandedCaptureRows, setExpandedCaptureRows] = useState<Record<string, boolean>>({})
+  const [captureRows, setCaptureRows] = useState<Record<string, Array<{ id: string; imageDataUrl: string; capturedAt: string }>>>({})
+  const [captureLoading, setCaptureLoading] = useState<Record<string, boolean>>({})
+  const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null)
+
+  const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteInput, setDeleteInput] = useState('')
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [approvingAll, setApprovingAll] = useState(false)
+  // OT pay toggle from payroll settings — controls whether the merged-approval
+  // popup asks "approve OT too?". Defaults to true to match payroll compute.
+  const [overtimePayEnabled, setOvertimePayEnabled] = useState(true)
+  // Pending approval awaiting confirmation. When set, the OT-confirmation
+  // modal is rendered. The handler then re-dispatches with the selected
+  // OT request ids — admins can pick which specific timesheets' OT to
+  // approve instead of the previous all-or-nothing boolean.
+  const [pendingApproval, setPendingApproval] = useState<
+    | { kind: 'single'; id: string; otHours: number; regularHours: number; employeeId: string; date: string }
+    | { kind: 'employee-week'; group: WeeklyGroup }
+    | { kind: 'all'; otHours: number; regularHours: number; recordCount: number }
+    | null
+  >(null)
+  // Pending OT requests for the current `pendingApproval` scope. Fetched
+  // on demand from /api/overtime-requests once a scope is opened so the
+  // admin sees each timesheet individually and can tick which to approve.
+  type PendingOt = {
+    id: string
+    date: string                  // YYYY-MM-DD (server's ISO date sliced)
+    startTime: string
+    endTime: string
+    hours: number
+    reason: string
+    employeeName: string
+  }
+  const [pendingOt, setPendingOt] = useState<PendingOt[] | null>(null)
+  const [pendingOtLoading, setPendingOtLoading] = useState(false)
+  const [selectedOtIds, setSelectedOtIds] = useState<Set<string>>(new Set())
+  const [editRecord, setEditRecord] = useState<DTRRecord | null>(null)
+  const [editForm, setEditForm] = useState({
+    timeIn: '', timeOut: '', breakIn: '', breakOut: '', remarks: '',
+    // Optional manual overrides — when "manualHours" is true these get sent
+    // instead of being recomputed from the timestamps.
+    manualHours: false,
+    regularHours: 0,
+    overtimeHours: 0,
+    lateMinutes: 0,
+    undertimeMinutes: 0,
+  })
+  const [editSaving, setEditSaving] = useState(false)
+  const portalTarget = typeof document !== 'undefined' ? document.body : null
+  const companyQuery = useMemo(
+    () => (selectedCompanyId ? `companyId=${encodeURIComponent(selectedCompanyId)}` : ''),
+    [selectedCompanyId]
+  )
+  const withCompanyQuery = useCallback(
+    (url: string) => (companyQuery ? `${url}${url.includes('?') ? '&' : '?'}${companyQuery}` : url),
+    [companyQuery]
+  )
+
+  const [form, setForm] = useState({
+    employeeId: '',
+    date: format(now, 'yyyy-MM-dd'),
+    timeIn: '08:00',
+    timeOut: '17:00',
+    regularHours: 8,
+    overtimeHours: 0,
+    nightDiffHours: 0,
+    lateMinutes: 0,
+    undertimeMinutes: 0,
+    isAbsent: false,
+    isRestDay: false,
+    isHoliday: false,
+    remarks: '',
+  })
+
+  function calcOvertime(timeIn: string, timeOut: string, regularHours: number) {
+    if (!timeIn || !timeOut) return 0
+    const [inH, inM] = timeIn.split(':').map(Number)
+    const [outH, outM] = timeOut.split(':').map(Number)
+    if (!Number.isFinite(inH) || !Number.isFinite(inM) || !Number.isFinite(outH) || !Number.isFinite(outM)) return 0
+    const start = inH * 60 + inM
+    const end = outH * 60 + outM
+    if (end <= start) return 0
+    const workedHours = (end - start) / 60
+    const breakHours = 1
+    const netHours = Math.max(0, workedHours - breakHours)
+    const ot = netHours - (regularHours || 0)
+    return ot > 0 ? parseFloat(ot.toFixed(2)) : 0
+  }
+
+  useEffect(() => {
+    if (!form.timeIn || !form.timeOut) return
+    const ot = calcOvertime(form.timeIn, form.timeOut, form.regularHours)
+    setForm(prev => (prev.overtimeHours === ot ? prev : { ...prev, overtimeHours: ot }))
+  }, [form.timeIn, form.timeOut, form.regularHours])
+
+  // Auto-fill Time In / Time Out / Regular Hours from the employee's work schedule
+  // when the employee or date changes. Checks per-date shift assignments first;
+  // falls back to the employee's default workSchedule. If neither is set, leave
+  // the fields as-is so the admin can enter whatever they want.
+  const [scheduleAutoFilling, setScheduleAutoFilling] = useState(false)
+  useEffect(() => {
+    if (!form.employeeId || !form.date) return
+    let cancelled = false
+    async function fillSchedule() {
+      setScheduleAutoFilling(true)
+      try {
+        // 1. Fetch employee + their default workSchedule (timeIn, timeOut, breakMinutes, workHoursPerDay)
+        const empUrl = withCompanyQuery(`/api/employees/${form.employeeId}`)
+        const empRes = await fetch(empUrl)
+        if (!empRes.ok || cancelled) return
+        const empData = await empRes.json().catch(() => ({}))
+        const ws = empData.employee?.workSchedule as {
+          timeIn?: string | null
+          timeOut?: string | null
+          breakMinutes?: number | null
+          workHoursPerDay?: number | null
+        } | undefined
+
+        let timeIn    = ws?.timeIn   ?? null
+        let timeOut   = ws?.timeOut  ?? null
+        let breakMins = ws?.breakMinutes ?? 60
+        const workHours = ws?.workHoursPerDay != null ? Number(ws.workHoursPerDay) : null
+
+        // 2. Check per-date shift assignment — overrides default schedule times if found
+        // API requires startDate + endDate; pass the same date for both to get that day only
+        const assignUrl = withCompanyQuery(
+          `/api/schedules/assignments?employeeId=${encodeURIComponent(form.employeeId)}&startDate=${form.date}&endDate=${form.date}`
+        )
+        const assignRes = await fetch(assignUrl).catch(() => null)
+        if (!cancelled && assignRes?.ok) {
+          const assignData = await assignRes.json().catch(() => ({}))
+          // Response: { employees, assignments: [{ employeeId, timeIn, timeOut, schedule: { timeIn, timeOut } }] }
+          const allAssignments: Array<{
+            employeeId: string
+            timeIn?: string | null
+            timeOut?: string | null
+            isRestDay?: boolean
+            schedule?: { timeIn?: string | null; timeOut?: string | null; breakMinutes?: number | null } | null
+          }> = assignData.assignments ?? []
+          const mine = allAssignments.filter(a => a.employeeId === form.employeeId)
+          if (mine.length > 0) {
+            const a = mine[0]
+            // If it's a rest-day assignment, clear times but keep the record
+            if (a.isRestDay) {
+              timeIn = null; timeOut = null
+            } else {
+              // Assignment-level times override schedule-level times
+              timeIn  = a.timeIn  ?? a.schedule?.timeIn  ?? timeIn
+              timeOut = a.timeOut ?? a.schedule?.timeOut ?? timeOut
+              if (a.schedule?.breakMinutes != null) breakMins = a.schedule.breakMinutes
+            }
+          }
+        }
+
+        if (cancelled) return
+
+        // 3. Compute regularHours:
+        //    Priority: workHoursPerDay > shift span (timeOut - timeIn - break) > 8h default
+        let regularHours = 8
+        if (workHours != null && workHours > 0) {
+          regularHours = workHours
+        } else if (timeIn && timeOut) {
+          const [inH, inM]   = timeIn.split(':').map(Number)
+          const [outH, outM] = timeOut.split(':').map(Number)
+          if (Number.isFinite(inH) && Number.isFinite(outH)) {
+            let spanMins = (outH * 60 + outM) - (inH * 60 + inM)
+            if (spanMins <= 0) spanMins += 24 * 60 // overnight shift
+            regularHours = Math.max(0, (spanMins - Math.max(0, breakMins)) / 60)
+          }
+        }
+
+        // Only autofill when we actually found schedule data — don't clobber
+        // an admin's manual entry if the employee has no schedule configured
+        if (timeIn || timeOut || workHours != null) {
+          setForm(f => ({
+            ...f,
+            ...(timeIn  != null ? { timeIn }  : {}),
+            ...(timeOut != null ? { timeOut } : {}),
+            regularHours: parseFloat(regularHours.toFixed(2)),
+          }))
+        }
+      } catch {
+        // silently ignore — admin can always fill manually
+      } finally {
+        if (!cancelled) setScheduleAutoFilling(false)
+      }
+    }
+    void fillSchedule()
+    return () => { cancelled = true }
+  }, [form.employeeId, form.date, withCompanyQuery])
+
+  useEffect(() => {
+    let active = true
+    async function bootstrap() {
+      try {
+        const meRes = await fetch('/api/users/me')
+        const meData = await meRes.json().catch(() => ({}))
+        const actorRole = String(meData.actorRole ?? meData.role ?? '')
+        const systemAdmin = actorRole === 'SUPER_ADMIN'
+        if (!active) return
+        setIsSystemAdmin(systemAdmin)
+        if (!systemAdmin) return
+
+        const companiesRes = await fetch('/api/admin/companies')
+        const companiesData = await companiesRes.json().catch(() => ({}))
+        const rows = ((companiesData.companies ?? []) as Array<{ id: string; name: string }>)
+          .map(c => ({ id: c.id, name: c.name }))
+        if (!active) return
+        setCompanies(rows)
+        setSelectedCompanyId(prev => prev || rows[0]?.id || '')
+      } catch {
+        // no-op
+      }
+    }
+    void bootstrap()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const loadWeeks = useCallback(async (preferredWeek?: string) => {
+    if (isSystemAdmin && !selectedCompanyId) {
+      setWeekOptions([])
+      setSelectedWeek('')
+      return
+    }
+    const res = await fetch(withCompanyQuery('/api/dtr/weeks?completed=1'))
+    const data = await res.json().catch(() => ({}))
+    const weeks = (data.weeks ?? []) as WeekOption[]
+    setWeekOptions(weeks)
+
+    const hasPreferred = preferredWeek && weeks.some(w => w.start === preferredWeek)
+    const fallback = weeks[0]?.start ?? ''
+    setSelectedWeek(prev => {
+      const hasCurrent = prev && weeks.some(w => w.start === prev)
+      const nextWeek = hasPreferred ? preferredWeek! : hasCurrent ? prev : fallback
+      return nextWeek === prev ? prev : nextWeek
+    })
+  }, [isSystemAdmin, selectedCompanyId, withCompanyQuery])
+
+  /**
+   * Active date range for the current view mode. Drives the fetch range, the
+   * grouping key, and the "Approve all" payload. Returns null when no
+   * meaningful range is selected (e.g. weekly mode with no week chosen).
+   */
+  const activeRange = useMemo<{ start: Date; end: Date; key: string } | null>(() => {
+    if (viewMode === 'daily') {
+      if (!selectedDate) return null
+      const d = parseISO(selectedDate)
+      return { start: d, end: d, key: selectedDate }
+    }
+    if (viewMode === 'monthly') {
+      if (!selectedMonth) return null
+      const first = parseISO(`${selectedMonth}-01`)
+      return { start: startOfMonth(first), end: endOfMonth(first), key: selectedMonth }
+    }
+    // weekly
+    if (!selectedWeek) return null
+    const ws = parseISO(selectedWeek)
+    return { start: ws, end: endOfWeek(ws, { weekStartsOn: 1 }), key: selectedWeek }
+  }, [viewMode, selectedDate, selectedMonth, selectedWeek])
+
+  const load = useCallback(async () => {
+    if (!activeRange || (isSystemAdmin && !selectedCompanyId)) {
+      setRecords([])
+      return
+    }
+    setLoading(true)
+    try {
+      const from = format(activeRange.start, 'yyyy-MM-dd')
+      const to = format(activeRange.end, 'yyyy-MM-dd')
+      const res = await fetch(withCompanyQuery(`/api/dtr?from=${from}&to=${to}&limit=2000&completed=1`))
+      const data = await res.json().catch(() => ({}))
+      setRecords((data.records ?? []) as DTRRecord[])
+    } finally {
+      setLoading(false)
+    }
+  }, [activeRange, isSystemAdmin, selectedCompanyId, withCompanyQuery])
+
+  async function loadEmployees() {
+    if (isSystemAdmin && !selectedCompanyId) {
+      setEmployees([])
+      return
+    }
+    const res = await fetch(withCompanyQuery('/api/employees?limit=200'))
+    const data = await res.json().catch(() => ({}))
+    setEmployees(data.employees ?? [])
+  }
+
+  useEffect(() => {
+    void loadWeeks(initialWeekStart)
+  }, [initialWeekStart, loadWeeks])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    void loadEmployees()
+  }, [isSystemAdmin, selectedCompanyId, withCompanyQuery])
+
+  // Load OT-pay setting once per company. Drives whether the merged-approval
+  // popup asks about OT.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(withCompanyQuery('/api/payroll/settings'))
+        if (!res.ok) { if (!cancelled) setOvertimePayEnabled(true); return }
+        const data = await res.json().catch(() => null)
+        if (!cancelled) setOvertimePayEnabled(data?.enableOvertime ?? true)
+      } catch {
+        if (!cancelled) setOvertimePayEnabled(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [withCompanyQuery])
+
+  const groups = useMemo(() => {
+    const map = new Map<string, WeeklyGroup>()
+    for (const r of records) {
+      const d = new Date(r.date)
+      // Period start/end depend on the active view mode.
+      let periodStart: Date
+      let periodEnd: Date
+      if (viewMode === 'daily') {
+        periodStart = d
+        periodEnd = d
+      } else if (viewMode === 'monthly') {
+        periodStart = startOfMonth(d)
+        periodEnd = endOfMonth(d)
+      } else {
+        periodStart = startOfWeek(d, { weekStartsOn: 1 })
+        periodEnd = endOfWeek(d, { weekStartsOn: 1 })
+      }
+      const key = `${r.employeeId}|${format(periodStart, 'yyyy-MM-dd')}`
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          employeeId: r.employeeId,
+          employeeName: `${r.employee.lastName}, ${r.employee.firstName}`,
+          employeeNo: r.employee.employeeNo,
+          department: r.employee.department?.name ?? '-',
+          weekStart: periodStart,
+          weekEnd: periodEnd,
+          records: [],
+          totalRegular: 0,
+          totalOvertime: 0,
+          totalNightDiff: 0,
+          totalLate: 0,
+          totalUndertime: 0,
+          pendingCount: 0,
+          approvedCount: 0,
+          rejectedCount: 0,
+          status: 'PENDING',
+        })
+      }
+      const g = map.get(key)!
+      g.records.push(r)
+      g.totalRegular += Number(r.regularHours ?? 0)
+      g.totalOvertime += Number(r.overtimeHours ?? 0)
+      g.totalNightDiff += Number(r.nightDiffHours ?? 0)
+      g.totalLate += Number(r.lateMinutes ?? 0)
+      g.totalUndertime += Number(r.undertimeMinutes ?? 0)
+      const s = dailyStatus(r)
+      if (s === 'PENDING') g.pendingCount += 1
+      if (s === 'APPROVED') g.approvedCount += 1
+      if (s === 'REJECTED') g.rejectedCount += 1
+    }
+
+    const result = Array.from(map.values()).map(g => {
+      g.records.sort((a, b) => compareAsc(new Date(a.date), new Date(b.date)))
+      g.status = weekStatus(g.records)
+      return g
+    })
+
+    const q = search.trim().toLowerCase()
+    const filtered = q
+      ? result.filter(g =>
+          g.employeeName.toLowerCase().includes(q) ||
+          g.employeeNo.toLowerCase().includes(q) ||
+          g.department.toLowerCase().includes(q),
+        )
+      : result
+
+    return filtered.sort((a, b) => {
+      const d = compareDesc(a.weekStart, b.weekStart)
+      if (d !== 0) return d
+      return a.employeeName.localeCompare(b.employeeName)
+    })
+  }, [records, search, viewMode])
+
+  async function submitForm() {
+    if (!form.employeeId) {
+      toast.error('Select an employee')
+      return
+    }
+    const res = await fetch(withCompanyQuery('/api/dtr'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+    if (res.ok) {
+      toast.success('DTR record saved')
+      setShowForm(false)
+      const weekStart = format(startOfWeek(parseISO(form.date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      await loadWeeks(weekStart)
+      await load()
+    } else {
+      toast.error('Failed to save record')
+    }
+  }
+
+  // ── Approve handlers ─────────────────────────────────────────────────────
+  // Each "approve…" function decides whether to open the OT-confirmation modal
+  // (when there's OT to approve AND OT pay is enabled in payroll settings) or
+  // just call the API directly. The matching "execute…" function does the work
+  // and accepts an `approveOvertime` flag piped through to the backend.
+
+  // All three execute fns now accept `overtimeRequestIds`. Pass undefined
+  // to fall back to the old all-or-nothing boolean (rejection path uses
+  // []). Pass an array (possibly empty) to approve EXACTLY those OT rows.
+  async function executeApproveSingle(
+    id: string,
+    action: 'APPROVED' | 'REJECTED',
+    overtimeRequestIds: string[] | undefined,
+  ) {
+    setApprovingId(id)
+    try {
+      const res = await fetch(withCompanyQuery(`/api/dtr/${id}/approve`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, overtimeRequestIds }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error('Failed to update record'); return }
+      if (action === 'APPROVED' && (data.otApproved ?? 0) > 0) {
+        toast.success(`Approved (incl. ${data.otApproved} OT request${data.otApproved !== 1 ? 's' : ''})`)
+      }
+      await load()
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  async function approveRecord(id: string, action: 'APPROVED' | 'REJECTED') {
+    if (action !== 'APPROVED') return executeApproveSingle(id, action, [])
+    const rec = records.find(r => r.id === id)
+    const otHours = Number(rec?.overtimeHours ?? 0)
+    if (overtimePayEnabled && otHours > 0 && rec) {
+      setPendingApproval({
+        kind: 'single',
+        id,
+        otHours,
+        regularHours: Number(rec.regularHours ?? 0),
+        employeeId: rec.employeeId,
+        date: format(new Date(rec.date), 'yyyy-MM-dd'),
+      })
+    } else {
+      await executeApproveSingle(id, action, undefined)
+    }
+  }
+
+  async function executeApproveEmployeeWeek(
+    group: WeeklyGroup,
+    action: 'APPROVED' | 'REJECTED',
+    overtimeRequestIds: string[] | undefined,
+  ) {
+    const res = await fetch(withCompanyQuery('/api/dtr/weekly-approve'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employeeId: group.employeeId,
+        weekStart: format(group.weekStart, 'yyyy-MM-dd'),
+        weekEnd: format(group.weekEnd, 'yyyy-MM-dd'),
+        action,
+        overtimeRequestIds,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { toast.error(data.error ?? 'Failed'); return }
+    const otBit = (data.otApproved ?? 0) > 0 ? ` (+${data.otApproved} OT)` : ''
+    toast.success(action === 'APPROVED' ? `Week approved${otBit}` : 'Week rejected')
+    await loadWeeks()
+    await load()
+  }
+
+  async function approveEmployeeWeek(group: WeeklyGroup, action: 'APPROVED' | 'REJECTED') {
+    if (action !== 'APPROVED') return executeApproveEmployeeWeek(group, action, [])
+    if (overtimePayEnabled && group.totalOvertime > 0) {
+      setPendingApproval({ kind: 'employee-week', group })
+    } else {
+      await executeApproveEmployeeWeek(group, action, undefined)
+    }
+  }
+
+  async function executeApproveAll(overtimeRequestIds: string[] | undefined) {
+    if (!activeRange) return
+    setApprovingAll(true)
+    try {
+      const res = await fetch(withCompanyQuery('/api/dtr/approve-all'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weekStart: format(activeRange.start, 'yyyy-MM-dd'),
+          weekEnd: format(activeRange.end, 'yyyy-MM-dd'),
+          overtimeRequestIds,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data.error ?? 'Failed to approve all'); return }
+      const otBit = (data.otApproved ?? 0) > 0 ? ` and ${data.otApproved} OT request${data.otApproved !== 1 ? 's' : ''}` : ''
+      toast.success(`Approved ${data.updated} record${data.updated !== 1 ? 's' : ''}${otBit}`)
+      await loadWeeks()
+      await load()
+    } finally {
+      setApprovingAll(false)
+    }
+  }
+
+  // Pending totals for the visible range — drives both the Approve All
+  // button's enabled state and the confirmation dialog's figures, so the two
+  // can never disagree.
+  const pendingTotals = useMemo(() => {
+    let count = 0, ot = 0, regular = 0
+    for (const r of records) {
+      if (dailyStatus(r) !== 'PENDING') continue
+      count++
+      ot += Number(r.overtimeHours ?? 0)
+      regular += Number(r.regularHours ?? 0)
+    }
+    return { count, ot, regular }
+  }, [records])
+
+  async function approveAll() {
+    if (!activeRange) return
+    const { count: pendingCount, ot: pendingOt, regular: pendingRegular } = pendingTotals
+    // Defensive: the button is disabled when this is 0, but a stale click
+    // (records refreshed between render and click) shouldn't open an empty
+    // confirmation dialog.
+    if (pendingCount === 0) {
+      toast.info('No pending records to approve')
+      return
+    }
+    // Always confirm a bulk approve — the popup adapts to whether there's OT
+    // to optionally include (when OT pay is enabled).
+    setPendingApproval({ kind: 'all', otHours: pendingOt, regularHours: pendingRegular, recordCount: pendingCount })
+  }
+
+  async function confirmPending(includeOt: boolean) {
+    const pa = pendingApproval
+    // When `includeOt` is false (Approve regular only), send an explicit
+    // empty array so the backend approves zero OT rows. When true, send
+    // the user-picked subset (selectedOtIds) — could be empty too, which
+    // is fine: nothing gets approved.
+    const otIds: string[] = includeOt ? [...selectedOtIds] : []
+    setPendingApproval(null)
+    setPendingOt(null)
+    setSelectedOtIds(new Set())
+    if (!pa) return
+    if (pa.kind === 'single') await executeApproveSingle(pa.id, 'APPROVED', otIds)
+    else if (pa.kind === 'employee-week') await executeApproveEmployeeWeek(pa.group, 'APPROVED', otIds)
+    else if (pa.kind === 'all') await executeApproveAll(otIds)
+  }
+
+  // Fetch the per-timesheet pending OT requests for the active scope so
+  // the approval modal can show them with checkboxes. Runs whenever a
+  // pendingApproval is opened. All requests default to checked — the
+  // common case is "approve everything that was logged".
+  useEffect(() => {
+    if (!pendingApproval) {
+      setPendingOt(null)
+      setSelectedOtIds(new Set())
+      return
+    }
+    let cancelled = false
+    setPendingOtLoading(true)
+
+    // Build the date range + optional employee filter from the scope.
+    let dateFrom: string
+    let dateTo: string
+    let employeeId: string | undefined
+    if (pendingApproval.kind === 'single') {
+      dateFrom = pendingApproval.date
+      dateTo = pendingApproval.date
+      employeeId = pendingApproval.employeeId
+    } else if (pendingApproval.kind === 'employee-week') {
+      dateFrom = format(pendingApproval.group.weekStart, 'yyyy-MM-dd')
+      dateTo = format(pendingApproval.group.weekEnd, 'yyyy-MM-dd')
+      employeeId = pendingApproval.group.employeeId
+    } else {
+      // 'all' — whole active range, every employee
+      if (!activeRange) return
+      dateFrom = format(activeRange.start, 'yyyy-MM-dd')
+      dateTo = format(activeRange.end, 'yyyy-MM-dd')
+    }
+
+    const qs = new URLSearchParams({ status: 'PENDING', dateFrom, dateTo, limit: '500' })
+    if (employeeId) qs.set('employeeId', employeeId)
+
+    fetch(withCompanyQuery(`/api/overtime-requests?${qs}`))
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(data => {
+        if (cancelled) return
+        type IncomingOt = {
+          id: string
+          date: string
+          startTime: string
+          endTime: string
+          hours: number
+          reason: string
+          employee: { firstName: string; lastName: string }
+        }
+        const items: PendingOt[] = (data.requests ?? []).map((r: IncomingOt) => ({
+          id: r.id,
+          date: r.date.slice(0, 10),
+          startTime: r.startTime,
+          endTime: r.endTime,
+          hours: Number(r.hours),
+          reason: r.reason,
+          employeeName: `${r.employee.lastName}, ${r.employee.firstName}`,
+        }))
+        setPendingOt(items)
+        // Default: every OT pre-selected so admins keep the previous
+        // "approve all" muscle memory; they can untick to exclude.
+        setSelectedOtIds(new Set(items.map(i => i.id)))
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPendingOt([])
+          setSelectedOtIds(new Set())
+        }
+      })
+      .finally(() => { if (!cancelled) setPendingOtLoading(false) })
+
+    return () => { cancelled = true }
+  }, [pendingApproval, activeRange, withCompanyQuery])
+
+  function requestDelete(id: string) {
+    setDeleteId(id)
+    setDeleteInput('')
+    setShowDelete(true)
+  }
+
+  function openEdit(r: DTRRecord) {
+    const toLocal = (iso: string | null) => {
+      if (!iso) return ''
+      const d = new Date(iso)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+    setEditRecord(r)
+    setEditForm({
+      timeIn: toLocal(r.timeIn),
+      timeOut: toLocal(r.timeOut),
+      breakIn: toLocal(r.breakIn),
+      breakOut: toLocal(r.breakOut),
+      remarks: r.remarks ?? '',
+      manualHours: false,
+      regularHours: Number(r.regularHours ?? 0),
+      overtimeHours: Number((r as { overtimeHours?: number | null }).overtimeHours ?? 0),
+      lateMinutes: Number(r.lateMinutes ?? 0),
+      undertimeMinutes: Number(r.undertimeMinutes ?? 0),
+    })
+  }
+
+  async function saveEdit() {
+    if (!editRecord) return
+    setEditSaving(true)
+    try {
+      const toISO = (v: string) => v ? new Date(v).toISOString().slice(0, 16) : null
+      const res = await fetch(withCompanyQuery(`/api/dtr/${editRecord.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timeIn: toISO(editForm.timeIn),
+          timeOut: toISO(editForm.timeOut),
+          breakIn: toISO(editForm.breakIn),
+          breakOut: toISO(editForm.breakOut),
+          remarks: editForm.remarks || null,
+          // Send manual overrides only when the admin explicitly enabled them.
+          ...(editForm.manualHours ? {
+            regularHours: Number(editForm.regularHours) || 0,
+            overtimeHours: Number(editForm.overtimeHours) || 0,
+            lateMinutes: Math.round(Number(editForm.lateMinutes) || 0),
+            undertimeMinutes: Math.round(Number(editForm.undertimeMinutes) || 0),
+          } : {}),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data?.error ?? 'Failed to save'); return }
+      toast.success('DTR record updated')
+      setEditRecord(null)
+      await load()
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return
+    if (deleteInput !== 'DELETE') {
+      toast.error('Please type DELETE to confirm')
+      return
+    }
+    const res = await fetch(withCompanyQuery(`/api/dtr/${deleteId}`), { method: 'DELETE' })
+    if (res.ok) {
+      toast.success('DTR record deleted')
+      setShowDelete(false)
+      setDeleteId(null)
+      setDeleteInput('')
+      await loadWeeks()
+      await load()
+    } else {
+      toast.error('Failed to delete record')
+    }
+  }
+
+  function toggleExpand(key: string) {
+    setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  async function toggleCaptureRow(recordId: string) {
+    const willOpen = !expandedCaptureRows[recordId]
+    setExpandedCaptureRows(prev => ({ ...prev, [recordId]: willOpen }))
+    if (!willOpen || captureRows[recordId]) return
+
+    setCaptureLoading(prev => ({ ...prev, [recordId]: true }))
+    try {
+      const res = await fetch(withCompanyQuery(`/api/dtr/${recordId}/captures?limit=24`))
+      const data = await res.json().catch(() => ({}))
+      setCaptureRows(prev => ({ ...prev, [recordId]: (data.captures ?? []) as Array<{ id: string; imageDataUrl: string; capturedAt: string }> }))
+    } catch {
+      toast.error('Failed to load screenshots')
+    } finally {
+      setCaptureLoading(prev => ({ ...prev, [recordId]: false }))
+    }
+  }
+
+  const totalPendingWeeks = groups.filter(g => g.pendingCount > 0).length
+  const selectedWeekLabel = useMemo(() => {
+    const w = weekOptions.find(x => x.start === selectedWeek)
+    if (!w) return null
+    return `${format(parseISO(w.start), 'MMM d')} - ${format(parseISO(w.end), 'MMM d, yyyy')}`
+  }, [weekOptions, selectedWeek])
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Time Sheets</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {viewMode === 'daily' && 'Per-employee timesheet for the selected day'}
+            {viewMode === 'weekly' && 'Grouped by employee and week with weekly approval'}
+            {viewMode === 'monthly' && 'Grouped by employee for the selected month'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2" data-tour="dtr-add">
+          <Button variant="outline" onClick={() => setShowImport(true)} disabled={isSystemAdmin && !selectedCompanyId}>
+            <Upload className="w-4 h-4 mr-2" />
+            Bulk Import
+          </Button>
+          <Button onClick={() => setShowForm(true)} disabled={isSystemAdmin && !selectedCompanyId}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add DTR Entry
+          </Button>
+        </div>
+      </div>
+
+      {showForm && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <Card className="relative w-full max-w-4xl border-[#AAB7B7] shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                New DTR Entry
+                {scheduleAutoFilling && (
+                  <span className="text-xs font-normal text-blue-500 animate-pulse">Loading schedule…</span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Employee *</label>
+                  <select
+                    value={form.employeeId}
+                    onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                  >
+                    <option value="">Select employee...</option>
+                    {employees.map(e => (
+                      <option key={e.id} value={e.id}>
+                        {e.lastName}, {e.firstName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Date *</label>
+                  <DatePicker value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Time In</label>
+                    <Input type="time" value={form.timeIn} onChange={e => setForm(f => ({ ...f, timeIn: e.target.value }))} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Time Out</label>
+                    <Input type="time" value={form.timeOut} onChange={e => setForm(f => ({ ...f, timeOut: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Regular Hours</label>
+                  <Input type="number" min={0} max={24} step={0.5} value={form.regularHours} onChange={e => setForm(f => ({ ...f, regularHours: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">OT Hours</label>
+                  <Input type="number" min={0} max={12} step={0.5} value={form.overtimeHours} onChange={e => setForm(f => ({ ...f, overtimeHours: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Late (min)</label>
+                  <Input type="number" min={0} value={form.lateMinutes} onChange={e => setForm(f => ({ ...f, lateMinutes: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Undertime (min)</label>
+                  <Input type="number" min={0} value={form.undertimeMinutes} onChange={e => setForm(f => ({ ...f, undertimeMinutes: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                {[
+                  { key: 'isAbsent', label: 'Absent' },
+                  { key: 'isRestDay', label: 'Rest Day' },
+                  { key: 'isHoliday', label: 'Holiday' },
+                ].map(c => (
+                  <label key={c.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form[c.key as keyof typeof form] as boolean}
+                      onChange={e => setForm(f => ({ ...f, [c.key]: e.target.checked }))}
+                    />
+                    {c.label}
+                  </label>
+                ))}
+                <div className="flex-1">
+                  <Input placeholder="Remarks (optional)" value={form.remarks} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={submitForm}>Save DTR Entry</Button>
+                <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>,
+        portalTarget,
+      )}
+
+      <DtrImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onSuccess={async () => { await load(); await loadWeeks() }}
+        endpoint={withCompanyQuery('/api/dtr/bulk')}
+      />
+
+      {editRecord && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditRecord(null)} />
+          <Card className="relative w-full max-w-md shadow-2xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Edit DTR Record</CardTitle>
+                <button onClick={() => setEditRecord(null)} className="p-1 rounded hover:bg-gray-100"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {editRecord.employee.firstName} {editRecord.employee.lastName} — {format(parseISO(editRecord.date), 'MMM d, yyyy')}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Clock In</label>
+                  <input type="datetime-local" value={editForm.timeIn} onChange={e => setEditForm(f => ({ ...f, timeIn: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Clock Out</label>
+                  <input type="datetime-local" value={editForm.timeOut} onChange={e => setEditForm(f => ({ ...f, timeOut: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Break Start</label>
+                  <input type="datetime-local" value={editForm.breakIn} onChange={e => setEditForm(f => ({ ...f, breakIn: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Break End</label>
+                  <input type="datetime-local" value={editForm.breakOut} onChange={e => setEditForm(f => ({ ...f, breakOut: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">Remarks</label>
+                <input type="text" value={editForm.remarks} onChange={e => setEditForm(f => ({ ...f, remarks: e.target.value }))} placeholder="Optional note..." className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+
+              {/* Manual hours override */}
+              <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.manualHours}
+                    onChange={e => setEditForm(f => ({ ...f, manualHours: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-xs font-semibold text-gray-700">Override hours manually</span>
+                </label>
+                {editForm.manualHours ? (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Regular hours</label>
+                      <input type="number" min={0} max={24} step={0.01} value={editForm.regularHours}
+                        onChange={e => setEditForm(f => ({ ...f, regularHours: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Overtime hours</label>
+                      <input type="number" min={0} max={24} step={0.01} value={editForm.overtimeHours}
+                        onChange={e => setEditForm(f => ({ ...f, overtimeHours: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Late (minutes)</label>
+                      <input type="number" min={0} max={1440} step={1} value={editForm.lateMinutes}
+                        onChange={e => setEditForm(f => ({ ...f, lateMinutes: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-600 block mb-0.5">Undertime (minutes)</label>
+                      <input type="number" min={0} max={1440} step={1} value={editForm.undertimeMinutes}
+                        onChange={e => setEditForm(f => ({ ...f, undertimeMinutes: Number(e.target.value) }))}
+                        className="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <p className="col-span-2 text-[11px] text-amber-700">
+                      ⚠️ Manual values will be saved as-is and an audit note will be appended to remarks.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Hours, late, and undertime will be automatically recomputed from the timestamps above.
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setEditRecord(null)}>Cancel</Button>
+                <Button disabled={editSaving} onClick={saveEdit} style={{ background: '#ff5900' }} className="text-white">
+                  {editSaving ? 'Saving…' : 'Save Changes'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>,
+        portalTarget,
+      )}
+
+      {showDelete && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDelete(false)} />
+          <Card className="relative w-full max-w-md border-red-200 shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-base text-red-600">Delete DTR Record</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600">This action cannot be undone. Type <strong>DELETE</strong> to confirm.</p>
+              <Input value={deleteInput} onChange={e => setDeleteInput(e.target.value)} placeholder="Type DELETE" />
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowDelete(false)}>Cancel</Button>
+                <Button className="bg-red-600 hover:bg-red-700" onClick={confirmDelete}>Delete</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>,
+        portalTarget,
+      )}
+
+      {/* ── Approval confirmation (per-timesheet OT picker) ───────────────
+          The admin no longer toggles a single "approve OT too?" boolean —
+          instead they see every PENDING auto-OT row covered by the scope
+          and tick which specific timesheets' OT to approve. Selecting
+          none + clicking Approve is the same as "approve regular only". */}
+      {pendingApproval && portalTarget && createPortal(
+        (() => {
+          const pa = pendingApproval
+          const otHours = pa.kind === 'employee-week' ? pa.group.totalOvertime : pa.otHours
+          const regularHours = pa.kind === 'employee-week' ? pa.group.totalRegular : pa.regularHours
+          const recordCount = pa.kind === 'all' ? pa.recordCount : undefined
+          const title =
+            pa.kind === 'single' ? 'Approve timesheet'
+            : pa.kind === 'employee-week' ? `Approve ${pa.group.employeeName}'s week`
+            : `Approve ${pa.recordCount} pending record${pa.recordCount !== 1 ? 's' : ''}`
+          const showOtPicker = overtimePayEnabled && otHours > 0
+          const selectedHours = (pendingOt ?? [])
+            .filter(o => selectedOtIds.has(o.id))
+            .reduce((s, o) => s + o.hours, 0)
+          const allSelected = pendingOt && pendingOt.length > 0 && pendingOt.every(o => selectedOtIds.has(o.id))
+          const noneSelected = !pendingOt || pendingOt.length === 0 || pendingOt.every(o => !selectedOtIds.has(o.id))
+
+          function toggleOne(id: string) {
+            setSelectedOtIds(prev => {
+              const next = new Set(prev)
+              if (next.has(id)) next.delete(id)
+              else next.add(id)
+              return next
+            })
+          }
+          function toggleAll() {
+            if (!pendingOt) return
+            if (allSelected) setSelectedOtIds(new Set())
+            else setSelectedOtIds(new Set(pendingOt.map(o => o.id)))
+          }
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPendingApproval(null)} />
+              <Card className="relative w-full max-w-xl border-emerald-200 shadow-2xl max-h-[90vh] flex flex-col">
+                <CardHeader>
+                  <CardTitle className="text-base text-emerald-700">{title}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 overflow-y-auto">
+                  <div className="rounded-lg border bg-slate-50 px-3 py-2.5 text-sm">
+                    {recordCount !== undefined && (
+                      <div className="flex justify-between pb-1.5 mb-1.5 border-b border-slate-200">
+                        <span className="text-slate-600">Records to approve</span>
+                        <span className="font-semibold text-slate-800">{recordCount}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between"><span className="text-slate-600">Regular hours</span><span className="font-semibold text-slate-800">{regularHours.toFixed(2)}h</span></div>
+                    <div className="flex justify-between mt-1"><span className="text-slate-600">Overtime hours (total)</span><span className={`font-semibold ${otHours > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{otHours.toFixed(2)}h</span></div>
+                  </div>
+
+                  {/* ── Per-timesheet OT checkboxes ──────────────────────── */}
+                  {showOtPicker && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                          Overtime requests
+                        </p>
+                        {pendingOt && pendingOt.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={toggleAll}
+                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                          >
+                            {allSelected ? 'Unselect all' : 'Select all'}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Tick the timesheets whose OT should be approved for payroll. Unticked rows stay PENDING so you can decide on them later — useful when a long day had legitimate OT mixed with unintended over-work.
+                      </p>
+                      {pendingOtLoading ? (
+                        <div className="text-xs text-slate-400 py-3">Loading overtime requests…</div>
+                      ) : pendingOt && pendingOt.length === 0 ? (
+                        <div className="text-xs text-slate-400 py-3">
+                          No pending overtime requests found for this scope — DTR records will be approved without OT.
+                        </div>
+                      ) : (
+                        <ul className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                          {pendingOt?.map(ot => {
+                            const checked = selectedOtIds.has(ot.id)
+                            return (
+                              <li key={ot.id}>
+                                <label
+                                  className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                                    checked ? 'bg-emerald-50' : 'hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleOne(ot.id)}
+                                    className="mt-1 h-4 w-4 accent-emerald-600 cursor-pointer"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <p className="text-sm font-semibold text-slate-800 truncate">
+                                        {ot.employeeName}
+                                      </p>
+                                      <span className="text-xs font-mono text-amber-700 whitespace-nowrap">
+                                        {ot.hours.toFixed(2)}h OT
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                      {ot.date} · {ot.startTime}–{ot.endTime}
+                                    </p>
+                                    {ot.reason && (
+                                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{ot.reason}</p>
+                                    )}
+                                  </div>
+                                </label>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                      {pendingOt && pendingOt.length > 0 && (
+                        <div className="flex justify-end text-xs text-slate-600">
+                          <span>
+                            Selected: <span className="font-semibold text-emerald-700">
+                              {selectedOtIds.size} of {pendingOt.length}
+                            </span> · {selectedHours.toFixed(2)}h
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!showOtPicker && (
+                    <p className="text-sm text-slate-700">
+                      {pa.kind === 'all'
+                        ? `Approve ${recordCount} pending timesheet record${recordCount !== 1 ? 's' : ''}?`
+                        : 'Approve this timesheet?'}
+                      {otHours > 0 && !overtimePayEnabled && (
+                        <span className="block text-xs text-slate-500 mt-1">
+                          OT pay is disabled in payroll settings — overtime hours won&apos;t be counted regardless.
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </CardContent>
+                <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                  <Button variant="outline" onClick={() => setPendingApproval(null)}>Cancel</Button>
+                  {showOtPicker ? (
+                    <>
+                      {/*
+                        Two explicit outcomes rather than one button whose
+                        meaning depends on the checkboxes above. Approving
+                        overtime costs real money, so the choice shouldn't be
+                        inferred from tick state the approver may not have
+                        looked at.
+                      */}
+                      <Button
+                        variant="outline"
+                        onClick={() => confirmPending(false)}
+                        disabled={pendingOtLoading}
+                      >
+                        Approve regular hours only
+                      </Button>
+                      <Button
+                        variant="success" className=""
+                        onClick={() => confirmPending(true)}
+                        disabled={pendingOtLoading || noneSelected}
+                        title={noneSelected ? 'Tick at least one overtime row to approve it' : undefined}
+                      >
+                        {noneSelected
+                          ? 'Approve OT'
+                          : `Approve OT (${selectedHours.toFixed(2)}h · ${selectedOtIds.size} request${selectedOtIds.size !== 1 ? 's' : ''})`}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="success" className="" onClick={() => confirmPending(false)}>
+                      Approve
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            </div>
+          )
+        })(),
+        portalTarget,
+      )}
+
+      <Card>
+        <CardContent className="p-4 flex flex-wrap gap-4 items-end">
+          {isSystemAdmin && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Company</label>
+              <select
+                value={selectedCompanyId}
+                onChange={e => setSelectedCompanyId(e.target.value)}
+                className="w-72 border rounded px-3 py-2 text-sm bg-white"
+              >
+                {companies.length === 0 && <option value="">No companies found</option>}
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {/* View-mode tabs */}
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1" data-tour="dtr-view-mode">View</label>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+              {(['daily', 'weekly', 'monthly'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setViewMode(m)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition capitalize ${
+                    viewMode === m ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Per-mode date selector */}
+          {viewMode === 'daily' && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-44 border rounded px-3 py-2 text-sm bg-white"
+              />
+            </div>
+          )}
+          {viewMode === 'weekly' && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Week</label>
+              <select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="w-72 border rounded px-3 py-2 text-sm bg-white"
+              >
+                {weekOptions.length === 0 && <option value="">No weeks with DTR records</option>}
+                {weekOptions.map((w) => (
+                  <option key={w.start} value={w.start}>
+                    {format(parseISO(w.start), 'MMM d')} - {format(parseISO(w.end), 'MMM d, yyyy')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {viewMode === 'monthly' && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Month</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-44 border rounded px-3 py-2 text-sm bg-white"
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-48">
+            <label className="text-xs font-medium text-gray-600 block mb-1">Search Employee</label>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} className="pl-8" placeholder="Name, employee no, department..." />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+            <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
+              <Users className="w-4 h-4" />
+              <span className="capitalize">{viewMode}</span> Time Sheets
+              <Badge variant="outline">{groups.length} {viewMode === 'daily' ? 'employees' : viewMode === 'monthly' ? 'employee-months' : 'employee-weeks'}</Badge>
+              <Badge className="bg-yellow-100 text-yellow-800">{totalPendingWeeks} pending</Badge>
+              {activeRange && (
+                <Badge variant="outline">
+                  {viewMode === 'daily' && format(activeRange.start, 'MMM d, yyyy')}
+                  {viewMode === 'weekly' && `${format(activeRange.start, 'MMM d')} - ${format(activeRange.end, 'MMM d, yyyy')}`}
+                  {viewMode === 'monthly' && format(activeRange.start, 'MMMM yyyy')}
+                </Badge>
+              )}
+            </CardTitle>
+            {activeRange && (
+              <Button
+                size="sm"
+                variant="success"
+                className="gap-1.5"
+                disabled={approvingAll || pendingTotals.count === 0}
+                onClick={approveAll}
+                title={
+                  pendingTotals.count === 0
+                    ? 'Nothing pending to approve in this period'
+                    : `Approve ${pendingTotals.count} pending record${pendingTotals.count === 1 ? '' : 's'}`
+                }
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                {approvingAll
+                  ? 'Approving...'
+                  : pendingTotals.count > 0
+                    ? `Approve All (${pendingTotals.count})`
+                    : 'Approve All'}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <AppSpinner size="md" message="Loading timesheets…" />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">No time sheets found for this {viewMode === 'daily' ? 'day' : viewMode === 'monthly' ? 'month' : 'week'}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="text-left p-3 font-medium text-gray-600">Employee</th>
+                    <th className="text-left p-3 font-medium text-gray-600">
+                      {viewMode === 'daily' ? 'Date' : viewMode === 'monthly' ? 'Month' : 'Week'}
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-600">Department</th>
+                    <th className="text-right p-3 font-medium text-gray-600">Reg Hrs</th>
+                    {overtimePayEnabled && <th className="text-right p-3 font-medium text-gray-600">OT Hrs</th>}
+                    <th className="text-right p-3 font-medium text-gray-600">ND Hrs</th>
+                    <th className="text-right p-3 font-medium text-gray-600">Late</th>
+                    <th className="text-right p-3 font-medium text-gray-600">Undertime</th>
+                    <th className="text-center p-3 font-medium text-gray-600">Status</th>
+                    <th className="text-center p-3 font-medium text-gray-600">
+                      {viewMode === 'daily' ? 'Approve' : viewMode === 'monthly' ? 'Approve Month' : 'Approve Week'}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map(group => {
+                    const isOpen = !!expanded[group.key]
+                    // Daily mode with a single shift renders as a plain row
+                    // (no expand chevron, nothing to drill into). All other
+                    // cases — daily multi-shift, weekly, monthly — collapse.
+                    const collapsible = !(viewMode === 'daily' && group.records.length <= 1)
+                    return (
+                      <Fragment key={group.key}>
+                        <tr
+                          className={`border-b hover:bg-gray-50 ${collapsible ? 'cursor-pointer' : ''}`}
+                          onClick={() => collapsible && toggleExpand(group.key)}
+                        >
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {collapsible
+                                ? (isOpen ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />)
+                                : <span className="w-4 h-4 inline-block" />}
+                              <div>
+                                <div className="font-medium">{group.employeeName}</div>
+                                <div className="text-xs text-gray-400">{group.employeeNo}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                              <CalendarRange className="w-3.5 h-3.5" />
+                              {viewMode === 'daily'
+                                ? format(group.weekStart, 'EEE, MMM d, yyyy')
+                                : viewMode === 'monthly'
+                                  ? format(group.weekStart, 'MMMM yyyy')
+                                  : `${format(group.weekStart, 'MMM d')} - ${format(group.weekEnd, 'MMM d, yyyy')}`}
+                            </div>
+                          </td>
+                          <td className="p-3 text-gray-600">{group.department}</td>
+                          <td className="p-3 text-right">{group.totalRegular.toFixed(2)}h</td>
+                          {overtimePayEnabled && (
+                            <td className="p-3 text-right">{group.totalOvertime > 0 ? `${group.totalOvertime.toFixed(2)}h` : '-'}</td>
+                          )}
+                          <td className="p-3 text-right">
+                            {group.totalNightDiff > 0
+                              ? <span className="text-indigo-700 font-medium">{group.totalNightDiff.toFixed(2)}h</span>
+                              : '-'}
+                          </td>
+                          <td className="p-3 text-right">
+                            {group.totalLate > 0
+                              ? <span className="text-red-600 font-medium">{formatMinutes(group.totalLate)}</span>
+                              : '-'}
+                          </td>
+                          <td className="p-3 text-right">
+                            {group.totalUndertime > 0
+                              ? <span className="text-amber-600 font-medium">{formatMinutes(group.totalUndertime)}</span>
+                              : '-'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_BADGE[group.status]}`}>
+                              {group.status}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-1 justify-center" onClick={e => e.stopPropagation()}>
+                              {group.pendingCount > 0 ? (
+                                <>
+                                  <Button size="sm" variant="outline" className="h-7 text-green-600" onClick={() => approveEmployeeWeek(group, 'APPROVED')}>
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Approve
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-red-600" onClick={() => approveEmployeeWeek(group, 'REJECTED')}>
+                                    <X className="w-3 h-3 mr-1" />
+                                    Reject
+                                  </Button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {isOpen && collapsible && (
+                          <tr className="border-b bg-gray-50/60">
+                            <td colSpan={10} className="p-0">
+                              <div className="px-4 py-3">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-gray-500 border-b border-gray-200">
+                                      <th className="text-left py-2 pr-3">Date</th>
+                                      <th className="text-center py-2 px-2">Clock In</th>
+                                      <th className="text-center py-2 px-2">Clock Out</th>
+                                      <th className="text-center py-2 px-2">Break</th>
+                                      <th className="text-right py-2 px-2">Break Hrs</th>
+                                      <th className="text-right py-2 px-2">Reg Hrs</th>
+                                      {overtimePayEnabled && <th className="text-right py-2 px-2">OT Hrs</th>}
+                                      <th className="text-right py-2 px-2">ND Hrs</th>
+                                      <th className="text-right py-2 px-2">Late</th>
+                                      <th className="text-right py-2 px-2">Undertime</th>
+                                      <th className="text-center py-2 px-2">Status</th>
+                                      <th className="text-center py-2">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {group.records.map(r => {
+                                      const st = dailyStatus(r)
+                                      const isApproving = approvingId === r.id
+                                      const captureCount = Number(r.screenCaptureCount ?? r.screenCaptures?.length ?? 0)
+                                      const showCaptures = !!expandedCaptureRows[r.id]
+                                      const rowCaptures = captureRows[r.id] ?? []
+                                      const rowCapturesLoading = !!captureLoading[r.id]
+                                      const clockInLocation = formatLocation(r.clockInAddress, r.clockInLat, r.clockInLng)
+                                      const clockOutLocation = formatLocation(r.clockOutAddress, r.clockOutLat, r.clockOutLng)
+                                      const hasLocation = !!clockInLocation || !!clockOutLocation
+                                      const lateMin = Number(r.lateMinutes ?? 0)
+                                      const undertimeMin = Number(r.undertimeMinutes ?? 0)
+                                      const nightDiff = Number(r.nightDiffHours ?? 0)
+                                      const breakHrs = calcBreakDuration(r.breakIn, r.breakOut)
+                                      return (
+                                        <Fragment key={r.id}>
+                                          <tr className="border-t border-gray-200/70 hover:bg-white/60">
+                                            <td className="py-2 pr-3">
+                                              <div className="font-medium">{format(new Date(r.date), 'EEE, MMM d')}</div>
+                                              {r.isRestDay && <span className="text-[10px] bg-gray-200 text-gray-600 px-1 rounded">Rest Day</span>}
+                                              {r.isHoliday && (
+                                                <span className={`text-[10px] px-1 rounded ${r.holidayType === 'REGULAR' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                  {r.holidayType === 'REGULAR' ? 'Regular Holiday' : 'Special Holiday'}
+                                                </span>
+                                              )}
+                                              {r.isLeave && <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">On Leave</span>}
+                                            </td>
+                                            <td className="py-2 px-2 text-center font-mono">
+                                              {r.isAbsent ? (
+                                                <span className="text-red-600 font-semibold">ABSENT</span>
+                                              ) : (
+                                                <div>
+                                                  <span className={lateMin > 0 ? 'text-red-600 font-semibold' : 'text-gray-800'}>
+                                                    {formatTime(r.timeIn)}
+                                                  </span>
+                                                  {lateMin > 0 && (
+                                                    <div className="text-[10px] text-red-500 font-medium">+{formatMinutes(lateMin)} late</div>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </td>
+                                            <td className="py-2 px-2 text-center font-mono">
+                                              {r.isAbsent ? '-' : (
+                                                <div>
+                                                  <span className={undertimeMin > 0 ? 'text-amber-600 font-semibold' : 'text-gray-800'}>
+                                                    {formatTime(r.timeOut)}
+                                                  </span>
+                                                  {undertimeMin > 0 && (
+                                                    <div className="text-[10px] text-amber-500 font-medium">-{formatMinutes(undertimeMin)} early</div>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </td>
+                                            <td className="py-2 px-2 text-center font-mono text-gray-500">
+                                              {r.breakIn && r.breakOut
+                                                ? <span>{formatTime(r.breakIn)} – {formatTime(r.breakOut)}</span>
+                                                : r.breakIn
+                                                  ? <span className="text-amber-500">{formatTime(r.breakIn)} (ongoing)</span>
+                                                  : <span className="text-gray-300">—</span>}
+                                            </td>
+                                            <td className="py-2 px-2 text-right text-gray-500">
+                                              {breakHrs > 0 ? `${breakHrs.toFixed(2)}h` : '—'}
+                                            </td>
+                                            <td className="py-2 px-2 text-right font-medium">{Number(r.regularHours ?? 0).toFixed(2)}h</td>
+                                            {overtimePayEnabled && (
+                                              <td className="py-2 px-2 text-right">
+                                                {Number(r.overtimeHours ?? 0) > 0
+                                                  ? <span className="text-blue-700 font-medium">{Number(r.overtimeHours).toFixed(2)}h</span>
+                                                  : <span className="text-gray-300">—</span>}
+                                              </td>
+                                            )}
+                                            <td className="py-2 px-2 text-right">
+                                              {nightDiff > 0
+                                                ? <span className="text-indigo-700 font-medium">{nightDiff.toFixed(2)}h</span>
+                                                : <span className="text-gray-300">—</span>}
+                                            </td>
+                                            <td className="py-2 px-2 text-right">
+                                              {lateMin > 0
+                                                ? <span className="text-red-600 font-semibold">{formatMinutes(lateMin)}</span>
+                                                : <span className="text-gray-300">—</span>}
+                                            </td>
+                                            <td className="py-2 px-2 text-right">
+                                              {undertimeMin > 0
+                                                ? <span className="text-amber-600 font-semibold">{formatMinutes(undertimeMin)}</span>
+                                                : <span className="text-gray-300">—</span>}
+                                            </td>
+                                            <td className="py-2 px-2 text-center">
+                                              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${DAILY_STATUS_BADGE[st]}`}>{st}</span>
+                                            </td>
+                                            <td className="py-2 text-center">
+                                              <div className="flex items-center justify-center gap-1">
+                                                {st !== 'APPROVED' && (
+                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-green-600 hover:bg-green-50 hover:text-green-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'APPROVED')}>
+                                                    <Check className="w-3 h-3" />
+                                                  </Button>
+                                                )}
+                                                {st !== 'REJECTED' && (
+                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'REJECTED')}>
+                                                    <X className="w-3 h-3" />
+                                                  </Button>
+                                                )}
+                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-blue-500 hover:bg-blue-50 hover:text-blue-500" onClick={() => openEdit(r)}>
+                                                  <Pencil className="w-3 h-3" />
+                                                </Button>
+                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" onClick={() => requestDelete(r.id)}>
+                                                  <Trash2 className="w-3 h-3" />
+                                                </Button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                          {hasLocation && (
+                                            <tr className="bg-blue-50/40">
+                                              <td colSpan={12} className="px-4 py-1.5">
+                                                <div className="flex flex-col gap-1.5 text-[11px] text-slate-700">
+                                                  {clockInLocation && (
+                                                    <div className="flex items-start gap-1.5">
+                                                      <MapPin className="w-3 h-3 mt-0.5 text-blue-600 shrink-0" />
+                                                      <span>
+                                                        <span className="font-semibold text-slate-800">Clock In Location:</span>{' '}
+                                                        {clockInLocation}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {clockOutLocation && (
+                                                    <div className="flex items-start gap-1.5">
+                                                      <MapPin className="w-3 h-3 mt-0.5 text-blue-600 shrink-0" />
+                                                      <span>
+                                                        <span className="font-semibold text-slate-800">Clock Out Location:</span>{' '}
+                                                        {clockOutLocation}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                          {captureCount > 0 && (
+                                            <tr className="bg-orange-50/40">
+                                              <td colSpan={12} className="px-4 py-1.5">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => { void toggleCaptureRow(r.id) }}
+                                                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-semibold transition-colors"
+                                                >
+                                                  <ZoomIn className="w-3 h-3" />
+                                                  {showCaptures ? 'Hide' : `${captureCount} Screenshot${captureCount !== 1 ? 's' : ''}`}
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          )}
+                                          {showCaptures && captureCount > 0 && (
+                                            <tr className="bg-white/70">
+                                              <td colSpan={12} className="pb-3 px-4 pt-0">
+                                                {rowCapturesLoading ? (
+                                                  <div className="text-xs text-gray-500 py-2">Loading screenshots...</div>
+                                                ) : (
+                                                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                                    {rowCaptures.map(sc => (
+                                                    <div
+                                                      key={sc.id}
+                                                      className="group rounded-lg border border-gray-200 bg-white p-1 cursor-pointer hover:border-orange-400 hover:shadow-md transition-all"
+                                                      onClick={() => setLightbox({ src: sc.imageDataUrl, label: format(new Date(sc.capturedAt), 'EEE, MMM d · hh:mm:ss a') })}
+                                                      title="Click to enlarge"
+                                                    >
+                                                      <div className="relative overflow-hidden rounded">
+                                                        <img
+                                                          src={sc.imageDataUrl}
+                                                          alt={`Screenshot ${format(new Date(sc.capturedAt), 'hh:mm a')}`}
+                                                          className="w-full h-20 object-cover object-top rounded"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                                                          <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                                                        </div>
+                                                      </div>
+                                                      <p className="text-[10px] text-gray-500 mt-1 text-center">
+                                                        {format(new Date(sc.capturedAt), 'hh:mm a')}
+                                                      </p>
+                                                    </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </Fragment>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Screenshot lightbox */}
+      {lightbox && portalTarget && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/85 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors text-lg"
+            onClick={() => setLightbox(null)}
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <img
+            src={lightbox.src}
+            alt="Screenshot enlarged"
+            className="max-w-[calc(100%-48px)] max-h-[calc(100vh-120px)] rounded-xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+          <p className="text-sm text-white/60 font-medium">{lightbox.label}</p>
+        </div>,
+        portalTarget
+      )}
+    </div>
+  )
+}

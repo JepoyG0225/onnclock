@@ -26,21 +26,31 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
 }> = [
   // ── Employment ──────────────────────────────────────────────────────
   { prefix: '/employees',           required: ['employees:read'] },
+  { prefix: '/organization',        required: ['departments:write', 'employees:read'] },
+  // Legacy routes, kept as redirects into the tabs above.
   { prefix: '/departments',         required: ['departments:write', 'employees:read'] },
   { prefix: '/positions',           required: ['departments:write', 'employees:read'] },
   { prefix: '/org-chart',           required: ['employees:read'] },
+  // Recruitment now hosts Hiring / Onboarding / Offboarding as tabs.
   { prefix: '/recruitment',         required: ['employees:write', 'recruitment:manage'] },
   { prefix: '/onboarding',          required: ['employees:write', 'onboarding:manage'] },
+  { prefix: '/performance',         required: ['employees:read', 'performance:manage'] },
+  // Legacy routes, kept as redirects into the tabs above.
   { prefix: '/performance-reviews', required: ['employees:read', 'performance:manage'] },
   { prefix: '/offboarding',         required: ['employees:write', 'offboarding:manage'] },
   { prefix: '/disciplinary',        required: ['employees:read', 'disciplinary:manage'] },
   { prefix: '/assets',              required: ['employees:read', 'assets:manage'] },
 
   // ── Time & Attendance ───────────────────────────────────────────────
-  { prefix: '/dtr',                 required: ['dtr:read'] },
+  // /timesheets is the merged Time Sheets + Corrections + Overtime page. It's
+  // gated on dtr:read (the broadest of the three) because the tabs inside
+  // still enforce their own approve permissions on the actions themselves.
   { prefix: '/attendance/map',      required: ['dtr:read'] },
   { prefix: '/attendance/tardiness',required: ['dtr:read'] },
   { prefix: '/attendance/settings', required: ['settings:read'] },
+  { prefix: '/timesheets',          required: ['dtr:read'] },
+  // Legacy routes, kept as redirects into the tabs above.
+  { prefix: '/dtr',                 required: ['dtr:read'] },
   { prefix: '/time-corrections',    required: ['dtr:read'] },
   { prefix: '/overtime-requests',   required: ['dtr:read', 'overtime:approve'] },
   { prefix: '/biometric-devices',   required: ['settings:read'] },
@@ -64,6 +74,9 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   // ── Misc ────────────────────────────────────────────────────────────
   { prefix: '/budget-requisitions', required: ['payroll:read', 'employees:read', 'budget:read', 'budget:approve'] },
   { prefix: '/announcements',       required: ['employees:read', 'announcements:write'] },
+
+  // ── Task Management ─────────────────────────────────────────────────
+  { prefix: '/tasks',               required: ['tasks:read', 'tasks:manage'] },
 
   // ── Reports ─────────────────────────────────────────────────────────
   { prefix: '/reports',             required: ['reports:generate'] },
@@ -155,7 +168,7 @@ export function canAccessPath(pathname: string, userPermissions: Permission[]): 
 const FALLBACK_LANDING_ORDER: string[] = [
   '/dashboard',
   '/leaves',
-  '/dtr',
+  '/timesheets',
   '/payroll',
   '/announcements',
   '/employees',

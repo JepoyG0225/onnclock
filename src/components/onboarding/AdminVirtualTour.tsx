@@ -13,186 +13,132 @@ type TourStep = {
 }
 
 const DEFAULT_STEPS: TourStep[] = [
-  // ── Dashboard ─────────────────────────────────────────────────────────────
+  // Rewritten for the merged navigation. Every href below is a REAL
+  // destination, not a legacy redirect - a tour that bounces through
+  // redirects flashes the wrong page before landing and looks broken.
   {
-    title: 'Dashboard',
-    description: 'At-a-glance overview of today\'s attendance, pending approvals, active payroll runs, and team activity.',
+    title: 'Welcome to OnClock',
+    description: 'This quick tour walks through every section of the sidebar and what each page does. It takes about two minutes - you can skip at any point and restart it later from Settings.',
     href: '/dashboard',
   },
-
-  // ── Employment ────────────────────────────────────────────────────────────
   {
-    title: 'All Employees',
-    description: 'Master list of every employee — view profiles, employment details, documents, leave balances, and portal access.',
+    title: 'Dashboard',
+    description: 'Your morning check-in: headcount, the last payroll run, who has clocked in today, pending leave, open tasks, and upcoming statutory deadlines.',
+    href: '/dashboard',
+  },
+  {
+    title: 'People - All Employees',
+    description: 'The master record for everyone in the company. Open anyone to see personal details, compensation, government IDs, documents, leave balances and portal access.',
     href: '/employees',
   },
   {
-    title: 'Departments',
-    description: 'Manage your company\'s department structure. Departments are used across payroll grouping, reports, and employee profiles.',
-    href: '/departments',
+    title: 'People - Organization',
+    description: 'Departments, Positions and the Org Chart in one place, as three tabs. Departments group people for payroll and reporting; the chart draws reporting lines from each employee\'s Reports To field.',
+    href: '/organization',
   },
   {
-    title: 'Positions',
-    description: 'Define job positions and titles assigned to employees. Appears on payslips, org chart, and reports.',
-    href: '/positions',
-  },
-  {
-    title: 'Org Chart',
-    description: 'Interactive organization chart showing reporting lines, department hierarchy, and headcount at a glance.',
-    href: '/org-chart',
-  },
-  {
-    title: 'Recruitment',
-    description: '(Pro) Post job openings with a public application link, track candidates through stages, and convert hires directly into employee records.',
+    title: 'People - Recruitment',
+    description: 'The full employee lifecycle as tabs: Hiring (job posts and applicants), Onboarding (new-hire checklists) and Offboarding (exit clearance).',
     href: '/recruitment',
   },
   {
-    title: 'Onboarding Tracker',
-    description: '(Pro) Assign structured onboarding checklists to new hires. Track completion of each step from day one.',
-    href: '/onboarding',
+    title: 'People - Performance',
+    description: 'Reviews, Disciplinary records and the Tardiness report, tabbed together - everything about how someone is doing, in one place.',
+    href: '/performance',
   },
   {
-    title: 'Performance Reviews',
-    description: '(Pro) Create review cycles, set goals and KPIs, collect self-assessments and manager feedback, and record final ratings.',
-    href: '/performance-reviews',
+    title: 'People - Assets & Equipment',
+    description: 'Track company property issued to staff: laptops, phones, uniforms. Assignments here feed the offboarding clearance checklist.',
+    href: '/assets',
   },
   {
-    title: 'Offboarding',
-    description: '(Pro) Guide employee exits with structured clearance checklists, asset retrieval steps, and offboarding sign-offs.',
-    href: '/offboarding',
+    title: 'Time & Attendance - Timesheets',
+    description: 'Where attendance is reviewed and approved. Two tabs: Timesheets (daily and weekly hours, late, undertime, overtime) and Corrections (employee-filed fixes for missed punches).',
+    href: '/timesheets',
   },
   {
-    title: 'Disciplinary Records',
-    description: '(Pro) Log incidents, violations, and disciplinary actions with a permanent record tied to the employee profile.',
-    href: '/disciplinary',
-  },
-
-  // ── Time & Attendance ─────────────────────────────────────────────────────
-  {
-    title: 'Weekly Time Sheets',
-    description: 'Review, edit, and approve employee DTR records week by week. Each day shows clock-in/out times, tardiness flags, and overtime.',
-    href: '/dtr',
+    title: 'Overtime is approved here',
+    description: 'Overtime is no longer a separate queue. It is derived from clock data, so when you approve a timesheet you are asked whether to approve its overtime too - and you can pick exactly which overtime rows to include.',
+    href: '/timesheets',
   },
   {
-    title: 'Live GPS Map',
-    description: 'Real-time map showing location pings for every employee currently clocked in via the desktop app or portal.',
+    title: 'Time & Attendance - Live GPS Map',
+    description: 'See where field staff clocked in from, in real time, when location capture is enabled.',
     href: '/attendance/map',
   },
   {
-    title: 'Tardiness Report',
-    description: 'Detailed breakdown of late arrivals, absences, and undertime across any date range. Export-ready for HR reviews.',
-    href: '/attendance/tardiness',
-  },
-  {
-    title: 'Attendance Settings',
-    description: 'Configure geofencing radius, selfie verification on clock-in, screen capture monitoring frequency, and the desktop app download link.',
-    href: '/attendance/settings',
-  },
-  {
-    title: 'Work Schedules',
-    description: 'Define shift templates (day, night, flexible, compressed) and assign them to employees for accurate DTR and overtime computation.',
+    title: 'Time & Attendance - Schedules',
+    description: 'Work Schedules and the Holiday Calendar as tabs. Schedules drive expected hours (and therefore late and undertime); holidays drive premium pay.',
     href: '/schedules',
   },
   {
-    title: 'Holidays',
-    description: 'Maintain the holiday calendar for regular and special non-working days. Automatically applied to payroll and attendance.',
-    href: '/holidays',
+    title: 'Time & Attendance - Settings',
+    description: 'Clock-in rules: geofencing, selfie capture, screenshots and auto clock-out. It sits last in the group because it configures everything above it.',
+    href: '/attendance/settings',
   },
-
-  // ── Leave Management ──────────────────────────────────────────────────────
   {
-    title: 'Leave Requests',
-    description: 'View all submitted leave applications. Approve or reject with HR notes, and see running leave balance per employee.',
+    title: 'Leave Management',
+    description: 'Requests come here for approval, the Team Calendar shows who is away, and Leave Types defines your categories and annual entitlements.',
     href: '/leaves',
   },
   {
-    title: 'Leave Types',
-    description: 'Create leave categories (SL, VL, Emergency Leave, etc.) with annual entitlements, carry-over rules, and monetization settings.',
-    href: '/leaves/types',
-  },
-
-  // ── Payroll ───────────────────────────────────────────────────────────────
-  {
     title: 'Payroll Runs',
-    description: 'Create payroll runs for a cut-off period. Compute earnings and deductions, review each payslip, lock, and release to employees.',
+    description: 'Create a run for a cutoff, compute it from approved timesheets, review each payslip, then lock and release. Approved attendance is what payroll reads.',
     href: '/payroll',
   },
   {
-    title: 'Payroll Settings',
-    description: 'Set pay frequency, cut-off dates, SSS/PhilHealth/Pag-IBIG contribution tables, withholding tax method, and de minimis benefits.',
-    href: '/payroll/settings',
-  },
-  {
-    title: '13th Month Pay',
-    description: 'Compute and review 13th month pay for all active employees based on actual basic salary and days worked for the calendar year.',
-    href: '/thirteenth-month',
-  },
-  {
-    title: 'Loans',
-    description: 'Record employee loans (SSS, company, Pag-IBIG) and track automatic amortization deductions each payroll cut-off.',
+    title: 'Payroll - Loans & Cash Advance',
+    description: 'Both in one place, as tabs - a cash advance becomes a loan when approved, and both deduct automatically through payslips.',
     href: '/loans',
   },
-
-  // ── Announcements ─────────────────────────────────────────────────────────
   {
-    title: 'Announcements',
-    description: 'Post company-wide announcements that appear on every employee\'s portal dashboard — memos, reminders, and policy updates.',
+    title: 'Payroll - Disbursement',
+    description: 'Pay everyone out after a run is locked, via InstaPay or PESONet, and track each transfer status.',
+    href: '/disbursement',
+  },
+  {
+    title: 'Workspace - Tasks  (NEW)',
+    description: 'Brand new: a full task manager built into your HR system. Create tasks with a due date, assignees, notes and file attachments - no project setup required.',
+    href: '/tasks',
+  },
+  {
+    title: 'Four ways to see your work',
+    description: 'The same tasks, four views: Board (drag between statuses), List (grouped rows), Table (spreadsheet-style) and Calendar (by due date). Switching view never changes which tasks you are looking at - only how they are grouped.',
+    href: '/tasks',
+  },
+  {
+    title: 'Tasks are assigned to employees',
+    description: 'Because tasks live inside your HR system they are assigned to real employee records - so you can filter to Assigned to me, log hours against a task, and see that time priced against the pay rate on file.',
+    href: '/tasks',
+  },
+  {
+    title: 'Make the board yours',
+    description: 'Under Statuses and labels you define the columns your team actually uses and mark which one means Done. Anything in a Done status stops counting as overdue and gets a completion date.',
+    href: '/tasks',
+  },
+  {
+    title: 'Workspace - Announcements',
+    description: 'Post company-wide notices. Employees see them in the portal and get a notification.',
     href: '/announcements',
   },
-
-  // ── Reports ───────────────────────────────────────────────────────────────
   {
-    title: 'SSS R3 Report',
-    description: 'Generate the SSS R3 Monthly Contribution Collection List per payroll period for filing and remittance to SSS.',
+    title: 'Reports - HR Analytics',
+    description: 'Headcount trends, turnover, attendance and payroll cost analysis across your company.',
+    href: '/analytics',
+  },
+  {
+    title: 'Reports - Government filings',
+    description: 'Ready-to-file SSS R3, PhilHealth RF-1, Pag-IBIG MCRF and BIR forms, generated from your payroll data.',
     href: '/reports/sss',
   },
   {
-    title: 'PhilHealth RF-1 Report',
-    description: 'Generate PhilHealth RF-1 employer and employee premium contribution reports for monthly remittance.',
-    href: '/reports/philhealth',
-  },
-  {
-    title: 'Pag-IBIG MCRF Report',
-    description: 'Generate Pag-IBIG Monthly Collection and Remittance Form (MCRF) showing member and employer contributions.',
-    href: '/reports/pagibig',
-  },
-  {
-    title: 'BIR Report',
-    description: 'Generate BIR-compliant tax reports including the monthly 1601-C and annual alphalist of employees for withholding tax compliance.',
-    href: '/reports/bir',
-  },
-
-  // ── Settings ──────────────────────────────────────────────────────────────
-  {
-    title: 'Company Settings',
-    description: 'Update company name, address, TIN, logo, and contact details. These appear on payslips, invoices, and statutory reports.',
+    title: 'Settings',
+    description: 'Company details, users and role permissions, approval workflows, payroll rules and billing. Company details here appear on payslips and statutory reports.',
     href: '/settings',
   },
   {
-    title: 'Billing & Plan',
-    description: 'View your current subscription, manage seat count, upload proof of payment, and download past invoices.',
-    href: '/settings/billing',
-  },
-  {
-    title: 'User Management',
-    description: 'Create staff accounts and assign roles: Company Admin, HR Manager, or Payroll Officer. Each role has its own access level.',
-    href: '/settings/users',
-  },
-  {
-    title: 'Role Permissions',
-    description: 'Fine-tune page-level access for each role — show or hide specific modules per your company\'s workflow.',
-    href: '/settings/permissions',
-  },
-  {
-    title: 'Approval Workflows',
-    description: 'Configure multi-level approval chains for payroll, leave, and overtime — assign approvers and set escalation rules.',
-    href: '/settings/approvals',
-  },
-
-  // ── Chat ──────────────────────────────────────────────────────────────────
-  {
     title: 'Team Chat',
-    description: 'Click the chat bubble at the bottom-right to message employees directly, see who\'s online, and create group channels.',
+    description: 'Click the chat bubble at the bottom-right to message employees directly, see who is online, and create group channels.',
     clickSelector: '[data-tour="chat-toggle"]',
   },
 ]

@@ -467,7 +467,7 @@ export default function LandingPage() {
                     {f.badge}
                   </span>
                 </div>
-                <h3 className="text-sm font-black text-slate-900 mb-1.5 group-hover:text-[#021e47] transition-colors">{f.title}</h3>
+                <h3 className="text-sm font-black text-slate-900 mb-1.5 group-hover:text-primary transition-colors">{f.title}</h3>
                 <p className="text-xs text-slate-500 leading-relaxed flex-1">{f.desc}</p>
               </div>
             ))}
@@ -855,7 +855,7 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-3">
                 {['FB', 'IG', 'LI'].map(s => (
-                  <div key={s} className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400 hover:bg-[#021e47] hover:text-white transition-colors cursor-pointer">{s}</div>
+                  <div key={s} className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400 hover:bg-primary hover:text-white transition-colors cursor-pointer">{s}</div>
                 ))}
               </div>
             </div>

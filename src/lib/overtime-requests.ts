@@ -27,6 +27,26 @@ function buildAutoReason(hours: number): string {
   return `${AUTO_OT_REASON_PREFIX} Auto-generated from attendance (${hours.toFixed(2)}h). Awaiting approval.`
 }
 
+/**
+ * Whether this employee is on DTR-based pay.
+ *
+ * Overtime is derived from clock data, so it only means anything for someone
+ * whose pay is computed from their DTR. Fails CLOSED (returns false) if the
+ * employee can't be read — better to skip creating an overtime row than to
+ * invent one for somebody who may not be entitled to it.
+ */
+export async function isTimeTrackedEmployee(employeeId: string): Promise<boolean> {
+  try {
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { trackTime: true },
+    })
+    return emp?.trackTime === true
+  } catch {
+    return false
+  }
+}
+
 export async function syncAutoOvertimeRequest(params: {
   companyId: string
   employeeId: string
@@ -39,10 +59,21 @@ export async function syncAutoOvertimeRequest(params: {
   const overtimeHours = Number(params.overtimeHours || 0)
   const normalizedHours = Math.round(Math.max(0, overtimeHours) * 100) / 100
 
-  // If overtime pay is disabled for this company, clean up any existing
-  // PENDING auto-OT requests and do not create new ones.
-  const otEnabled = await isOvertimeEnabledForCompany(companyId)
-  if (!otEnabled) {
+  // Two independent reasons to suppress auto-OT, sharing one cleanup path:
+  //
+  //   1. Overtime pay is disabled company-wide (payroll settings), or
+  //   2. This employee isn't on DTR-based pay (trackTime = false). Overtime
+  //      is derived entirely from clock data, so for someone whose pay
+  //      doesn't come from their DTR it's a number with nothing behind it.
+  //
+  // In both cases we also delete any PENDING auto-OT already sitting there,
+  // so turning either switch off actually clears the queue rather than
+  // leaving orphaned rows an approver could still act on.
+  const [otEnabled, timeTracked] = await Promise.all([
+    isOvertimeEnabledForCompany(companyId),
+    isTimeTrackedEmployee(employeeId),
+  ])
+  if (!otEnabled || !timeTracked) {
     // Delete stale PENDING auto-OT if it exists
     const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0)
     const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)

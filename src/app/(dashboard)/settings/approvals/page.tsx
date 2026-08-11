@@ -423,7 +423,7 @@ export default function ApprovalWorkflowsPage() {
           </div>
           <Link
             href="/settings/workflows"
-            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#032b63] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#021e47]"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#032b63] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary"
           >
             <Workflow className="h-4 w-4" />
             Workflow Builder

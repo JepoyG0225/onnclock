@@ -173,7 +173,7 @@ export function CompetencyManager({ onChange }: { onChange?: () => void }) {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add competency</p>
         <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Competency name (e.g. Leadership)" className={`${inputCls} w-full`} />
         <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Short description (optional)" className={`${inputCls} w-full`} />
-        <Button size="sm" onClick={addCompetency} disabled={busy} className="gap-1.5 text-xs bg-[#032b63] hover:bg-[#021e47]">
+        <Button size="sm" onClick={addCompetency} disabled={busy} className="gap-1.5 text-xs bg-[#032b63] hover:bg-primary">
           <Plus className="w-3.5 h-3.5" /> Add competency
         </Button>
       </div>

@@ -19,6 +19,11 @@ const buttonVariants = cva(
           "bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent/40",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+        // Approve / confirm actions. Previously these were hand-rolled as
+        // `bg-green-600 hover:bg-green-700` at each call site, which drifted
+        // between screens; this makes "approve" one themed decision.
+        success:
+          "bg-success text-success-foreground hover:bg-success/90 focus-visible:ring-success/30",
         outline:
           "border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

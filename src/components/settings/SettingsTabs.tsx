@@ -50,7 +50,7 @@ export function SettingsTabs() {
   if (visibleTabs.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-1 rounded-lg border bg-gray-50 p-1">
+    <div className="flex flex-wrap gap-1 rounded-lg border bg-gray-50 p-1" data-tour="settings-tabs">
       {visibleTabs.map(tab => {
         const active = isActive(pathname, currentTab, tab.href)
         return (

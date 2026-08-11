@@ -153,7 +153,7 @@ export default function PayrollIncomeTypesManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Other Income Types (Company-Wide)</CardTitle>
+        <CardTitle data-tour="ps-income" className="text-base">Other Income Types (Company-Wide)</CardTitle>
         <p className="text-xs text-gray-500 mt-0.5">
           Create allowance, commission, bonus, and other income types for payroll.
         </p>

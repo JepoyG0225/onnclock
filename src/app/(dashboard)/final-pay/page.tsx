@@ -172,7 +172,7 @@ export default function FinalPayPage() {
               <Input
                 value={empSearch}
                 onChange={e => setEmpSearch(e.target.value)}
-                placeholder="Type a name or ID…"
+                data-tour="fp-employee" placeholder="Type a name or ID…"
               />
               <div className="mt-2 border rounded max-h-48 overflow-y-auto">
                 {filteredEmployees.length === 0 ? (
@@ -227,7 +227,7 @@ export default function FinalPayPage() {
                   ] as [keyof typeof overrides, string][]).map(([k, label]) => (
                     <div key={k}>
                       <label className="text-[11px] text-gray-500 block">{label}</label>
-                      <Input
+                      <Input data-tour="fp-amount"
                         type="number" min={0} step={0.01}
                         value={overrides[k]}
                         onChange={e => setOverrides(o => ({ ...o, [k]: e.target.value }))}

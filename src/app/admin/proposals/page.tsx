@@ -223,18 +223,18 @@ export default function ProposalGeneratorPage() {
             <h2 className="text-sm font-bold text-slate-800 mb-3">Pricing breakdown</h2>
             <p className="text-[11px] text-slate-400 mb-3">{seats} employees · {CYCLE_LABEL[cycle]}</p>
             <div className="rounded-lg border border-slate-200 overflow-hidden text-sm">
-              <div className="grid grid-cols-3 bg-[#021e47] text-white text-[11px] font-semibold px-3 py-2">
+              <div className="grid grid-cols-3 bg-primary text-white text-[11px] font-semibold px-3 py-2">
                 <span>Plan</span><span className="text-right">Price</span><span className="text-right">/ month</span>
               </div>
               <div className="grid grid-cols-3 px-3 py-2 border-b border-slate-100">
                 <span className="font-medium text-slate-700">Basic</span>
                 <span className="text-right text-slate-600">{num(pricing.basicRate)}</span>
-                <span className="text-right font-bold text-[#021e47]">{num(pricing.basicMonthly)}</span>
+                <span className="text-right font-bold text-primary">{num(pricing.basicMonthly)}</span>
               </div>
               <div className="grid grid-cols-3 px-3 py-2">
                 <span className="font-medium text-slate-700">Pro</span>
                 <span className="text-right text-slate-600">{num(pricing.proRate)}</span>
-                <span className="text-right font-bold text-[#021e47]">{num(pricing.proMonthly)}</span>
+                <span className="text-right font-bold text-primary">{num(pricing.proMonthly)}</span>
               </div>
             </div>
             <p className="text-[11px] text-slate-400 mt-2">Prices in PHP per seat / month{pricing.disc > 0 ? ` (incl. ${pricing.disc}% discount)` : ''}.</p>

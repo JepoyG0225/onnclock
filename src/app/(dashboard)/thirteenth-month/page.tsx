@@ -156,9 +156,10 @@ export default function ThirteenthMonthPage() {
             </button>
           </div>
           <button
+            data-tour="tm-compute"
             onClick={compute}
             disabled={computing}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            className="flex items-center gap-2  px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
           >
             {computing ? (
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -194,7 +195,7 @@ export default function ThirteenthMonthPage() {
           <button
             onClick={saveCoverageSettings}
             disabled={savingSettings || !coverageStart || !coverageEnd}
-            className="bg-[#032b63] hover:bg-[#021e47] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="bg-[#032b63] hover:bg-primary disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             {savingSettings ? 'Saving...' : 'Save Coverage'}
           </button>
@@ -300,7 +301,7 @@ export default function ThirteenthMonthPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setSelectedEntry(entry)} className="text-xs text-[#032b63] hover:text-[#021e47]">
+                      <button onClick={() => setSelectedEntry(entry)} className="text-xs text-[#032b63] hover:text-primary">
                         View breakdown
                       </button>
                     </td>

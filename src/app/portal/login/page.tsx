@@ -228,7 +228,7 @@ export default function PortalLoginPage() {
                 </p>
                 <a
                   href="/download#employee"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#032b63] hover:text-[#021e47] transition-colors"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#032b63] hover:text-primary transition-colors"
                 >
                   <Image src="/platform-icons/windows.svg" alt="Windows" width={14} height={14} />
                   <Image src="/platform-icons/mac-21.png" alt="macOS" width={14} height={14} />

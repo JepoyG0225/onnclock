@@ -140,7 +140,7 @@ export default function AnalyticsPage() {
         {/* Hires vs Separations chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
+            <CardTitle data-tour="an-turnover" className="text-sm flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-600" /> Hires vs Separations (12 mo)
             </CardTitle>
           </CardHeader>
@@ -184,7 +184,7 @@ export default function AnalyticsPage() {
         {/* Headcount by department */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
+            <CardTitle data-tour="an-headcount" className="text-sm flex items-center gap-2">
               <Users className="w-4 h-4 text-slate-600" /> Headcount by Department
             </CardTitle>
           </CardHeader>
@@ -251,7 +251,7 @@ export default function AnalyticsPage() {
         {/* Leave utilization */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
+            <CardTitle data-tour="an-leave" className="text-sm flex items-center gap-2">
               <Calendar className="w-4 h-4 text-purple-600" /> Leave Utilization ({data.leaveUtilization.year} YTD)
             </CardTitle>
           </CardHeader>
@@ -281,7 +281,7 @@ export default function AnalyticsPage() {
       {/* Attendance summary */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle data-tour="an-attendance" className="text-sm flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-600" /> Attendance (Last 30 Days)
           </CardTitle>
         </CardHeader>

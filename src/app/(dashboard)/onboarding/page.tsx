@@ -1,23 +1,20 @@
-import { auth } from '@/lib/auth'
-import { resolveEffectiveCompanyId } from '@/lib/effective-company'
-import { getHrisProAccess } from '@/lib/hris-pro'
-import { OnboardingManager } from '@/components/onboarding/OnboardingManager'
+/**
+ * Moved into the tabbed /recruitment page. Kept as a redirect so bookmarks,
+ * notification deep-links and in-app cross-links keep working.
+ */
+import { redirect } from 'next/navigation'
 
-export default async function OnboardingPage() {
-  const session = await auth()
-  const companyId = session?.user ? await resolveEffectiveCompanyId(session.user) : null
-  const access = companyId ? await getHrisProAccess(companyId) : null
-
-  if (!access?.entitled) {
-    return (
-      <div className="max-w-5xl mx-auto p-6">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <h1 className="text-2xl font-black text-amber-900">Onboarding Tracker requires Pro</h1>
-          <p className="text-sm text-amber-800 mt-2">Upgrade to the Php 70 per employee plan to activate onboarding templates and progress tracking.</p>
-        </div>
-      </div>
-    )
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const sp = await searchParams
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(sp)) {
+    if (typeof value === 'string') params.set(key, value)
+    else if (Array.isArray(value) && value[0]) params.set(key, value[0])
   }
-
-  return <OnboardingManager />
+  params.set('tab', 'onboarding')
+  redirect(`/recruitment?${params.toString()}`)
 }

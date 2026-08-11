@@ -12,10 +12,12 @@ import { SubscriptionGate } from '@/components/layout/SubscriptionGate'
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
 import { SubscriptionExpiryNotice } from '@/components/layout/SubscriptionExpiryNotice'
 import { AdminVirtualTour } from '@/components/onboarding/AdminVirtualTour'
+import { PageTour } from '@/components/onboarding/PageTour'
 import { prisma } from '@/lib/prisma'
 import { cookies, headers } from 'next/headers'
 import { verifyImpersonateToken, IMPERSONATE_COOKIE } from '@/lib/impersonate'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
+import { hasTaskModuleBetaAccess } from '@/lib/feature-gates'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 import { ROLE_PERMISSIONS } from '@/lib/auth/permissions'
 import { canAccessPath, findFirstAccessiblePath } from '@/lib/auth/page-access'
@@ -172,6 +174,16 @@ export default async function DashboardLayout({
   } catch (err) {
     console.error(`[dashboard layout] getEffectivePermissions failed for company ${companyId ?? '?'}, falling back to ${effectiveRole} defaults:`, err)
   }
+  // ── Task Management beta gate ───────────────────────────────────
+  // Stripping the tasks:* permissions here (rather than adding a special
+  // case to the sidebar and the route guard separately) means both the nav
+  // filtering and the direct-URL redirect below pick the gate up for free.
+  // SUPER_ADMIN is not exempt: the module's tables may not exist yet, so an
+  // admin landing on it would just hit a 500.
+  if (!hasTaskModuleBetaAccess(session.user.email)) {
+    permissions = permissions.filter(p => p !== 'tasks:read' && p !== 'tasks:manage')
+  }
+
   const pathname = (await headers()).get('x-pathname') ?? ''
   if (pathname && !canAccessPath(pathname, permissions)) {
     // /dashboard is itself now gated (so narrow custom roles like
@@ -221,6 +233,19 @@ export default async function DashboardLayout({
           role={effectiveRole}
           actorRole={session.user.role}
           permissions={permissions}
+        />
+        {/*
+          Per-page tours. This component documents itself as "mounted once in
+          the dashboard layout" but never actually was, so page tours had
+          never run — the tour definitions in lib/onboarding/page-tours were
+          dead code. Mounted here now, with the same role gating the nav tour
+          uses (its own `allowed` check also excludes SUPER_ADMIN).
+        */}
+        <PageTour
+          userId={session.user.id}
+          role={effectiveRole}
+          actorRole={session.user.role}
+          enabled
         />
       </div>
     </SidebarProvider>

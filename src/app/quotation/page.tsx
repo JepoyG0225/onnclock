@@ -262,7 +262,7 @@ export default function QuotationPage() {
                 <CheckCircle className="w-4 h-4 text-[#032b63]" />
                 <span className="text-sm font-black text-slate-900">Annual Billing</span>
               </div>
-              <p className="text-xl font-black text-[#021e47]">₱40</p>
+              <p className="text-xl font-black text-primary">₱40</p>
               <p className="text-xs text-slate-500">per seat / month — billed as ₱480/seat/year</p>
               <p className="text-xs text-emerald-600 font-bold mt-1">Save 20% vs. monthly</p>
             </div>

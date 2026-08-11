@@ -36,7 +36,7 @@ export default function DownloadPage() {
 
       <main className="pt-28 pb-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <section className="rounded-3xl bg-gradient-to-r from-[#021e47] to-[#032b63] px-6 py-10 sm:px-10 text-white shadow-xl">
+          <section className="rounded-3xl bg-gradient-to-r from-primary to-[#032b63] px-6 py-10 sm:px-10 text-white shadow-xl">
             <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wide">
               <Download className="w-3.5 h-3.5" />
               Desktop Installer Hub

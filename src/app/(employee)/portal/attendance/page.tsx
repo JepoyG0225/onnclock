@@ -132,7 +132,7 @@ export default function AttendancePage() {
           { label: 'Days Absent', value: totals.absent, color: 'text-red-600' },
           { label: 'Days Late', value: totals.late, color: 'text-amber-600' },
           { label: 'Total Hours', value: `${totals.hours.toFixed(1)}h`, color: '' },
-          { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-[#021e47]' },
+          { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-primary' },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
             <p className={`text-lg sm:text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#032b63' } : undefined}>

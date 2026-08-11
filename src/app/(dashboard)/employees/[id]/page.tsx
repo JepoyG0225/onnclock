@@ -133,28 +133,28 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
       <Tabs defaultValue="personal">
         <TabsList>
-          <TabsTrigger value="personal" className="flex items-center gap-2">
+          <TabsTrigger value="personal" data-tour-emp="personal" className="flex items-center gap-2">
             <User className="w-3.5 h-3.5" />Personal
           </TabsTrigger>
-          <TabsTrigger value="employment" className="flex items-center gap-2">
+          <TabsTrigger value="employment" data-tour-emp="employment" className="flex items-center gap-2">
             <Briefcase className="w-3.5 h-3.5" />Employment
           </TabsTrigger>
-          <TabsTrigger value="compensation" className="flex items-center gap-2">
+          <TabsTrigger value="compensation" data-tour-emp="compensation" className="flex items-center gap-2">
             <PesoIcon className="w-3.5 h-3.5" />Compensation
           </TabsTrigger>
-          <TabsTrigger value="leaves" className="flex items-center gap-2">
+          <TabsTrigger value="leaves" data-tour-emp="leaves" className="flex items-center gap-2">
             <FileText className="w-3.5 h-3.5" />Leaves
           </TabsTrigger>
-          <TabsTrigger value="payslips" className="flex items-center gap-2">
+          <TabsTrigger value="payslips" data-tour-emp="payslips" className="flex items-center gap-2">
             <FileText className="w-3.5 h-3.5" />Payslips
           </TabsTrigger>
-          <TabsTrigger value="loans" className="flex items-center gap-2">
+          <TabsTrigger value="loans" data-tour-emp="loans" className="flex items-center gap-2">
             <CreditCard className="w-3.5 h-3.5" />Loans
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
+          <TabsTrigger value="settings" data-tour-emp="settings" className="flex items-center gap-2">
             <Settings className="w-3.5 h-3.5" />Settings
           </TabsTrigger>
-          <TabsTrigger value="documents" className="flex items-center gap-2">
+          <TabsTrigger value="documents" data-tour-emp="documents" className="flex items-center gap-2">
             <FileText className="w-3.5 h-3.5" />Documents
           </TabsTrigger>
         </TabsList>

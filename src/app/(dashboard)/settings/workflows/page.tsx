@@ -446,7 +446,7 @@ export default function WorkflowBuilderPage() {
             <Button size="sm" variant="outline" onClick={() => addStep('NOTIFY')} className="gap-1.5 text-xs border-dashed">
               <Bell className="w-3.5 h-3.5" /> Add notification step
             </Button>
-            <Button size="sm" onClick={save} disabled={saving} className="gap-1.5 text-xs ml-auto bg-[#032b63] hover:bg-[#021e47]">
+            <Button size="sm" onClick={save} disabled={saving} className="gap-1.5 text-xs ml-auto bg-[#032b63] hover:bg-primary">
               <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save workflow'}
             </Button>
           </div>

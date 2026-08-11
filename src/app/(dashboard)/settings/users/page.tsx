@@ -357,8 +357,8 @@ export default function UsersPage() {
       {/* Role reference */}
       <Card className="bg-[#dce5f7] border-[#AAB7B7]">
         <CardContent className="p-4">
-          <p className="text-sm font-medium text-[#021e47] mb-2">Role Permissions</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-[#021e47]">
+          <p className="text-sm font-medium text-primary mb-2">Role Permissions</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-primary">
             <div><strong>Company Admin</strong> — Full access</div>
             <div><strong>HR Manager</strong> — Employees, leaves, DTR, reports</div>
             <div><strong>Payroll Officer</strong> — Payroll, reports, loans</div>

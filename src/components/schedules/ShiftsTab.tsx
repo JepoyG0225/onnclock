@@ -1,0 +1,2069 @@
+﻿'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Coffee,
+  Pencil,
+  Plus,
+  Users,
+  X,
+  CalendarDays,
+  LayoutGrid,
+  Trash2,
+  Loader2,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const SCHEDULE_TYPE_LABELS: Record<string, string> = {
+  FIXED: 'Fixed Schedule',
+  FLEXITIME: 'Flexible',
+  SHIFTING: 'Shifting',
+  COMPRESSED: 'Compressed Work Week',
+}
+
+const CARD_COLORS = [
+  { bg: '#fff3ec', border: '#ff5900', text: '#c44d00' },
+  { bg: '#eef2f7', border: '#032b63', text: '#021e47' },
+  { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' },
+  { bg: '#fdf4ff', border: '#9333ea', text: '#7e22ce' },
+  { bg: '#fffbeb', border: '#d97706', text: '#b45309' },
+  { bg: '#f0f9ff', border: '#0284c7', text: '#0369a1' },
+]
+
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+interface WorkSchedule {
+  id: string
+  name: string
+  scheduleType: string
+  timeIn: string | null
+  timeOut: string | null
+  breakEnabled: boolean
+  breakMinutes: number
+  workHoursPerDay: number
+  workDaysPerWeek: number
+  workDays: number[]
+  requireSelfieOnClockIn: boolean
+  _count: { employees: number }
+}
+
+interface ScheduleEmployee {
+  id: string
+  employeeNo: string
+  firstName: string
+  lastName: string
+  middleName?: string | null
+  department: { id: string; name: string } | null
+  position: { title: string } | null
+  workScheduleId: string | null
+}
+
+interface FixedEmployee {
+  id: string
+  employeeNo: string
+  firstName: string
+  lastName: string
+  middleName?: string | null
+  department: { id: string; name: string } | null
+  workScheduleId: string | null
+}
+
+type FixedEmployeeDraft = {
+  scheduleId: string
+  dayOffDays: number[]
+}
+
+interface ShiftAssignment {
+  id: string
+  employeeId: string
+  date: string
+  scheduleId: string | null
+  timeIn: string | null
+  timeOut: string | null
+  isRestDay: boolean
+  notes: string | null
+  schedule: { id: string; name: string; timeIn: string | null; timeOut: string | null } | null
+}
+
+type ScheduleMode = 'FIXED' | 'FLEXIBLE'
+
+type ScheduleForm = {
+  name: string
+  scheduleType: string
+  requireSelfieOnClockIn: boolean
+  timeIn: string
+  timeOut: string
+  breakEnabled: boolean
+  breakMinutes: number
+  workHoursPerDay: number
+  workDaysPerWeek: number
+  workDays: number[]
+}
+
+const DEFAULT_FORM: ScheduleForm = {
+  name: '',
+  scheduleType: 'FIXED',
+  requireSelfieOnClockIn: false,
+  timeIn: '08:00',
+  timeOut: '17:00',
+  breakEnabled: true,
+  breakMinutes: 60,
+  workHoursPerDay: 8,
+  workDaysPerWeek: 5,
+  workDays: [1, 2, 3, 4, 5],
+}
+
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function fmt12(hhmm: string | null | undefined): string {
+  if (!hhmm) return ''
+  const [hStr, mStr] = hhmm.split(':')
+  let h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
+function getWeekStart(date: Date): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() - d.getDay())
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function addDays(date: Date, n: number): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
+function toDateStr(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const year = parts.find((p) => p.type === 'year')?.value
+  const month = parts.find((p) => p.type === 'month')?.value
+  const day = parts.find((p) => p.type === 'day')?.value
+  if (!year || !month || !day) return date.toISOString().slice(0, 10)
+  return `${year}-${month}-${day}`
+}
+
+function formatHeaderDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function splitBreakMinutes(totalMinutes: number): { hours: number; minutes: number } {
+  const safe = Math.max(0, Math.min(12 * 60, Number.isFinite(totalMinutes) ? Math.round(totalMinutes) : 0))
+  return { hours: Math.floor(safe / 60), minutes: safe % 60 }
+}
+
+function combineBreakMinutes(hours: number, minutes: number): number {
+  const h = Math.max(0, Math.min(12, Number.isFinite(hours) ? Math.round(hours) : 0))
+  const m = Math.max(0, Math.min(59, Number.isFinite(minutes) ? Math.round(minutes) : 0))
+  return h * 60 + m
+}
+
+function fullName(emp: { firstName: string; lastName: string }): string {
+  return `${emp.firstName} ${emp.lastName}`
+}
+
+function deriveDayOffDaysFromWorkDays(workDays: number[] | null | undefined): number[] {
+  const set = new Set(Array.isArray(workDays) ? workDays : [1, 2, 3, 4, 5])
+  return [0, 1, 2, 3, 4, 5, 6].filter(day => !set.has(day))
+}
+
+function formatWorkDaysCompact(workDays: number[] | null | undefined): string {
+  const days = Array.isArray(workDays) ? [...workDays].sort((a, b) => a - b) : []
+  if (days.length === 0) return '-'
+  const allWeek = [0, 1, 2, 3, 4, 5, 6]
+  if (days.length === 7 && days.every((v, i) => v === allWeek[i])) return 'Sun-Sat'
+  const monFri = [1, 2, 3, 4, 5]
+  if (days.length === 5 && days.every((v, i) => v === monFri[i])) return 'Mon-Fri'
+  return days.map(d => DAYS[d]).join(', ')
+}
+
+/**
+ * Given a timeIn string ("HH:mm"), net working hours, and break minutes,
+ * compute the corresponding timeOut string.
+ * Handles overnight shifts (result wraps past midnight).
+ */
+function computeTimeOut(timeIn: string, workHours: number, breakMins: number): string {
+  const [h, m] = timeIn.split(':').map(Number)
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return timeIn
+  const totalMins = (h * 60 + m) + Math.round(workHours * 60) + Math.max(0, breakMins)
+  const endMins   = totalMins % (24 * 60)
+  const endH = Math.floor(endMins / 60)
+  const endM = endMins % 60
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+}
+
+/**
+ * Given timeIn/timeOut strings and break minutes, derive net working hours.
+ * Returns the value rounded to the nearest 0.25 h.
+ */
+function computeWorkHours(timeIn: string, timeOut: string, breakMins: number): number {
+  const [inH, inM]   = timeIn.split(':').map(Number)
+  const [outH, outM] = timeOut.split(':').map(Number)
+  if (!Number.isFinite(inH) || !Number.isFinite(outH)) return 8
+  let spanMins = (outH * 60 + outM) - (inH * 60 + inM)
+  if (spanMins <= 0) spanMins += 24 * 60 // overnight
+  const netMins = Math.max(0, spanMins - Math.max(0, breakMins))
+  return Math.round((netMins / 60) * 4) / 4 // nearest 0.25 h
+}
+
+function withCompanyId(path: string, companyId?: string): string {
+  const normalized = (companyId ?? '').trim()
+  if (!normalized) return path
+  const joiner = path.includes('?') ? '&' : '?'
+  return `${path}${joiner}companyId=${encodeURIComponent(normalized)}`
+}
+
+// â”€â”€â”€ Fixed Schedule Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+
+// â”€â”€â”€ Flexible / Weekly Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+interface ModalState {
+  employeeId: string
+  employeeName: string
+  fixedScheduleId?: string | null
+  date: string // YYYY-MM-DD
+  existing: ShiftAssignment | null
+  /** When opened by dragging a template card, pre-select that schedule. */
+  prefilledScheduleId?: string | null
+  /** When opened by dragging the "Rest Day" tile, default to rest-day. */
+  prefilledIsRestDay?: boolean
+}
+
+// â”€â”€â”€ Shift template mini-modal (used in Flexible mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+interface ShiftTemplateForm {
+  name: string
+  timeIn: string
+  timeOut: string
+  workHoursPerDay: number
+  breakEnabled: boolean
+  breakMinutes: number
+  workDays: number[]
+}
+
+const ALL_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function ShiftTemplateModal({
+  initial,
+  defaultBreakMinutes,
+  companyId,
+  variant = 'FLEXIBLE',
+  onClose,
+  onSaved,
+  onDeleted,
+}: {
+  initial: WorkSchedule | null   // null = create mode
+  defaultBreakMinutes?: number
+  companyId?: string
+  variant?: 'FIXED' | 'FLEXIBLE'
+  onClose: () => void
+  onSaved: () => void
+  onDeleted?: () => void
+}) {
+  const fallbackBreakMinutes = Math.max(0, Number(defaultBreakMinutes ?? 60))
+  const [form, setForm] = useState<ShiftTemplateForm>({
+    name: initial?.name ?? '',
+    timeIn: initial?.timeIn ?? '08:00',
+    timeOut: initial?.timeOut ?? '17:00',
+    workHoursPerDay: Number(initial?.workHoursPerDay ?? 8),
+    breakEnabled: initial?.breakEnabled ?? true,
+    breakMinutes: Number(initial?.breakMinutes ?? fallbackBreakMinutes),
+    workDays: Array.isArray(initial?.workDays) && initial.workDays.length > 0
+      ? initial.workDays
+      : [1, 2, 3, 4, 5],
+  })
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  useEffect(() => {
+    setForm({
+      name: initial?.name ?? '',
+      timeIn: initial?.timeIn ?? '08:00',
+      timeOut: initial?.timeOut ?? '17:00',
+      workHoursPerDay: Number(initial?.workHoursPerDay ?? 8),
+      breakEnabled: initial?.breakEnabled ?? true,
+      breakMinutes: Number(initial?.breakMinutes ?? fallbackBreakMinutes),
+      workDays: Array.isArray(initial?.workDays) && initial.workDays.length > 0
+        ? initial.workDays
+        : [1, 2, 3, 4, 5],
+    })
+  }, [initial, fallbackBreakMinutes])
+
+  async function handleSave() {
+    if (!form.name.trim()) { toast.error('Shift name is required'); return }
+    if (!form.timeIn || !form.timeOut) { toast.error('Time in and time out are required'); return }
+    setSaving(true)
+    try {
+      // Workdays are no longer chosen at template creation. They're chosen when
+      // the schedule is applied to a day in the grid. We default to all 7 days
+      // so the template can be applied to any day of the week.
+      const effectiveWorkDays = [0, 1, 2, 3, 4, 5, 6]
+      const payload = {
+        name: form.name.trim(),
+        scheduleType: variant === 'FLEXIBLE' ? 'FLEXITIME' : 'FIXED',
+        timeIn: form.timeIn,
+        timeOut: form.timeOut,
+        breakEnabled: form.breakEnabled,
+        breakMinutes: form.breakEnabled ? form.breakMinutes : 0,
+        workDays: effectiveWorkDays,
+        workHoursPerDay: Number(form.workHoursPerDay),
+        workDaysPerWeek: 5,
+      }
+      const res = initial
+        ? await fetch(withCompanyId(`/api/schedules/${initial.id}`, companyId), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        : await fetch(withCompanyId('/api/schedules', companyId), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data?.error ?? 'Failed to save'); return }
+      toast.success(initial ? 'Work hours updated' : 'Work hours added')
+      onSaved()
+      onClose()
+    } finally { setSaving(false) }
+  }
+
+  async function handleDelete() {
+    if (!initial) return
+    setDeleting(true)
+    try {
+      const res = await fetch(withCompanyId(`/api/schedules/${initial.id}`, companyId), { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data?.error ?? 'Cannot delete'); setConfirmDelete(false); return }
+      toast.success('Shift deleted')
+      onDeleted?.()
+      onClose()
+    } finally { setDeleting(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9995] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between" style={{ background: '#0d1b2a' }}>
+          <div>
+            <p className="font-bold text-white text-sm">{initial ? 'Edit Work Hours' : 'Add Work Hours'}</p>
+            <p className="text-[11px] text-white/50 mt-0.5">Define a reusable shift time block</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4">
+          {/* Shift label */}
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Shift Label *</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="e.g. Morning Shift, Night Shift"
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none"
+            />
+          </div>
+
+          {/* Time range */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Time In *</label>
+              <input
+                type="time"
+                value={form.timeIn}
+                onChange={e => {
+                  const newTimeIn = e.target.value
+                  // Keep workHoursPerDay constant, shift timeOut forward
+                  const newTimeOut = newTimeIn
+                    ? computeTimeOut(newTimeIn, form.workHoursPerDay, form.breakEnabled ? form.breakMinutes : 0)
+                    : form.timeOut
+                  setForm(p => ({ ...p, timeIn: newTimeIn, timeOut: newTimeOut }))
+                }}
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Time Out *</label>
+              <input
+                type="time"
+                value={form.timeOut}
+                onChange={e => {
+                  const newTimeOut = e.target.value
+                  // Derive workHoursPerDay from the new span
+                  const newHours = newTimeOut && form.timeIn
+                    ? computeWorkHours(form.timeIn, newTimeOut, form.breakEnabled ? form.breakMinutes : 0)
+                    : form.workHoursPerDay
+                  setForm(p => ({ ...p, timeOut: newTimeOut, workHoursPerDay: Math.max(0.5, newHours) }))
+                }}
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Working Hours / Day</label>
+            <input
+              type="number"
+              min={0.5}
+              max={24}
+              step={0.5}
+              value={form.workHoursPerDay}
+              onChange={e => {
+                const newHours = Math.min(24, Math.max(0.5, Number(e.target.value) || 8))
+                // Adjust timeOut to match the new working hours
+                const newTimeOut = form.timeIn
+                  ? computeTimeOut(form.timeIn, newHours, form.breakEnabled ? form.breakMinutes : 0)
+                  : form.timeOut
+                setForm(p => ({ ...p, workHoursPerDay: newHours, timeOut: newTimeOut }))
+              }}
+              className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none"
+            />
+          </div>
+
+          {/* Break */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-600">Break</label>
+              <button
+                type="button"
+                onClick={() => setForm(p => {
+                  const newEnabled = !p.breakEnabled
+                  const effectiveBreak = newEnabled ? p.breakMinutes : 0
+                  const newTimeOut = p.timeIn ? computeTimeOut(p.timeIn, p.workHoursPerDay, effectiveBreak) : p.timeOut
+                  return { ...p, breakEnabled: newEnabled, timeOut: newTimeOut }
+                })}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.breakEnabled ? 'bg-accent' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            {form.breakEnabled && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-gray-500 block mb-1">Hours</label>
+                    <select
+                      value={splitBreakMinutes(form.breakMinutes).hours}
+                      onChange={e => {
+                        const nextHours = Number(e.target.value)
+                        const nextMinutes = splitBreakMinutes(form.breakMinutes).minutes
+                        const newBreakMins = combineBreakMinutes(nextHours, nextMinutes)
+                        const newTimeOut = form.timeIn ? computeTimeOut(form.timeIn, form.workHoursPerDay, newBreakMins) : form.timeOut
+                        setForm(p => ({ ...p, breakMinutes: newBreakMins, timeOut: newTimeOut }))
+                      }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none"
+                    >
+                      {Array.from({ length: 13 }, (_, h) => h).map(h => (
+                        <option key={h} value={h}>{h}h</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 block mb-1">Minutes</label>
+                    <select
+                      value={splitBreakMinutes(form.breakMinutes).minutes}
+                      onChange={e => {
+                        const nextMinutes = Number(e.target.value)
+                        const nextHours = splitBreakMinutes(form.breakMinutes).hours
+                        const newBreakMins = combineBreakMinutes(nextHours, nextMinutes)
+                        const newTimeOut = form.timeIn ? computeTimeOut(form.timeIn, form.workHoursPerDay, newBreakMins) : form.timeOut
+                        setForm(p => ({ ...p, breakMinutes: newBreakMins, timeOut: newTimeOut }))
+                      }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none"
+                    >
+                      {Array.from({ length: 60 }, (_, m) => m).map(m => (
+                        <option key={m} value={m}>{m}m</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  {form.breakMinutes > 0 ? `${form.breakMinutes} minute${form.breakMinutes === 1 ? '' : 's'} allowed` : 'No break'}
+                </p>
+              </>
+            )}
+            {!form.breakEnabled && (
+              <p className="text-[11px] text-amber-600 mt-1">Break is disabled — employees cannot take breaks on this schedule.</p>
+            )}
+          </div>
+
+          {/* Live preview */}
+          {form.timeIn && form.timeOut && (
+            <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#fff3ec', borderColor: '#ff5900', color: '#c44d00' }}>
+              <p className="font-bold">{fmt12(form.timeIn)} - {fmt12(form.timeOut)}</p>
+              <p className="text-[11px] opacity-70 mt-0.5">{form.timeIn} - {form.timeOut}{form.breakMinutes ? ` - ${form.breakMinutes}m break` : ''}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 flex items-center justify-between gap-3">
+          <div>
+            {initial && !confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-xs font-semibold text-red-400 hover:text-red-600 flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            )}
+            {initial && confirmDelete && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-600 font-semibold">Sure?</span>
+                <button onClick={handleDelete} disabled={deleting} className="text-xs font-bold text-red-600 hover:underline">{deleting ? 'Deleting...' : 'Yes, delete'}</button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs text-gray-500 hover:underline">No</button>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2 rounded-xl text-sm font-bold text-white"
+              style={{ background: '#ff5900' }}
+            >
+              {saving ? 'Saving...' : initial ? 'Update' : 'Add Shift'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// â”€â”€â”€ Flexible Weekly Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function FlexibleScheduleTab({
+  schedules,
+  loadingSchedules,
+  onRefreshSchedules,
+  variant = 'FLEXIBLE',
+  companyBreakMinutes = 60,
+  companyId,
+  focusEmployeeId,
+}: {
+  schedules: WorkSchedule[]
+  loadingSchedules: boolean
+  onRefreshSchedules: () => void
+  variant?: 'FIXED' | 'FLEXIBLE'
+  companyBreakMinutes?: number
+  companyId?: string
+  focusEmployeeId?: string
+}) {
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
+  const [employees, setEmployees] = useState<ScheduleEmployee[]>([])
+  const [assignments, setAssignments] = useState<ShiftAssignment[]>([])
+  const [loadingGrid, setLoadingGrid] = useState(false)
+  const [deptFilter, setDeptFilter] = useState('')
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
+  const [modal, setModal] = useState<ModalState | null>(null)
+  const [shiftModal, setShiftModal] = useState<{ mode: 'create' } | { mode: 'edit'; schedule: WorkSchedule } | null>(null)
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null) // "empId|dateStr"
+  const dragScheduleId = useRef<string | null>(null)
+  const restDayDragId = '__REST_DAY__'
+  // In FLEXIBLE mode show all schedules — a company may have created templates
+  // as any type and still want to drag them onto the flexible grid.
+  // In FIXED mode restrict to FIXED-type templates for consistency.
+  const templateSchedules = variant === 'FLEXIBLE'
+    ? schedules
+    : schedules.filter(s => s.scheduleType === 'FIXED')
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const startStr = toDateStr(weekStart)
+  const endStr = toDateStr(addDays(weekStart, 6))
+  const todayStr = toDateStr(new Date())
+
+  // Fetch departments
+  useEffect(() => {
+    fetch(withCompanyId('/api/departments', companyId))
+      .then(r => r.json())
+      .then(d => setDepartments(d.departments ?? []))
+      .catch(() => {})
+  }, [companyId])
+
+  const loadGrid = useCallback(async () => {
+    setLoadingGrid(true)
+    try {
+      const modeQuery = `&mode=${variant}`
+      const focusQuery = focusEmployeeId ? `&employeeId=${encodeURIComponent(focusEmployeeId)}` : ''
+      const url = withCompanyId(`/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}${modeQuery}${deptFilter ? `&departmentId=${deptFilter}` : ''}${focusQuery}`, companyId)
+      const res = await fetch(url)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err?.error ?? 'Failed to load schedule grid')
+        setEmployees([])
+        setAssignments([])
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      const rawEmployees: ScheduleEmployee[] = data.employees ?? []
+      const normalizedEmployees =
+        variant === 'FIXED'
+          ? rawEmployees.filter(emp => !!emp.workScheduleId)
+          : rawEmployees.filter(emp => !emp.workScheduleId)
+      setEmployees(normalizedEmployees)
+      setAssignments(data.assignments ?? [])
+    } finally {
+      setLoadingGrid(false) }
+  }, [startStr, endStr, deptFilter, variant, companyId, focusEmployeeId])
+
+  useEffect(() => { loadGrid() }, [loadGrid])
+
+  function getAssignments(empId: string, dateStr: string): ShiftAssignment[] {
+    return assignments.filter(a => a.employeeId === empId && a.date.slice(0, 10) === dateStr)
+  }
+
+  // Drag handlers
+  function onDragStart(schedId: string) {
+    dragScheduleId.current = schedId
+  }
+
+  async function onDrop(empId: string, dateStr: string) {
+    const schedId = dragScheduleId.current
+    setDragOverCell(null)
+    dragScheduleId.current = null
+    if (!schedId) return
+    // Open the assignment modal pre-populated with what was dragged. The modal
+    // shows the "Apply to days" picker so admins can fan the same shift out
+    // across multiple days in the visible week.
+    const employee = employees.find((e) => e.id === empId)
+    setModal({
+      employeeId: empId,
+      employeeName: employee ? fullName(employee) : '',
+      fixedScheduleId: employee?.workScheduleId ?? null,
+      date: dateStr,
+      existing: null,
+      prefilledScheduleId: schedId === restDayDragId ? null : schedId,
+      prefilledIsRestDay: schedId === restDayDragId,
+    })
+  }
+
+  async function upsertAssignment(payload: {
+    id?: string | null          // if set → UPDATE that record; if absent → CREATE new
+    employeeId: string
+    date: string
+    mode?: 'FIXED' | 'FLEXIBLE'
+    scheduleId?: string | null
+    timeIn?: string | null
+    timeOut?: string | null
+    isRestDay: boolean
+    notes?: string | null
+  }) {
+    const isUpdate = Boolean(payload.id)
+    const tempId = payload.id ?? `temp-${payload.employeeId}-${payload.date}-${Date.now()}`
+    const template = payload.scheduleId ? templateSchedules.find(s => s.id === payload.scheduleId) : null
+    const optimisticTimeIn = payload.isRestDay ? null : (payload.timeIn ?? template?.timeIn ?? null)
+    const optimisticTimeOut = payload.isRestDay ? null : (payload.timeOut ?? template?.timeOut ?? null)
+    const optimisticAssignment: ShiftAssignment = {
+      id: tempId,
+      employeeId: payload.employeeId,
+      date: payload.date,
+      scheduleId: payload.scheduleId ?? null,
+      timeIn: optimisticTimeIn,
+      timeOut: optimisticTimeOut,
+      isRestDay: payload.isRestDay ?? false,
+      notes: payload.notes ?? null,
+      schedule: payload.scheduleId && template
+        ? { id: template.id, name: template.name, timeIn: template.timeIn ?? null, timeOut: template.timeOut ?? null }
+        : null,
+    }
+
+    // Optimistic update
+    setAssignments(prev => {
+      if (isUpdate) {
+        // Replace the specific record by id
+        return prev.map(a => a.id === payload.id ? optimisticAssignment : a)
+      } else if (payload.mode !== 'FLEXIBLE') {
+        // FIXED: replace all for this (emp, date) — keeps 1 per day
+        const filtered = prev.filter(a => !(a.employeeId === payload.employeeId && a.date.slice(0, 10) === payload.date))
+        if (!payload.isRestDay && !payload.scheduleId && !payload.timeIn && !payload.timeOut) return filtered
+        return [...filtered, optimisticAssignment]
+      } else {
+        // FLEXIBLE create: just append (multi-shift)
+        if (!payload.isRestDay && !payload.scheduleId && !payload.timeIn && !payload.timeOut) return prev
+        return [...prev, optimisticAssignment]
+      }
+    })
+
+    try {
+      const res = await fetch(withCompanyId('/api/schedules/assignments', companyId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // Rollback
+        setAssignments(prev => {
+          if (isUpdate) return prev  // keep old data on update failure (no clean rollback)
+          return prev.filter(a => a.id !== tempId)
+        })
+        toast.error(data?.error ?? 'Failed to save')
+        return
+      }
+      // Replace temp/optimistic with server-confirmed record
+      setAssignments(prev => prev.map(a => a.id === tempId ? { ...data.assignment, date: String(data.assignment.date).slice(0, 10) } : a))
+    } catch {
+      setAssignments(prev => prev.filter(a => a.id !== tempId))
+      toast.error('Failed to save assignment')
+    }
+  }
+
+  async function deleteAssignment(id: string) {
+    // Optimistically remove from UI immediately
+    setAssignments(prev => prev.filter(a => a.id !== id))
+    try {
+      const res = await fetch(withCompanyId(`/api/schedules/assignments/${id}`, companyId), { method: 'DELETE' })
+      if (!res.ok) {
+        toast.error('Failed to remove — please refresh')
+        await loadGrid() // restore actual state
+      }
+    } catch {
+      toast.error('Failed to remove — please refresh')
+      await loadGrid()
+    }
+  }
+
+  const colorMap = new Map(
+    templateSchedules.map((s, i) => [s.id, CARD_COLORS[i % CARD_COLORS.length]])
+  )
+  const scheduleById = new Map(
+    templateSchedules.map((schedule) => [schedule.id, schedule])
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* â”€â”€ Work Hours Templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Work Hours</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Drag a card to an employee cell to assign</p>
+          </div>
+          <button
+            onClick={() => setShiftModal({ mode: 'create' })}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+            style={{ background: '#ff5900' }}
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Work Hours
+          </button>
+        </div>
+
+        {loadingSchedules ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-2 text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <p className="text-sm">Loading work hours...</p>
+          </div>
+        ) : templateSchedules.length === 0 ? (
+          <div className="flex flex-col items-center py-6 gap-2 text-gray-400">
+            <Clock className="w-8 h-8 opacity-30" />
+            <p className="text-sm">No work hours defined yet.</p>
+            <button
+              onClick={() => setShiftModal({ mode: 'create' })}
+              className="mt-1 text-xs font-semibold underline text-accent"
+            >
+              Add your first shift -&gt;
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {variant === 'FLEXIBLE' && (
+              <div className="flex flex-col gap-1.5">
+                <div
+                  draggable
+                  onDragStart={() => onDragStart(restDayDragId)}
+                  className="cursor-grab active:cursor-grabbing select-none rounded-xl border-2 px-4 py-2.5 transition hover:shadow-md"
+                  style={{ background: '#f1f5f9', borderColor: '#94a3b8', color: '#475569' }}
+                >
+                  <p className="font-bold text-sm leading-tight">Day Off</p>
+                  <p className="text-[11px] opacity-70 mt-0.5">Drag to set rest day</p>
+                </div>
+              </div>
+            )}
+            {templateSchedules.map((s) => {
+              const col = colorMap.get(s.id) ?? CARD_COLORS[0]
+              return (
+                <div key={s.id} className="flex flex-col gap-1.5">
+                  {/* Draggable card */}
+                  <div
+                    draggable
+                    onDragStart={() => onDragStart(s.id)}
+                    className="cursor-grab active:cursor-grabbing select-none rounded-xl border-2 px-4 py-2.5 transition hover:shadow-md text-center"
+                    style={{ background: col.bg, borderColor: col.border, color: col.text }}
+                  >
+                    <p className="font-bold text-sm leading-tight">
+                      {s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)}` : s.name}
+                    </p>
+                    {s.breakEnabled && s.breakMinutes > 0 && (
+                      <p className="text-[10px] opacity-50 mt-0.5">{s.breakMinutes}m break</p>
+                    )}
+                    {!s.breakEnabled && (
+                      <p className="text-[10px] opacity-50 mt-0.5">No break</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShiftModal({ mode: 'edit', schedule: s })}
+                    className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1"
+                  >
+                    <Pencil className="w-3 h-3" /> Edit Work Hours
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* â”€â”€ Week navigation + filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+        <div className="flex items-center gap-2">
+          <select
+            value={deptFilter}
+            onChange={e => setDeptFilter(e.target.value)}
+            className="border rounded-lg px-3 py-1.5 text-sm text-gray-600"
+          >
+            <option value="">All Departments</option>
+            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+        {variant === 'FLEXIBLE' && (
+          <div className="flex items-center gap-2">
+          <button
+            onClick={() => setWeekStart(prev => addDays(prev, -7))}
+            className="p-1.5 rounded-lg border hover:bg-gray-50"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm font-semibold text-gray-700 min-w-[160px] text-center">
+            {formatHeaderDate(weekStart)} - {formatHeaderDate(addDays(weekStart, 6))}
+          </span>
+          <button
+            onClick={() => setWeekStart(prev => addDays(prev, 7))}
+            className="p-1.5 rounded-lg border hover:bg-gray-50"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setWeekStart(getWeekStart(new Date()))}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 hover:bg-gray-50"
+          >
+            Today
+          </button>
+          </div>
+        )}
+      </div>
+
+      {/* â”€â”€ Weekly Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+        {loadingGrid && (
+          <div className="flex items-center justify-center py-12"><AppSpinner size="md" /></div>
+        )}
+        {!loadingGrid && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse min-w-[800px]">
+              <thead>
+                <tr className="bg-[#0d1b2a] text-white">
+                  <th className="text-left px-4 py-3 font-semibold text-xs w-44 sticky left-0 bg-[#0d1b2a] z-10">
+                    Employee
+                  </th>
+                  {weekDays.map(d => {
+                    const ds = toDateStr(d)
+                    const isToday = ds === todayStr
+                    return (
+                      <th
+                        key={ds}
+                        className={`text-center px-2 py-3 font-semibold text-xs border-l border-white/10 ${isToday ? 'text-accent' : 'text-white/80'}`}
+                        style={{ minWidth: 110 }}
+                      >
+                        <div>{DAYS[d.getDay()]}</div>
+                        {variant === 'FLEXIBLE' && (
+                          <div className={`text-lg font-extrabold ${isToday ? 'text-accent' : ''}`}>
+                            {d.getDate()}
+                          </div>
+                        )}
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {employees.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="text-center py-10 text-gray-400">
+                      No employees found for this department.
+                    </td>
+                  </tr>
+                )}
+                {employees.map(emp => (
+                  <tr key={emp.id} className="hover:bg-gray-50/50 group">
+                    {/* Employee name column */}
+                    <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-gray-50/50 z-10 border-r border-gray-100">
+                      <p className="font-semibold text-gray-800 text-xs leading-tight">{fullName(emp)}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{emp.department?.name ?? 'No Dept'}</p>
+                    </td>
+                    {/* Day cells */}
+                    {weekDays.map(d => {
+                      const ds = toDateStr(d)
+                      const cellKey = `${emp.id}|${ds}`
+                      const asgns = getAssignments(emp.id, ds)
+                      const fixedTemplate =
+                        variant === 'FIXED' && emp.workScheduleId
+                          ? scheduleById.get(emp.workScheduleId) ?? null
+                          : null
+                      const weekday = d.getDay()
+                      const templateIsWorkDay = fixedTemplate
+                        ? fixedTemplate.workDays.includes(weekday)
+                        : false
+                      // For FIXED: show template fallback when no assignment saved yet
+                      const showTemplateFallback = asgns.length === 0 && variant === 'FIXED' && Boolean(fixedTemplate)
+                      const isToday = ds === todayStr
+                      const isDragOver = dragOverCell === cellKey
+
+                      return (
+                        <td
+                          key={ds}
+                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-orange-50/40' : ''} ${isDragOver ? 'bg-orange-100/60 ring-2 ring-accent ring-inset rounded-lg' : ''}`}
+                          onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
+                          onDragLeave={() => setDragOverCell(null)}
+                          onDrop={() => onDrop(emp.id, ds)}
+                        >
+                          <div className="flex flex-col gap-1">
+                            {/* Saved assignment cards */}
+                            {asgns.map(asgn => {
+                              const col = asgn.scheduleId ? (colorMap.get(asgn.scheduleId) ?? CARD_COLORS[0]) : null
+                              return (
+                                <div
+                                  key={asgn.id}
+                                  className={`group rounded-lg pl-2 pr-5 py-1.5 cursor-pointer relative text-center ${asgn.id.startsWith('temp-') ? 'opacity-80 animate-pulse' : ''}`}
+                                  style={
+                                    asgn.isRestDay
+                                      ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
+                                      : col
+                                      ? { background: col.bg, border: `1px solid ${col.border}` }
+                                      : { background: '#fff3ec', border: '1px solid #ff5900' }
+                                  }
+                                  onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: asgn })}
+                                >
+                                  {asgn.isRestDay ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Coffee className="w-3 h-3 text-slate-400" />
+                                      <span className="text-[10px] font-semibold text-slate-500">Rest Day</span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <p className="text-[10px] font-bold leading-tight" style={{ color: col?.text ?? '#c44d00' }}>
+                                        {fmt12(asgn.timeIn)} - {fmt12(asgn.timeOut)}
+                                      </p>
+                                      {asgn.id.startsWith('temp-') && (
+                                        <p className="text-[9px] opacity-60 mt-0.5" style={{ color: col?.text ?? '#c44d00' }}>Saving...</p>
+                                      )}
+                                    </>
+                                  )}
+                                  {/* Per-shift delete button — sits inside the card so it can't be clipped */}
+                                  {!asgn.id.startsWith('temp-') && (
+                                    <button
+                                      type="button"
+                                      aria-label="Remove shift"
+                                      title="Remove shift"
+                                      className="absolute top-0.5 right-0.5 flex w-5 h-5 rounded-full bg-red-500 text-white items-center justify-center shadow-sm ring-1 ring-white opacity-70 hover:opacity-100 hover:bg-red-600 transition"
+                                      onClick={(e) => { e.stopPropagation(); deleteAssignment(asgn.id) }}
+                                    >
+                                      <X className="w-3 h-3" strokeWidth={3} />
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
+
+                            {/* FIXED template fallback (no saved assignment yet) */}
+                            {showTemplateFallback && (
+                              <div
+                                className="rounded-lg pl-2 pr-5 py-1.5 cursor-pointer text-center relative"
+                                style={
+                                  !templateIsWorkDay
+                                    ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
+                                    : fixedTemplate?.id
+                                      ? { background: colorMap.get(fixedTemplate.id)?.bg ?? '#fff3ec', border: `1px solid ${colorMap.get(fixedTemplate.id)?.border ?? '#ff5900'}` }
+                                      : { background: '#fff3ec', border: '1px solid #ff5900' }
+                                }
+                                onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
+                              >
+                                {!templateIsWorkDay ? (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Coffee className="w-3 h-3 text-slate-400" />
+                                    <span className="text-[10px] font-semibold text-slate-500">Rest Day</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] font-bold leading-tight" style={{ color: colorMap.get(fixedTemplate?.id ?? '')?.text ?? '#c44d00' }}>
+                                    {fmt12(fixedTemplate?.timeIn)} - {fmt12(fixedTemplate?.timeOut)}
+                                  </p>
+                                )}
+                                {/* X removes the template fallback by saving an explicit rest-day record */}
+                                <button
+                                  type="button"
+                                  aria-label="Mark as rest day"
+                                  title="Mark as rest day (overrides default schedule)"
+                                  className="absolute top-0.5 right-0.5 flex w-5 h-5 rounded-full bg-red-500 text-white items-center justify-center shadow-sm ring-1 ring-white opacity-70 hover:opacity-100 hover:bg-red-600 transition"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    upsertAssignment({
+                                      employeeId: emp.id,
+                                      date: ds,
+                                      mode: 'FIXED',
+                                      scheduleId: null,
+                                      isRestDay: true,
+                                    })
+                                  }}
+                                >
+                                  <X className="w-3 h-3" strokeWidth={3} />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Add shift button (always shown for FLEXIBLE, or when cell is empty for FIXED) */}
+                            {variant === 'FLEXIBLE' ? (
+                              <button
+                                className="w-full h-7 flex items-center justify-center rounded-lg border border-dashed border-gray-200 text-gray-300 hover:border-accent hover:text-accent transition"
+                                title="Add shift"
+                                onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            ) : asgns.length === 0 && !showTemplateFallback ? (
+                              <button
+                                className="w-full h-10 flex items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-300 hover:border-accent hover:text-accent transition"
+                                onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* â”€â”€ Assignment Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {modal && (
+        <AssignmentModal
+          modal={modal}
+          schedules={templateSchedules}
+          variant={variant}
+          weekDays={weekDays}
+          onClose={() => setModal(null)}
+          onSave={async (payload, dates) => {
+            // The clicked day (modal.date) gets the existing record UPDATED if
+            // we're editing one, or a NEW record created if we're not. Any
+            // ADDITIONAL days the user ticked always get a new record created.
+            for (const d of dates) {
+              const isClickedDay = d === modal.date
+              const idForThisDay = isClickedDay ? (modal.existing?.id ?? null) : null
+              await upsertAssignment({
+                id: idForThisDay,
+                ...payload,
+                mode: variant,
+                employeeId: modal.employeeId,
+                date: d,
+              })
+            }
+            setModal(null)
+          }}
+          onDelete={async () => {
+            if (modal.existing) await deleteAssignment(modal.existing.id)
+            setModal(null)
+          }}
+        />
+      )}
+
+      {/* â”€â”€ Shift Template Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {shiftModal && (
+        <ShiftTemplateModal
+          initial={shiftModal.mode === 'edit' ? shiftModal.schedule : null}
+          defaultBreakMinutes={companyBreakMinutes}
+          companyId={companyId}
+          variant={variant}
+          onClose={() => setShiftModal(null)}
+          onSaved={onRefreshSchedules}
+          onDeleted={onRefreshSchedules}
+        />
+      )}
+    </div>
+  )
+}
+
+// â”€â”€â”€ Assignment Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function AssignmentModal({
+  modal,
+  schedules,
+  variant = 'FLEXIBLE',
+  weekDays,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  modal: ModalState
+  schedules: WorkSchedule[]
+  variant?: 'FIXED' | 'FLEXIBLE'
+  weekDays: Date[]
+  onClose: () => void
+  onSave: (
+    payload: { scheduleId?: string | null; timeIn?: string | null; timeOut?: string | null; isRestDay: boolean; notes?: string | null },
+    dates: string[],
+  ) => Promise<void>
+  onDelete: () => Promise<void>
+}) {
+  const existing = modal.existing
+  // Prefilled values come from dragging a schedule card onto a cell.
+  const prefilledTemplate = modal.prefilledScheduleId
+    ? schedules.find((s) => s.id === modal.prefilledScheduleId)
+    : null
+  const initialRestDay = existing?.isRestDay ?? modal.prefilledIsRestDay ?? false
+  const [isRestDay, setIsRestDay] = useState(variant === 'FIXED' ? false : initialRestDay)
+  const [timeIn, setTimeIn] = useState(existing?.timeIn ?? prefilledTemplate?.timeIn ?? '08:00')
+  const [timeOut, setTimeOut] = useState(existing?.timeOut ?? prefilledTemplate?.timeOut ?? '17:00')
+  const [scheduleId, setScheduleId] = useState(
+    existing?.scheduleId ?? modal.prefilledScheduleId ?? modal.fixedScheduleId ?? '',
+  )
+  const [saving, setSaving] = useState(false)
+  // Multi-day apply: defaults to just the clicked date. Hidden when editing
+  // an existing assignment (one record at a time).
+  const [applyToDates, setApplyToDates] = useState<Set<string>>(() => new Set([modal.date]))
+  const fixedSchedule = variant === 'FIXED' ? schedules.find(s => s.id === modal.fixedScheduleId) : null
+
+  const dayLabel = new Date(modal.date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  })
+
+  function applyTemplate(id: string) {
+    setScheduleId(id)
+    const s = schedules.find(s => s.id === id)
+    if (s) {
+      if (s.timeIn) setTimeIn(s.timeIn)
+      if (s.timeOut) setTimeOut(s.timeOut)
+    }
+  }
+
+  function toggleApplyDate(dateStr: string) {
+    setApplyToDates((prev) => {
+      const next = new Set(prev)
+      if (next.has(dateStr)) next.delete(dateStr); else next.add(dateStr)
+      // Always keep the clicked date selected so the user can't accidentally
+      // submit with zero target dates.
+      next.add(modal.date)
+      return next
+    })
+  }
+
+  async function handleSave() {
+    const resolvedScheduleId = scheduleId || null
+    if (variant === 'FIXED' && !resolvedScheduleId) {
+      toast.error('No fixed schedule is assigned to this employee. Set one first in Employee Fixed Assignment.')
+      return
+    }
+    setSaving(true)
+    try {
+      const nextIsRestDay = variant === 'FIXED' ? false : isRestDay
+      // Always send the user's day-picker selection. The parent handles the
+      // edit-vs-create split: clicked day → update existing record (if any)
+      // or create new; additional days → always create new.
+      const targetDates = nextIsRestDay
+        ? [modal.date]
+        : Array.from(applyToDates).sort()
+      await onSave(
+        {
+          scheduleId: resolvedScheduleId,
+          timeIn: nextIsRestDay ? null : timeIn,
+          timeOut: nextIsRestDay ? null : timeOut,
+          isRestDay: nextIsRestDay,
+        },
+        targetDates,
+      )
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between">
+          <div>
+            <p className="font-bold text-gray-900">Schedule - {modal.employeeName}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{dayLabel}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4">
+          {variant !== 'FIXED' && (
+            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Rest Day</p>
+                <p className="text-xs text-gray-500">Mark as day off</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRestDay(v => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRestDay ? 'bg-accent' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isRestDay ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          )}
+
+          {!isRestDay && (
+            <>
+              {/* Quick-pick from work-hours cards */}
+              {schedules.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1.5">Apply Work Hours</label>
+                  <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto py-1 pl-1 pr-1">
+                    {schedules.map((s, idx) => {
+                      const col = CARD_COLORS[idx % CARD_COLORS.length]
+                      const isSelected = scheduleId === s.id
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => applyTemplate(s.id)}
+                          className={`rounded-lg border px-2 py-1 text-left text-[10px] transition ${isSelected ? 'ring-2 ring-accent' : 'hover:shadow-sm'}`}
+                          style={{ borderColor: isSelected ? '#ff5900' : col.border, background: col.bg, color: col.text }}
+                        >
+                          <p className="text-center font-bold text-xs leading-tight">
+                            {fmt12(s.timeIn ?? null)} - {fmt12(s.timeOut ?? null)}
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              {variant === 'FIXED' && schedules.length === 0 && (
+                <div className="rounded-xl border bg-slate-50 px-3 py-2.5">
+                  <p className="text-xs font-semibold text-gray-700">Fixed Template</p>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    {fixedSchedule
+                      ? `${fixedSchedule.name}${fixedSchedule.timeIn && fixedSchedule.timeOut ? ` (${fixedSchedule.timeIn}-${fixedSchedule.timeOut})` : ''}`
+                      : 'No fixed schedule assigned'}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Shift Start</label>
+                  <input type="time" value={timeIn} onChange={e => setTimeIn(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Shift End</label>
+                  <input type="time" value={timeOut} onChange={e => setTimeOut(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Apply to other days — always visible. When editing, the clicked
+              day's existing record is UPDATED in-place; any additional days
+              ticked here have a NEW record created. */}
+          {!isRestDay && (
+            <div className="rounded-xl border border-gray-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-gray-700">Apply to days</label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setApplyToDates(new Set(weekDays.map(toDateStr)))}
+                    className="text-[10px] font-semibold text-accent hover:underline"
+                  >
+                    All
+                  </button>
+                  <span className="text-[10px] text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const monFri = weekDays
+                        .filter((d) => { const wd = d.getDay(); return wd >= 1 && wd <= 5 })
+                        .map(toDateStr)
+                      const next = new Set(monFri)
+                      next.add(modal.date) // always include the day they clicked
+                      setApplyToDates(next)
+                    }}
+                    className="text-[10px] font-semibold text-accent hover:underline"
+                  >
+                    Mon–Fri
+                  </button>
+                  <span className="text-[10px] text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setApplyToDates(new Set([modal.date]))}
+                    className="text-[10px] font-semibold text-gray-500 hover:underline"
+                  >
+                    Just this day
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {weekDays.map((d) => {
+                  const ds = toDateStr(d)
+                  const checked = applyToDates.has(ds)
+                  const isClickedDay = ds === modal.date
+                  return (
+                    <button
+                      key={ds}
+                      type="button"
+                      onClick={() => toggleApplyDate(ds)}
+                      disabled={isClickedDay}
+                      className={`rounded-lg border px-1.5 py-2 text-center transition ${checked ? 'bg-accent text-white border-accent' : 'bg-white text-gray-600 border-gray-200 hover:border-accent'} ${isClickedDay ? 'opacity-90 cursor-not-allowed' : ''}`}
+                      title={isClickedDay ? 'This is the day you clicked' : ''}
+                    >
+                      <p className="text-[10px] font-bold leading-none">{ALL_DAYS[d.getDay()]}</p>
+                      <p className="text-[10px] mt-0.5 leading-none opacity-90">{d.getDate()}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1.5">
+                {applyToDates.size === 1
+                  ? 'Applies to this day only'
+                  : `Will create ${applyToDates.size} assignments across the visible week`}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="px-6 pb-5 flex items-center justify-between gap-3">
+          <div>
+            {existing && (
+              <button
+                onClick={onDelete}
+                className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Remove
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2 rounded-xl text-sm font-bold text-white"
+              style={{ background: '#ff5900' }}
+            >
+              {saving ? 'Saving...' : 'Save Schedule'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export function ShiftsTab() {
+  const searchParams = useSearchParams()
+  const companyId = searchParams.get('companyId')?.trim() ?? ''
+  const focusEmployeeId = searchParams.get('employeeId')?.trim() || undefined
+  const [mode, setMode] = useState<ScheduleMode>('FIXED')
+  const [schedules, setSchedules] = useState<WorkSchedule[]>([])
+  const [loadingSchedules, setLoadingSchedules] = useState(false)
+  const [companyBreakHours, setCompanyBreakHours] = useState(1)
+  const [companyBreakMins, setCompanyBreakMins] = useState(0)
+  const [savingCompanyBreak, setSavingCompanyBreak] = useState(false)
+
+  const loadSchedules = useCallback(async () => {
+    setLoadingSchedules(true)
+    try {
+      const res = await fetch(withCompanyId('/api/schedules', companyId))
+      const data = await res.json().catch(() => ({}))
+      setSchedules(data.schedules ?? [])
+    } finally {
+      setLoadingSchedules(false)
+    }
+  }, [companyId])
+
+  useEffect(() => { loadSchedules() }, [loadSchedules])
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => {
+        const fallback = schedules.length > 0 ? Number(schedules[0]?.breakMinutes ?? 60) : 60
+        const minutes = Number(data?.defaultBreakMinutes ?? fallback)
+        const next = splitBreakMinutes(minutes)
+        setCompanyBreakHours(next.hours)
+        setCompanyBreakMins(next.minutes)
+      })
+      .catch(() => {
+        const fallback = schedules.length > 0 ? Number(schedules[0]?.breakMinutes ?? 60) : 60
+        const next = splitBreakMinutes(fallback)
+        setCompanyBreakHours(next.hours)
+        setCompanyBreakMins(next.minutes)
+      })
+  }, [schedules])
+
+  async function applyCompanyBreakSetup() {
+    const nextBreakMinutes = combineBreakMinutes(companyBreakHours, companyBreakMins)
+    setSavingCompanyBreak(true)
+    try {
+      const settingsRes = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultBreakMinutes: nextBreakMinutes }),
+      })
+      if (!settingsRes.ok) {
+        const data = await settingsRes.json().catch(() => ({}))
+        toast.error(data?.error ?? 'Failed to save company break setup')
+        return
+      }
+
+      const jobs = schedules.map(s => fetch(withCompanyId(`/api/schedules/${s.id}`, companyId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ breakMinutes: nextBreakMinutes }),
+      }))
+      const results = await Promise.all(jobs)
+      const failed = results.filter(r => !r.ok).length
+      if (failed > 0) {
+        toast.warning(`Break setup saved, but ${failed} schedule${failed > 1 ? 's' : ''} failed to update.`)
+      } else {
+        toast.success('Company break setup applied to all schedules')
+      }
+      await loadSchedules()
+    } catch {
+      toast.error('Failed to apply company break setup')
+    } finally {
+      setSavingCompanyBreak(false)
+    }
+  }
+
+  useEffect(() => {
+    const requestedMode = searchParams.get('mode')
+    if (requestedMode === 'FIXED' || requestedMode === 'FLEXIBLE') {
+      setMode(requestedMode)
+    }
+  }, [searchParams])
+
+  return (
+    <div className="space-y-6">
+      {/* â”€â”€ Page header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Work Schedules</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {mode === 'FIXED'
+              ? 'Assign work hours and day offs to employees.'
+              : 'Build the weekly schedule by dragging templates to each employee.'}
+          </p>
+        </div>
+        <div />
+      </div>
+
+      {/* â”€â”€ Mode toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Company Break Setup</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-gray-500">
+            Set your company standard break duration in hours and minutes. This updates all work-hour templates and overbreak tardy tracking.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="w-[120px]">
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Hours</label>
+              <select
+                value={companyBreakHours}
+                onChange={e => setCompanyBreakHours(Number(e.target.value))}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                {Array.from({ length: 13 }, (_, h) => h).map(h => (
+                  <option key={h} value={h}>{h}h</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-[140px]">
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Minutes</label>
+              <select
+                value={companyBreakMins}
+                onChange={e => setCompanyBreakMins(Number(e.target.value))}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                {Array.from({ length: 60 }, (_, m) => m).map(m => (
+                  <option key={m} value={m}>{m}m</option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="button"
+              disabled={savingCompanyBreak}
+              onClick={applyCompanyBreakSetup}
+              className="text-white min-w-[180px] w-auto px-5"
+              style={{ background: '#ff5900' }}
+            >
+              {savingCompanyBreak ? 'Saving...' : 'Save Break Setup'}
+            </Button>
+          </div>
+          <p className="text-[11px] text-gray-500">
+            Current setup: {combineBreakMinutes(companyBreakHours, companyBreakMins)} minute{combineBreakMinutes(companyBreakHours, companyBreakMins) === 1 ? '' : 's'}.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 w-fit">
+        <button
+          onClick={() => setMode('FIXED')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+            mode === 'FIXED'
+              ? 'bg-white text-gray-900 shadow'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <CalendarDays className="w-4 h-4" />
+          Fixed Schedules
+        </button>
+        <button
+          onClick={() => setMode('FLEXIBLE')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+            mode === 'FLEXIBLE'
+              ? 'bg-white text-gray-900 shadow'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          Flexible Schedules
+        </button>
+      </div>
+
+      {/* â”€â”€ Mode hint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {mode === 'FIXED' && (
+        <div className="flex items-start gap-3 rounded-xl bg-[#fff3ec] border border-accent/30 px-4 py-3 text-sm text-[#c44d00]">
+          <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            <strong>Fixed mode</strong> - Assign work hours and weekly day offs per employee.
+            Employees assigned here will use the same schedule every week automatically.
+          </span>
+        </div>
+      )}
+      {mode === 'FLEXIBLE' && (
+        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[#032b63]/30 px-4 py-3 text-sm text-primary">
+          <LayoutGrid className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            <strong>Flexible mode</strong> - Assign specific shifts per employee per day.
+            Drag a schedule card to any cell, or click <strong>+</strong> to set custom hours or mark as rest day.
+          </span>
+        </div>
+      )}
+
+      {/* â”€â”€ Tab content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {mode === 'FIXED' ? (
+        <FlexibleScheduleTab
+          schedules={schedules}
+          loadingSchedules={loadingSchedules}
+          onRefreshSchedules={loadSchedules}
+          variant="FIXED"
+          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
+          companyId={companyId}
+          focusEmployeeId={focusEmployeeId}
+        />
+      ) : (
+        <FlexibleScheduleTab
+          schedules={schedules}
+          loadingSchedules={loadingSchedules}
+          onRefreshSchedules={loadSchedules}
+          variant="FLEXIBLE"
+          companyBreakMinutes={combineBreakMinutes(companyBreakHours, companyBreakMins)}
+          companyId={companyId}
+          focusEmployeeId={focusEmployeeId}
+        />
+      )}
+    </div>
+  )
+}
+
+// Wrapper so "Add Schedule" button in header can open the form inside FixedScheduleTab
+function FixedScheduleTabWrapper(props: { schedules: WorkSchedule[]; loading: boolean; onRefresh: () => void; companyId?: string }) {
+  const [showForm, setShowForm] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setShowForm(v => !v)
+    window.addEventListener('schedules:add', handler)
+    return () => window.removeEventListener('schedules:add', handler)
+  }, [])
+
+  return <FixedScheduleTabInner {...props} externalShowForm={showForm} onFormClose={() => setShowForm(false)} />
+}
+
+function FixedScheduleTabInner({
+  schedules,
+  loading,
+  onRefresh,
+  companyId,
+  externalShowForm,
+  onFormClose,
+}: {
+  schedules: WorkSchedule[]
+  loading: boolean
+  onRefresh: () => void
+  companyId?: string
+  externalShowForm: boolean
+  onFormClose: () => void
+}) {
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<ScheduleForm>(DEFAULT_FORM)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<ScheduleForm | null>(null)
+  const [savingEditId, setSavingEditId] = useState<string | null>(null)
+  const [fixedEmployees, setFixedEmployees] = useState<FixedEmployee[]>([])
+  const [fixedDepartments, setFixedDepartments] = useState<{ id: string; name: string }[]>([])
+  const [fixedDeptFilter, setFixedDeptFilter] = useState('')
+  const [loadingFixedEmployees, setLoadingFixedEmployees] = useState(false)
+  const [savingFixedEmployeeId, setSavingFixedEmployeeId] = useState<string | null>(null)
+  const [fixedDrafts, setFixedDrafts] = useState<Record<string, FixedEmployeeDraft>>({})
+
+  useEffect(() => {
+    if (externalShowForm) setShowForm(true)
+  }, [externalShowForm])
+
+  const loadFixedEmployees = useCallback(async () => {
+    const weekStart = getWeekStart(new Date())
+    const startStr = toDateStr(weekStart)
+    const endStr = toDateStr(addDays(weekStart, 6))
+    setLoadingFixedEmployees(true)
+    try {
+      const url = withCompanyId(`/api/schedules/assignments?startDate=${startStr}&endDate=${endStr}&mode=FIXED${fixedDeptFilter ? `&departmentId=${fixedDeptFilter}` : ''}`, companyId)
+      const res = await fetch(url)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err?.error ?? 'Failed to load employees')
+        setFixedEmployees([])
+        setFixedDrafts({})
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      const rows: FixedEmployee[] = data.employees ?? []
+      setFixedEmployees(rows)
+      setFixedDrafts(
+        rows.reduce<Record<string, FixedEmployeeDraft>>((acc, emp) => {
+          const workDays = schedules.find(s => s.id === emp.workScheduleId)?.workDays
+          acc[emp.id] = {
+            scheduleId: emp.workScheduleId ?? '',
+            dayOffDays: deriveDayOffDaysFromWorkDays(workDays),
+          }
+          return acc
+        }, {})
+      )
+    } finally {
+      setLoadingFixedEmployees(false)
+    }
+  }, [fixedDeptFilter, schedules, companyId])
+
+  useEffect(() => {
+    fetch(withCompanyId('/api/departments', companyId))
+      .then(r => r.json())
+      .then(d => setFixedDepartments(d.departments ?? []))
+      .catch(() => {})
+  }, [companyId])
+
+  useEffect(() => {
+    loadFixedEmployees()
+  }, [loadFixedEmployees])
+
+  function toggleDay(day: number, isEdit: boolean) {
+    if (isEdit) {
+      setEditForm(prev => {
+        if (!prev) return prev
+        const next = prev.workDays.includes(day) ? prev.workDays.filter(d => d !== day) : [...prev.workDays, day].sort((a, b) => a - b)
+        return { ...prev, workDays: next, workDaysPerWeek: next.length || prev.workDaysPerWeek }
+      })
+    } else {
+      setForm(prev => {
+        const next = prev.workDays.includes(day) ? prev.workDays.filter(d => d !== day) : [...prev.workDays, day].sort((a, b) => a - b)
+        return { ...prev, workDays: next, workDaysPerWeek: next.length || prev.workDaysPerWeek }
+      })
+    }
+  }
+
+  async function addSchedule(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name.trim()) { toast.error('Schedule name is required.'); return }
+    if (form.workDays.length === 0) { toast.error('Select at least one work day.'); return }
+    setSaving(true)
+    try {
+      const res = await fetch(withCompanyId('/api/schedules', companyId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, breakEnabled: form.breakEnabled, breakMinutes: form.breakEnabled ? Number(form.breakMinutes) : 0, workHoursPerDay: Number(form.workHoursPerDay), workDaysPerWeek: Number(form.workDaysPerWeek) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data?.error ?? 'Failed to add schedule'); return }
+      toast.success('Schedule added')
+      setForm(DEFAULT_FORM)
+      onFormClose()
+      onRefresh()
+    } finally { setSaving(false) }
+  }
+
+  async function saveEdit(scheduleId: string) {
+    if (!editForm) return
+    if (!editForm.name.trim()) { toast.error('Schedule name is required.'); return }
+    if (editForm.workDays.length === 0) { toast.error('Select at least one work day.'); return }
+    setSavingEditId(scheduleId)
+    try {
+      const res = await fetch(withCompanyId(`/api/schedules/${scheduleId}`, companyId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...editForm, breakMinutes: Number(editForm.breakMinutes), workHoursPerDay: Number(editForm.workHoursPerDay), workDaysPerWeek: Number(editForm.workDaysPerWeek) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data?.error ?? 'Failed to update schedule'); return }
+      toast.success('Schedule updated')
+      setEditingId(null); setEditForm(null)
+      onRefresh()
+    } finally { setSavingEditId(null) }
+  }
+
+  async function removeSchedule(scheduleId: string) {
+    if (!confirm('Remove this work hours template?')) return
+    try {
+      const res = await fetch(withCompanyId(`/api/schedules/${scheduleId}`, companyId), { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error ?? 'Failed to remove schedule')
+        return
+      }
+      toast.success('Work hours removed')
+      if (editingId === scheduleId) {
+        setEditingId(null)
+        setEditForm(null)
+      }
+      onRefresh()
+      await loadFixedEmployees()
+    } catch {
+      toast.error('Failed to remove schedule')
+    }
+  }
+
+  function DayPicker({ workDays, onToggle }: { workDays: number[]; onToggle: (d: number) => void }) {
+    return (
+      <div>
+        <label className="text-xs font-semibold text-gray-600 block mb-1">Work Days</label>
+        <div className="flex flex-wrap gap-2">
+          {DAYS.map((label, idx) => (
+            <button key={label} type="button" onClick={() => onToggle(idx)}
+              className={`px-2.5 py-1 rounded-full text-xs border transition ${workDays.includes(idx) ? 'bg-[#032b63] text-white border-[#032b63]' : 'bg-white text-gray-600 border-gray-300 hover:border-accent'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-500 mt-1">Selected: {workDays.map(d => DAYS[d]).join(', ') || '-'}</p>
+      </div>
+    )
+  }
+
+  function FormFields({ f, onChange, onToggleDay }: { f: ScheduleForm; onChange: (p: Partial<ScheduleForm>) => void; onToggleDay: (d: number) => void }) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1">Schedule Name *</label>
+          <input value={f.name} onChange={e => onChange({ name: e.target.value })} placeholder="Morning Shift (8am-5pm)" className="w-full border rounded-lg px-3 py-2 text-sm" required />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1">Schedule Type</label>
+          <select value={f.scheduleType} onChange={e => onChange({ scheduleType: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+            {Object.keys(SCHEDULE_TYPE_LABELS).map(k => <option key={k} value={k}>{SCHEDULE_TYPE_LABELS[k]}</option>)}
+          </select>
+        </div>
+        <div className="md:col-span-2">
+          <label className="flex items-center gap-3 p-3 rounded-lg border bg-white cursor-pointer">
+            <input type="checkbox" checked={f.requireSelfieOnClockIn} onChange={e => onChange({ requireSelfieOnClockIn: e.target.checked })} className="h-4 w-4" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Require selfie on clock-in</p>
+              <p className="text-xs text-gray-500">Employees on this schedule must capture a selfie when clocking in.</p>
+            </div>
+          </label>
+        </div>
+        <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time In</label><input type="time" value={f.timeIn} onChange={e => onChange({ timeIn: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time Out</label><input type="time" value={f.timeOut} onChange={e => onChange({ timeOut: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="text-xs font-semibold text-gray-600 block mb-1">Hours / Day</label><input type="number" min={1} max={24} step={0.5} value={f.workHoursPerDay} onChange={e => onChange({ workHoursPerDay: Math.max(1, Number(e.target.value) || 8) })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-gray-600">Break</label>
+            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[#032b63]' : 'bg-slate-300'}`}>
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${f.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          {f.breakEnabled ? (
+            <>
+              <input type="number" min={1} max={240} value={f.breakMinutes || 60} onChange={e => onChange({ breakMinutes: Math.max(1, Number(e.target.value)) })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+              <p className="text-[11px] text-gray-500 mt-1">{f.breakMinutes || 60}m allowed</p>
+            </>
+          ) : (
+            <p className="text-[11px] text-amber-600">Break disabled for this schedule</p>
+          )}
+        </div>
+        <div className="md:col-span-2"><DayPicker workDays={f.workDays} onToggle={onToggleDay} /></div>
+      </div>
+    )
+  }
+
+  async function saveFixedEmployee(employeeId: string) {
+    const draft = fixedDrafts[employeeId]
+    if (!draft) return
+    setSavingFixedEmployeeId(employeeId)
+    try {
+      const selectedScheduleId = draft.scheduleId || null
+      const res = await fetch(withCompanyId(`/api/employees/${employeeId}`, companyId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workScheduleId: selectedScheduleId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error ?? 'Failed to update employee schedule')
+        return
+      }
+
+      toast.success('Employee fixed schedule updated')
+      const savedScheduleId = selectedScheduleId ?? null
+      setFixedEmployees(prev =>
+        prev.map(emp => (emp.id === employeeId ? { ...emp, workScheduleId: savedScheduleId } : emp))
+      )
+      setFixedDrafts(prev => ({
+        ...prev,
+        [employeeId]: {
+          scheduleId: savedScheduleId ?? '',
+          dayOffDays: draft.dayOffDays,
+        },
+      }))
+      await Promise.resolve(onRefresh())
+    } catch {
+      toast.error('Failed to update employee schedule')
+    } finally {
+      setSavingFixedEmployeeId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">Work Hours</CardTitle>
+            <Button
+              size="sm"
+              className="text-white"
+              style={{ background: '#ff5900' }}
+              onClick={() => {
+                setShowForm(v => !v)
+                if (!showForm) onFormClose()
+              }}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" /> {showForm ? 'Close' : 'Add Work Hours'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-6"><AppSpinner size="sm" /></div>
+          ) : schedules.length === 0 ? (
+            <div className="text-sm text-gray-400">No work hours defined yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {schedules.map((s, i) => {
+                const col = CARD_COLORS[i % CARD_COLORS.length]
+                const isEditing = editingId === s.id && !!editForm
+                return (
+                  <div key={s.id} className="border rounded-xl p-3" style={{ background: col.bg, borderColor: col.border }}>
+                    {!isEditing ? (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-bold" style={{ color: col.text }}>{s.name}</p>
+                            <p className="text-xs text-gray-500">{SCHEDULE_TYPE_LABELS[s.scheduleType] ?? s.scheduleType}</p>
+                          </div>
+                          <Badge className="text-[10px]">{s._count?.employees ?? 0} assigned</Badge>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-700 space-y-1">
+                          <p><span className="font-semibold">Hours:</span> {s.timeIn ?? '--:--'} - {s.timeOut ?? '--:--'} · {Number(s.workHoursPerDay ?? 8)}h/day</p>
+                          <p><span className="font-semibold">Days:</span> {s.workDays.map(d => DAYS[d]).join(', ') || '-'}</p>
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => {
+                            setEditingId(s.id)
+                            setEditForm({
+                              name: s.name,
+                              scheduleType: s.scheduleType,
+                              requireSelfieOnClockIn: !!s.requireSelfieOnClockIn,
+                              timeIn: s.timeIn ?? '',
+                              timeOut: s.timeOut ?? '',
+                              breakEnabled: !!s.breakEnabled,
+                              breakMinutes: Number(s.breakMinutes ?? 60),
+                              workHoursPerDay: Number(s.workHoursPerDay ?? 8),
+                              workDaysPerWeek: Number(s.workDaysPerWeek ?? Math.max(1, s.workDays?.length ?? 1)),
+                              workDays: Array.isArray(s.workDays) ? s.workDays : [],
+                            })
+                          }}>
+                            <Pencil className="w-3 h-3 mr-1" /> Edit
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-red-600" onClick={() => removeSchedule(s.id)}>
+                            <Trash2 className="w-3 h-3 mr-1" /> Remove
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        <FormFields
+                          f={editForm}
+                          onChange={patch => setEditForm(prev => (prev ? { ...prev, ...patch } : prev))}
+                          onToggleDay={d => toggleDay(d, true)}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditForm(null) }}>Cancel</Button>
+                          <Button size="sm" className="text-white" style={{ background: '#ff5900' }} onClick={() => saveEdit(s.id)} disabled={savingEditId === s.id}>
+                            {savingEditId === s.id ? 'Saving...' : 'Save'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="w-4 h-4" /> Fixed Employee Assignment
+            </CardTitle>
+            <select
+              value={fixedDeptFilter}
+              onChange={e => setFixedDeptFilter(e.target.value)}
+              className="border rounded-lg px-3 py-1.5 text-sm text-gray-600"
+            >
+              <option value="">All Departments</option>
+              {fixedDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {loadingFixedEmployees ? (
+            <div className="flex items-center justify-center py-6"><AppSpinner size="sm" /></div>
+          ) : fixedEmployees.length === 0 ? (
+            <div className="text-sm text-gray-400">No employees found.</div>
+          ) : (
+            <div className="space-y-2">
+              {fixedEmployees.map(emp => {
+                const draft = fixedDrafts[emp.id] ?? { scheduleId: emp.workScheduleId ?? '', dayOffDays: [] }
+                return (
+                  <div key={emp.id} className="grid grid-cols-1 md:grid-cols-[220px_1fr_auto] gap-2 items-center border rounded-xl p-2.5">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">{fullName(emp)}</p>
+                      <p className="text-[10px] text-gray-400">{emp.department?.name ?? 'No Dept'}</p>
+                    </div>
+                    <select
+                      value={draft.scheduleId}
+                      onChange={e => {
+                        const scheduleId = e.target.value
+                        const workDays = schedules.find(s => s.id === scheduleId)?.workDays
+                        setFixedDrafts(prev => ({
+                          ...prev,
+                          [emp.id]: { scheduleId, dayOffDays: scheduleId ? deriveDayOffDaysFromWorkDays(workDays) : [] },
+                        }))
+                      }}
+                      className="border rounded-lg px-3 py-2 text-xs text-gray-700"
+                    >
+                      <option value="">No Fixed Schedule</option>
+                      {schedules.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}{s.timeIn && s.timeOut ? ` (${s.timeIn}-${s.timeOut})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      onClick={() => saveFixedEmployee(emp.id)}
+                      disabled={savingFixedEmployeeId === emp.id}
+                      className="text-white"
+                      style={{ background: '#ff5900' }}
+                    >
+                      {savingFixedEmployeeId === emp.id ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {(showForm || externalShowForm) && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader><CardTitle className="text-sm text-orange-800">New Work Hours</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={addSchedule} className="space-y-4">
+              <FormFields f={form} onChange={patch => setForm(prev => ({ ...prev, ...patch }))} onToggleDay={d => toggleDay(d, false)} />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => { setShowForm(false); onFormClose() }}>Cancel</Button>
+                <Button type="submit" disabled={saving} className="text-white" style={{ background: '#ff5900' }}>{saving ? 'Adding...' : 'Add Schedule'}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="bg-[#dce5f7] border-[#AAB7B7]">
+        <CardContent className="p-4 text-sm text-primary space-y-1">
+          <p className="font-semibold">DOLE Compressed Work Week Requirements</p>
+          <ul className="list-disc list-inside space-y-0.5 text-xs text-primary">
+            <li>Maximum 12 hours per day for compressed work week</li>
+            <li>OT starts after 8 hours for regular employees (unless CWW is approved)</li>
+            <li>Night differential applies for hours worked 10:00 PM - 6:00 AM</li>
+            <li>1-hour meal break is mandated; not counted as working hours</li>
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

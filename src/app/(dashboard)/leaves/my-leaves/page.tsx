@@ -104,7 +104,7 @@ export default function MyLeavesPage() {
                   </div>
                   <p className="text-xs text-gray-500 mb-1">{b.leaveType.name}</p>
                   <div className="flex items-end gap-1">
-                    <span className="text-2xl font-bold text-[#021e47]">{available}</span>
+                    <span className="text-2xl font-bold text-primary">{available}</span>
                     <span className="text-xs text-gray-400 mb-0.5">/ {b.entitled + b.carriedOver} days</span>
                   </div>
                   {b.pending > 0 && <p className="text-xs text-yellow-600 mt-1">{b.pending} pending</p>}
@@ -142,7 +142,7 @@ export default function MyLeavesPage() {
               </div>
             </div>
             {totalDays > 0 && (
-              <div className="bg-[#dce5f7] rounded p-3 text-sm text-[#021e47]">
+              <div className="bg-[#dce5f7] rounded p-3 text-sm text-primary">
                 <Calendar className="inline w-4 h-4 mr-1" />
                 <strong>{totalDays} business day{totalDays !== 1 ? 's' : ''}</strong>
               </div>

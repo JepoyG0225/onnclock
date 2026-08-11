@@ -135,7 +135,7 @@ export default async function LeavesPage({
         title="Leave Requests"
         subtitle={`${requests.length} total ${requests.length === 1 ? 'request' : 'requests'}`}
         actions={
-          <Link href="/leaves/my-leaves">
+          <Link href="/leaves/my-leaves" data-tour="leave-file">
             <Button variant="accent" size="sm">
               <Plus className="mr-2 w-4 h-4" />
               File Leave

@@ -27,6 +27,10 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -84,6 +88,17 @@
   --accent: #ff5900;
   --accent-foreground: #ffffff;
   --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  /* Semantic status colours. These existed only as hardcoded Tailwind
+   * classes (bg-green-600, bg-amber-500, …) scattered through the app, so
+   * "approved" was a slightly different green on every screen. Naming them
+   * here makes status colour a theme decision rather than a per-component
+   * guess, and keeps them distinct from the brand ramp above: navy and
+   * orange say "act on this", these say "this is the state". */
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
   --ring: #021e47;

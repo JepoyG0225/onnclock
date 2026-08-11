@@ -396,6 +396,12 @@ model Company {
   timeEntryCorrections     TimeEntryCorrection[]
   signatures               Signature[]
   biometricDevices         BiometricDevice[]
+  taskStatuses             TaskStatus[]
+  taskLabels               TaskLabel[]
+  /// Monotonic counter backing company-wide task numbers. Lives here rather
+  /// than on Project because a task may have no project. Incremented in the
+  /// same transaction that creates a task so numbers never collide.
+  taskCounter              Int                      @default(0)
 
   @@map("companies")
 }
@@ -645,6 +651,8 @@ model Employee {
   signatures                   Signature[]
   fingerprintEnrollments       FingerprintEnrollment[]
   biometricClockEvents         BiometricClockEvent[]
+  taskAssignments              TaskAssignee[]             @relation("TaskAssignments")
+  taskTimeLogs                 TaskTimeLog[]              @relation("TaskTimeLogs")
 
   @@unique([companyId, employeeNo])
   @@index([companyId])
@@ -1676,6 +1684,10 @@ enum NotificationType {
   ASSET_ASSIGNED
   ASSET_RETURNED
   PAYSLIP_RELEASED
+  TASK_ASSIGNED
+  TASK_COMMENTED
+  TASK_DUE_SOON
+  TASK_MENTIONED
   GENERIC
 }
 
@@ -2387,4 +2399,256 @@ model PayrollDisbursementItem {
 
   @@index([disbursementId])
   @@map("payroll_disbursement_items")
+}
+
+// ─────────────────────────────────────────────
+// TASK MANAGEMENT
+// ─────────────────────────────────────────────
+// Tasks are first-class: there is no project container. Work is organised by
+// company-level statuses (the Kanban axis) and labels, and assigned to
+// Employees rather than abstract users — so workload, logged time and labour
+// cost tie back to the HR records the rest of the app already manages.
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/// Coarse bucket every status falls into. The specific statuses are
+/// user-defined, but the app needs to know which ones mean "not started",
+/// "being worked on" and "finished" to compute progress, completion dates
+/// and the tracker's overdue logic without hardcoding names.
+enum TaskStatusCategory {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+/// A company-wide task status — the single axis the Kanban groups by.
+model TaskStatus {
+  id        String             @id @default(cuid())
+  companyId String
+  name      String
+  color     String             @default("#64748b")
+  order     Int                @default(0)
+  category  TaskStatusCategory @default(TODO)
+  /// Status new tasks land in when none is specified. Exactly one per company.
+  isDefault Boolean            @default(false)
+  /// Optional work-in-progress cap, surfaced as a warning rather than enforced.
+  wipLimit  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@unique([companyId, name])
+  @@index([companyId, order])
+  @@map("task_statuses")
+}
+
+/// Company-level label. Replaces the old per-project labels so a label means
+/// the same thing everywhere and can be filtered across all work.
+model TaskLabel {
+  id        String @id @default(cuid())
+  companyId String
+  name      String
+  color     String @default("#6366f1")
+
+  createdAt DateTime @default(now())
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tasks   TaskLabelLink[]
+
+  @@unique([companyId, name])
+  @@map("task_labels_catalog")
+}
+model Task {
+  id        String @id @default(cuid())
+  companyId String
+  /// Where the task sits in the company's workflow. Always set.
+  statusId  String
+  /// Set for subtasks; null for top-level tasks.
+  parentTaskId String?
+
+  /// Company-wide sequential number, rendered as "TSK-<number>".
+  number      Int
+  title       String
+  description String? @db.Text
+
+  priority TaskPriority @default(MEDIUM)
+  /// Fractional rank within a status so drag-and-drop can insert between two
+  /// neighbours by midpoint instead of renumbering the whole column.
+  order    Float        @default(0)
+
+  startDate     DateTime? @db.Date
+  dueDate       DateTime? @db.Date
+  estimateHours Decimal?  @db.Decimal(7, 2)
+  completedAt   DateTime?
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  status   TaskStatus @relation(fields: [statusId], references: [id])
+  parent   Task?      @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks Task[]     @relation("TaskSubtasks")
+
+  assignees     TaskAssignee[]
+  labels        TaskLabelLink[]
+  checklist     TaskChecklistItem[]
+  comments      TaskComment[]
+  attachments   TaskAttachment[]
+  activity      TaskActivity[]
+  timeLogs      TaskTimeLog[]
+  /// Tasks this one waits on.
+  dependencies  TaskDependency[] @relation("DependentTask")
+  /// Tasks waiting on this one.
+  dependents    TaskDependency[] @relation("BlockingTask")
+
+  @@unique([companyId, number])
+  @@index([companyId, dueDate])
+  @@index([companyId, statusId, order])
+  @@index([parentTaskId])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id         String   @id @default(cuid())
+  taskId     String
+  employeeId String
+  createdAt  DateTime @default(now())
+
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee Employee @relation("TaskAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, employeeId])
+  @@index([employeeId])
+  @@map("task_assignees")
+}
+
+/// Join between a task and a company label.
+model TaskLabelLink {
+  taskId  String
+  labelId String
+
+  task  Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label TaskLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+  @@index([labelId])
+  @@map("task_labels")
+}
+
+model TaskChecklistItem {
+  id     String  @id @default(cuid())
+  taskId String
+  text   String
+  isDone Boolean @default(false)
+  order  Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, order])
+  @@map("task_checklist_items")
+}
+
+model TaskComment {
+  id     String @id @default(cuid())
+  taskId String
+  /// Actor reference kept as a bare id, matching AuditLog — display names are
+  /// batch-resolved by the API rather than denormalised here.
+  userId String
+  body   String @db.Text
+  /// User ids @mentioned in `body`. Resolved server-side when the comment is
+  /// posted so the mention survives the user later changing their name, and
+  /// so notification fan-out doesn't have to re-parse the text.
+  mentions String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
+}
+
+/// A file attached to a task. Stored in Supabase Storage under
+/// `task-attachments/<companyId>/<taskId>/…`, mirroring how budget
+/// requisition attachments work.
+model TaskAttachment {
+  id               String   @id @default(cuid())
+  taskId           String
+  fileName         String
+  fileUrl          String
+  fileSize         Int
+  mimeType         String
+  uploadedByUserId String
+  createdAt        DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_attachments")
+}
+
+model TaskActivity {
+  id     String  @id @default(cuid())
+  taskId String
+  userId String?
+  /// created | moved | assigned | unassigned | priority | due | completed | reopened | ...
+  action String
+  meta   Json?
+
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_activity")
+}
+
+/// Hours an employee spent on a task. This is the bridge to payroll: hours ×
+/// the employee's effective hourly rate gives real project labour cost.
+model TaskTimeLog {
+  id         String   @id @default(cuid())
+  taskId     String
+  employeeId String
+  date       DateTime @db.Date
+  hours      Decimal  @db.Decimal(6, 2)
+  note       String?
+  billable   Boolean  @default(true)
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee Employee @relation("TaskTimeLogs", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([employeeId, date])
+  @@map("task_time_logs")
+}
+
+model TaskDependency {
+  id              String @id @default(cuid())
+  /// The task that is blocked.
+  taskId          String
+  /// The task that must finish first.
+  dependsOnTaskId String
+
+  createdAt DateTime @default(now())
+
+  task      Task @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn Task @relation("BlockingTask", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([dependsOnTaskId])
+  @@map("task_dependencies")
 }

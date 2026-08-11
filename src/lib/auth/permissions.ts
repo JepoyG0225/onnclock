@@ -62,6 +62,11 @@ export type Permission =
   | 'cashadvance:approve'
   | 'audit:read'
   | 'billing:manage'
+  // Task Management. `tasks:read` opens the module and allows creating and
+  // working on tasks; `tasks:manage` additionally allows administering
+  // statuses and labels and editing anyone's task.
+  | 'tasks:read'
+  | 'tasks:manage'
 
 // Every permission — used to grant full access to admin roles.
 export const ALL_PERMISSIONS: Permission[] = [
@@ -74,6 +79,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   'loans:read', 'loans:write', 'cashadvance:approve', 'budget:read', 'budget:approve',
   'disbursement:manage', 'reports:generate',
   'settings:read', 'settings:write', 'approvals:manage', 'users:manage', 'billing:manage', 'audit:read',
+  'tasks:read', 'tasks:manage',
 ]
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -88,6 +94,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'payroll:read', 'loans:read', 'cashadvance:approve', 'budget:read', 'budget:approve',
     'reports:generate',
     'settings:read', 'approvals:manage', 'audit:read',
+    'tasks:read', 'tasks:manage',
   ],
   PAYROLL_OFFICER: [
     'employees:read',
@@ -97,10 +104,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'loans:read', 'loans:write', 'cashadvance:approve', 'budget:read', 'disbursement:manage',
     'reports:generate',
     'settings:read',
+    'tasks:read',
   ],
+  // Employees can see the company's tasks and work on what they're assigned,
+  // but not administer statuses or labels.
   EMPLOYEE: [
     'leaves:read', 'leaves:write',
     'dtr:read',
+    'tasks:read',
   ],
 }
 
@@ -121,17 +132,20 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   // Employment
   '/employees': 'employees:read',
   '/employee-files': 'employees:read',
+  '/organization': 'departments:write',
   '/departments': 'departments:write',
   '/positions': 'departments:write',
   '/org-chart': 'employees:read',
   '/recruitment': 'recruitment:manage',
   '/onboarding': 'onboarding:manage',
+  '/performance': 'performance:manage',
   '/performance-reviews': 'performance:manage',
   '/offboarding': 'offboarding:manage',
   '/disciplinary': 'disciplinary:manage',
   '/assets': 'assets:manage',
 
   // Time & attendance
+  '/timesheets': 'dtr:read',
   '/dtr': 'dtr:read',
   '/attendance/map': 'dtr:read',
   '/attendance/tardiness': 'dtr:read',
@@ -157,6 +171,9 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/loans': 'loans:read',
   '/cash-advance': 'cashadvance:approve',
   '/budget-requisitions': 'budget:read',
+
+  // Task management
+  '/tasks': 'tasks:read',
 
   // Reports
   '/reports': 'reports:generate',
@@ -240,6 +257,13 @@ export interface NavPermission {
 // OR of multiple permissions in page-access (e.g. /budget-requisitions
 // accepts payroll:read OR employees:read), this table lists the
 // primary one — granting it is sufficient.
+/**
+ * Group label for the beta-gated Task Management module. Exported so the
+ * Role Permissions matrix can hide exactly this group without string-matching
+ * a literal that could drift if the label is reworded.
+ */
+export const TASK_MANAGEMENT_GROUP = 'Task Management'
+
 export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
   {
     group: 'Dashboard',
@@ -249,30 +273,24 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
     ],
   },
   {
-    group: 'Employment',
+    group: 'People',
     pages: [
       { key: 'employees',          label: 'All Employees',            permission: 'employees:read' },
       { key: 'emp_write',          label: 'Add / Edit Employee',      permission: 'employees:write' },
       { key: 'emp_delete',         label: 'Delete Employee',          permission: 'employees:delete' },
-      { key: 'departments',        label: 'Departments',              permission: 'departments:write' },
-      { key: 'positions',          label: 'Positions',                permission: 'departments:write' },
-      { key: 'org_chart',          label: 'Org Chart',                permission: 'employees:read' },
-      { key: 'recruitment',        label: 'Recruitment',              permission: 'recruitment:manage' },
-      { key: 'onboarding',         label: 'Onboarding Tracker',       permission: 'onboarding:manage' },
-      { key: 'performance',        label: 'Performance Reviews',      permission: 'performance:manage' },
-      { key: 'offboarding',        label: 'Offboarding',              permission: 'offboarding:manage' },
-      { key: 'disciplinary',       label: 'Disciplinary Records',     permission: 'disciplinary:manage' },
+      { key: 'organization',       label: 'Organization',             permission: 'departments:write' },
+      { key: 'recruitment',        label: 'Recruitment (Hiring / Onboarding / Offboarding)', permission: 'recruitment:manage' },
+      { key: 'performance',        label: 'Performance',              permission: 'performance:manage' },
       { key: 'assets',             label: 'Assets & Equipment',       permission: 'assets:manage' },
     ],
   },
   {
     group: 'Time & Attendance',
     pages: [
-      { key: 'dtr',                label: 'Weekly Time Sheets',       permission: 'dtr:read' },
+      { key: 'dtr',                label: 'Time Sheets',              permission: 'dtr:read' },
       { key: 'dtr_write',          label: 'Edit DTR Records',         permission: 'dtr:write' },
       { key: 'dtr_approve',        label: 'Approve DTR',              permission: 'dtr:approve' },
       { key: 'gps_map',            label: 'Live GPS Map',             permission: 'dtr:read' },
-      { key: 'tardiness',          label: 'Tardiness Report',         permission: 'dtr:read' },
       { key: 'time_corrections',   label: 'Time Entry Corrections',   permission: 'dtr:write' },
       { key: 'biometric_devices',  label: 'Biometric Terminals',      permission: 'settings:write' },
       { key: 'attendance_settings',label: 'Attendance Settings',      permission: 'settings:write' },
@@ -311,6 +329,13 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
     pages: [
       { key: 'budget_requisitions',label: 'Budget Requisitions',      permission: 'budget:read' },
       { key: 'announcements',      label: 'Announcements',            permission: 'announcements:write' },
+    ],
+  },
+  {
+    group: TASK_MANAGEMENT_GROUP,
+    pages: [
+      { key: 'tasks',              label: 'Tasks',                    permission: 'tasks:read' },
+      { key: 'tasks_manage',       label: 'Manage Statuses & Labels', permission: 'tasks:manage' },
     ],
   },
   {

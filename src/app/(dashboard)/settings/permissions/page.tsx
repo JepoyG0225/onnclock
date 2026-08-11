@@ -9,8 +9,10 @@ import {
   ROLE_PERMISSIONS,
   ROLE_LABELS,
   PAGE_PERMISSIONS,
+  TASK_MANAGEMENT_GROUP,
 } from '@/lib/auth/permissions'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
+import { useHasPermission } from '@/components/layout/PermissionsContext'
 
 type RoleKey = UserRole | `custom:${string}`
 type CustomRole = {
@@ -23,7 +25,7 @@ type CustomRole = {
 const BUILT_IN_EDITABLE_ROLES: UserRole[] = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER']
 
 const ROLE_THEME = {
-  COMPANY_ADMIN: { bg: 'bg-[#dce5f7]', border: 'border-[#AAB7B7]', text: 'text-[#021e47]', badge: 'bg-[#c4d9ff] text-[#021e47]' },
+  COMPANY_ADMIN: { bg: 'bg-[#dce5f7]', border: 'border-[#AAB7B7]', text: 'text-primary', badge: 'bg-[#c4d9ff] text-primary' },
   HR_MANAGER: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100 text-green-800' },
   PAYROLL_OFFICER: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-800' },
   EMPLOYEE: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100 text-gray-700' },
@@ -38,6 +40,20 @@ export default function PermissionsPage() {
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([])
   const [newRoleName, setNewRoleName] = useState('')
   const [selectedRole, setSelectedRole] = useState<RoleKey>('COMPANY_ADMIN')
+
+  // Task Management is beta-gated per account (src/lib/feature-gates.ts).
+  // Hide its toggles from companies that can't reach the module, so nobody
+  // grants a permission that resolves to a hidden page. Only this group is
+  // filtered — every other group must stay visible regardless of what the
+  // viewer personally holds, since the matrix is for granting to OTHER roles.
+  //
+  // Matched against the same constant the matrix renders from, so renaming
+  // the group in permissions.ts can't silently un-hide it.
+  const canSeeProjects = useHasPermission('tasks:read')
+  const pagePermissionGroups = useMemo(
+    () => PAGE_PERMISSIONS.filter(g => canSeeProjects || g.group !== TASK_MANAGEMENT_GROUP),
+    [canSeeProjects],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -195,7 +211,7 @@ export default function PermissionsPage() {
         <p className="text-xs text-slate-500 ml-1">New custom roles start with no permissions.</p>
       </div>
 
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-[#dce5f7] border border-[#AAB7B7] text-sm text-[#021e47]">
+      <div className="flex items-start gap-3 p-3 rounded-xl bg-[#dce5f7] border border-[#AAB7B7] text-sm text-primary">
         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <div>Permissions marked with <span className="font-semibold">●</span> are active for that role. Changes take effect on next login.</div>
       </div>
@@ -242,7 +258,7 @@ export default function PermissionsPage() {
           </div>
         </div>
 
-        {PAGE_PERMISSIONS.map((group, gi) => (
+        {pagePermissionGroups.map((group, gi) => (
           <div key={group.group}>
             <div className="grid items-center" style={{ gridTemplateColumns: '220px 1fr', background: '#f8fafc' }}>
               <div className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider border-b border-gray-100" style={{ borderLeft: '3px solid #ff5900' }}>{group.group}</div>
@@ -251,7 +267,7 @@ export default function PermissionsPage() {
 
             {group.pages.map((page, pi) => {
               const isLastInGroup = pi === group.pages.length - 1
-              const isLastGroup = gi === PAGE_PERMISSIONS.length - 1
+              const isLastGroup = gi === pagePermissionGroups.length - 1
               const rowBorder = (!isLastInGroup || !isLastGroup) ? 'border-b border-gray-100' : ''
 
               return (

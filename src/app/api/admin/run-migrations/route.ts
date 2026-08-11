@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { PROJECT_MANAGEMENT_MIGRATIONS } from '@/lib/migrations/project-management'
 
 export async function POST() {
   const { ctx, error } = await requireAuth()
@@ -192,6 +193,9 @@ export async function POST() {
         EXCEPTION WHEN duplicate_object THEN NULL; END $$;
       `,
     },
+    // Project Management (boards, tasks, time logs). Chunked so a failure
+    // reports which part broke — see src/lib/migrations/project-management.ts.
+    ...PROJECT_MANAGEMENT_MIGRATIONS,
   ]
 
   for (const m of migrations) {

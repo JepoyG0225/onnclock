@@ -201,7 +201,7 @@ function FormDialog({ open, editing, onClose, onSaved }: FormDialogProps) {
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-            <Input
+            <Input data-tour="ann-title"
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="Announcement title"
@@ -211,7 +211,7 @@ function FormDialog({ open, editing, onClose, onSaved }: FormDialogProps) {
           {/* Content */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Content *</label>
-            <Textarea
+            <Textarea data-tour="ann-body"
               value={content}
               onChange={e => setContent(e.target.value)}
               placeholder="Write your announcement here..."
@@ -323,8 +323,8 @@ export default function AnnouncementsPage() {
         </div>
         {isHR && (
           <Button
+            data-tour="ann-new"
             onClick={() => { setEditing(null); setShowForm(true) }}
-            style={{ background: '#021e47' }}
           >
             <Plus className="mr-2 w-4 h-4" />
             New Announcement

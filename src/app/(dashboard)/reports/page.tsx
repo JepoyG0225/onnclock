@@ -141,7 +141,7 @@ export default function ReportsPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="space-y-1">
-              <p className="font-semibold text-[#021e47]">SSS</p>
+              <p className="font-semibold text-primary">SSS</p>
               <p className="text-gray-600">Last working day of the following month</p>
               <p className="text-xs text-gray-400">e.g., January contributions → Feb 28/29</p>
             </div>

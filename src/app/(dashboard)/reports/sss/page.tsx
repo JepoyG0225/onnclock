@@ -110,7 +110,7 @@ export default function SSSReportPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Employee Shares',  value: totalEmployee, color: 'text-[#021e47]' },
+          { label: 'Employee Shares',  value: totalEmployee, color: 'text-primary' },
           { label: 'Employer Shares',  value: totalEmployer, color: 'text-green-700' },
           { label: 'EC Total',         value: totalEC,       color: 'text-yellow-700' },
           { label: 'Grand Total',      value: grandTotal,    color: 'text-red-700' },
@@ -159,7 +159,7 @@ export default function SSSReportPage() {
                       <td className="p-3 font-mono text-sm">{r.sssNo || '—'}</td>
                       <td className="p-3">{r.lastName}, {r.firstName}</td>
                       <td className="p-3 text-right">{peso(r.msc)}</td>
-                      <td className="p-3 text-right text-[#021e47]">{peso(r.employeeShare)}</td>
+                      <td className="p-3 text-right text-primary">{peso(r.employeeShare)}</td>
                       <td className="p-3 text-right text-green-700">{peso(r.employerShare)}</td>
                       <td className="p-3 text-right">{peso(r.ec)}</td>
                       <td className="p-3 text-right font-medium">{peso(r.total)}</td>
@@ -169,7 +169,7 @@ export default function SSSReportPage() {
                 <tfoot className="bg-gray-50 border-t font-semibold">
                   <tr>
                     <td colSpan={4} className="p-3">TOTAL</td>
-                    <td className="p-3 text-right text-[#021e47]">{peso(totalEmployee)}</td>
+                    <td className="p-3 text-right text-primary">{peso(totalEmployee)}</td>
                     <td className="p-3 text-right text-green-700">{peso(totalEmployer)}</td>
                     <td className="p-3 text-right">{peso(totalEC)}</td>
                     <td className="p-3 text-right">{peso(grandTotal)}</td>
@@ -183,7 +183,7 @@ export default function SSSReportPage() {
 
       {/* Remittance Note */}
       <Card className="border-[#AAB7B7] bg-[#dce5f7]">
-        <CardContent className="p-4 text-sm text-[#021e47]">
+        <CardContent className="p-4 text-sm text-primary">
           <strong>Remittance Deadline:</strong> Last working day of the following month.
           File via My.SSS portal or SSS branch. Keep the Official Receipt for 3 years.
         </CardContent>

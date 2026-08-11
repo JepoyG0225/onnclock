@@ -153,7 +153,7 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
         <button
           disabled={saving}
           onClick={upload}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-[#021e47] disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-primary disabled:opacity-60"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
           Upload

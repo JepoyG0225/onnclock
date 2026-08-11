@@ -655,7 +655,17 @@ export async function POST(
       regularHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
     }
 
-    const regularOtHoursRaw = emp.trackTime || hasDtr
+    // Overtime requires DTR-based pay — NOT `trackTime || hasDtr` like the
+    // other DTR-derived figures below.
+    //
+    // Overtime is entirely a product of clock data. An employee with
+    // trackTime=false is paid on a fixed basis, so their basic pay already
+    // covers the period regardless of hours; paying overtime on top of that
+    // from stray DTR rows pays twice for the same time. Night differential
+    // and late/undertime deliberately keep the looser `|| hasDtr` condition:
+    // those are premiums and deductions that still apply to a fixed-pay
+    // employee when clock data happens to exist.
+    const regularOtHoursRaw = emp.trackTime
       ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
       : 0
     let nightDiffHoursRaw = emp.trackTime || hasDtr

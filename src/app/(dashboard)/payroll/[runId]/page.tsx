@@ -215,7 +215,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
               <div className="flex flex-wrap gap-2 mt-3">
                 {unapprovedTimesheets > 0 && (
                   <Link
-                    href="/dtr"
+                    href="/timesheets"
                     className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
                   >
                     <ClipboardCheck className="w-3.5 h-3.5" />
@@ -224,7 +224,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
                 )}
                 {pendingOtCount > 0 && (
                   <Link
-                    href="/overtime-requests"
+                    href="/timesheets"
                     className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
                   >
                     <Clock3 className="w-3.5 h-3.5" />

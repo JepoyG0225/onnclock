@@ -198,8 +198,8 @@ function ReviewDrawer({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
           <div className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-[#021e47]" />
-            <span className="font-bold text-[#021e47]">Performance Review</span>
+            <BarChart3 className="w-5 h-5 text-primary" />
+            <span className="font-bold text-primary">Performance Review</span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
             <X className="w-4 h-4" />
@@ -226,7 +226,7 @@ function ReviewDrawer({
               {/* Cycle info */}
               <div>
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <h2 className="text-lg font-bold text-[#021e47]">{review.cycleLabel}</h2>
+                  <h2 className="text-lg font-bold text-primary">{review.cycleLabel}</h2>
                   <Badge
                     className={cn(
                       'shrink-0 text-xs',
@@ -252,7 +252,7 @@ function ReviewDrawer({
 
               {/* Overall rating */}
               {review.overallRating != null && (
-                <div className="bg-[#021e47]/5 rounded-xl p-4 flex items-center gap-4">
+                <div className="bg-primary/5 rounded-xl p-4 flex items-center gap-4">
                   <div>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Overall Rating</p>
                     <StarDisplay rating={review.overallRating} />
@@ -264,7 +264,7 @@ function ReviewDrawer({
               {/* Competency scores */}
               {review.competencyScores && Object.keys(review.competencyScores).length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-[#021e47] mb-3">Competency Scores</h3>
+                  <h3 className="text-sm font-semibold text-primary mb-3">Competency Scores</h3>
                   <div className="space-y-2.5">
                     {/* Library competencies */}
                     {Object.entries(review.competencyScores)
@@ -328,7 +328,7 @@ function ReviewDrawer({
               {/* Strengths */}
               {review.strengths && (
                 <div>
-                  <h3 className="text-sm font-semibold text-[#021e47] mb-1.5">Strengths</h3>
+                  <h3 className="text-sm font-semibold text-primary mb-1.5">Strengths</h3>
                   <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap bg-green-50 rounded-xl p-3">{review.strengths}</p>
                 </div>
               )}
@@ -336,7 +336,7 @@ function ReviewDrawer({
               {/* Improvement areas */}
               {review.improvementAreas && (
                 <div>
-                  <h3 className="text-sm font-semibold text-[#021e47] mb-1.5">Areas for Improvement</h3>
+                  <h3 className="text-sm font-semibold text-primary mb-1.5">Areas for Improvement</h3>
                   <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap bg-orange-50 rounded-xl p-3">{review.improvementAreas}</p>
                 </div>
               )}
@@ -344,7 +344,7 @@ function ReviewDrawer({
               {/* Manager comment */}
               {review.managerComment && (
                 <div>
-                  <h3 className="text-sm font-semibold text-[#021e47] mb-1.5">Manager Comments</h3>
+                  <h3 className="text-sm font-semibold text-primary mb-1.5">Manager Comments</h3>
                   <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap bg-blue-50 rounded-xl p-3">{review.managerComment}</p>
                 </div>
               )}
@@ -352,7 +352,7 @@ function ReviewDrawer({
               {/* Goals */}
               {review.goals && review.goals.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-[#021e47] mb-2">Goals</h3>
+                  <h3 className="text-sm font-semibold text-primary mb-2">Goals</h3>
                   <div className="space-y-2">
                     {review.goals.map(g => (
                       <div key={g.id} className="flex items-start justify-between gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
@@ -377,8 +377,8 @@ function ReviewDrawer({
               {/* Self-evaluation */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="w-4 h-4 text-[#021e47]" />
-                  <h3 className="text-sm font-semibold text-[#021e47]">Your Self-Evaluation</h3>
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-primary">Your Self-Evaluation</h3>
                 </div>
 
                 {canSelfEval ? (
@@ -388,7 +388,7 @@ function ReviewDrawer({
                       onChange={e => setSelfEval(e.target.value)}
                       placeholder="Share your thoughts on your performance, achievements, and areas where you'd like to grow…"
                       rows={4}
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-[#021e47]/20 focus:border-[#021e47]/40 transition-shadow"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-shadow"
                     />
                     <div className="flex items-center justify-between mt-2">
                       <span className={cn('text-xs transition-colors', evalSaved ? 'text-green-600' : 'text-gray-400')}>
@@ -487,11 +487,11 @@ export default function PortalReviewsPage() {
     <div className="min-h-screen bg-gray-50 pb-32">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b px-4 py-4 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-[#021e47]/10 flex items-center justify-center">
-          <BarChart3 className="w-5 h-5 text-[#021e47]" />
+        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+          <BarChart3 className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-base font-bold text-[#021e47] leading-none">Performance Reviews</h1>
+          <h1 className="text-base font-bold text-primary leading-none">Performance Reviews</h1>
           <p className="text-xs text-gray-500 mt-0.5">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</p>
         </div>
       </div>
@@ -530,7 +530,7 @@ export default function PortalReviewsPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-[#021e47] text-sm truncate">{review.cycleLabel}</span>
+                    <span className="font-semibold text-primary text-sm truncate">{review.cycleLabel}</span>
                     {(hasPending || canAck) && (
                       <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0 animate-pulse" />
                     )}

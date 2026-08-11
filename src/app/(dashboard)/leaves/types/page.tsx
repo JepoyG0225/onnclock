@@ -86,7 +86,7 @@ function FormSection({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">Name *</label>
-            <input
+            <input data-tour="lt-name"
               className={inputClass}
               style={inputStyle}
               value={form.name}
@@ -164,7 +164,7 @@ function FormSection({
           </div>
           <div className={form.carryOver ? '' : 'md:col-span-2'}>
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">Description</label>
-            <input
+            <input data-tour="lt-desc"
               className={inputClass}
               style={inputStyle}
               value={form.description}

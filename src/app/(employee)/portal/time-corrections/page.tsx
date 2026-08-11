@@ -208,7 +208,7 @@ export default function TimeCorrectionPortalPage() {
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-[#021e47] transition shrink-0"
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-primary transition shrink-0"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           <span className="hidden sm:inline">{showForm ? 'Cancel' : 'New Request'}</span>
@@ -343,7 +343,7 @@ export default function TimeCorrectionPortalPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-[#021e47] transition disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-primary transition disabled:opacity-50"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting ? 'Submitting...' : 'Submit Request'}

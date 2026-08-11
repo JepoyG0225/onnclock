@@ -375,7 +375,7 @@ export default function ReviewDetailPage() {
               )}
               {/* Employee acknowledge */}
               {canAck && (
-                <Button size="sm" onClick={acknowledge} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button size="sm" onClick={acknowledge} disabled={saving} variant="success" className="">
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
                   Acknowledge Review
                 </Button>

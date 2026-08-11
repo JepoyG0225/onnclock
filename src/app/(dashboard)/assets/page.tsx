@@ -169,7 +169,7 @@ export default function AssetsPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Track company-issued equipment, assignments, and returns.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-1.5"><Plus className="w-4 h-4" /> Add Asset</Button>
+        <Button onClick={() => setShowAdd(true)} data-tour="asset-add" className="gap-1.5"><Plus className="w-4 h-4" /> Add Asset</Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -192,7 +192,7 @@ export default function AssetsPage() {
         <CardContent className="p-4 flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" placeholder="Search tag, serial, name, assigned employee..." />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" data-tour="asset-search" placeholder="Search tag, serial, name, assigned employee..." />
           </div>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border rounded px-3 py-2 text-sm bg-white">
             <option value="">All statuses</option>

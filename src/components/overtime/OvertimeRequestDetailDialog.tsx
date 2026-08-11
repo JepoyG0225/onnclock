@@ -210,7 +210,7 @@ export function OvertimeRequestDetailDialog({
                       onClick={() => doAction('APPROVED')}
                       disabled={!!acting || !canAct}
                       title={!canAct ? actionDisabledReason : undefined}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      variant="success" className=""
                     >
                       {acting === 'approve' ? 'Approving…' : 'Approve'}
                     </Button>

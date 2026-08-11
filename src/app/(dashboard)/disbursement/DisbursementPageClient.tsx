@@ -350,7 +350,7 @@ export default function DisbursementPageClient() {
         {/* Available for disbursement */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle data-tour="db-balance" className="text-base flex items-center gap-2">
               <Send className="w-4 h-4 text-[#032b63]" />
               Available for Disbursement
               {available.length > 0 && (

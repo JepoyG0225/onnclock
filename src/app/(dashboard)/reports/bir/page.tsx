@@ -161,7 +161,7 @@ function AnnualizationPanel({ year }: { year: number }) {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Total Gross Comp</p>
-            <p className="text-xl font-bold text-[#021e47]">{peso(data.totalGross)}</p>
+            <p className="text-xl font-bold text-primary">{peso(data.totalGross)}</p>
           </CardContent>
         </Card>
         <Card>

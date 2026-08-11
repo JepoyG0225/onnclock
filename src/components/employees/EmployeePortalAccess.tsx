@@ -130,7 +130,7 @@ export function EmployeePortalAccess({
           ) : biometricStatus?.enrolled ? (
             <div className="flex items-start gap-4">
               <div className="flex-1 space-y-1">
-                <p className="text-sm font-medium text-[#021e47]">Fingerprint enrolled</p>
+                <p className="text-sm font-medium text-primary">Fingerprint enrolled</p>
                 <p className="text-xs text-gray-400 mt-1">
                   Employee can use their device&apos;s fingerprint sensor or PIN to clock in and out.
                 </p>

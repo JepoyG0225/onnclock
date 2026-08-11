@@ -1402,7 +1402,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 onClick={() => setScheduleSetupMode('FIXED')}
                 className={`text-left rounded-xl border p-4 transition ${
                   scheduleSetupMode === 'FIXED'
-                    ? 'border-[#ff5900] bg-orange-50'
+                    ? 'border-accent bg-orange-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -1414,7 +1414,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 onClick={() => setScheduleSetupMode('FLEXIBLE')}
                 className={`text-left rounded-xl border p-4 transition ${
                   scheduleSetupMode === 'FLEXIBLE'
-                    ? 'border-[#ff5900] bg-orange-50'
+                    ? 'border-accent bg-orange-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -1423,7 +1423,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </button>
             </div>
 
-            <div className="rounded-lg border border-[#ff5900]/30 bg-[#fff3ec] px-3 py-2 text-xs text-[#c44d00]">
+            <div className="rounded-lg border border-accent/30 bg-[#fff3ec] px-3 py-2 text-xs text-[#c44d00]">
               Manage employee schedules at Work Schedule page.
               {' '}
               <Link href="/schedules" className="font-semibold underline underline-offset-2">

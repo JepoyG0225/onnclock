@@ -103,8 +103,8 @@ export default async function EmployeesPage({
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <form className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-48 relative">
+          <form className="flex flex-wrap gap-3" data-tour="employee-filters">
+            <div className="flex-1 min-w-48 relative" data-tour="employee-search">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
@@ -182,7 +182,7 @@ export default async function EmployeesPage({
                               className="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0"
                             />
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-[#c4d9ff] flex items-center justify-center text-xs font-bold text-[#021e47] flex-shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-[#c4d9ff] flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
                               {emp.firstName[0]}{emp.lastName[0]}
                             </div>
                           )}
@@ -209,7 +209,7 @@ export default async function EmployeesPage({
                       </td>
                       <td className="p-4 text-gray-600 hidden lg:table-cell">{formatDate(emp.hireDate)}</td>
                       <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-2" data-tour="employee-actions">
                           <EmployeeViewButton employeeId={emp.id} />
                           <EmployeeDeleteButton employeeId={emp.id} />
                         </div>

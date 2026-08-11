@@ -83,16 +83,16 @@ export default function RegisterPage() {
 
         {success.portalUrl && (
           <div className="rounded-2xl border border-[#AAB7B7] bg-[#dce5f7] p-4 text-left space-y-2">
-            <p className="text-xs font-bold text-[#021e47] uppercase tracking-wider flex items-center gap-1.5">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Globe className="w-3.5 h-3.5" />Employee Portal URL
             </p>
-            <p className="text-sm font-mono font-semibold text-[#021e47] break-all">{success.portalUrl}</p>
+            <p className="text-sm font-mono font-semibold text-primary break-all">{success.portalUrl}</p>
             <p className="text-xs text-[#032b63]">Share this link with your employees so they can clock in, view payslips, and request leaves.</p>
             <a
               href={success.portalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#021e47] hover:underline mt-1"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline mt-1"
             >
               <ExternalLink className="w-3.5 h-3.5" />Open portal
             </a>

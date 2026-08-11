@@ -7,10 +7,15 @@ import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 const getSession = cache(auth)
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Users, CalendarDays, TrendingUp, AlertCircle, UserCheck, Cake, PlaneTakeoff } from 'lucide-react'
+import {
+  Users, CalendarDays, TrendingUp, AlertCircle, UserCheck, Cake, PlaneTakeoff,
+  CheckCircle2, AlarmClock, ListChecks, ArrowRight,
+} from 'lucide-react'
+import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { KpiCard } from '@/components/ui/kpi-card'
+import { hasTaskModuleBetaAccess } from '@/lib/feature-gates'
 
 type BirthdayEmployee = {
   id: string
@@ -124,6 +129,44 @@ export default async function DashboardPage() {
     console.error('Dashboard load failed', error)
   }
 
+  // ── Task stats ─────────────────────────────────────────────────────────
+  // Loaded separately from the main transaction for two reasons: the module
+  // is beta-gated (so most accounts skip these queries entirely), and its
+  // tables may not exist in an environment where run-migrations hasn't been
+  // called yet — a failure here must not take the whole dashboard down.
+  const showTasks = hasTaskModuleBetaAccess(session.user.email)
+  let taskStats: { open: number; overdue: number; dueThisWeek: number; mine: number } | null = null
+
+  if (showTasks) {
+    try {
+      const weekAhead = new Date(todayStart)
+      weekAhead.setDate(weekAhead.getDate() + 7)
+
+      // The viewer's own employee record, so "My tasks" means theirs.
+      const viewerEmployee = await prisma.employee.findFirst({
+        where: { companyId, userId: session.user.id },
+        select: { id: true },
+      })
+
+      const notDone = { companyId, parentTaskId: null, status: { category: { not: 'DONE' as const } } }
+      const [open, overdue, dueThisWeek, mine] = await prisma.$transaction([
+        prisma.task.count({ where: notDone }),
+        prisma.task.count({ where: { ...notDone, dueDate: { lt: todayStart } } }),
+        prisma.task.count({ where: { ...notDone, dueDate: { gte: todayStart, lt: weekAhead } } }),
+        viewerEmployee
+          ? prisma.task.count({
+              where: { ...notDone, assignees: { some: { employeeId: viewerEmployee.id } } },
+            })
+          : prisma.task.count({ where: { id: '__none__' } }),
+      ])
+      taskStats = { open, overdue, dueThisWeek, mine }
+    } catch (error) {
+      // Most likely the module's tables aren't migrated in this environment.
+      console.error('Dashboard task stats unavailable', error)
+      taskStats = null
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currency = (company as any)?.payrollCurrency ?? 'PHP'
   const peso = (n: number | string | null | undefined) => formatCurrency(n, currency)
@@ -173,16 +216,54 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
 
-      {/* ── Welcome Banner ── */}
-      <div className="rounded-2xl p-6 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #ff5900 0%, #ff7a2e 100%)', boxShadow: '0 4px 20px rgba(255,89,0,0.3)' }}>
-        <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
-        <div className="absolute right-24 bottom-0 w-32 h-32 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
-        <div className="absolute -left-6 -bottom-6 w-36 h-36 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
-        <div className="relative">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1 text-white/70">{todayLabel}</p>
-          <h1 className="text-2xl font-bold text-white">{greeting}{userName ? `, ${userName}!` : '!'}</h1>
-          <p className="text-sm mt-0.5 text-white/60">{company.name}</p>
+      {/* ── Welcome Banner ──
+          Navy rather than the old full-bleed orange. A saturated orange
+          block at the top of every page competed with the KPI tiles and the
+          "action needed" states underneath it — the brand colour reads much
+          louder when it's reserved for things that actually need attention.
+          Orange survives as the accent rule and in the CTA. */}
+      <div
+        className="relative overflow-hidden rounded-2xl p-6 sm:p-7"
+        style={{ background: 'linear-gradient(120deg, #021e47 0%, #0a2f63 55%, #123f7d 100%)' }}
+      >
+        {/* Soft depth, kept subtle so text contrast never suffers. */}
+        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-white/[0.03]" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-1" style={{ background: '#ff5900' }} />
+
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-white/50">
+              {todayLabel}
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[28px]">
+              {greeting}{userName ? `, ${userName}` : ''}
+            </h1>
+            <p className="mt-1 text-sm text-white/60">{company.name}</p>
+          </div>
+
+          {/* At-a-glance counts of things waiting on a human. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {pendingLeaves > 0 && (
+              <Link
+                href="/leaves"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition hover:bg-white/20"
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                {pendingLeaves} leave{pendingLeaves === 1 ? '' : 's'} to review
+              </Link>
+            )}
+            {taskStats && taskStats.overdue > 0 && (
+              <Link
+                href="/tasks"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                style={{ background: '#ff5900' }}
+              >
+                <AlarmClock className="h-3.5 w-3.5" />
+                {taskStats.overdue} task{taskStats.overdue === 1 ? '' : 's'} overdue
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
@@ -223,18 +304,93 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* ── Task stats ──
+          Rendered as its own band rather than four more tiles in the grid
+          above: those are HR/payroll facts about the company, these are work
+          items with somewhere to go. Only shown when the module is available
+          AND its tables responded — see the guarded query above. */}
+      {taskStats && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+              Tasks
+            </h2>
+            <Link
+              href="/tasks"
+              className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-gray-900"
+            >
+              Open board <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <TaskStat
+              href="/tasks?assignee=me"
+              icon={<ListChecks className="h-4 w-4" />}
+              label="Assigned to me"
+              value={taskStats.mine}
+              accent="text-blue-600"
+              ring="ring-blue-100"
+              bg="bg-blue-50"
+            />
+            <TaskStat
+              href="/tasks"
+              icon={<AlarmClock className="h-4 w-4" />}
+              label="Overdue"
+              value={taskStats.overdue}
+              // Only turns red when there's actually something wrong, so a
+              // healthy board doesn't look like an alert.
+              accent={taskStats.overdue > 0 ? 'text-red-600' : 'text-gray-400'}
+              ring={taskStats.overdue > 0 ? 'ring-red-100' : 'ring-gray-100'}
+              bg={taskStats.overdue > 0 ? 'bg-red-50' : 'bg-gray-50'}
+            />
+            <TaskStat
+              href="/tasks"
+              icon={<CalendarDays className="h-4 w-4" />}
+              label="Due this week"
+              value={taskStats.dueThisWeek}
+              accent="text-amber-600"
+              ring="ring-amber-100"
+              bg="bg-amber-50"
+            />
+            <TaskStat
+              href="/tasks"
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              label="Open tasks"
+              value={taskStats.open}
+              accent="text-emerald-600"
+              ring="ring-emerald-100"
+              bg="bg-emerald-50"
+            />
+          </div>
+        </section>
+      )}
+
       {/* ── Remittance Schedules ── */}
       {(() => {
-        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }))
-        const y = now.getFullYear()
-        const m = now.getMonth()
-        const todayMs = new Date(y, now.getMonth(), now.getDate()).getTime()
+        // Manila "today", derived WITHOUT a parse-as-local round trip.
+        //
+        // This used to be `new Date(new Date().toLocaleString('en-US', {
+        // timeZone: 'Asia/Manila' }))`. That builds a Manila wall-clock
+        // string and then re-parses it in the RUNTIME's zone — UTC on the
+        // server, +08 in the browser. The two disagreed by 8 hours, so the
+        // "Nd left" chips could render differently on each side and React
+        // reported a hydration mismatch on every dashboard load.
+        //
+        // Shifting the epoch and reading UTC parts gives the same Manila
+        // calendar date in both environments.
+        const manilaNow = new Date(Date.now() + 8 * 60 * 60 * 1000)
+        const y = manilaNow.getUTCFullYear()
+        const m = manilaNow.getUTCMonth()
+        const todayMs = Date.UTC(y, m, manilaNow.getUTCDate())
 
+        // Dates below are built with Date.UTC for the same reason, so
+        // comparisons stay in one frame of reference.
         function daysLeft(date: Date) {
           return Math.ceil((date.getTime() - todayMs) / 86400000)
         }
         function fmt(date: Date) {
-          return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+          return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'UTC' })
         }
         function chip(diff: number) {
           if (diff <= 0)  return { color: '#ef4444', label: 'Due today' }
@@ -243,15 +399,18 @@ export default async function DashboardPage() {
         }
 
         const schedules = [
-          { name: 'SSS',        sub: 'Contribution',    date: new Date(y, m + 1,  0) },
-          { name: 'PhilHealth', sub: 'Contribution',    date: new Date(y, m + 1, 10) },
-          { name: 'Pag-IBIG',   sub: 'Contribution',    date: new Date(y, m + 2,  0) },
-          { name: 'BIR 1601-C', sub: 'Withholding Tax', date: new Date(y, m + 1, 15) },
+          // Date.UTC so these sit in the same frame as todayMs above —
+          // mixing local-constructed dates with a UTC baseline reintroduces
+          // the off-by-a-day the hydration fix is meant to remove.
+          { name: 'SSS',        sub: 'Contribution',    date: new Date(Date.UTC(y, m + 1,  0)) },
+          { name: 'PhilHealth', sub: 'Contribution',    date: new Date(Date.UTC(y, m + 1, 10)) },
+          { name: 'Pag-IBIG',   sub: 'Contribution',    date: new Date(Date.UTC(y, m + 2,  0)) },
+          { name: 'BIR 1601-C', sub: 'Withholding Tax', date: new Date(Date.UTC(y, m + 1, 15)) },
         ]
 
         return (
           <div>
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
               Remittance Schedules
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -279,13 +438,13 @@ export default async function DashboardPage() {
 
       {/* ── Today's Highlights ── */}
       <div>
-        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
           Today&apos;s Highlights
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Upcoming Birthdays */}
-          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+          <Card className="border border-gray-100 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
                 <div className="bg-pink-100 p-1.5 rounded-lg">
@@ -337,7 +496,7 @@ export default async function DashboardPage() {
           </Card>
 
           {/* Upcoming Holidays */}
-          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+          <Card className="border border-gray-100 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
                 <div className="bg-blue-50 p-1.5 rounded-lg">
@@ -364,7 +523,7 @@ export default async function DashboardPage() {
                     )
                     return (
                       <div key={holiday.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-blue-50 transition-colors">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#032b63] to-[#021e47] flex flex-col items-center justify-center shrink-0 shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#032b63] to-primary flex flex-col items-center justify-center shrink-0 shadow-sm">
                           <span className="text-[9px] font-bold text-white/70 uppercase leading-none">
                             {hDate.toLocaleDateString('en-PH', { month: 'short' })}
                           </span>
@@ -394,7 +553,7 @@ export default async function DashboardPage() {
           </Card>
 
           {/* On Leave Today */}
-          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+          <Card className="border border-gray-100 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
                 <div className="bg-orange-50 p-1.5 rounded-lg">
@@ -438,5 +597,40 @@ export default async function DashboardPage() {
       </div>
 
     </div>
+  )
+}
+
+/**
+ * Compact task metric tile.
+ *
+ * Deliberately lighter than <KpiCard>: these sit below the payroll/HR stats
+ * and shouldn't compete with them for weight. Each one links somewhere, so
+ * the number is a starting point rather than a dead end.
+ */
+function TaskStat({
+  href, icon, label, value, accent, ring, bg,
+}: {
+  href: string
+  icon: React.ReactNode
+  label: string
+  value: number
+  accent: string
+  ring: string
+  bg: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:border-gray-200 hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
+    >
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ${bg} ${ring} ${accent}`}>
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className={`block text-xl font-bold leading-none ${accent}`}>{value}</span>
+        <span className="mt-1 block truncate text-[11px] font-medium text-gray-500">{label}</span>
+      </span>
+      <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-300 transition group-hover:text-gray-500" />
+    </Link>
   )
 }

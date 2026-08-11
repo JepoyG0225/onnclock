@@ -125,20 +125,20 @@ export default function LoginPage() {
 
       <Link
         href="/register"
-        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-600 hover:border-[#032b63] hover:text-[#021e47] hover:bg-[#dce5f7] transition-all"
+        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-600 hover:border-[#032b63] hover:text-primary hover:bg-[#dce5f7] transition-all"
       >
         Create a free company account
       </Link>
 
       <div className="rounded-xl px-4 py-3 text-center" style={{ background: 'rgba(34,127,132,0.06)' }}>
-        <p className="text-xs text-[#021e47] font-semibold">7-day free trial | No credit card needed</p>
+        <p className="text-xs text-primary font-semibold">7-day free trial | No credit card needed</p>
       </div>
 
       <div className="rounded-xl border border-slate-200 p-3 space-y-2">
         <p className="text-xs font-semibold text-slate-500 text-center uppercase tracking-wide">Download Desktop App</p>
         <a
           href="/download"
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#032b63] hover:text-[#021e47] transition-colors"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#032b63] hover:text-primary transition-colors"
         >
           <Image src="/platform-icons/windows.svg" alt="Windows" width={14} height={14} />
           <Image src="/platform-icons/mac-21.png" alt="macOS" width={14} height={14} />

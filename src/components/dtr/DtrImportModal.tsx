@@ -192,7 +192,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                 <div
                   className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer ${
                     dragOver
-                      ? 'border-[#ff5900] bg-orange-50'
+                      ? 'border-accent bg-orange-50'
                       : state === 'file-selected'
                       ? 'border-[#162d54] bg-blue-50'
                       : 'border-gray-300 bg-white hover:border-[#162d54] hover:bg-gray-50'
@@ -249,7 +249,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                   <div className="flex flex-wrap gap-2 mt-2">
                     <Badge className="bg-green-600 text-white">{result.imported} imported</Badge>
                     {result.failed > 0 && (
-                      <Badge className="bg-[#ff5900] text-white">{result.failed} failed</Badge>
+                      <Badge className="bg-accent text-white">{result.failed} failed</Badge>
                     )}
                   </div>
                 </div>
@@ -258,7 +258,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
               {errors.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle className="w-4 h-4 text-[#ff5900]" />
+                    <AlertCircle className="w-4 h-4 text-accent" />
                     <p className="text-sm font-medium text-gray-800">Rows with errors</p>
                   </div>
                   <div className="rounded-lg border border-red-200 overflow-hidden max-h-52 overflow-y-auto">

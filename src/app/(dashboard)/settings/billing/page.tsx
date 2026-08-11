@@ -460,7 +460,7 @@ export default function BillingPage() {
             {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-[#032b63]" />}
           </div>
           <div className="flex-1">
-            <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-[#021e47]'}`}>
+            <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-primary'}`}>
               {isExpired ? 'Your free trial has ended' : `${data.daysLeft} day${data.daysLeft === 1 ? '' : 's'} left in your free trial`}
             </p>
             <p className={`text-xs mt-0.5 ${isExpired ? 'text-red-600' : 'text-slate-600'}`}>
@@ -573,17 +573,17 @@ export default function BillingPage() {
                 <p className="font-bold text-slate-700 mb-2">Cost preview</p>
                 <div className="flex justify-between">
                   <span>Per-seat rate</span>
-                  <span className="font-bold text-[#021e47]">{fmt(addSeatsCost.subPricePerSeat)} / month</span>
+                  <span className="font-bold text-primary">{fmt(addSeatsCost.subPricePerSeat)} / month</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Cycle length</span>
-                  <span className="font-bold text-[#021e47]">
+                  <span className="font-bold text-primary">
                     {addSeatsCost.cycleMonths} month{addSeatsCost.cycleMonths === 1 ? '' : 's'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Pro-rated to cycle remaining</span>
-                  <span className="font-bold text-[#021e47]">{addSeatsCost.daysRemaining} days</span>
+                  <span className="font-bold text-primary">{addSeatsCost.daysRemaining} days</span>
                 </div>
                 {addSeatsCost.discountPct > 0 && (
                   <div className="flex justify-between text-emerald-700 text-xs">
@@ -599,7 +599,7 @@ export default function BillingPage() {
                 )}
                 <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between text-base">
                   <span className="font-bold text-slate-800">Amount Due Now</span>
-                  <span className="font-black text-[#021e47] text-lg">
+                  <span className="font-black text-primary text-lg">
                     {fmt(Math.max(0, addSeatsCost.total - Math.min(creditBalance, addSeatsCost.total)))}
                   </span>
                 </div>
@@ -651,7 +651,7 @@ export default function BillingPage() {
               </p>
             </div>
           </div>
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isOnTrial ? 'bg-[#c4d9ff] text-[#021e47]' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isOnTrial ? 'bg-[#c4d9ff] text-primary' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
             {isOnTrial ? 'Free Trial' : isActive ? 'Active' : 'Expired'}
           </span>
         </div>
@@ -759,11 +759,11 @@ export default function BillingPage() {
               )}
               <div className="flex justify-between">
                 <span>Rate</span>
-                <span className="font-bold text-[#021e47]">{fmt(pricePerMonthAfterDiscount)} / seat / month</span>
+                <span className="font-bold text-primary">{fmt(pricePerMonthAfterDiscount)} / seat / month</span>
               </div>
               <div className="flex justify-between">
                 <span>Plan total ({effectiveSeatCount} seats × {selectedMonths} {selectedMonths === 1 ? 'month' : 'months'})</span>
-                <span className="font-bold text-[#021e47]">{fmt(planTotal)}</span>
+                <span className="font-bold text-primary">{fmt(planTotal)}</span>
               </div>
               {planDiscountPct > 0 && (
                 <div className="flex justify-between text-emerald-600 text-xs">
@@ -791,7 +791,7 @@ export default function BillingPage() {
               )}
               <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between text-base">
                 <span className="font-bold text-slate-800">Amount Due Now</span>
-                <span className="font-black text-[#021e47] text-lg">
+                <span className="font-black text-primary text-lg">
                   {fmt(Math.max(0, selectedTotal - Math.min(creditBalance, selectedTotal)))}
                 </span>
               </div>

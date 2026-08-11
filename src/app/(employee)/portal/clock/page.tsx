@@ -882,16 +882,16 @@ export default function ClockPage() {
         <a
           href={process.env.NEXT_PUBLIC_DESKTOP_APP_URL}
           download
-          className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm border border-[#021e47]/20 bg-[#021e47]/5 hover:bg-[#021e47]/10 transition-colors no-underline"
+          className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors no-underline"
         >
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#021e47] flex items-center justify-center">
+          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Monitor className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-[#021e47]">Download OnClock Desktop</p>
+            <p className="font-semibold text-primary">Download OnClock Desktop</p>
             <p className="text-xs text-slate-500 mt-0.5">Silent, automatic screen monitoring — no browser prompts</p>
           </div>
-          <span className="text-xs font-semibold text-[#ff5900] flex-shrink-0">Windows ↓</span>
+          <span className="text-xs font-semibold text-accent flex-shrink-0">Windows ↓</span>
         </a>
       )}
 
@@ -927,7 +927,7 @@ export default function ClockPage() {
                 screenCaptureBlocked ? 'text-red-700'
                 : screenCaptureUnavailable ? 'text-amber-700'
                 : isClockedIn && lastCapturedAt ? 'text-green-700'
-                : 'text-[#021e47]'
+                : 'text-primary'
               }`}>
                 {screenCaptureBlocked
                   ? 'Desktop/laptop required'

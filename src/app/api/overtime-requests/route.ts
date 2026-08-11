@@ -44,6 +44,13 @@ export async function GET(req: NextRequest) {
   const where: Record<string, unknown> = { companyId: ctx.companyId }
   if (status) where.status = status
   if (employeeId) where.employeeId = employeeId
+
+  // Auto-generated overtime only counts for employees on DTR-based pay — see
+  // the matching rule in the payroll compute route. Existing rows for
+  // fixed-pay employees are FILTERED OUT rather than deleted: they're
+  // historical records that may already have been paid, so hiding them from
+  // the approval queue is reversible while deleting them isn't.
+  where.employee = { trackTime: true }
   if (dateFrom || dateTo) {
     where.date = {
       ...(dateFrom && { gte: new Date(dateFrom) }),

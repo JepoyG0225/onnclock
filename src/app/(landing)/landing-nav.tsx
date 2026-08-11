@@ -19,10 +19,10 @@ export function LandingNav() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-            <a href="#features" className="hover:text-[#021e47] transition-colors">Features</a>
-            <a href="#compliance" className="hover:text-[#021e47] transition-colors">Compliance</a>
-            <a href="#how-it-works" className="hover:text-[#021e47] transition-colors">How It Works</a>
-            <a href="#testimonials" className="hover:text-[#021e47] transition-colors">Testimonials</a>
+            <a href="#features" className="hover:text-primary transition-colors">Features</a>
+            <a href="#compliance" className="hover:text-primary transition-colors">Compliance</a>
+            <a href="#how-it-works" className="hover:text-primary transition-colors">How It Works</a>
+            <a href="#testimonials" className="hover:text-primary transition-colors">Testimonials</a>
           </nav>
 
           {/* Desktop CTA */}

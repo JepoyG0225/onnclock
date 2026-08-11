@@ -49,7 +49,7 @@ export default async function PayrollPage() {
                 Payroll Settings
               </Button>
             </Link>
-            <Link href="/payroll/new">
+            <Link href="/payroll/new" data-tour="payroll-new">
               <Button variant="accent" size="sm">
                 <Plus className="mr-2 w-4 h-4" />
                 New Payroll Run

@@ -52,18 +52,18 @@ export function PayrollWorkflowStepper({ status }: { status: string }) {
         const isCurrent  = idx === currentIdx
 
         const dotClass = isComplete
-          ? 'bg-[#ff5900] text-white border-[#ff5900]'
+          ? 'bg-accent text-white border-accent'
           : isCurrent
-            ? 'bg-[#ff5900] text-white border-[#ff5900] ring-4 ring-[#ff5900]/15'
+            ? 'bg-accent text-white border-accent ring-4 ring-accent/15'
             : 'bg-white text-slate-400 border-slate-300'
 
         const labelClass = isCurrent
-          ? 'text-[#ff5900] font-semibold'
+          ? 'text-accent font-semibold'
           : isComplete
             ? 'text-[#c44d00]'
             : 'text-slate-400'
 
-        const connectorClass = isComplete ? 'bg-[#ff5900]' : 'bg-slate-200'
+        const connectorClass = isComplete ? 'bg-accent' : 'bg-slate-200'
 
         return (
           <li

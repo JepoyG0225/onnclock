@@ -192,7 +192,7 @@ export default function AdminSubscriptionsPage() {
         <button
           onClick={sendExpiredTrialEmails}
           disabled={sendingExpiredTrialEmails}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#ff5900] hover:bg-[#e65500] text-white px-4 py-2 text-xs font-semibold disabled:opacity-60 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent hover:bg-[#e65500] text-white px-4 py-2 text-xs font-semibold disabled:opacity-60 transition-colors"
         >
           {sendingExpiredTrialEmails ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
           Send Expired Trial Emails

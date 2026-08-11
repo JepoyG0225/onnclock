@@ -110,7 +110,7 @@ export default function PayrollCycleSettingsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Payroll Cycle & Cutoff Setup</CardTitle>
+        <CardTitle data-tour="ps-cycle" className="text-base">Payroll Cycle & Cutoff Setup</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (

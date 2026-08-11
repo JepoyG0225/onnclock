@@ -138,7 +138,7 @@ export default function PortalCashAdvancePage() {
       {showForm && (
         <div className="border rounded-xl p-4 sm:p-5 space-y-4 bg-white shadow-sm">
           <div className="flex items-center gap-2">
-            <Banknote className="w-4 h-4 text-[#ff5900]" />
+            <Banknote className="w-4 h-4 text-accent" />
             <h2 className="font-semibold text-gray-900">New Cash Advance Request</h2>
           </div>
 

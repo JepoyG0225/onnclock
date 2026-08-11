@@ -126,7 +126,7 @@ export default function PayrollActionButtons({
             onClick={() => action('submit')}
             disabled={!!loading}
             size="sm"
-            className="bg-[#021e47] text-white hover:bg-[#032b63] focus-visible:ring-2 focus-visible:ring-[#021e47]/40 transition-colors"
+            className="bg-primary text-white hover:bg-[#032b63] focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
           >
             <Send className="w-4 h-4 mr-1.5" />
             {loading === 'submit' ? 'Submitting…' : 'Submit for Approval'}

@@ -365,7 +365,7 @@ function HireModal({
           <button
             onClick={submit}
             disabled={saving}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-success-foreground bg-success hover:bg-success/90 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
             {saving ? 'Creating Employee...' : 'Create Employee Record'}
@@ -636,7 +636,7 @@ function ApplicationDrawer({
               {canConvert && (
                 <button
                   onClick={() => setShowHireModal(true)}
-                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-success-foreground bg-success hover:bg-success/90 transition-colors"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   Hire

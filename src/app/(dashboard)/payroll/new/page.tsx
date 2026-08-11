@@ -257,14 +257,14 @@ export default function NewPayrollRunPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Period Start *</Label>
+                  <Label data-tour="pr-period-start">Period Start *</Label>
                   <DatePicker
                     value={formData.periodStart}
                     onChange={(v) => setFormData(p => ({ ...p, periodStart: v }))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Period End *</Label>
+                  <Label data-tour="pr-period-end">Period End *</Label>
                   <DatePicker
                     value={formData.periodEnd}
                     onChange={(v) => setFormData(p => ({ ...p, periodEnd: v }))}
@@ -274,7 +274,7 @@ export default function NewPayrollRunPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Pay Frequency</Label>
+                  <Label data-tour="pr-frequency">Pay Frequency</Label>
                   <Select
                     value={formData.payFrequency}
                     onValueChange={v => setFormData(p => ({ ...p, payFrequency: v }))}
@@ -290,7 +290,7 @@ export default function NewPayrollRunPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Pay Date *</Label>
+                  <Label data-tour="pr-pay-date">Pay Date *</Label>
                   <DatePicker
                     value={formData.payDate}
                     onChange={(v) => {
@@ -308,7 +308,7 @@ export default function NewPayrollRunPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Pay Group <span className="text-gray-400 text-xs">(optional)</span></Label>
+                  <Label data-tour="pr-pay-group">Pay Group <span className="text-gray-400 text-xs">(optional)</span></Label>
                   <Input
                     placeholder="e.g., Probationary cycle · Project XYZ"
                     value={formData.payGroupLabel}
@@ -321,7 +321,7 @@ export default function NewPayrollRunPage() {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Notes <span className="text-gray-400 text-xs">(optional)</span></Label>
+                  <Label data-tour="pr-notes">Notes <span className="text-gray-400 text-xs">(optional)</span></Label>
                   <Input
                     placeholder="e.g., Includes overtime for December..."
                     value={formData.notes}
@@ -358,7 +358,7 @@ export default function NewPayrollRunPage() {
                   onClick={() => setScopeMode(opt.value)}
                   className={`text-left rounded-xl border p-3 transition ${
                     scopeMode === opt.value
-                      ? 'border-[#ff5900] bg-orange-50'
+                      ? 'border-accent bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -370,7 +370,7 @@ export default function NewPayrollRunPage() {
 
             {scopeMode === 'EMPLOYMENT_TYPE' && (
               <div className="space-y-2">
-                <Label className="text-sm">Include employees whose type is:</Label>
+                <Label data-tour="pr-emp-types" className="text-sm">Include employees whose type is:</Label>
                 <div className="flex flex-wrap gap-2">
                   {EMPLOYMENT_TYPES.map(t => {
                     const active = employmentTypeFilter.includes(t.value)
@@ -381,7 +381,7 @@ export default function NewPayrollRunPage() {
                         onClick={() => toggleEmploymentType(t.value)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
                           active
-                            ? 'border-[#ff5900] bg-orange-50 text-[#c44d00]'
+                            ? 'border-accent bg-orange-50 text-[#c44d00]'
                             : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                         }`}
                       >
@@ -404,7 +404,7 @@ export default function NewPayrollRunPage() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
-                    placeholder="Search name, employee number, dept..."
+                    data-tour="pr-emp-search" placeholder="Search name, employee number, dept..."
                     value={empSearch}
                     onChange={e => setEmpSearch(e.target.value)}
                     className="max-w-sm"
@@ -463,7 +463,7 @@ export default function NewPayrollRunPage() {
         </Card>
 
         <div className="flex gap-3">
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving} data-tour="pr-submit">
             {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : 'Create Payroll Run'}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>
@@ -533,7 +533,7 @@ export default function NewPayrollRunPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => router.push('/dtr')}
+                onClick={() => router.push('/timesheets')}
                 disabled={saving}
               >
                 Go to Time Sheets

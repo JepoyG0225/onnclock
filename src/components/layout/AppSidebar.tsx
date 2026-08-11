@@ -34,6 +34,9 @@ import {
   Sparkles,
   Fingerprint,
   Send,
+  FolderKanban,
+  ClipboardCheck,
+  AlarmClock,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -77,50 +80,41 @@ const EMPTY_SIDEBAR_COUNTS: SidebarCounts = {
 function pendingCountForItem(item: NavItem, counts: SidebarCounts): number {
   const path = item.href.split('?')[0]
   const countByPath: Record<string, number> = {
-    '/dtr': counts.pendingDtr,
+    // Timesheets covers both queues it owns. Pending overtime is excluded on
+    // purpose: OT is approved as part of its timesheet, so counting it here
+    // would double-count the same piece of work.
+    '/timesheets': counts.pendingDtr + counts.pendingTimeCorrections,
     '/leaves': counts.pendingLeaves,
-    '/overtime-requests': counts.pendingOvertime,
-    '/time-corrections': counts.pendingTimeCorrections,
     '/budget-requisitions': counts.pendingBudgetRequisitions,
-    '/cash-advance': counts.pendingCashAdvances,
+    '/loans': counts.pendingCashAdvances,
   }
   return countByPath[path] ?? 0
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'HR Analytics', href: '/analytics', icon: BarChart3, releasedAt: '2026-05-13T00:00:00+08:00' },
   {
-    label: 'Employment',
+    label: 'People',
     href: '/employees',
     icon: Users,
     children: [
       { label: 'All Employees',        href: '/employees',          icon: Users },
-      { label: 'Departments',          href: '/departments',        icon: Building2 },
-      { label: 'Positions',            href: '/positions',          icon: Briefcase },
-      { label: 'Org Chart',            href: '/org-chart',          icon: Building2 },
-      { label: 'Recruitment',           href: '/recruitment',        icon: ClipboardList },
-      { label: 'Onboarding Tracker',   href: '/onboarding',         icon: CheckCircle },
-      { label: 'Performance Reviews',  href: '/performance-reviews', icon: BarChart3 },
-      { label: 'Offboarding',          href: '/offboarding',        icon: UserMinus },
-      { label: 'Disciplinary Records', href: '/disciplinary',       icon: AlertTriangle },
+      { label: 'Organization',         href: '/organization',       icon: Building2 },
+      { label: 'Recruitment',          href: '/recruitment',        icon: ClipboardList },
+      { label: 'Performance',          href: '/performance',        icon: BarChart3 },
       { label: 'Assets & Equipment',   href: '/assets',             icon: Briefcase, releasedAt: '2026-05-13T00:00:00+08:00' },
     ],
   },
   {
     label: 'Time & Attendance',
-    href: '/dtr',
+    href: '/timesheets',
     icon: Clock,
     children: [
-      { label: 'Time Sheets',              href: '/dtr',                    icon: Clock },
+      { label: 'Timesheets',               href: '/timesheets',             icon: Clock },
       { label: 'Live GPS Map',             href: '/attendance/map',         icon: MapPin },
-      { label: 'Tardiness Report',         href: '/attendance/tardiness',   icon: TrendingDown },
-      { label: 'Time Entry Corrections',   href: '/time-corrections',       icon: ClipboardEdit, releasedAt: '2026-05-01T00:00:00+08:00' },
-      { label: 'Overtime Requests',        href: '/overtime-requests',      icon: Clock, releasedAt: '2026-06-01T00:00:00+08:00' },
       { label: 'Biometric Terminals',      href: '/biometric-devices',      icon: Fingerprint, comingSoon: true },
+      { label: 'Schedules',                href: '/schedules',              icon: Calendar },
       { label: 'Attendance Settings',      href: '/attendance/settings',    icon: Settings },
-      { label: 'Work Schedules',           href: '/schedules',              icon: Calendar },
-      { label: 'Holidays',                 href: '/holidays',               icon: CalendarDays },
     ],
   },
   {
@@ -141,19 +135,28 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Payroll Runs',  href: '/payroll',          icon: PesoIcon },
       { label: 'Payroll Settings', href: '/payroll/settings', icon: Settings },
       { label: '13th Month Pay', href: '/thirteenth-month', icon: Gift },
-      { label: 'Loans',          href: '/loans',            icon: CreditCard },
-      { label: 'Cash Advance',   href: '/cash-advance',     icon: CreditCard, releasedAt: '2026-05-13T00:00:00+08:00' },
+      { label: 'Loans & Cash Advance', href: '/loans',      icon: CreditCard },
       { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },
       { label: 'Final Pay',      href: '/final-pay',        icon: Receipt,    releasedAt: '2026-05-13T00:00:00+08:00' },
       { label: 'Disbursement',   href: '/disbursement',     icon: Send,       releasedAt: '2026-05-29T00:00:00+08:00' },
     ],
   },
-  { label: 'Announcements', href: '/announcements', icon: Megaphone, releasedAt: '2026-05-01T00:00:00+08:00' },
+  {
+    label: 'Workspace',
+    href: '/tasks',
+    icon: ClipboardCheck,
+    releasedAt: '2026-08-09T00:00:00+08:00',
+    children: [
+      { label: 'Tasks',         href: '/tasks',         icon: ClipboardCheck, releasedAt: '2026-08-09T00:00:00+08:00' },
+      { label: 'Announcements', href: '/announcements', icon: Megaphone },
+    ],
+  },
   {
     label: 'Reports',
-    href: '/reports',
+    href: '/analytics',
     icon: BarChart3,
     children: [
+      { label: 'HR Analytics',    href: '/analytics',         icon: BarChart3 },
       { label: 'SSS R3',          href: '/reports/sss',       icon: FileText },
       { label: 'PhilHealth RF-1', href: '/reports/philhealth', icon: FileText },
       { label: 'Pag-IBIG MCRF',   href: '/reports/pagibig',   icon: FileText },
@@ -629,9 +632,9 @@ function CollapsedFlyout({
                   'flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap',
                   childActive
                     ? 'text-white'
-                    : 'text-white/65 hover:text-white hover:bg-white/10'
+                    : 'text-white/65 hover:text-white hover:bg-white/[0.07]'
                 )}
-                style={childActive ? { background: 'rgba(250,94,1,0.85)' } : undefined}
+                style={childActive ? activeStyle : undefined}
               >
                 <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="truncate">{child.label}</span>
@@ -672,10 +675,13 @@ function NavItemComponent({
   const isExpanded = expanded.includes(item.label)
   const hasChildren = item.children && item.children.length > 0
 
-  const activeStyle   = { background: '#0055d4' }
+  const activeStyle   = {
+    background: 'rgba(255,255,255,0.13)',
+    boxShadow: 'inset 3px 0 0 #ff5900',
+  }
   const baseItemClass = cn(
     'flex items-center rounded-xl text-sm font-medium transition-all duration-150 relative',
-    isActive ? 'text-white' : 'text-white/70 hover:bg-white/15 hover:text-white',
+    isActive ? 'text-white' : 'text-white/65 hover:bg-white/[0.07] hover:text-white',
     collapsed ? 'w-10 h-10 justify-center p-0' : 'px-3 py-2.5 gap-3'
   )
 
@@ -775,7 +781,7 @@ function NavItemComponent({
           data-tour-item={item.href}
           className={cn(
             'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-            isActive ? 'text-white' : 'text-white/70 hover:bg-white/15 hover:text-white',
+            isActive ? 'text-white' : 'text-white/65 hover:bg-white/[0.07] hover:text-white',
             item.comingSoon && 'cursor-not-allowed pointer-events-none'
           )}
           style={isActive ? activeStyle : undefined}
@@ -783,6 +789,20 @@ function NavItemComponent({
           <span className="flex items-center gap-3">
             <item.icon className="w-4 h-4 flex-shrink-0" />
             {item.label}
+            {/* Groups can be new too. The badge only rendered for leaf items
+                before, so a newly-added GROUP (like Workspace) was silently
+                unmarked — the one case where "new" matters most, because the
+                whole section is unfamiliar. Also lights up when a child is
+                new but the group is collapsed, so the badge isn't hidden
+                behind a chevron. */}
+            {!item.comingSoon && (
+              (item.releasedAt && isFeatureNew(item.releasedAt)) ||
+              (!isExpanded && item.children?.some(c => c.releasedAt && isFeatureNew(c.releasedAt)))
+            ) && (
+              <span className="inline-flex items-center justify-center rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-white">
+                NEW
+              </span>
+            )}
           </span>
           {!item.comingSoon && (isExpanded
             ? <ChevronDown  className="w-3.5 h-3.5 opacity-60" />
@@ -817,9 +837,9 @@ function NavItemComponent({
                   'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 whitespace-nowrap',
                   childActive
                     ? 'text-white'
-                    : 'text-white/55 hover:bg-white/15 hover:text-white/90'
+                    : 'text-white/55 hover:bg-white/[0.07] hover:text-white/90'
                 )}
-                style={childActive ? { background: 'rgba(250,94,1,0.82)' } : undefined}
+                style={childActive ? activeStyle : undefined}
               >
                 <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="truncate">{child.label}</span>

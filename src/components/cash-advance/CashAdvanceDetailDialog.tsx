@@ -206,7 +206,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                       size="sm"
                       onClick={doApprove}
                       disabled={!!acting}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      variant="success" className=""
                     >
                       {acting === 'approve' ? 'Approving…' : 'Approve'}
                     </Button>
