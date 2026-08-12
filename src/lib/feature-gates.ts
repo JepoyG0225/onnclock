@@ -38,30 +38,16 @@ export function hasScreenCaptureFeature(pricePerSeat: number, isTrial: boolean):
   return isTrial || pricePerSeat >= PLAN_PRICE.HRIS_PRO
 }
 
-/**
- * Task Management is behind an account allow-list while it's in beta.
- *
- * The module's tables are created by POST /api/admin/run-migrations rather
- * than at build time, so until that has been run against an environment the
- * whole module would 500. Restricting it to known accounts keeps it invisible
- * to real customers while it's exercised on the demo tenant.
- *
- * Extra addresses can be allowed via the TASKS_BETA_EMAILS env var
- * (comma-separated), mirroring UNCAPPED_COMPANY_NAMES in billing/seat-limit.
- *
- * Remove this gate — and its two call sites (the dashboard layout and
- * src/lib/tasks/guard.ts) — to launch the module generally.
- */
-const TASKS_BETA_EMAILS = new Set(
-  ['demo@onclockph.com', ...(process.env.TASKS_BETA_EMAILS ?? '').split(',')]
-    .map(e => e.trim().toLowerCase())
-    .filter(Boolean),
-)
-
-/** Whether this signed-in address may use the Task Management module. */
-export function hasTaskModuleBetaAccess(email?: string | null): boolean {
-  return !!email && TASKS_BETA_EMAILS.has(email.trim().toLowerCase())
-}
+// Task Management was behind an email allow-list (demo@onclockph.com) while in
+// beta, because its tables are applied by POST /api/admin/run-migrations rather
+// than at build time and the module would 500 anywhere they were missing. The
+// full v2 schema is now applied in production — all 11 task_* tables exist and
+// every model queries — so the allow-list and the TASKS_BETA_EMAILS env var are
+// gone and the module is generally available.
+//
+// Access is now governed by the normal rules: the `tasks:read` / `tasks:manage`
+// permissions (held by every built-in role) and the HRIS-Pro entitlement in
+// src/lib/tasks/guard.ts.
 
 /** Desktop app UA: "OnClock-Desktop/x.x.x (Windows)" */
 export function isDesktopApp(userAgent: string): boolean {

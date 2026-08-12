@@ -1,13 +1,12 @@
 /**
  * Request guard shared by every Task Management route.
  *
- * Collapses auth → company scope → beta gate → HRIS-Pro gate → permission
- * resolution into one call, so route handlers stay about their actual work.
+ * Collapses auth → company scope → HRIS-Pro gate → permission resolution into
+ * one call, so route handlers stay about their actual work.
  */
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest, type AuthContext } from '@/lib/api-auth'
 import { requireHrisProOrTrialApi } from '@/lib/hris-pro'
-import { hasTaskModuleBetaAccess } from '@/lib/feature-gates'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { prisma } from '@/lib/prisma'
 import { resolveTaskActor, canEditTask, type TaskActor } from './access'
@@ -31,13 +30,6 @@ export async function guardTasks(
 ): Promise<TaskGuardSuccess | GuardFailure> {
   const { ctx, error } = await requireAuth(undefined, req)
   if (error) return { ok: false, response: error }
-
-  // Beta allow-list. Every task route funnels through here, so this covers
-  // the module including direct API calls. 404 rather than 403 — while in
-  // beta it shouldn't advertise that it exists.
-  if (!hasTaskModuleBetaAccess(ctx.email)) {
-    return { ok: false, response: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
-  }
 
   const companyId = resolveCompanyIdForRequest(ctx, req)
   if (!companyId) {

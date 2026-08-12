@@ -15,7 +15,7 @@ import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { KpiCard } from '@/components/ui/kpi-card'
-import { hasTaskModuleBetaAccess } from '@/lib/feature-gates'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 
 type BirthdayEmployee = {
   id: string
@@ -130,11 +130,17 @@ export default async function DashboardPage() {
   }
 
   // ── Task stats ─────────────────────────────────────────────────────────
-  // Loaded separately from the main transaction for two reasons: the module
-  // is beta-gated (so most accounts skip these queries entirely), and its
-  // tables may not exist in an environment where run-migrations hasn't been
-  // called yet — a failure here must not take the whole dashboard down.
-  const showTasks = hasTaskModuleBetaAccess(session.user.email)
+  // Loaded separately from the main transaction so a failure here can't take
+  // the whole dashboard down — the task tables are applied by
+  // POST /api/admin/run-migrations rather than at build time, so an
+  // environment that hasn't had that run would throw.
+  //
+  // Gated on tasks:read rather than the old beta allow-list: a custom role
+  // with tasks:read revoked shouldn't see task counters on its dashboard.
+  const showTasks = await ctxHasPermission(
+    { userId: session.user.id, companyId, role: session.user.role },
+    'tasks:read',
+  )
   let taskStats: { open: number; overdue: number; dueThisWeek: number; mine: number } | null = null
 
   if (showTasks) {

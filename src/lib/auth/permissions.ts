@@ -258,9 +258,11 @@ export interface NavPermission {
 // accepts payroll:read OR employees:read), this table lists the
 // primary one — granting it is sufficient.
 /**
- * Group label for the beta-gated Task Management module. Exported so the
- * Role Permissions matrix can hide exactly this group without string-matching
- * a literal that could drift if the label is reworded.
+ * Group label for the Task Management module. Exported so the Role Permissions
+ * matrix can reference exactly this group without string-matching a literal
+ * that could drift if the label is reworded. (It was used to hide the group
+ * during the beta; the module is now generally available, and the matrix only
+ * hides it from an admin whose own role has tasks:read revoked.)
  */
 export const TASK_MANAGEMENT_GROUP = 'Task Management'
 
