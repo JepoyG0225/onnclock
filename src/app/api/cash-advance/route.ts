@@ -20,6 +20,7 @@ import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/lib/notifications'
 import { computeCashAdvanceLimit } from '@/lib/cash-advance-limit'
 import { logAudit } from '@/lib/audit'
+import { intParam } from '@/lib/query-params'
 import { z } from 'zod'
 
 const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN']
@@ -45,8 +46,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const status   = searchParams.get('status') || undefined
   const ownOnly  = searchParams.get('own') === 'true'
-  const page     = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
-  const limit    = Math.min(100, parseInt(searchParams.get('limit') ?? '50'))
+  const page     = intParam(searchParams.get('page'), { def: 1, max: 100_000 })
+  // Cap raised from 100 to match /api/loans — the Cash Advances tab asks for
+  // 200 and has no pagination control, so the old cap silently clipped it.
+  const limit    = intParam(searchParams.get('limit'), { def: 50, max: 500 })
 
   const isHR = HR_ROLES.includes(ctx.role ?? '')
 

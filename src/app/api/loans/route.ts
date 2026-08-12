@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { intParam } from '@/lib/query-params'
 
 const loanSchema = z.object({
   employeeId: z.string(),
@@ -19,8 +20,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const employeeId = searchParams.get('employeeId')
   const status     = searchParams.get('status')
-  const page       = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
-  const limit      = 50
+  const page       = intParam(searchParams.get('page'), { def: 1, max: 100_000 })
+  // Honour the caller's limit. This was hardcoded to 50 while the Loans tab
+  // asks for 200 and renders no pagination control, so a company with more
+  // than 50 loans in one status would have silently shown a truncated list
+  // with no way to reach the rest.
+  const limit      = intParam(searchParams.get('limit'), { def: 50, max: 500 })
 
   const where: Record<string, unknown> = { companyId: ctx.companyId }
   if (employeeId) where.employeeId = employeeId
