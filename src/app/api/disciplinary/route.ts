@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
+import { DisciplinaryType, DisciplinaryStatus } from '@prisma/client'
 import { z } from 'zod'
+
+// Derived from the generated Prisma enum rather than hand-listed. A hand-written
+// copy silently fell behind the database (INCIDENT_REPORT and VERBAL_WARNING were
+// missing), so records of those types could neither be filtered nor created.
+const DISCIPLINARY_TYPES = Object.values(DisciplinaryType) as [DisciplinaryType, ...DisciplinaryType[]]
 
 const createSchema = z.object({
   employeeId:    z.string().min(1),
-  type:          z.enum(['NOTICE_TO_EXPLAIN', 'NOTICE_OF_DECISION', 'WRITTEN_WARNING', 'SUSPENSION', 'DEMOTION', 'TERMINATION']),
+  type:          z.enum(DISCIPLINARY_TYPES),
   incident:      z.string().min(1),
   description:   z.string().min(1),
   dateOfIncident: z.string(),
@@ -34,9 +40,18 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url)
-  const status     = searchParams.get('status') || undefined
   const employeeId = searchParams.get('employeeId') || undefined
-  const type       = searchParams.get('type') || undefined
+
+  // Validate rather than cast. A blind `as` on a query param lets any junk value
+  // reach Prisma, which rejects it at the driver and turns a bad filter into a
+  // 500 — the page then just says "Failed to load records". Unknown values are
+  // ignored so the list still renders.
+  const statusParam = searchParams.get('status')
+  const typeParam   = searchParams.get('type')
+  const status = statusParam && statusParam in DisciplinaryStatus
+    ? (statusParam as DisciplinaryStatus) : undefined
+  const type = typeParam && typeParam in DisciplinaryType
+    ? (typeParam as DisciplinaryType) : undefined
 
   // Employees only see their own records
   let scopedEmployeeId = employeeId
@@ -52,9 +67,9 @@ export async function GET(req: NextRequest) {
   const records = await prisma.disciplinaryRecord.findMany({
     where: {
       companyId: ctx.companyId,
-      ...(status             && { status:     status     as 'OPEN' | 'RESPONDED' | 'CLOSED' }),
-      ...(scopedEmployeeId   && { employeeId: scopedEmployeeId }),
-      ...(type               && { type:       type       as 'NOTICE_TO_EXPLAIN' | 'NOTICE_OF_DECISION' | 'WRITTEN_WARNING' | 'SUSPENSION' | 'DEMOTION' | 'TERMINATION' }),
+      ...(status           && { status }),
+      ...(scopedEmployeeId && { employeeId: scopedEmployeeId }),
+      ...(type             && { type }),
     },
     include: {
       employee: {

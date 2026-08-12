@@ -231,9 +231,19 @@ enum OvertimeRequestStatus {
   CANCELLED
 }
 
+// Order matches the Postgres enum exactly (see pg_enum.enumsortorder), so a
+// `db pull` produces no diff.
+//
+// INCIDENT_REPORT and VERBAL_WARNING exist in the database but were missing
+// from this block, which made Prisma throw on ANY findMany that returned a row
+// using one — the whole page failed with "Failed to load records" for a tenant
+// that had a single such row. Never drop a value from here without first
+// migrating the rows that use it.
 enum DisciplinaryType {
+  INCIDENT_REPORT
   NOTICE_TO_EXPLAIN
   NOTICE_OF_DECISION
+  VERBAL_WARNING
   WRITTEN_WARNING
   SUSPENSION
   DEMOTION

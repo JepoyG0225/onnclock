@@ -20,6 +20,8 @@ interface DisciplinaryRecord {
 }
 
 const TYPE_LABELS: Record<string, string> = {
+  INCIDENT_REPORT:     'Incident Report',
+  VERBAL_WARNING:      'Verbal Warning',
   NOTICE_TO_EXPLAIN:   'Notice to Explain',
   NOTICE_OF_DECISION:  'Notice of Decision',
   WRITTEN_WARNING:     'Written Warning',
@@ -29,6 +31,8 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  INCIDENT_REPORT:     { bg: '#f1f5f9', text: '#334155' },
+  VERBAL_WARNING:      { bg: '#fef3c7', text: '#92400e' },
   NOTICE_TO_EXPLAIN:   { bg: '#dbeafe', text: '#1d4ed8' },
   NOTICE_OF_DECISION:  { bg: '#f3f4f6', text: '#374151' },
   WRITTEN_WARNING:     { bg: '#fef9c3', text: '#92400e' },

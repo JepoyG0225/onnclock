@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
     ])
 
   const TYPE_LABELS: Record<string, string> = {
+    INCIDENT_REPORT: 'Incident Report',
+    VERBAL_WARNING: 'Verbal Warning',
     NOTICE_TO_EXPLAIN: 'Notice to Explain',
     NOTICE_OF_DECISION: 'Notice of Decision',
     WRITTEN_WARNING: 'Written Warning',

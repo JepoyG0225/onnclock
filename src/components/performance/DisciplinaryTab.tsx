@@ -28,8 +28,10 @@ import { toast } from 'sonner'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type DisciplinaryType =
+  | 'INCIDENT_REPORT'
   | 'NOTICE_TO_EXPLAIN'
   | 'NOTICE_OF_DECISION'
+  | 'VERBAL_WARNING'
   | 'WRITTEN_WARNING'
   | 'SUSPENSION'
   | 'DEMOTION'
@@ -64,7 +66,9 @@ interface DisciplinaryRecord {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<DisciplinaryType, string> = {
+  INCIDENT_REPORT:    'Incident Report',
   NOTICE_TO_EXPLAIN:  'Notice to Explain',
+  VERBAL_WARNING:     'Verbal Warning',
   NOTICE_OF_DECISION: 'Notice of Decision',
   WRITTEN_WARNING:    'Written Warning',
   SUSPENSION:         'Suspension',
@@ -73,7 +77,9 @@ const TYPE_LABELS: Record<DisciplinaryType, string> = {
 }
 
 const TYPE_COLORS: Record<DisciplinaryType, string> = {
+  INCIDENT_REPORT:    'bg-slate-100 text-slate-700',
   NOTICE_TO_EXPLAIN:  'bg-blue-100 text-blue-800',
+  VERBAL_WARNING:     'bg-amber-100 text-amber-800',
   NOTICE_OF_DECISION: 'bg-gray-100 text-gray-700',
   WRITTEN_WARNING:    'bg-yellow-100 text-yellow-800',
   SUSPENSION:         'bg-orange-100 text-orange-800',
@@ -94,7 +100,12 @@ const STATUS_TABS: Array<{ value: string; label: string }> = [
   { value: 'CLOSED',    label: 'Closed' },
 ]
 
+// Feeds both the "New record" form and the filter dropdown, listed least- to
+// most-severe. Every value here must also be accepted by the POST /api/disciplinary
+// zod schema, or the form offers an option the API rejects.
 const TYPE_OPTIONS: Array<{ value: DisciplinaryType; label: string }> = [
+  { value: 'INCIDENT_REPORT',    label: 'Incident Report' },
+  { value: 'VERBAL_WARNING',     label: 'Verbal Warning' },
   { value: 'NOTICE_TO_EXPLAIN',  label: 'Notice to Explain' },
   { value: 'NOTICE_OF_DECISION', label: 'Notice of Decision' },
   { value: 'WRITTEN_WARNING',    label: 'Written Warning' },
@@ -437,11 +448,20 @@ export function DisciplinaryTab() {
       if (statusTab !== 'all') params.set('status', statusTab)
       if (typeFilter !== 'all') params.set('type', typeFilter)
       const res = await fetch(`/api/disciplinary?${params.toString()}`)
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error || `Request failed (${res.status})`)
+      }
       const data = await res.json()
       setRecords(data.records ?? [])
-    } catch {
-      toast.error('Failed to load records')
+    } catch (err) {
+      // Surface the server's reason. The previous bare `catch {}` reported the
+      // same generic string for every cause, which hid a real production fault
+      // (an enum value the client couldn't deserialize) behind "Failed to load
+      // records" with nothing to go on.
+      const message = err instanceof Error ? err.message : 'Failed to load records'
+      console.error('[disciplinary] load failed', err)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
