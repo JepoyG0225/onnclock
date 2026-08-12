@@ -18,6 +18,14 @@ export async function POST() {
 
   const migrations = [
     {
+      // Pre-approval state for employee loans. Placed BEFORE 'ACTIVE' so the
+      // enum reads in lifecycle order and matches prisma/schema.prisma, which
+      // keeps `prisma db pull` clean. Existing rows are untouched — this only
+      // widens the type, so no loan changes status.
+      name: 'add_pending_to_loan_status',
+      sql: `ALTER TYPE "LoanStatus" ADD VALUE IF NOT EXISTS 'PENDING' BEFORE 'ACTIVE';`,
+    },
+    {
       name: 'add_pm_transfer_id_to_disbursement_items',
       sql: `
         ALTER TABLE "payroll_disbursement_items"

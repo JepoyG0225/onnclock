@@ -68,7 +68,9 @@ export async function POST(req: NextRequest) {
       balance:             data.amount,
       monthlyAmortization: data.monthlyAmortization,
       startDate:           new Date(data.startDate),
-      status:              'ACTIVE',
+      // New loans await approval. Nothing deducts a PENDING loan, so it will
+      // not appear on a payslip until someone approves it into ACTIVE.
+      status:              'PENDING',
       notes:               data.notes ?? null,
     },
   })

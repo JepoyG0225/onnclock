@@ -60,6 +60,7 @@ const TYPE_SHORT: Record<string, string> = {
 }
 
 const STATUS_BADGE: Record<string, string> = {
+  PENDING:    'bg-amber-100 text-amber-800',
   ACTIVE:     'bg-green-100 text-green-800',
   FULLY_PAID: 'bg-gray-100 text-gray-600',
   CANCELLED:  'bg-red-100 text-red-700',
@@ -71,6 +72,7 @@ export function LoansTab() {
   const [loading,      setLoading]      = useState(false)
   const [showForm,     setShowForm]     = useState(false)
   const [statusFilter, setStatusFilter] = useState('ACTIVE')
+  const [pendingCount, setPendingCount] = useState(0)
   const [expandedId,   setExpandedId]   = useState<string | null>(null)
   const [loanDetail,   setLoanDetail]   = useState<Loan | null>(null)
 
@@ -91,6 +93,18 @@ export function LoansTab() {
     setLoading(false)
   }
 
+  /**
+   * Pending count for the filter badge. Fetched separately because `load()`
+   * only ever holds one status at a time, and the default filter is ACTIVE —
+   * without this, loans awaiting approval would be invisible until someone
+   * happened to click Pending.
+   */
+  async function loadPendingCount() {
+    const res  = await fetch('/api/loans?status=PENDING&limit=1')
+    const data = await res.json().catch(() => ({}))
+    setPendingCount(typeof data.total === 'number' ? data.total : 0)
+  }
+
   async function loadEmployees() {
     const res  = await fetch('/api/employees?limit=500')
     const data = await res.json().catch(() => ({}))
@@ -98,7 +112,7 @@ export function LoansTab() {
   }
 
   useEffect(() => { load() }, [statusFilter])
-  useEffect(() => { loadEmployees() }, [])
+  useEffect(() => { loadEmployees(); loadPendingCount() }, [])
 
   async function expandLoan(id: string) {
     if (expandedId === id) { setExpandedId(null); return }
@@ -125,10 +139,17 @@ export function LoansTab() {
       }),
     })
     if (res.ok) {
-      toast.success('Loan created — will be deducted on next payroll run')
+      toast.success('Loan created — pending approval before it is deducted')
       setShowForm(false)
       setForm({ employeeId: '', loanType: 'COMPANY_LOAN', amount: '', monthlyAmortization: '', startDate: format(new Date(), 'yyyy-MM-dd'), notes: '' })
+      // Land on Pending so the new loan is visible straight away. Without this
+      // it would be created into a status the default filter hides, and would
+      // look like nothing happened.
+      setStatusFilter('PENDING')
+      // setStatusFilter is a no-op when Pending is already selected, and then
+      // the effect would not re-fire — so refresh explicitly too.
       load()
+      loadPendingCount()
     } else {
       const err = await res.json().catch(() => ({}))
       toast.error(err?.error ?? 'Failed to create loan')
@@ -142,10 +163,16 @@ export function LoansTab() {
       body:    JSON.stringify({ status }),
     })
     if (res.ok) {
-      toast.success(`Loan marked as ${status.toLowerCase()}`)
+      toast.success(
+        status === 'ACTIVE'    ? 'Loan approved — it will be deducted from the next payroll'
+        : status === 'CANCELLED' ? 'Loan rejected'
+        : `Loan marked as ${status.toLowerCase()}`
+      )
       load()
+      loadPendingCount()
     } else {
-      toast.error('Failed to update loan')
+      const body = await res.json().catch(() => null)
+      toast.error(body?.error || 'Failed to update loan')
     }
   }
 
@@ -283,6 +310,7 @@ export function LoansTab() {
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
         {[
+          { val: 'PENDING',    label: 'Pending' },
           { val: 'ACTIVE',     label: 'Active' },
           { val: 'FULLY_PAID', label: 'Fully Paid' },
           { val: 'CANCELLED',  label: 'Cancelled' },
@@ -296,6 +324,15 @@ export function LoansTab() {
             style={statusFilter === val ? { background: '#0055d4' } : {}}
           >
             {label}
+            {val === 'PENDING' && pendingCount > 0 && (
+              <span
+                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${
+                  statusFilter === val ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                {pendingCount}
+              </span>
+            )}
           </Button>
         ))}
       </div>
@@ -396,6 +433,25 @@ export function LoansTab() {
                               >
                                 {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <History className="w-3.5 h-3.5" />}
                               </Button>
+                              {l.status === 'PENDING' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => updateStatus(l.id, 'ACTIVE')}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs text-red-500 hover:text-red-700"
+                                    onClick={() => updateStatus(l.id, 'CANCELLED')}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
                               {l.status === 'ACTIVE' && (
                                 <>
                                   <Button

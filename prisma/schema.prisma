@@ -96,7 +96,12 @@ enum CashAdvanceStatus {
   CANCELLED
 }
 
+// PENDING is the pre-approval state: a loan sits here until someone approves
+// it, and only then becomes ACTIVE. Nothing deducts a PENDING loan — payroll
+// compute, payroll lock, final pay and the cash-advance limit all filter on
+// status ACTIVE — so a loan awaiting approval cannot reach a payslip.
 enum LoanStatus {
+  PENDING
   ACTIVE
   FULLY_PAID
   CANCELLED

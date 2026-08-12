@@ -28,6 +28,7 @@ import {
   MapPin,
   Pencil,
   Upload,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -218,6 +219,18 @@ export function TimesheetsTab() {
 
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+
+  // Export. Scope is independent of the table's view mode so a user looking at
+  // one day can still pull a whole month without changing what's on screen;
+  // the fields are pre-filled from the current view when the dialog opens.
+  const [showExport, setShowExport]     = useState(false)
+  const [exportScope, setExportScope]   = useState<'day' | 'month' | 'period'>('month')
+  const [exportDate, setExportDate]     = useState('')
+  const [exportMonth, setExportMonth]   = useState('')
+  const [exportFrom, setExportFrom]     = useState('')
+  const [exportTo, setExportTo]         = useState('')
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx')
+  const [exporting, setExporting]       = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteInput, setDeleteInput] = useState('')
@@ -476,6 +489,75 @@ export function TimesheetsTab() {
     const ws = parseISO(selectedWeek)
     return { start: ws, end: endOfWeek(ws, { weekStartsOn: 1 }), key: selectedWeek }
   }, [viewMode, selectedDate, selectedMonth, selectedWeek])
+
+  /** The from/to the export dialog will actually request, per chosen scope. */
+  const exportRange = useMemo<{ from: string; to: string } | null>(() => {
+    if (exportScope === 'day') {
+      return exportDate ? { from: exportDate, to: exportDate } : null
+    }
+    if (exportScope === 'month') {
+      if (!exportMonth) return null
+      const first = parseISO(`${exportMonth}-01`)
+      return {
+        from: format(startOfMonth(first), 'yyyy-MM-dd'),
+        to:   format(endOfMonth(first),   'yyyy-MM-dd'),
+      }
+    }
+    if (!exportFrom || !exportTo) return null
+    if (exportFrom > exportTo) return null
+    return { from: exportFrom, to: exportTo }
+  }, [exportScope, exportDate, exportMonth, exportFrom, exportTo])
+
+  /** Pre-fill from whatever the table is currently showing, then open. */
+  function openExport() {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    setExportDate(viewMode === 'daily' ? (selectedDate || today) : (selectedDate || today))
+    setExportMonth(selectedMonth || format(new Date(), 'yyyy-MM'))
+    if (activeRange) {
+      setExportFrom(format(activeRange.start, 'yyyy-MM-dd'))
+      setExportTo(format(activeRange.end, 'yyyy-MM-dd'))
+    }
+    // Default the scope to match the view the user is already in.
+    setExportScope(viewMode === 'daily' ? 'day' : viewMode === 'monthly' ? 'month' : 'period')
+    setShowExport(true)
+  }
+
+  async function runExport() {
+    if (!exportRange) return
+    setExporting(true)
+    try {
+      const qs = new URLSearchParams({
+        from: exportRange.from,
+        to: exportRange.to,
+        format: exportFormat,
+      })
+      const res = await fetch(withCompanyQuery(`/api/dtr/export?${qs.toString()}`))
+      if (!res.ok) {
+        // The route returns JSON on every failure path (403, bad range, too wide).
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error || `Export failed (${res.status})`)
+      }
+      const blob = await res.blob()
+      // Filename comes from Content-Disposition so it always matches what the
+      // server actually built (company + resolved range + extension).
+      const disp = res.headers.get('Content-Disposition') ?? ''
+      const named = /filename="([^"]+)"/.exec(disp)?.[1]
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = named ?? `timesheets.${exportFormat}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast.success('Timesheet exported')
+      setShowExport(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const load = useCallback(async () => {
     if (!activeRange || (isSystemAdmin && !selectedCompanyId)) {
@@ -973,6 +1055,15 @@ export function TimesheetsTab() {
           </p>
         </div>
         <div className="flex items-center gap-2" data-tour="dtr-add">
+          <Button
+            variant="outline"
+            onClick={openExport}
+            disabled={isSystemAdmin && !selectedCompanyId}
+            data-tour="dtr-export"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
           <Button variant="outline" onClick={() => setShowImport(true)} disabled={isSystemAdmin && !selectedCompanyId}>
             <Upload className="w-4 h-4 mr-2" />
             Bulk Import
@@ -983,6 +1074,130 @@ export function TimesheetsTab() {
           </Button>
         </div>
       </div>
+
+      {showExport && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowExport(false)} />
+          <Card className="relative w-full max-w-lg border-[#AAB7B7] shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Export Timesheets
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">Period</label>
+                <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                  {([
+                    { id: 'day',    label: 'Day' },
+                    { id: 'month',  label: 'Month' },
+                    { id: 'period', label: 'Custom period' },
+                  ] as const).map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setExportScope(s.id)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+                        exportScope === s.id ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {exportScope === 'day' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={exportDate}
+                    onChange={e => setExportDate(e.target.value)}
+                    className="w-full border rounded px-3 py-2 text-sm bg-white"
+                  />
+                </div>
+              )}
+
+              {exportScope === 'month' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Month</label>
+                  <input
+                    type="month"
+                    value={exportMonth}
+                    onChange={e => setExportMonth(e.target.value)}
+                    className="w-full border rounded px-3 py-2 text-sm bg-white"
+                  />
+                </div>
+              )}
+
+              {exportScope === 'period' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">From</label>
+                    <input
+                      type="date"
+                      value={exportFrom}
+                      onChange={e => setExportFrom(e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">To</label>
+                    <input
+                      type="date"
+                      value={exportTo}
+                      onChange={e => setExportTo(e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">Format</label>
+                <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                  {([
+                    { id: 'xlsx', label: 'Excel (.xlsx)' },
+                    { id: 'csv',  label: 'CSV' },
+                  ] as const).map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setExportFormat(f.id)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+                        exportFormat === f.id ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {exportFormat === 'xlsx'
+                    ? 'Two sheets: a row per day, plus per-employee totals.'
+                    : 'A single flat sheet, one row per day.'}
+                </p>
+              </div>
+
+              {exportScope === 'period' && exportFrom && exportTo && exportFrom > exportTo && (
+                <p className="text-xs text-red-600">“From” must not be after “To”.</p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setShowExport(false)} disabled={exporting}>
+                  Cancel
+                </Button>
+                <Button onClick={runExport} disabled={!exportRange || exporting}>
+                  {exporting ? 'Preparing…' : 'Download'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>,
+        portalTarget,
+      )}
 
       {showForm && portalTarget && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

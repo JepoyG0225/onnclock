@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { LoanStatus } from '@prisma/client'
+
+const LOAN_STATUSES: string[] = Object.values(LoanStatus)
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,7 +32,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Build update payload — only include defined fields
   const updateData: Record<string, unknown> = {}
-  if (body.status              !== undefined) updateData.status              = body.status
+  if (body.status !== undefined) {
+    // Validate against the enum. An unrecognised string used to reach Prisma
+    // and surface as an opaque 500 rather than a useful message.
+    if (!LOAN_STATUSES.includes(body.status)) {
+      return NextResponse.json({ error: `Unknown loan status: ${body.status}` }, { status: 400 })
+    }
+    updateData.status = body.status
+  }
   if (body.notes               !== undefined) updateData.notes               = body.notes
   if (body.monthlyAmortization !== undefined) updateData.monthlyAmortization = body.monthlyAmortization
   if (body.balance             !== undefined) updateData.balance             = body.balance
