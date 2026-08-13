@@ -1241,6 +1241,10 @@ model CashAdvanceRequest {
   amountRequested Decimal           @db.Decimal(12, 2)
   reason          String
   repaymentMonths Int               @default(1) // 1 to 3 typically
+  /// Repay in N cutoffs instead of N months. Set when the employee picks a
+  /// cutoff-based term (e.g. "1 cutoff"); null means repaymentMonths applies.
+  /// Nullable on purpose so every existing row keeps its current meaning.
+  repaymentCutoffs Int?
   status          CashAdvanceStatus @default(PENDING)
   approvedById    String?
   approvedAt      DateTime?

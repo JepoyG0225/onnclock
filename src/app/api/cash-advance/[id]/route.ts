@@ -14,6 +14,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/lib/notifications'
 import { logAudit } from '@/lib/audit'
+import { getPeriodDivisor } from '@/lib/payroll/cutoffs'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
@@ -27,6 +28,8 @@ const patchSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT', 'UPDATE_TERMS']),
   /** UPDATE_TERMS only: new repayment length, 1-3 months. */
   repaymentMonths: z.number().int().min(1).max(3).optional(),
+  /** UPDATE_TERMS only: repay in N cutoffs instead. Takes precedence. */
+  repaymentCutoffs: z.number().int().min(1).max(6).optional(),
   rejectionReason: z.string().max(500).optional().nullable(),
 })
 
@@ -63,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
-  const { action, rejectionReason, repaymentMonths } = parsed.data
+  const { action, rejectionReason, repaymentMonths, repaymentCutoffs } = parsed.data
 
 
 
@@ -89,8 +92,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // amount: re-spreading the full principal over the new term would re-charge
   // what has already been deducted.
   if (action === 'UPDATE_TERMS') {
-    if (!repaymentMonths) {
-      return NextResponse.json({ error: 'repaymentMonths is required' }, { status: 400 })
+    if (!repaymentMonths && !repaymentCutoffs) {
+      return NextResponse.json(
+        { error: 'repaymentMonths or repaymentCutoffs is required' }, { status: 400 },
+      )
     }
     if (existing.status !== 'PENDING' && existing.status !== 'APPROVED') {
       return NextResponse.json(
@@ -107,7 +112,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         })
         if (loan && loan.status === 'ACTIVE') {
           const remaining = Number(loan.balance)
-          const newAmort = parseFloat((remaining / repaymentMonths).toFixed(2))
+          // Recomputed from the REMAINING balance, so shortening the term never
+          // re-charges what has already been deducted.
+          const newAmort = repaymentCutoffs
+            ? parseFloat(((remaining * (await getPeriodDivisor(ctx.companyId))) / repaymentCutoffs).toFixed(2))
+            : parseFloat((remaining / (repaymentMonths ?? 1)).toFixed(2))
           await tx.employeeLoan.update({
             where: { id: existing.linkedLoanId },
             data: { monthlyAmortization: newAmort },
@@ -116,7 +125,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       return tx.cashAdvanceRequest.update({
         where: { id },
-        data: { repaymentMonths },
+        data: {
+          ...(repaymentMonths ? { repaymentMonths } : {}),
+          repaymentCutoffs: repaymentCutoffs ?? null,
+        },
       })
     })
 
@@ -176,7 +188,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         body: rejectionReason
           ? `Your ₱${Number(existing.amountRequested).toLocaleString()} request was rejected: ${rejectionReason}`
           : `Your ₱${Number(existing.amountRequested).toLocaleString()} cash advance request was rejected.`,
-        link: '/portal/cash-advance',
+        link: '/portal/loans?tab=cash-advance',
       })
     }
     return NextResponse.json({ request: updated })
@@ -208,8 +220,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // automatically pull the amortization each cutoff. The cash-advance row is
   // updated to point at it via linkedLoanId.
   const amount = Number(existing.amountRequested)
-  const months = Math.max(1, Math.min(3, existing.repaymentMonths))
-  const monthlyAmortization = parseFloat((amount / months).toFixed(2))
+
+  // A cutoff-based term wins over the month-based one when the employee chose
+  // it. Payroll computes `monthlyAmortization / periodDivisor` and caps that at
+  // the remaining balance, so to clear the advance in N cutoffs the stored
+  // monthly figure has to be amount x divisor / N. For N = 1 that means the
+  // whole amount comes out of the next payslip and nothing after.
+  let monthlyAmortization: number
+  let termLabel: string
+  if (existing.repaymentCutoffs && existing.repaymentCutoffs > 0) {
+    const divisor = await getPeriodDivisor(ctx.companyId)
+    const cutoffs = existing.repaymentCutoffs
+    monthlyAmortization = parseFloat(((amount * divisor) / cutoffs).toFixed(2))
+    // Per-cutoff is the figure that lands on a payslip, so quote that rather
+    // than the stored monthly number, which is deliberately inflated here.
+    const perCutoff = parseFloat((amount / cutoffs).toFixed(2))
+    termLabel = `₱${perCutoff.toLocaleString()} per cutoff over ${cutoffs} cutoff${cutoffs > 1 ? 's' : ''}`
+  } else {
+    const months = Math.max(1, Math.min(3, existing.repaymentMonths))
+    monthlyAmortization = parseFloat((amount / months).toFixed(2))
+    termLabel = `₱${monthlyAmortization.toLocaleString()}/month over ${months} month${months > 1 ? 's' : ''}`
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const loan = await tx.employeeLoan.create({
@@ -249,8 +280,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       userId: existing.employee.userId,
       type: 'GENERIC',
       title: 'Cash advance approved',
-      body: `Your ₱${amount.toLocaleString()} cash advance was approved. Repayment: ₱${monthlyAmortization.toLocaleString()}/month over ${months} month${months > 1 ? 's' : ''}.`,
-      link: '/portal/cash-advance',
+      body: `Your ₱${amount.toLocaleString()} cash advance was approved. Repayment: ${termLabel}.`,
+      link: '/portal/loans?tab=cash-advance',
     })
   }
 

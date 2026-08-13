@@ -29,6 +29,8 @@ const createSchema = z.object({
   amountRequested: z.number().positive(),
   reason: z.string().min(3).max(500),
   repaymentMonths: z.number().int().min(1).max(3).default(1),
+  /** Repay in N cutoffs instead of N months. Takes precedence when set. */
+  repaymentCutoffs: z.number().int().min(1).max(6).optional(),
   // HR can file on behalf of an employee
   employeeId: z.string().optional(),
 })
@@ -121,7 +123,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { amountRequested, reason, repaymentMonths, employeeId: targetEmployeeId } = parsed.data
+  const { amountRequested, reason, repaymentMonths, repaymentCutoffs, employeeId: targetEmployeeId } = parsed.data
   const isHR = HR_ROLES.includes(ctx.role ?? '')
 
   // Resolve who the request is for.
@@ -198,6 +200,7 @@ export async function POST(req: NextRequest) {
       amountRequested,
       reason,
       repaymentMonths,
+      repaymentCutoffs: repaymentCutoffs ?? null,
       status:          'PENDING',
     },
   })

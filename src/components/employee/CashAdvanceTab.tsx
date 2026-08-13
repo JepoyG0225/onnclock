@@ -49,6 +49,7 @@ export function CashAdvanceTab() {
     amount: '',
     reason: '',
     repaymentMonths: 1,
+    repaymentCutoffs: 0,
   })
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [okMsg,    setOkMsg]    = useState<string | null>(null)
@@ -85,11 +86,12 @@ export function CashAdvanceTab() {
           amountRequested: amt,
           reason: form.reason.trim(),
           repaymentMonths: form.repaymentMonths,
+          ...(form.repaymentCutoffs ? { repaymentCutoffs: form.repaymentCutoffs } : {}),
         }),
       })
       if (res.ok) {
         setOkMsg('Request submitted — HR will review shortly.')
-        setForm({ amount: '', reason: '', repaymentMonths: 1 })
+        setForm({ amount: '', reason: '', repaymentMonths: 1, repaymentCutoffs: 0 })
         setShowForm(false)
         load()
       } else {
@@ -188,14 +190,28 @@ export function CashAdvanceTab() {
 
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Repay Over</label>
-            <div className="grid grid-cols-3 rounded-lg border overflow-hidden">
+            {/* "1 cutoff" clears the advance from the next payslip in full.
+                It is sent as repaymentCutoffs, which the API honours over the
+                month-based term. */}
+            <div className="grid grid-cols-4 rounded-lg border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, repaymentCutoffs: 1 }))}
+                className={`px-2 py-1.5 text-sm transition-colors ${
+                  form.repaymentCutoffs === 1 ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                1 cutoff
+              </button>
               {[1, 2, 3].map(m => (
                 <button
                   type="button"
                   key={m}
-                  onClick={() => setForm(f => ({ ...f, repaymentMonths: m }))}
+                  onClick={() => setForm(f => ({ ...f, repaymentMonths: m, repaymentCutoffs: 0 }))}
                   className={`px-2 py-1.5 text-sm transition-colors ${
-                    form.repaymentMonths === m ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    !form.repaymentCutoffs && form.repaymentMonths === m
+                      ? 'bg-[#032b63] text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {m} {m === 1 ? 'month' : 'months'}
@@ -204,15 +220,23 @@ export function CashAdvanceTab() {
             </div>
             {form.amount && (
               <div className="mt-2 space-y-0.5">
-                <p className="text-xs text-gray-400">
-                  ≈ {peso(Number(form.amount) / form.repaymentMonths)} deducted per month
-                </p>
-                {/* Payroll divides the monthly amortisation by the number of
-                    cutoffs in a month, so this is the figure that actually
-                    appears on a payslip. Matches the admin loan form's hint. */}
-                <p className="text-xs text-gray-400">
-                  ≈ {peso(Number(form.amount) / form.repaymentMonths / 2)} per cutoff on semi-monthly payroll
-                </p>
+                {form.repaymentCutoffs ? (
+                  <p className="text-xs text-gray-400">
+                    ≈ {peso(Number(form.amount) / form.repaymentCutoffs)} deducted in full on your next payslip
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400">
+                      ≈ {peso(Number(form.amount) / form.repaymentMonths)} deducted per month
+                    </p>
+                    {/* Payroll divides the monthly amortisation by the number of
+                        cutoffs in a month, so this is the figure that actually
+                        appears on a payslip. */}
+                    <p className="text-xs text-gray-400">
+                      ≈ {peso(Number(form.amount) / form.repaymentMonths / 2)} per cutoff on semi-monthly payroll
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -18,6 +18,12 @@ export async function POST() {
 
   const migrations = [
     {
+      // Cutoff-based repayment for cash advances. Nullable so every existing
+      // row keeps meaning "repaymentMonths months" — nothing is reinterpreted.
+      name: 'add_repayment_cutoffs_to_cash_advances',
+      sql: `ALTER TABLE "cash_advance_requests" ADD COLUMN IF NOT EXISTS "repaymentCutoffs" INTEGER;`,
+    },
+    {
       // Pre-approval state for employee loans. Placed BEFORE 'ACTIVE' so the
       // enum reads in lifecycle order and matches prisma/schema.prisma, which
       // keeps `prisma db pull` clean. Existing rows are untouched — this only

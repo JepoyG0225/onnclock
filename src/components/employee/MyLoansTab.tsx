@@ -19,6 +19,10 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Plus, Loader2, CreditCard, X } from 'lucide-react'
 
+// Semi-monthly is the schema default and the PH norm. The exact company value
+// is applied server-side on approval; this only drives the preview text.
+const CUTOFFS_PER_MONTH = 2
+
 const NAVY = '#032b63'
 const ORANGE = '#ff5900'
 
@@ -54,6 +58,10 @@ const TYPE_LABEL: Record<string, string> =
  * 12-month mark — "24 months" is harder to read than "2 years".
  */
 const REPAYMENT_TERMS = [
+  // months: 0 means "one cutoff" — cleared from the next payslip in full.
+  // EmployeeLoan stores no term, only monthlyAmortization, so this is expressed
+  // by inflating that figure rather than by a schema change.
+  { months: 0,  label: '1 cutoff (next payslip)' },
   { months: 1,  label: '1 month' },
   { months: 2,  label: '2 months' },
   { months: 3,  label: '3 months' },
@@ -110,10 +118,19 @@ export function MyLoansTab() {
 
   const amount = Number(form.amount)
   const months = form.repaymentMonths
-  const valid = amount > 0 && months > 0 && !!form.startDate
-  // Rounded to centavos because it is sent as the loan's monthlyAmortization
-  // and payroll divides it per cutoff — a long decimal would drift.
-  const monthly = valid ? Math.round((amount / months) * 100) / 100 : 0
+  const oneCutoff = months === 0
+  const valid = amount > 0 && months >= 0 && !!form.startDate
+  // Payroll computes monthlyAmortization / CUTOFFS_PER_MONTH and caps it at the
+  // remaining balance. So to clear the loan in a single cutoff the stored
+  // monthly figure must be amount x cutoffs — the cap then takes exactly the
+  // balance once and nothing after.
+  const monthly = !valid
+    ? 0
+    : oneCutoff
+      ? Math.round(amount * CUTOFFS_PER_MONTH * 100) / 100
+      : Math.round((amount / months) * 100) / 100
+  /** What actually lands on a payslip. */
+  const perCutoff = valid ? (oneCutoff ? amount : Math.round((monthly / CUTOFFS_PER_MONTH) * 100) / 100) : 0
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -251,17 +268,22 @@ export function MyLoansTab() {
 
           {valid && (
             <div className="rounded-xl px-3 py-2.5 space-y-1" style={{ background: 'rgba(3,43,99,0.06)' }}>
-              <p className="text-[12px] font-semibold text-slate-600">
-                About <span className="font-black" style={{ color: NAVY }}>{peso(monthly)}</span> deducted
-                per month over {REPAYMENT_TERMS.find(t => t.months === months)?.label ?? `${months} months`}.
-              </p>
-              {/* Payroll splits the monthly amortisation across the cutoffs in a
-                  month (SEMI_MONTHLY=2), so the per-cutoff figure is what
-                  actually leaves a payslip. The admin loan form shows the same
-                  split; this makes the portal match it. */}
-              <p className="text-[11px] font-semibold text-slate-400">
-                ≈ {peso(monthly / 2)} per cutoff on semi-monthly payroll
-              </p>
+              {oneCutoff ? (
+                <p className="text-[12px] font-semibold text-slate-600">
+                  <span className="font-black" style={{ color: NAVY }}>{peso(amount)}</span> deducted
+                  in full on your next payslip.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[12px] font-semibold text-slate-600">
+                    About <span className="font-black" style={{ color: NAVY }}>{peso(monthly)}</span> deducted
+                    per month over {REPAYMENT_TERMS.find(t => t.months === months)?.label ?? `${months} months`}.
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-400">
+                    ≈ {peso(perCutoff)} per cutoff on semi-monthly payroll
+                  </p>
+                </>
+              )}
             </div>
           )}
 
