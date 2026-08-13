@@ -217,7 +217,7 @@ export default async function PortalHomePage() {
             /portal/clock renders, so GPS, geofence, biometric verification,
             selfie capture and break handling all behave identically here — and
             cannot drift, because there is only one implementation. */}
-        <PunchClock showHistory={false} />
+        <PunchClock />
 
         {/* In / Out / Worked */}
         <div className="grid grid-cols-3 gap-2 mt-5">

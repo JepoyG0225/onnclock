@@ -17,7 +17,6 @@ const PortalLocationMap = dynamic(
   () => import('@/components/employee/PortalLocationMap').then(m => m.PortalLocationMap),
   { ssr: false },
 )
-import { AttendanceHistory } from '@/components/employee/AttendanceHistory'
 
 interface TodayRecord {
   id: string
@@ -65,10 +64,10 @@ interface ScreenCaptureFeature {
  * Both surfaces render THIS, so the clock rules can never diverge between them
  * — which is exactly what would have happened had home grown its own copy.
  *
- * `showHistory` is the only difference between the two: the dedicated page
- * shows the month-by-month record underneath, the home card does not.
+ * Records live on /portal/clock, which renders AttendanceHistory on its own —
+ * this component is purely the punch control.
  */
-export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
+export function PunchClock() {
   const [record, setRecord] = useState<TodayRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [breakMinutes, setBreakMinutes] = useState(60)
@@ -149,9 +148,6 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
     }
   }, [])
 
-  /** Bumped after a punch so AttendanceHistory refetches the current month. */
-  const [historyKey, setHistoryKey] = useState(0)
-  const refreshHistory = useCallback(() => setHistoryKey(k => k + 1), [])
 
   const loadBiometricStatus = useCallback(async () => {
     setBiometricLoading(true)
@@ -520,7 +516,6 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
       toast.success('Clocked in successfully!')
       setSelfiePhoto(null)
       await loadRecord()
-      refreshHistory()
 
       // Refresh location in the background after clock-in so the live map
       // stays accurate regardless of whether we used a cached position.
@@ -563,7 +558,6 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
       toast.success('Clocked out successfully!')
       stopScreenCaptureLoop()
       await loadRecord()
-      refreshHistory()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to clock out')
     } finally {
@@ -1200,10 +1194,6 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
         </div>
       )}
 
-      {/* The seven-day "Recent Attendance Logs" list that used to sit here is
-          gone. AttendanceHistory below shows the same records with month
-          navigation and totals, so the page was rendering the same recent days
-          twice, one above the other. */}
 
       {/* Current Location Map at Bottom.
 
@@ -1311,11 +1301,6 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
       {/* Full month-by-month record, moved here from the retired
           /portal/attendance page so today's punch and the history an employee
           checks it against live on one screen. */}
-      {showHistory && (
-        <div className="pt-2">
-          <AttendanceHistory refreshKey={historyKey} />
-        </div>
-      )}
 
       {/* Why you can't clock in — shown on tap instead of disabling the button.
 

@@ -48,6 +48,25 @@ const LOAN_TYPES = [
 const TYPE_LABEL: Record<string, string> =
   Object.fromEntries(LOAN_TYPES.map(t => [t.value, t.label]))
 
+/**
+ * Repayment terms, in months. Longer than cash advance's 1-3 because SSS and
+ * Pag-IBIG loans are normally amortised over years. Labelled in years past the
+ * 12-month mark — "24 months" is harder to read than "2 years".
+ */
+const REPAYMENT_TERMS = [
+  { months: 1,  label: '1 month' },
+  { months: 2,  label: '2 months' },
+  { months: 3,  label: '3 months' },
+  { months: 6,  label: '6 months' },
+  { months: 9,  label: '9 months' },
+  { months: 12, label: '1 year' },
+  { months: 18, label: '1 year 6 months' },
+  { months: 24, label: '2 years' },
+  { months: 36, label: '3 years' },
+  { months: 48, label: '4 years' },
+  { months: 60, label: '5 years' },
+] as const
+
 const STATUS_TONE: Record<LoanStatus, { bar: string; bg: string; fg: string; label: string }> = {
   PENDING:    { bar: '#f59e0b', bg: '#fffbeb', fg: '#b45309', label: 'Pending approval' },
   ACTIVE:     { bar: '#10b981', bg: '#ecfdf5', fg: '#047857', label: 'Active' },
@@ -67,7 +86,7 @@ export function MyLoansTab() {
   const [form, setForm] = useState({
     loanType: 'COMPANY_LOAN',
     amount: '',
-    monthlyAmortization: '',
+    repaymentMonths: 6,
     startDate: format(new Date(), 'yyyy-MM-dd'),
     notes: '',
   })
@@ -90,11 +109,11 @@ export function MyLoansTab() {
   useEffect(() => { load() }, [load])
 
   const amount = Number(form.amount)
-  const monthly = Number(form.monthlyAmortization)
-  const valid = amount > 0 && monthly > 0 && !!form.startDate
-  // Rough term, shown so the employee can sanity-check the amortisation they
-  // typed before filing rather than after an admin queries it.
-  const months = valid ? Math.ceil(amount / monthly) : 0
+  const months = form.repaymentMonths
+  const valid = amount > 0 && months > 0 && !!form.startDate
+  // Rounded to centavos because it is sent as the loan's monthlyAmortization
+  // and payroll divides it per cutoff — a long decimal would drift.
+  const monthly = valid ? Math.round((amount / months) * 100) / 100 : 0
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -122,7 +141,7 @@ export function MyLoansTab() {
       toast.success('Loan request submitted — pending approval')
       setShowForm(false)
       setForm({
-        loanType: 'COMPANY_LOAN', amount: '', monthlyAmortization: '',
+        loanType: 'COMPANY_LOAN', amount: '', repaymentMonths: 6,
         startDate: format(new Date(), 'yyyy-MM-dd'), notes: '',
       })
       load()
@@ -175,33 +194,33 @@ export function MyLoansTab() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Amount
-              </label>
-              <input
-                type="number" inputMode="decimal" min="1" step="0.01"
-                value={form.amount}
-                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                placeholder="0.00"
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Monthly
-              </label>
-              <input
-                type="number" inputMode="decimal" min="1" step="0.01"
-                value={form.monthlyAmortization}
-                onChange={e => setForm(f => ({ ...f, monthlyAmortization: e.target.value }))}
-                placeholder="0.00"
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium"
-                required
-              />
-            </div>
+          <div>
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+              Amount
+            </label>
+            <input
+              type="number" inputMode="decimal" min="1" step="0.01"
+              value={form.amount}
+              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+              placeholder="0.00"
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+              Repay over
+            </label>
+            <select
+              value={form.repaymentMonths}
+              onChange={e => setForm(f => ({ ...f, repaymentMonths: Number(e.target.value) }))}
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white font-medium"
+            >
+              {REPAYMENT_TERMS.map(t => (
+                <option key={t.months} value={t.months}>{t.label}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -230,11 +249,13 @@ export function MyLoansTab() {
             />
           </div>
 
-          {months > 0 && (
-            <p className="text-[12px] font-semibold text-slate-500">
-              About <span style={{ color: NAVY }}>{months} month{months === 1 ? '' : 's'}</span> to repay
-              at {peso(monthly)} per month.
-            </p>
+          {valid && (
+            <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(3,43,99,0.06)' }}>
+              <p className="text-[12px] font-semibold text-slate-600">
+                About <span className="font-black" style={{ color: NAVY }}>{peso(monthly)}</span> deducted
+                per month over {REPAYMENT_TERMS.find(t => t.months === months)?.label ?? `${months} months`}.
+              </p>
+            </div>
           )}
 
           <p className="text-[11px] text-slate-400 leading-relaxed">

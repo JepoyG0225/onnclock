@@ -97,41 +97,39 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
     { present: 0, absent: 0, late: 0, hours: 0, ot: 0 }
   )
 
+  // No page gutter here — /portal/clock provides it. Keeping both meant double
+  // padding on a 375px screen.
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-black" style={{ color: '#032b63' }}>Attendance history</h2>
-          <p className="text-gray-500 text-sm mt-1">Your daily time records</p>
-          {/* Spotting a wrong punch is exactly what an employee is doing when
-              they scroll this list, so the fix is one tap from here rather than
-              buried in the More drawer. */}
-          <Link
-            href="/portal/time-corrections"
-            className="inline-flex items-center gap-1 mt-2 text-[12px] font-bold text-slate-500 hover:text-[#032b63] transition-colors"
-          >
-            <ClipboardEdit className="w-3.5 h-3.5" />
-            Request a time correction
-          </Link>
-        </div>
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-1">
-          <button
-            onClick={() => setCurrentMonth(m => subMonths(m, 1))}
-            className="p-1.5 hover:bg-gray-100 rounded"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm font-medium text-gray-700 px-2 min-w-[130px] text-center">
-            {format(currentMonth, 'MMMM yyyy')}
-          </span>
-          <button
-            onClick={() => setCurrentMonth(m => subMonths(m, -1))}
-            disabled={currentMonth >= new Date()}
-            className="p-1.5 hover:bg-gray-100 rounded disabled:opacity-40"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+    <div className="space-y-4">
+      {/* Header stacks on mobile. Side by side, the month picker's 130px label
+          plus two arrow buttons left barely 150px for the title and the
+          correction link, which wrapped badly at 375px. */}
+      <div>
+        <h2 className="text-[19px] font-black" style={{ color: '#032b63' }}>Attendance history</h2>
+        <p className="text-slate-400 text-[13px] font-semibold mt-0.5">Your daily time records</p>
+      </div>
+
+      {/* Month navigator — full width on mobile so the arrows are easy targets
+          and the month never truncates. */}
+      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-1.5">
+        <button
+          onClick={() => setCurrentMonth(m => subMonths(m, 1))}
+          aria-label="Previous month"
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-[14px] font-black text-slate-800">
+          {format(currentMonth, 'MMMM yyyy')}
+        </span>
+        <button
+          onClick={() => setCurrentMonth(m => subMonths(m, -1))}
+          disabled={currentMonth >= new Date()}
+          aria-label="Next month"
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 disabled:opacity-30"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Stats: 2 cols on phones, 3 on small tablets, 5 on desktop. 5 cards
@@ -234,6 +232,16 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           })}
         </div>
       )}
+
+      {/* Spotting a wrong punch is what an employee is doing while scrolling
+          this list, so the fix sits right after it. */}
+      <Link
+        href="/portal/time-corrections"
+        className="flex items-center justify-center gap-1.5 w-full py-3 rounded-2xl bg-white border border-slate-200 text-[12px] font-black text-slate-600 active:bg-slate-50 transition-colors"
+      >
+        <ClipboardEdit className="w-3.5 h-3.5" />
+        Request a time correction
+      </Link>
     </div>
   )
 }
