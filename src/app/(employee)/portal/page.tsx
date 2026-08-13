@@ -17,10 +17,12 @@ import { prisma } from '@/lib/prisma'
 import { getEmployeeLiteByUser } from '@/lib/data/employee'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { getManilaDateOnly, MANILA_TIME_ZONE } from '@/lib/date-manila'
+import { LiveClock } from '@/components/employee/LiveClock'
+import { PunchClock } from '@/components/employee/PunchClock'
 import {
   ListChecks, FileText, CreditCard, ChevronRight, AlertTriangle,
   ClipboardEdit, Banknote, User, CheckCircle2, LogIn, LogOut,
-  Fingerprint, MapPin, Timer,
+  Timer,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -71,66 +73,64 @@ export default async function PortalHomePage() {
   const sub = await getCompanySubscription(companyId).catch(() => ({ pricePerSeat: 0, isTrial: false }))
   const tasksEnabled = hasHrisProFeature(sub.pricePerSeat) || sub.isTrial
 
-  const results = await Promise.allSettled([
-    employee
-      ? withTimeout(prisma.dTRRecord.findFirst({
-          where: { employeeId: employee.id, date: { gte: today, lt: tomorrow } },
-          orderBy: { createdAt: 'desc' },
-          select: { timeIn: true, timeOut: true, breakIn: true, breakOut: true },
-        }), 4000, 'todayDtr')
-      : Promise.resolve(null),
-    employee
-      ? withTimeout(prisma.leaveRequest.count({
-          where: { employeeId: employee.id, status: 'PENDING' },
-        }), 4000, 'pendingLeaves')
-      : Promise.resolve(0),
-    // Task counters. Guarded by the Pro check above so non-entitled companies
-    // don't pay for these queries at all.
-    tasksEnabled && employee
-      ? withTimeout(prisma.task.count({
-          where: {
-            companyId, parentTaskId: null,
-            status: { category: { not: 'DONE' } },
-            assignees: { some: { employeeId: employee.id } },
-          },
-        }), 4000, 'openTasks')
-      : Promise.resolve(0),
-    tasksEnabled && employee
-      ? withTimeout(prisma.task.count({
-          where: {
-            companyId, parentTaskId: null,
-            status: { category: { not: 'DONE' } },
-            assignees: { some: { employeeId: employee.id } },
-            dueDate: { lt: today },
-          },
-        }), 4000, 'overdueTasks')
-      : Promise.resolve(0),
-    employee
-      ? withTimeout(prisma.payslip.findFirst({
-          // Same visibility rule as /api/payroll/my-payslips — there is no PAID
-          // status on PayrollRun; a payslip becomes visible once APPROVED.
-          where: {
-            employeeId: employee.id,
-            payrollRun: { companyId, status: { in: ['APPROVED', 'LOCKED'] } },
-          },
-          orderBy: { createdAt: 'desc' },
-          select: { payrollRun: { select: { payDate: true } } },
-        }), 4000, 'latestPayslip')
-      : Promise.resolve(null),
-  ])
+  // ONE $transaction rather than five parallel awaits.
+  //
+  // Firing these concurrently exhausted the connection pool — the pool here is
+  // 3 connections and this page wants 5 at once, so every query failed with
+  // P2024 "Timed out fetching a new connection" and the whole screen silently
+  // rendered zeros. $transaction batches them down a single connection, which
+  // is what the admin dashboard already does for the same reason.
+  let dtr: { timeIn: Date | null; timeOut: Date | null; breakIn: Date | null; breakOut: Date | null } | null = null
+  let pendingLeaves = 0
+  let openTasks = 0
+  let overdueTasks = 0
+  let payslip: { payrollRun: { payDate: Date } } | null = null
 
-  const dtr           = results[0].status === 'fulfilled' ? results[0].value : null
-  const pendingLeaves = results[1].status === 'fulfilled' ? (results[1].value as number) : 0
-  const openTasks     = results[2].status === 'fulfilled' ? (results[2].value as number) : 0
-  const overdueTasks  = results[3].status === 'fulfilled' ? (results[3].value as number) : 0
-  const payslip       = results[4].status === 'fulfilled' ? results[4].value : null
-
-  results.forEach((r, i) => {
-    if (r.status === 'rejected') {
-      const which = ['todayDtr', 'pendingLeaves', 'openTasks', 'overdueTasks', 'latestPayslip'][i]
-      console.error(`[portal home] ${which} failed for company ${companyId}:`, r.reason)
+  if (employee) {
+    const notDone = {
+      companyId, parentTaskId: null,
+      status: { category: { not: 'DONE' as const } },
+      assignees: { some: { employeeId: employee.id } },
     }
-  })
+    try {
+      const [d, leaves, open, overdue, slip] = await withTimeout(
+        prisma.$transaction([
+          prisma.dTRRecord.findFirst({
+            where: { employeeId: employee.id, date: { gte: today, lt: tomorrow } },
+            orderBy: { createdAt: 'desc' },
+            select: { timeIn: true, timeOut: true, breakIn: true, breakOut: true },
+          }),
+          prisma.leaveRequest.count({ where: { employeeId: employee.id, status: 'PENDING' } }),
+          // Counted unconditionally — a `tasksEnabled` branch inside a
+          // $transaction array would change its shape. The cost is one extra
+          // count; the numbers are simply not rendered without the entitlement.
+          prisma.task.count({ where: notDone }),
+          prisma.task.count({ where: { ...notDone, dueDate: { lt: today } } }),
+          prisma.payslip.findFirst({
+            // Same visibility rule as /api/payroll/my-payslips — there is no
+            // PAID status on PayrollRun; a payslip becomes visible once APPROVED.
+            where: {
+              employeeId: employee.id,
+              payrollRun: { companyId, status: { in: ['APPROVED', 'LOCKED'] } },
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { payrollRun: { select: { payDate: true } } },
+          }),
+        ]),
+        6000,
+        'portalHome',
+      )
+      dtr = d
+      pendingLeaves = leaves
+      openTasks = tasksEnabled ? open : 0
+      overdueTasks = tasksEnabled ? overdue : 0
+      payslip = slip
+    } catch (err) {
+      // Degrade to empty cards rather than 500ing the first screen an
+      // employee sees.
+      console.error(`[portal home] load failed for company ${companyId}:`, err)
+    }
+  }
 
   const clockedIn  = !!dtr?.timeIn && !dtr?.timeOut
   const clockedOut = !!dtr?.timeIn && !!dtr?.timeOut
@@ -160,17 +160,7 @@ export default async function PortalHomePage() {
     ? `${employee.firstName[0] ?? ''}${employee.lastName[0] ?? ''}`.toUpperCase()
     : (session.user.name?.[0]?.toUpperCase() ?? 'E')
 
-  const punchLabel = onBreak ? 'ON BREAK' : clockedIn ? 'PUNCH OUT' : clockedOut ? 'VIEW DAY' : 'PUNCH IN'
 
-  // Punch ring uses brand orange when the next action is to clock in, and the
-  // navy→teal pair once a shift is running, so the control reads differently at
-  // a glance without introducing a colour outside the theme.
-  const punchFill = clockedIn || onBreak
-    ? 'linear-gradient(145deg, #1b6a6e, #032b63)'
-    : 'linear-gradient(145deg, #ff5900, #e04e00)'
-  const punchGlow = clockedIn || onBreak
-    ? 'rgba(27,106,110,0.30)'
-    : 'rgba(255,89,0,0.30)'
 
   return (
     <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-3xl mx-auto space-y-4">
@@ -200,13 +190,17 @@ export default async function PortalHomePage() {
             Hi {firstName}
           </h1>
         </div>
-        <span
-          className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-full shrink-0"
-          style={{ background: statusTone.bg, color: statusTone.fg }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusTone.dot }} />
-          {statusLabel}
-        </span>
+        {/* Status chip with the live clock tucked underneath it, top-right. */}
+        <div className="shrink-0 flex flex-col items-end gap-1.5">
+          <span
+            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-full"
+            style={{ background: statusTone.bg, color: statusTone.fg }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusTone.dot }} />
+            {statusLabel}
+          </span>
+          <LiveClock />
+        </div>
       </header>
 
       {/* Attendance — hero punch control */}
@@ -217,39 +211,12 @@ export default async function PortalHomePage() {
             History
           </Link>
         </div>
-        <p className="text-[11px] font-semibold text-slate-400 mt-0.5 mb-5">
-          {new Intl.DateTimeFormat('en-US', {
-            timeZone: MANILA_TIME_ZONE, weekday: 'long', month: 'short', day: 'numeric',
-          }).format(new Date())}
-        </p>
 
-        {/* Links to /portal/clock rather than punching here: the real action
-            needs GPS and, for some companies, a selfie capture, all of which
-            live on the clock screen. Keeping this a link keeps the home a fast
-            server-rendered page and one source of truth for the clock rules. */}
-        <Link href="/portal/clock" className="block">
-          <div className="relative mx-auto w-[176px] h-[176px] flex items-center justify-center">
-            <span
-              className="absolute inset-0 rounded-full"
-              style={{ background: `radial-gradient(circle, ${punchGlow} 0%, transparent 68%)` }}
-            />
-            <span className="absolute inset-3 rounded-full border border-slate-200" />
-            <div
-              className="relative w-[132px] h-[132px] rounded-full flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-transform"
-              style={{ background: punchFill, boxShadow: `0 14px 34px ${punchGlow}` }}
-            >
-              <Fingerprint className="w-7 h-7 text-white" strokeWidth={1.7} />
-              <span className="text-[11px] font-black tracking-[0.15em] text-white">
-                {punchLabel}
-              </span>
-            </div>
-          </div>
-        </Link>
-
-        <p className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400 mt-4">
-          <MapPin className="w-3 h-3" />
-          Location is captured when you punch
-        </p>
+        {/* The real punch control, not a link to it. This is the same component
+            /portal/clock renders, so GPS, geofence, biometric verification,
+            selfie capture and break handling all behave identically here — and
+            cannot drift, because there is only one implementation. */}
+        <PunchClock showHistory={false} />
 
         {/* In / Out / Worked */}
         <div className="grid grid-cols-3 gap-2 mt-5">
@@ -267,19 +234,24 @@ export default async function PortalHomePage() {
         </div>
       </section>
 
-      {/* At a glance */}
+      {/* At a glance.
+
+          Each card is a single row — icon and label left, count right — rather
+          than a stack, which roughly halves the card height. */}
       <section className="grid grid-cols-2 gap-3">
         {tasksEnabled && (
-          <Link href="/portal/tasks" className="rounded-3xl bg-white border border-slate-200 shadow-sm p-4 active:scale-[0.99] transition-transform">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center mb-3">
-              <ListChecks className="w-4 h-4 text-blue-600" />
+          <Link href="/portal/tasks" className="rounded-2xl bg-white border border-slate-200 shadow-sm px-3.5 py-3 active:scale-[0.99] transition-transform">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                <ListChecks className="w-4 h-4 text-blue-600" />
+              </div>
+              <p className="text-[11px] font-bold text-slate-400 leading-tight flex-1 min-w-0">
+                Open task{openTasks === 1 ? '' : 's'}
+              </p>
+              <p className="text-xl font-black text-slate-900 leading-none tabular-nums">{openTasks}</p>
             </div>
-            <p className="text-2xl font-black text-slate-900 leading-none tabular-nums">{openTasks}</p>
-            <p className="text-[11px] font-bold text-slate-400 mt-1">
-              Open task{openTasks === 1 ? '' : 's'}
-            </p>
             {overdueTasks > 0 && (
-              <p className="text-[11px] font-black text-red-600 mt-1.5 inline-flex items-center gap-1">
+              <p className="text-[10px] font-black text-red-600 mt-1.5 inline-flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
                 {overdueTasks} overdue
               </p>
@@ -287,19 +259,21 @@ export default async function PortalHomePage() {
           </Link>
         )}
 
-        <Link href="/portal/leaves" className="rounded-3xl bg-white border border-slate-200 shadow-sm p-4 active:scale-[0.99] transition-transform">
-          <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center mb-3">
-            <FileText className="w-4 h-4 text-violet-600" />
+        <Link href="/portal/leaves" className="rounded-2xl bg-white border border-slate-200 shadow-sm px-3.5 py-3 active:scale-[0.99] transition-transform">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4 text-violet-600" />
+            </div>
+            <p className="text-[11px] font-bold text-slate-400 leading-tight flex-1 min-w-0">
+              Pending leave{pendingLeaves === 1 ? '' : 's'}
+            </p>
+            <p className="text-xl font-black text-slate-900 leading-none tabular-nums">{pendingLeaves}</p>
           </div>
-          <p className="text-2xl font-black text-slate-900 leading-none tabular-nums">{pendingLeaves}</p>
-          <p className="text-[11px] font-bold text-slate-400 mt-1">
-            Pending leave{pendingLeaves === 1 ? '' : 's'}
-          </p>
         </Link>
 
         <Link
           href="/portal/payslips"
-          className={`rounded-3xl bg-white border border-slate-200 shadow-sm p-4 active:scale-[0.99] transition-transform ${tasksEnabled ? 'col-span-2' : ''}`}
+          className={`rounded-2xl bg-white border border-slate-200 shadow-sm px-3.5 py-3 active:scale-[0.99] transition-transform ${tasksEnabled ? 'col-span-2' : ''}`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

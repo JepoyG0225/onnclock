@@ -12,15 +12,14 @@ import { cn } from '@/lib/utils'
 
 const ALL_NAV_TABS = [
   { href: '/portal',                     label: 'Home',         icon: Home,           exact: true,  pro: false, budgetReq: false, tasks: false },
-  { href: '/portal/clock',               label: 'Attendance',   icon: Clock,          exact: false, pro: false, budgetReq: false, tasks: false },
+  { href: '/portal/clock',               label: 'My Attendance', icon: Clock,         exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/tasks',               label: 'My Tasks',     icon: ListChecks,      exact: false, pro: false, budgetReq: false, tasks: true },
   { href: '/portal/leaves',              label: 'Leave',        icon: FileText,        exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/time-corrections',    label: 'Time Fixes',   icon: ClipboardEdit,   exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/payslips',            label: 'Payslips',     icon: CreditCard,      exact: false, pro: false, budgetReq: false, tasks: false },
-  { href: '/portal/cash-advance',        label: 'Cash Advance', icon: Banknote,        exact: false, pro: false, budgetReq: false, tasks: false },
+  { href: '/portal/loans',               label: 'Loans & CA',   icon: Banknote,        exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/budget-requisitions', label: 'Budget Req.',  icon: ClipboardList,   exact: false, pro: false, budgetReq: true,  tasks: false },
-  { href: '/portal/reviews',             label: 'Reviews',      icon: BarChart3,       exact: false, pro: false, budgetReq: false, tasks: false },
-  { href: '/portal/disciplinary',        label: 'Disciplinary', icon: AlertTriangle,   exact: false, pro: true,  budgetReq: false, tasks: false },
+  { href: '/portal/performance',         label: 'Performance',  icon: BarChart3,       exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/profile',             label: 'Profile',      icon: User,            exact: false, pro: false, budgetReq: false, tasks: false },
 ]
 
@@ -287,20 +286,18 @@ export function PortalSidebar({
           {showUserMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
+              {/* Light surface, matching the mobile header's menu — this is the
+                  same menu on the desktop sidebar and was the same solid blue. */}
               <div
-                className="absolute bottom-full left-0 mb-2 z-20 w-full rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150"
-                style={{
-                  background: '#0055d4',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
+                className="absolute bottom-full left-0 mb-2 z-20 w-full rounded-2xl shadow-xl overflow-hidden bg-white border border-slate-200 animate-in fade-in slide-in-from-bottom-2 duration-150"
               >
-                <div className="px-4 py-3 border-b border-white/10">
-                  <p className="text-white text-sm font-semibold truncate">{employeeName ?? 'Employee'}</p>
-                  {employeeNo && <p className="text-white/40 text-xs mt-0.5">{employeeNo}</p>}
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="text-slate-900 text-sm font-bold truncate">{employeeName ?? 'Employee'}</p>
+                  {employeeNo && <p className="text-slate-400 text-xs mt-0.5">{employeeNo}</p>}
                 </div>
                 <button
                   onClick={handleSignOut}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   Sign Out

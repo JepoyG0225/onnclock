@@ -456,7 +456,7 @@ function ReviewDrawer({
 }
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
-export default function PortalReviewsPage() {
+export function ReviewsTab() {
   const [reviews, setReviews] = useState<ReviewSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)

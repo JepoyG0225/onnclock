@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, ClipboardEdit} from 'lucide-react'
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 
 interface DTRRecord {
@@ -102,6 +103,16 @@ export function AttendanceHistory() {
         <div>
           <h2 className="text-lg font-black" style={{ color: '#032b63' }}>Attendance history</h2>
           <p className="text-gray-500 text-sm mt-1">Your daily time records</p>
+          {/* Spotting a wrong punch is exactly what an employee is doing when
+              they scroll this list, so the fix is one tap from here rather than
+              buried in the More drawer. */}
+          <Link
+            href="/portal/time-corrections"
+            className="inline-flex items-center gap-1 mt-2 text-[12px] font-bold text-slate-500 hover:text-[#032b63] transition-colors"
+          >
+            <ClipboardEdit className="w-3.5 h-3.5" />
+            Request a time correction
+          </Link>
         </div>
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-1">
           <button

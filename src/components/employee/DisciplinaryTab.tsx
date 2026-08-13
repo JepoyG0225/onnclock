@@ -47,7 +47,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   CLOSED:     { bg: '#dcfce7', text: '#15803d' },
 }
 
-export default function PortalDisciplinaryPage() {
+export function DisciplinaryTab() {
   const [records, setRecords] = useState<DisciplinaryRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -102,7 +102,7 @@ export default function PortalDisciplinaryPage() {
   }
 
   return (
-    <div className="p-4 max-w-2xl mx-auto space-y-4">
+    <div className="space-y-4">
       <div className="pt-2">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-orange-500" />

@@ -14,7 +14,6 @@ type IconComponent = React.ComponentType<LucideProps>
 // without it, so the bar re-flows to 3 items + More.
 const PRIMARY_TABS: { href: string; label: string; icon: IconComponent; exact: boolean; tasks?: boolean }[] = [
   { href: '/portal',        label: 'Home',       icon: Home,       exact: true  },
-  { href: '/portal/clock',  label: 'Attendance', icon: Clock,      exact: false },
   { href: '/portal/tasks',  label: 'Tasks',      icon: ListChecks, exact: false, tasks: true },
   { href: '/portal/leaves', label: 'Leave',      icon: FileText,   exact: false },
 ]
@@ -29,12 +28,12 @@ interface MoreTab {
 }
 
 const ALL_MORE_TABS: MoreTab[] = [
+  { href: '/portal/clock',               label: 'My Attendance',       icon: Clock                           },
   { href: '/portal/payslips',            label: 'Payslips',            icon: CreditCard                      },
   { href: '/portal/time-corrections',    label: 'Time Corrections',    icon: ClipboardEdit                   },
-  { href: '/portal/cash-advance',        label: 'Cash Advance',        icon: Banknote                        },
+  { href: '/portal/loans',               label: 'Loans & Advances',    icon: Banknote                        },
   { href: '/portal/budget-requisitions', label: 'Budget Requisitions', icon: ClipboardList, budgetReq: true  },
-  { href: '/portal/reviews',             label: 'Performance Reviews', icon: BarChart3                       },
-  { href: '/portal/disciplinary',        label: 'Disciplinary',        icon: AlertTriangle, pro: true        },
+  { href: '/portal/performance',         label: 'Performance',         icon: BarChart3                       },
   { href: '/portal/profile',             label: 'Profile',             icon: User                            },
 ]
 
@@ -74,7 +73,7 @@ export function PortalBottomNav({
           <div
             className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg rounded-t-3xl shadow-2xl"
             style={{
-              background: 'rgba(26,45,66,0.98)',
+              background: 'rgba(2,30,71,0.98)',
               backdropFilter: 'blur(24px)',
               WebkitBackdropFilter: 'blur(24px)',
               border: '1px solid rgba(255,255,255,0.12)',
@@ -133,7 +132,7 @@ export function PortalBottomNav({
         <div
           className="flex items-stretch justify-around rounded-2xl shadow-2xl mx-auto max-w-lg"
           style={{
-            background: 'rgba(26,45,66,0.96)',
+            background: 'rgba(2,30,71,0.96)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid rgba(255,255,255,0.12)',
@@ -146,29 +145,26 @@ export function PortalBottomNav({
               <Link
                 key={tab.href}
                 href={tab.href}
-                className="flex flex-col items-center justify-center gap-1 flex-1 py-1 px-2 rounded-xl transition-all duration-200 min-w-0"
-                style={isActive ? { background: 'rgba(250,94,1,0.18)' } : undefined}
+                // Labels are gone, so the accessible name has to come from
+                // aria-label — otherwise the tab announces as a bare link and
+                // the dock becomes unusable with a screen reader.
+                aria-label={tab.label}
+                aria-current={isActive ? 'page' : undefined}
+                title={tab.label}
+                className="flex items-center justify-center flex-1 py-1.5 rounded-2xl transition-all duration-200 min-w-0"
               >
                 <div
                   className={cn(
-                    'flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200',
-                    isActive ? 'scale-110' : 'scale-100'
+                    'flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-200',
+                    isActive ? 'scale-105' : 'scale-100'
                   )}
                   style={isActive ? { background: '#ff5900' } : undefined}
                 >
                   <tab.icon
-                    className={cn('w-4 h-4 transition-colors', isActive ? 'text-white' : 'text-white/50')}
-                    strokeWidth={isActive ? 2.5 : 1.8}
+                    className={cn('w-5 h-5 transition-colors', isActive ? 'text-white' : 'text-white/45')}
+                    strokeWidth={isActive ? 2.4 : 1.9}
                   />
                 </div>
-                <span
-                  className={cn(
-                    'text-[10px] font-semibold tracking-wide transition-colors truncate max-w-full',
-                    isActive ? 'text-white' : 'text-white/40'
-                  )}
-                >
-                  {tab.label}
-                </span>
               </Link>
             )
           })}
@@ -176,29 +172,23 @@ export function PortalBottomNav({
           {/* More button */}
           <button
             onClick={() => setShowMore(v => !v)}
-            className="flex flex-col items-center justify-center gap-1 flex-1 py-1 px-2 rounded-xl transition-all duration-200 min-w-0"
-            style={showMore || moreActive ? { background: 'rgba(250,94,1,0.18)' } : undefined}
+            aria-label="More"
+            aria-expanded={showMore}
+            title="More"
+            className="flex items-center justify-center flex-1 py-1.5 rounded-2xl transition-all duration-200 min-w-0"
           >
             <div
               className={cn(
-                'flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200',
-                (showMore || moreActive) ? 'scale-110' : 'scale-100'
+                'flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-200',
+                (showMore || moreActive) ? 'scale-105' : 'scale-100'
               )}
               style={showMore || moreActive ? { background: '#ff5900' } : undefined}
             >
               <MoreHorizontal
-                className={cn('w-4 h-4 transition-colors', (showMore || moreActive) ? 'text-white' : 'text-white/50')}
-                strokeWidth={(showMore || moreActive) ? 2.5 : 1.8}
+                className={cn('w-5 h-5 transition-colors', (showMore || moreActive) ? 'text-white' : 'text-white/45')}
+                strokeWidth={(showMore || moreActive) ? 2.4 : 1.9}
               />
             </div>
-            <span
-              className={cn(
-                'text-[10px] font-semibold tracking-wide transition-colors',
-                (showMore || moreActive) ? 'text-white' : 'text-white/40'
-              )}
-            >
-              More
-            </span>
           </button>
         </div>
       </nav>

@@ -77,7 +77,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
     <header
       className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
       style={{
-        background: 'rgba(26,45,66,0.97)',
+        background: 'rgba(2,30,71,0.97)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -175,20 +175,20 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
           {showMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+              {/* Light surface. This was a solid blue panel hanging off the
+                  navy header, which read as part of the header rather than as a
+                  menu — and the white-on-blue text was the only place in the
+                  portal styled that way. */}
               <div
-                className="absolute right-0 top-10 z-20 rounded-2xl shadow-2xl overflow-hidden min-w-[180px]"
-                style={{
-                  background: '#0055d4',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
+                className="absolute right-0 top-10 z-20 rounded-2xl shadow-xl overflow-hidden min-w-[190px] bg-white border border-slate-200"
               >
-                <div className="px-4 py-3 border-b border-white/10">
-                  <p className="text-white text-sm font-semibold truncate">{employeeName ?? 'Employee'}</p>
-                  {employeeNo && <p className="text-white/40 text-xs mt-0.5">{employeeNo}</p>}
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="text-slate-900 text-sm font-bold truncate">{employeeName ?? 'Employee'}</p>
+                  {employeeNo && <p className="text-slate-400 text-xs mt-0.5">{employeeNo}</p>}
                 </div>
                 <button
                   onClick={handlePortalSignOut}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-white/5 transition-colors"
+                  className="w-full px-4 py-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
                 >
                   Sign Out
                 </button>

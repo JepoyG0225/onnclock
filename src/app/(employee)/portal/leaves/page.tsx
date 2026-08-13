@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { FileText, Plus, Clock } from 'lucide-react'
+import { FileText, Plus, Clock, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
 
 interface LeaveBalance {
   id: string
@@ -30,21 +29,15 @@ interface LeaveRequest {
   leaveType: { name: string; code: string }
 }
 
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
-    APPROVED: 'border',
-    REJECTED: 'bg-red-50 text-red-700 border-red-200',
-    CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
-  }
-  return (
-    <Badge
-      className={map[status] ?? ''}
-      style={status === 'APPROVED' ? { background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' } : undefined}
-    >
-      {status}
-    </Badge>
-  )
+const NAVY = '#032b63'
+const ORANGE = '#ff5900'
+
+/** Status colours: `bar` drives the card's left stripe, bg/fg the chip. */
+const STATUS_TONE: Record<string, { bar: string; bg: string; fg: string }> = {
+  PENDING:   { bar: '#f59e0b', bg: '#fffbeb', fg: '#b45309' },
+  APPROVED:  { bar: '#10b981', bg: '#ecfdf5', fg: '#047857' },
+  REJECTED:  { bar: '#ef4444', bg: '#fef2f2', fg: '#b91c1c' },
+  CANCELLED: { bar: '#cbd5e1', bg: '#f8fafc', fg: '#64748b' },
 }
 
 export default function LeavesPage() {
@@ -74,103 +67,148 @@ export default function LeavesPage() {
     load()
   }, [])
 
+
+  const safeNumber = (value: unknown) => {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  // Totals for the summary strip. Only paid types count toward "days available"
+  // — unpaid leave has no balance worth advertising as a number.
+  const paid = balances.filter(b => b.leaveType.isWithPay)
+  const totalRemaining = paid.reduce((s, b) => {
+    const entitled = Math.max(0, safeNumber(b.entitled))
+    const carried  = Math.max(0, safeNumber(b.carriedOver))
+    const used     = Math.max(0, safeNumber(b.used))
+    const pend     = Math.max(0, safeNumber(b.pending))
+    const fallback = entitled + carried - used - pend
+    return s + Math.max(0, Number.isFinite(Number(b.balance)) ? Number(b.balance) : fallback)
+  }, 0)
+  const pendingCount = requests.filter(r => r.status === 'PENDING').length
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Leaves</h1>
-          <p className="text-gray-500 text-sm mt-1">Balances and requests</p>
+    <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-2xl mx-auto space-y-4">
+
+      {/* Header */}
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[22px] lg:text-2xl font-black tracking-tight" style={{ color: NAVY }}>
+            My Leaves
+          </h1>
+          <p className="text-[13px] text-slate-400 font-semibold mt-0.5">
+            {loading
+              ? 'Loading…'
+              : `${totalRemaining.toFixed(1)} day${totalRemaining === 1 ? '' : 's'} available${pendingCount > 0 ? ` · ${pendingCount} pending` : ''}`}
+          </p>
         </div>
         <Link
           href="/portal/leaves/new"
-          className="inline-flex items-center justify-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
-          style={{ background: '#ff5900' }}
+          className="inline-flex items-center gap-1.5 text-white px-4 py-2.5 rounded-2xl text-[13px] font-black shrink-0 active:scale-[0.98] transition-transform"
+          style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(255,89,0,0.28)' }}
         >
-          <Plus className="w-4 h-4" /> File Leave
+          <Plus className="w-4 h-4" strokeWidth={2.6} />
+          File leave
         </Link>
+      </header>
+
+      {/* Tabs — same pill treatment as the tasks page filters */}
+      <div className="flex items-center gap-2">
+        {([
+          { id: 'balances', label: 'Balances' },
+          { id: 'requests', label: 'Requests' },
+        ] as const).map(t => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`text-[12px] font-black px-3.5 py-1.5 rounded-full border transition-colors ${
+              tab === t.id ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200'
+            }`}
+            style={tab === t.id ? { background: NAVY } : undefined}
+          >
+            {t.label}
+            {t.id === 'requests' && pendingCount > 0 && (
+              <span
+                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none ${
+                  tab === t.id ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div className="inline-flex rounded-full bg-gray-100 p-1">
-        <button
-          type="button"
-          onClick={() => setTab('balances')}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-            tab === 'balances' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-          }`}
-        >
-          Leave Balances
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('requests')}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-            tab === 'requests' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
-          }`}
-        >
-          Leave Requests
-        </button>
-      </div>
-
-      {/* Leave Balances */}
+      {/* ── Balances ─────────────────────────────────────────────────────── */}
       <div style={{ display: tab === 'balances' ? 'block' : 'none' }}>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Leave Balances - {new Date().getFullYear()}
-        </h2>
         {loading ? (
           <div className="space-y-2.5">
-            {[1, 2, 3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-20 bg-white/70 rounded-2xl animate-pulse" />)}
           </div>
         ) : balances.length === 0 ? (
-          <p className="text-sm text-gray-400">No leave types configured.</p>
+          <div className="rounded-2xl bg-white border border-slate-200 p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
+              <CalendarDays className="w-7 h-7 text-slate-300" />
+            </div>
+            <p className="text-base font-black text-slate-900">No leave types yet</p>
+            <p className="text-sm text-slate-500 mt-1.5 max-w-xs mx-auto">
+              Your admin hasn’t set up leave types for your company.
+            </p>
+          </div>
         ) : (
           <div className="space-y-2.5">
             {balances.map(lb => {
-              const safeNumber = (value: unknown) => {
-                const n = Number(value)
-                return Number.isFinite(n) ? n : 0
-              }
               const entitled = Math.max(0, safeNumber(lb.entitled))
               const used = Math.max(0, safeNumber(lb.used))
               const pending = Math.max(0, safeNumber(lb.pending))
               const carried = Math.max(0, safeNumber(lb.carriedOver))
               const computedRemaining = entitled + carried - used - pending
               const remaining = Math.max(0, Number.isFinite(Number(lb.balance)) ? Number(lb.balance) : computedRemaining)
-              const pct = entitled > 0 ? Math.min(100, (remaining / entitled) * 100) : 0
+              const total = entitled + carried
+              const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0
+              // Bar turns amber once a type is nearly spent, so a low balance is
+              // visible without reading the numbers.
+              const low = total > 0 && pct <= 20
               return (
-                <div key={lb.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3">
+                <div
+                  key={lb.id}
+                  className="rounded-2xl bg-white border border-slate-200 shadow-sm px-4 py-3.5"
+                >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                           {lb.leaveType.code}
                         </span>
                         {!lb.leaveType.isWithPay && (
-                          <span className="text-[11px] text-gray-400">Unpaid</span>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                            Unpaid
+                          </span>
                         )}
                       </div>
-                      <p className="text-sm font-semibold text-gray-800 truncate">{lb.leaveType.name}</p>
+                      <p className="text-[14px] font-bold text-slate-900 truncate">{lb.leaveType.name}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-400">Remaining</p>
-                      <p className="text-xl font-black" style={{ color: '#032b63' }}>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-black leading-none tabular-nums" style={{ color: low ? '#b45309' : NAVY }}>
                         {remaining.toFixed(1)}
                       </p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-0.5">days left</p>
                     </div>
                   </div>
 
-                  <div className="mt-2">
-                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div className="mt-3">
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                       <div
                         className="h-1.5 rounded-full transition-all"
-                        style={{ width: `${pct}%`, background: '#ff5900' }}
+                        style={{ width: `${pct}%`, background: low ? '#f59e0b' : ORANGE }}
                       />
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 mt-1.5">
-                      <span>Entitled: {entitled.toFixed(1)}</span>
-                      <span>Used: {used.toFixed(1)}</span>
-                      {pending > 0 && <span className="text-amber-600">Pending: {pending.toFixed(1)}</span>}
-                      {carried > 0 && <span>Carried: {carried.toFixed(1)}</span>}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-400 mt-2">
+                      <span>Entitled {entitled.toFixed(1)}</span>
+                      <span>Used {used.toFixed(1)}</span>
+                      {pending > 0 && <span className="text-amber-600">Pending {pending.toFixed(1)}</span>}
+                      {carried > 0 && <span>Carried {carried.toFixed(1)}</span>}
                     </div>
                   </div>
                 </div>
@@ -180,56 +218,76 @@ export default function LeavesPage() {
         )}
       </div>
 
-      {/* Leave Requests History */}
+      {/* ── Requests ─────────────────────────────────────────────────────── */}
       <div style={{ display: tab === 'requests' ? 'block' : 'none' }}>
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Leave Requests</h2>
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
+          <div className="space-y-2.5">
+            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-white/70 rounded-2xl animate-pulse" />)}
           </div>
         ) : requests.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 py-8 text-center text-gray-400">
-            <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            No leave requests yet
+          <div className="rounded-2xl bg-white border border-slate-200 p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-7 h-7 text-violet-500" />
+            </div>
+            <p className="text-base font-black text-slate-900">No leave requests yet</p>
+            <p className="text-sm text-slate-500 mt-1.5 max-w-xs mx-auto">
+              When you file leave it will appear here with its approval status.
+            </p>
+            <Link
+              href="/portal/leaves/new"
+              className="inline-flex items-center gap-1.5 mt-5 text-white px-4 py-2.5 rounded-2xl text-[13px] font-black"
+              style={{ background: ORANGE }}
+            >
+              <Plus className="w-4 h-4" strokeWidth={2.6} />
+              File leave
+            </Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {requests.map(req => (
-              <div key={req.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {req.leaveType.code} <span className="text-gray-400 text-xs">· {req.leaveType.name}</span>
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {format(new Date(req.startDate), 'MMM d')} - {format(new Date(req.endDate), 'MMM d, yyyy')}
-                    </p>
-                  </div>
-                  {statusBadge(req.status)}
-                </div>
+          <div className="space-y-2.5">
+            {requests.map(req => {
+              const tone = STATUS_TONE[req.status] ?? STATUS_TONE.CANCELLED
+              return (
+                <div
+                  key={req.id}
+                  className="relative rounded-2xl bg-white border border-slate-200 shadow-sm px-4 py-3.5 pl-5 overflow-hidden"
+                >
+                  <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: tone.bar }} />
 
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg bg-gray-50 px-2 py-2">
-                    <p className="text-[10px] text-gray-400">Days</p>
-                    <p className="text-sm font-semibold text-gray-900">{req.totalDays}d</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold text-slate-900 truncate">
+                        {req.leaveType.name}
+                      </p>
+                      <p className="text-[12px] font-semibold text-slate-400 mt-0.5">
+                        {format(new Date(req.startDate), 'MMM d')} – {format(new Date(req.endDate), 'MMM d, yyyy')}
+                        <span className="text-slate-300"> · </span>
+                        {req.totalDays}d
+                      </p>
+                    </div>
+                    <span
+                      className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full shrink-0"
+                      style={{ background: tone.bg, color: tone.fg }}
+                    >
+                      {req.status}
+                    </span>
                   </div>
-                  <div className="rounded-lg bg-gray-50 px-2 py-2">
-                    <p className="text-[10px] text-gray-400">Filed</p>
-                    <p className="text-sm font-semibold text-gray-900">{format(new Date(req.createdAt), 'MMM d, yyyy')}</p>
+
+                  <div className="flex items-center gap-2 mt-2.5 text-[11px] font-semibold text-slate-400">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>Filed {format(new Date(req.createdAt), 'MMM d, yyyy')}</span>
                   </div>
-                  <div className="rounded-lg bg-gray-50 px-2 py-2 col-span-2">
-                    <p className="text-[10px] text-gray-400">Remarks</p>
-                    <p className="text-[11px] text-gray-600 mt-1">
-                      {req.reviewNotes ?? (req.status === 'PENDING' ? 'Awaiting review' : '-')}
+
+                  {(req.reviewNotes || req.status === 'PENDING') && (
+                    <p className="text-[12px] text-slate-500 mt-2 leading-relaxed">
+                      {req.reviewNotes ?? 'Awaiting review'}
                     </p>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
     </div>
   )
 }
-

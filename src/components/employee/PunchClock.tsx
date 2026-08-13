@@ -4,9 +4,19 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { format, differenceInSeconds } from 'date-fns'
-import { MapPin, Clock, CheckCircle, AlertCircle, Loader2, RefreshCw, Calendar, Coffee, Monitor, CalendarDays} from 'lucide-react'
+import { MapPin, Clock, AlertCircle, Loader2, RefreshCw, Calendar, Coffee, Monitor, CalendarDays, Fingerprint} from 'lucide-react'
 import { toast } from 'sonner'
-import { PortalLocationMap } from '@/components/employee/PortalLocationMap'
+import dynamic from 'next/dynamic'
+
+// react-leaflet touches `window` at module scope, so it cannot be evaluated on
+// the server. This used to be a plain import and was fine while /portal/clock
+// was the client entry point; once the home screen (a server component) started
+// rendering this, SSR walked into leaflet and threw
+// "ReferenceError: window is not defined". ssr:false keeps the map client-only.
+const PortalLocationMap = dynamic(
+  () => import('@/components/employee/PortalLocationMap').then(m => m.PortalLocationMap),
+  { ssr: false },
+)
 import { AttendanceHistory } from '@/components/employee/AttendanceHistory'
 
 interface TodayRecord {
@@ -57,15 +67,19 @@ interface ScreenCaptureFeature {
   isDesktopApp: boolean
 }
 
-function getGreeting(now: Date | null) {
-  if (!now) return 'Hello'
-  const h = now.getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
-}
-
-export default function ClockPage() {
+/**
+ * The punch control and everything it depends on — GPS, geofence, biometric
+ * verification, selfie capture, screen-capture policy, break handling.
+ *
+ * This was /portal/clock's page component. It became a component so the home
+ * screen can punch directly instead of bouncing the employee to another page.
+ * Both surfaces render THIS, so the clock rules can never diverge between them
+ * — which is exactly what would have happened had home grown its own copy.
+ *
+ * `showHistory` is the only difference between the two: the dedicated page
+ * shows the month-by-month record underneath, the home card does not.
+ */
+export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
   const [record, setRecord] = useState<TodayRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [breakMinutes, setBreakMinutes] = useState(60)
@@ -94,7 +108,6 @@ export default function ClockPage() {
     radiusMeters: number | null
     configured: boolean
   } | null>(null)
-  const [employeeName, setEmployeeName] = useState('Employee')
   const [selfieRequired, setSelfieRequired] = useState(false)
   const [selfiePhoto, setSelfiePhoto] = useState<string | null>(null)
   const [screenCaptureFeature, setScreenCaptureFeature] = useState<ScreenCaptureFeature | null>(null)
@@ -297,7 +310,6 @@ export default function ClockPage() {
         const e = d?.employee
         if (!e) return
         const name = [e.firstName, e.lastName].filter(Boolean).join(' ').trim()
-        if (name) setEmployeeName(name)
         setSelfieRequired(!!e.selfieRequired)
       })
       .catch(() => null)
@@ -836,20 +848,14 @@ export default function ClockPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
-      {/* Top Time */}
-      <div className="text-center space-y-1">
-        <p className="text-sm font-semibold text-slate-500">{getGreeting(currentTime)},</p>
-        <p className="text-xl font-black" style={{ color: '#032b63' }}>{employeeName}</p>
-      </div>
+      {/* The greeting and employee name that used to sit here are gone — the
+          home screen shows both, and this page is reached from there, so they
+          were the same two lines twice in a row. */}
 
-      <div className="text-center">
-        <div className="font-black tabular-nums leading-none" style={{ fontSize: '2.75rem', color: '#032b63' }}>
-          {currentTime ? format(currentTime, 'h:mm:ss a') : '--:--:-- --'}
-        </div>
-        <div className="text-xs text-slate-400 font-semibold mt-1">
-          {currentTime ? format(currentTime, 'MMM dd yyyy EEEE') : '--'}
-        </div>
-      </div>
+      {/* The large running wall-clock and date that used to sit here are gone —
+          the device already shows the time, and the home screen carries the
+          date. `currentTime` is still ticking; it drives the elapsed-shift
+          timer and the break countdown below. */}
 
       {/* Biometric enrollment reminder */}
       {!biometricLoading && biometricRequired && !biometricEnrolled && (
@@ -1100,15 +1106,17 @@ export default function ClockPage() {
                the employee gets an explanation dialog instead of a dead
                control with no way to find out why. */
             disabled={actionLoading || loading || geofenceActionBlocked || screenCaptureBlocked || desktopRequired}
-            className={`w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
+            /* Matches the punch control on the home screen: orange gradient,
+               fingerprint mark, soft glow. */
+            className={`w-[132px] h-[132px] rounded-full text-white text-[11px] font-black tracking-[0.15em] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
-              background: '#021e47',
-              boxShadow: '0 0 0 10px rgba(46,65,86,0.2), 0 10px 24px rgba(0,0,0,0.18)',
+              background: 'linear-gradient(145deg, #ff5900, #e04e00)',
+              boxShadow: '0 14px 34px rgba(255,89,0,0.30)',
             }}
           >
             {/* No 'No Schedule' state here any more — the button reads as a
                 normal Clock In and the dialog does the explaining. */}
-            {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : desktopRequired ? <Monitor className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+            {actionLoading ? <Loader2 className="w-7 h-7 animate-spin" /> : desktopRequired ? <Monitor className="w-7 h-7" /> : <Fingerprint className="w-7 h-7" strokeWidth={1.7} />}
             {actionLoading ? 'Processing' : desktopRequired ? 'App Required' : screenCaptureBlocked ? 'Desktop Only' : geofenceActionBlocked ? 'Outside Zone' : 'Clock In'}
           </button>
         ) : clockStep === 1 && breakEnabled ? (
@@ -1181,38 +1189,27 @@ export default function ClockPage() {
         )}
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-4 text-center">
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
-            <Clock className="w-5 h-5" style={{ color: '#032b63' }} />
-          </div>
-          <div className="text-xs font-bold text-slate-700">
-            {record?.timeIn ? format(new Date(record.timeIn), 'h:mm a') : '--'}
-          </div>
-          <div className="text-[10px] text-slate-400">Clock In</div>
+      {/* The Clock In / Clock Out / Total Hrs tiles that used to sit here are
+          gone — the home screen carries the same three figures and this page is
+          reached from that card.
+
+          The live elapsed timer stays, though: it only ever rendered inside
+          that row, and it is the one figure here the home screen cannot match,
+          because home is server-rendered and this ticks every second. */}
+      {isClockedIn && (
+        <div className="flex items-center justify-center gap-2">
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: isOnBreak ? '#f59e0b' : '#10b981' }}
+          />
+          <span className="text-xs font-bold text-slate-500">
+            {isOnBreak ? 'On break' : 'Running'}
+          </span>
+          <span className="text-sm font-black tabular-nums" style={{ color: '#032b63' }}>
+            {elapsedLabel}
+          </span>
         </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
-            <Clock className="w-5 h-5" style={{ color: '#032b63' }} />
-          </div>
-          <div className="text-xs font-bold text-slate-700">
-            {record?.timeOut ? format(new Date(record.timeOut), 'h:mm a') : '--'}
-          </div>
-          <div className="text-[10px] text-slate-400">Clock Out</div>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(250,94,1,0.12)' }}>
-            <CheckCircle className="w-5 h-5" style={{ color: '#ff5900' }} />
-          </div>
-          <div className="text-xs font-bold text-slate-700">
-            {isClockedIn ? elapsedLabel : `${record?.regularHours ?? 0}h`}
-          </div>
-          <div className="text-[10px] text-slate-400">
-            {isClockedIn ? (isOnBreak ? 'On Break' : 'Running') : 'Total Hrs'}
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Status / Holiday */}
       {record?.isHoliday && (
@@ -1224,7 +1221,9 @@ export default function ClockPage() {
         </div>
       )}
 
-      {/* Recent Attendance Logs */}
+      {/* Recent Attendance Logs — same flag as the full history below, so the
+          home card shows only the punch control and none of the record. */}
+      {showHistory && (
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div className="flex items-center gap-2">
@@ -1274,10 +1273,17 @@ export default function ClockPage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Current Location Map at Bottom */}
+      {/* Current Location Map at Bottom.
+
+          No mb-24 on the card below. That 96px was added to clear the fixed
+          bottom dock back when this map was the last element on the clock page
+          — but the portal layout already pads <main> by 88px plus the
+          safe-area inset for exactly that. On the home screen, where the stat
+          tiles follow, it just opened a large empty gap. */}
       {(
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-24">
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4" style={{ color: '#032b63' }} />
@@ -1338,13 +1344,18 @@ export default function ClockPage() {
       {/* Full month-by-month record, moved here from the retired
           /portal/attendance page so today's punch and the history an employee
           checks it against live on one screen. */}
-      <div className="pt-2">
-        <AttendanceHistory />
-      </div>
+      {showHistory && (
+        <div className="pt-2">
+          <AttendanceHistory />
+        </div>
+      )}
 
-      {/* Why you can't clock in — shown on tap instead of disabling the button */}
+      {/* Why you can't clock in — shown on tap instead of disabling the button.
+
+          Centred at every width. This was items-end on mobile (bottom-sheet
+          style), which put it behind the fixed dock. */}
       {scheduleDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setScheduleDialogOpen(false)}

@@ -51,7 +51,10 @@ function Tabs({ tabs, basePath }: { tabs: PageTab[]; basePath: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 overflow-x-auto border-b border-border">
+      {/* -mx/px pair lets the underline run edge-to-edge while the buttons
+          keep the page gutter, and scrollbar-none hides the scrollbar strip
+          that otherwise sits under the tabs on Android. */}
+      <div className="flex gap-1 overflow-x-auto border-b border-border scrollbar-none">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -60,7 +63,7 @@ function Tabs({ tabs, basePath }: { tabs: PageTab[]; basePath: string }) {
             aria-current={active === tab.id ? 'page' : undefined}
             data-tour-tab={tab.id}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition',
+              'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-semibold whitespace-nowrap transition',
               active === tab.id
                 ? 'border-primary text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',

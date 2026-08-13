@@ -179,3 +179,24 @@ html {
   0%   { opacity: 1; }
   100% { opacity: 0.15; }
 }
+
+/* next/font exposes --font-montserrat on the class it puts on <body>, i.e. only
+   at runtime. Tailwind's `@theme inline` resolves --font-sans at BUILD time,
+   when that variable is not in scope yet, so the generated .font-sans fell back
+   to the default UI stack — Montserrat was downloaded on every page and never
+   actually used. Binding it here (body.font-sans outranks the bare .font-sans
+   utility) is what makes the font apply. */
+body.font-sans {
+  font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Horizontal tab strips scroll on narrow screens; the scrollbar itself is
+   noise under a tab underline. Not a built-in Tailwind utility — it ships in a
+   plugin this project doesn't use — so it's defined here. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

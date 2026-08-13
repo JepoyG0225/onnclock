@@ -34,7 +34,7 @@ function StatusBadge({ status }: { status: Status }) {
   return <Badge className={`${cls} inline-flex items-center gap-1`}>{icon}{status}</Badge>
 }
 
-export default function PortalCashAdvancePage() {
+export function CashAdvanceTab() {
   const [requests,     setRequests]     = useState<CARequest[]>([])
   const [loading,      setLoading]      = useState(true)
   const [showForm,     setShowForm]     = useState(false)
@@ -105,7 +105,7 @@ export default function PortalCashAdvancePage() {
   const hasPending = requests.some(r => r.status === 'PENDING')
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-gray-900">Cash Advance</h1>
