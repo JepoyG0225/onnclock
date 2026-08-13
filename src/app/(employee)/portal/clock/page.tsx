@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { format, differenceInSeconds } from 'date-fns'
-import { MapPin, Clock, CheckCircle, AlertCircle, Loader2, RefreshCw, Calendar, Coffee, Monitor } from 'lucide-react'
+import { MapPin, Clock, CheckCircle, AlertCircle, Loader2, RefreshCw, Calendar, Coffee, Monitor, CalendarDays} from 'lucide-react'
 import { toast } from 'sonner'
 import { PortalLocationMap } from '@/components/employee/PortalLocationMap'
+import { AttendanceHistory } from '@/components/employee/AttendanceHistory'
 
 interface TodayRecord {
   id: string
@@ -71,6 +72,10 @@ export default function ClockPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [scheduleReady, setScheduleReady] = useState(true)
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null)
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
+  // The API distinguishes "rest day" from "no schedule" only inside the message
+  // text, so the dialog reads it the same way the old banner did.
+  const isRestDayMessage = !!scheduleMessage?.toLowerCase().includes('rest day')
   const [geoPos, setGeoPos] = useState<GeoPosition | null>(null)
   const [geoError, setGeoError] = useState<string | null>(null)
   const [geoLoading, setGeoLoading] = useState(false)
@@ -579,7 +584,14 @@ export default function ClockPage() {
     setPulse('in')
     setTimeout(() => setPulse(null), 320)
     if (!scheduleReady) {
-      toast.error(scheduleMessage || 'No schedule is set for you yet.')
+      // The button is no longer disabled for this, so the explanation has to
+      // come from somewhere the employee can't miss. A toast auto-dismisses and
+      // was easy to tap past; this is a dialog they have to acknowledge.
+      //
+      // It explains rather than offers a way through on purpose: the server
+      // decides this. /api/attendance/clock-in returns allowed:false for a
+      // missing schedule or a rest day, so "punch anyway" would just fail.
+      setScheduleDialogOpen(true)
       return
     }
     if (screenCaptureBlocked) {
@@ -1044,25 +1056,10 @@ export default function ClockPage() {
         </div>
       )}
 
-      {/* Schedule missing / rest day warning */}
-      {!isClockedIn && !scheduleReady && (
-        <div
-          className="rounded-2xl px-4 py-4 flex items-start gap-3 border"
-          style={{ background: '#fff5f5', borderColor: '#fecaca' }}
-        >
-          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: 'rgba(239,68,68,0.12)' }}>
-            <AlertCircle className="w-4 h-4 text-red-500" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-red-700">
-              {scheduleMessage?.toLowerCase().includes('rest day') ? 'Rest day' : 'No schedule set'}
-            </p>
-            <p className="text-xs text-red-500 mt-0.5 leading-relaxed">
-              {scheduleMessage ?? 'No work schedule is set for you yet. Please contact your admin.'}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* The red "no schedule / rest day" banner that used to sit here is gone —
+          the same information now arrives as a dialog when the employee actually
+          taps Clock In, rather than as a permanent block of warning text above a
+          button they could not press. */}
 
       {/* Break Timer */}
       {clockStep === 2 && breakEnabled && (
@@ -1099,15 +1096,20 @@ export default function ClockPage() {
           /* ── Clock In ── */
           <button
             onClick={handleClockIn}
-            disabled={actionLoading || loading || geofenceActionBlocked || screenCaptureBlocked || desktopRequired || !scheduleReady}
+            /* !scheduleReady deliberately absent: the button stays tappable so
+               the employee gets an explanation dialog instead of a dead
+               control with no way to find out why. */
+            disabled={actionLoading || loading || geofenceActionBlocked || screenCaptureBlocked || desktopRequired}
             className={`w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
               background: '#021e47',
               boxShadow: '0 0 0 10px rgba(46,65,86,0.2), 0 10px 24px rgba(0,0,0,0.18)',
             }}
           >
-            {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : desktopRequired ? <Monitor className="w-6 h-6" /> : !scheduleReady ? <AlertCircle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-            {actionLoading ? 'Processing' : desktopRequired ? 'App Required' : !scheduleReady ? 'No Schedule' : screenCaptureBlocked ? 'Desktop Only' : geofenceActionBlocked ? 'Outside Zone' : 'Clock In'}
+            {/* No 'No Schedule' state here any more — the button reads as a
+                normal Clock In and the dialog does the explaining. */}
+            {actionLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : desktopRequired ? <Monitor className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+            {actionLoading ? 'Processing' : desktopRequired ? 'App Required' : screenCaptureBlocked ? 'Desktop Only' : geofenceActionBlocked ? 'Outside Zone' : 'Clock In'}
           </button>
         ) : clockStep === 1 && breakEnabled ? (
           /* ── Start Break ── */
@@ -1332,6 +1334,62 @@ export default function ClockPage() {
           100% { transform: scale(1); }
         }
       `}</style>
+
+      {/* Full month-by-month record, moved here from the retired
+          /portal/attendance page so today's punch and the history an employee
+          checks it against live on one screen. */}
+      <div className="pt-2">
+        <AttendanceHistory />
+      </div>
+
+      {/* Why you can't clock in — shown on tap instead of disabling the button */}
+      {scheduleDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setScheduleDialogOpen(false)}
+          />
+          <div
+            className="relative w-full max-w-sm rounded-3xl bg-white shadow-2xl overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-dialog-title"
+          >
+            <div className="px-6 pt-7 pb-5 text-center">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ background: isRestDayMessage ? '#eff6ff' : '#fff7ed' }}
+              >
+                {isRestDayMessage
+                  ? <CalendarDays className="w-7 h-7" style={{ color: '#2563eb' }} />
+                  : <AlertCircle className="w-7 h-7" style={{ color: '#ea580c' }} />}
+              </div>
+              <h2 id="schedule-dialog-title" className="text-lg font-black" style={{ color: '#032b63' }}>
+                {isRestDayMessage ? 'Today is your rest day' : 'No schedule set'}
+              </h2>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                {scheduleMessage
+                  ?? 'No work schedule is set for you yet, so clocking in is unavailable. Please contact your admin.'}
+              </p>
+              {!isRestDayMessage && (
+                <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                  Your admin needs to assign you a work schedule before you can clock in.
+                </p>
+              )}
+            </div>
+            <div className="px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => setScheduleDialogOpen(false)}
+                className="w-full py-3.5 rounded-2xl text-sm font-black text-white active:scale-[0.98] transition-transform"
+                style={{ background: 'linear-gradient(135deg, #032b63, #1b6a6e)' }}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
