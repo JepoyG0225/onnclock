@@ -2,17 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle, ClipboardList, ClipboardEdit, Banknote, MoreHorizontal, X, type LucideProps } from 'lucide-react'
+import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle, ClipboardList, ClipboardEdit, Banknote, MoreHorizontal, X, type LucideProps, ListChecks, Home} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 
 type IconComponent = React.ComponentType<LucideProps>
 
-// Primary tabs always shown in bottom bar
-const PRIMARY_TABS: { href: string; label: string; icon: IconComponent; exact: boolean }[] = [
-  { href: '/portal/clock',    label: 'Attendance', icon: Clock,       exact: false },
-  { href: '/portal/leaves',   label: 'Leave',      icon: FileText,    exact: false },
-  { href: '/portal/payslips', label: 'Payslips',   icon: CreditCard,  exact: false },
+// Primary tabs always shown in bottom bar.
+// `tasks: true` marks an entry that requires the Task Management entitlement —
+// it drops out of the row entirely (rather than 404ing on tap) for companies
+// without it, so the bar re-flows to 3 items + More.
+const PRIMARY_TABS: { href: string; label: string; icon: IconComponent; exact: boolean; tasks?: boolean }[] = [
+  { href: '/portal',        label: 'Home',       icon: Home,       exact: true  },
+  { href: '/portal/clock',  label: 'Attendance', icon: Clock,      exact: false },
+  { href: '/portal/tasks',  label: 'Tasks',      icon: ListChecks, exact: false, tasks: true },
+  { href: '/portal/leaves', label: 'Leave',      icon: FileText,   exact: false },
 ]
 
 // Extra items exposed in the "More" drawer
@@ -25,6 +29,7 @@ interface MoreTab {
 }
 
 const ALL_MORE_TABS: MoreTab[] = [
+  { href: '/portal/payslips',            label: 'Payslips',            icon: CreditCard                      },
   { href: '/portal/time-corrections',    label: 'Time Corrections',    icon: ClipboardEdit                   },
   { href: '/portal/cash-advance',        label: 'Cash Advance',        icon: Banknote                        },
   { href: '/portal/budget-requisitions', label: 'Budget Requisitions', icon: ClipboardList, budgetReq: true  },
@@ -36,9 +41,11 @@ const ALL_MORE_TABS: MoreTab[] = [
 export function PortalBottomNav({
   showDisciplinary = false,
   showBudgetReq = false,
+  showTasks = false,
 }: {
   showDisciplinary?: boolean
   showBudgetReq?: boolean
+  showTasks?: boolean
 }) {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
@@ -46,6 +53,8 @@ export function PortalBottomNav({
   const moreTabs = ALL_MORE_TABS.filter(t =>
     (!t.pro || showDisciplinary) && (!t.budgetReq || showBudgetReq)
   )
+
+  const primaryTabs = PRIMARY_TABS.filter(t => !t.tasks || showTasks)
 
   // Close drawer when navigating
   useEffect(() => { setShowMore(false) }, [pathname])
@@ -131,7 +140,7 @@ export function PortalBottomNav({
             padding: '8px 4px',
           }}
         >
-          {PRIMARY_TABS.map((tab) => {
+          {primaryTabs.map((tab) => {
             const isActive = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
             return (
               <Link

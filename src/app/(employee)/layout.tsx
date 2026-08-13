@@ -100,6 +100,10 @@ export default async function EmployeePortalLayout({
   const isProPlan = hasHrisProFeature(sub.pricePerSeat)
   const showDisciplinary = isProOrTrial
   const showBudgetReq = isProPlan
+  // Task Management is HRIS-Pro (src/lib/tasks/guard.ts enforces it server-side).
+  // Gate the nav on the same rule so a company without it never sees a tab that
+  // would only 403 on tap.
+  const showTasks = isProOrTrial
 
   const employeeName = employee
     ? `${employee.firstName} ${employee.lastName}`
@@ -117,6 +121,7 @@ export default async function EmployeePortalLayout({
     employeeNo:       employee?.employeeNo ?? undefined,
     showDisciplinary,
     showBudgetReq,
+    showTasks,
   }
 
   return (
@@ -135,7 +140,7 @@ export default async function EmployeePortalLayout({
       </main>
 
       {/* Mobile bottom navigation dock — hidden on desktop */}
-      <PortalBottomNav showDisciplinary={showDisciplinary} showBudgetReq={showBudgetReq} />
+      <PortalBottomNav showDisciplinary={showDisciplinary} showBudgetReq={showBudgetReq} showTasks={showTasks} />
       {session.user.companyId && (
         <PortalAnnouncementPopup userId={session.user.id} companyId={session.user.companyId} />
       )}
