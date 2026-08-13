@@ -3,7 +3,8 @@
  *
  * GET    /api/cash-advance/[id]   Fetch one
  * PATCH  /api/cash-advance/[id]   HR approves or rejects
- *   Body: { action: 'APPROVE' | 'REJECT', rejectionReason?: string }
+ *   Body: { action: 'APPROVE' | 'REJECT' | 'UPDATE_TERMS',
+ *           rejectionReason?: string, repaymentMonths?: 1..3 }
  *   On APPROVE we create the matching EmployeeLoan (type CASH_ADVANCE) so the
  *   existing payroll loan-deduction logic handles the repayment automatically.
  * DELETE /api/cash-advance/[id]   Employee cancels their own pending request
@@ -23,7 +24,9 @@ const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN
 const trailOf = (v: unknown) => (Array.isArray(v) ? v : [])
 
 const patchSchema = z.object({
-  action: z.enum(['APPROVE', 'REJECT']),
+  action: z.enum(['APPROVE', 'REJECT', 'UPDATE_TERMS']),
+  /** UPDATE_TERMS only: new repayment length, 1-3 months. */
+  repaymentMonths: z.number().int().min(1).max(3).optional(),
   rejectionReason: z.string().max(500).optional().nullable(),
 })
 
@@ -60,7 +63,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
-  const { action, rejectionReason } = parsed.data
+  const { action, rejectionReason, repaymentMonths } = parsed.data
+
+
 
   const existing = await prisma.cashAdvanceRequest.findFirst({
     where: { id, companyId: ctx.companyId },
@@ -74,6 +79,53 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // ── Change repayment terms ────────────────────────────────────────────────
+  // Allowed while PENDING and after APPROVAL. Once approved the request has a
+  // linked EmployeeLoan doing the actual deducting, so the new amortisation has
+  // to be written there too or the change would be cosmetic.
+  //
+  // The amortisation is recomputed from the REMAINING BALANCE, not the original
+  // amount: re-spreading the full principal over the new term would re-charge
+  // what has already been deducted.
+  if (action === 'UPDATE_TERMS') {
+    if (!repaymentMonths) {
+      return NextResponse.json({ error: 'repaymentMonths is required' }, { status: 400 })
+    }
+    if (existing.status !== 'PENDING' && existing.status !== 'APPROVED') {
+      return NextResponse.json(
+        { error: `Cannot change terms on a ${existing.status.toLowerCase()} request.` },
+        { status: 400 },
+      )
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      if (existing.linkedLoanId) {
+        const loan = await tx.employeeLoan.findUnique({
+          where: { id: existing.linkedLoanId },
+          select: { balance: true, status: true },
+        })
+        if (loan && loan.status === 'ACTIVE') {
+          const remaining = Number(loan.balance)
+          const newAmort = parseFloat((remaining / repaymentMonths).toFixed(2))
+          await tx.employeeLoan.update({
+            where: { id: existing.linkedLoanId },
+            data: { monthlyAmortization: newAmort },
+          })
+        }
+      }
+      return tx.cashAdvanceRequest.update({
+        where: { id },
+        data: { repaymentMonths },
+      })
+    })
+
+    logAudit(ctx, 'UPDATE', 'CashAdvance', id, {
+      description: `Changed repayment term to ${repaymentMonths} month${repaymentMonths === 1 ? '' : 's'}`,
+    })
+
+    return NextResponse.json({ request: result })
+  }
   if (existing.status !== 'PENDING') {
     return NextResponse.json({ error: `Request is already ${existing.status.toLowerCase()}` }, { status: 400 })
   }

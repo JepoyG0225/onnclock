@@ -250,10 +250,17 @@ export function MyLoansTab() {
           </div>
 
           {valid && (
-            <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(3,43,99,0.06)' }}>
+            <div className="rounded-xl px-3 py-2.5 space-y-1" style={{ background: 'rgba(3,43,99,0.06)' }}>
               <p className="text-[12px] font-semibold text-slate-600">
                 About <span className="font-black" style={{ color: NAVY }}>{peso(monthly)}</span> deducted
                 per month over {REPAYMENT_TERMS.find(t => t.months === months)?.label ?? `${months} months`}.
+              </p>
+              {/* Payroll splits the monthly amortisation across the cutoffs in a
+                  month (SEMI_MONTHLY=2), so the per-cutoff figure is what
+                  actually leaves a payslip. The admin loan form shows the same
+                  split; this makes the portal match it. */}
+              <p className="text-[11px] font-semibold text-slate-400">
+                ≈ {peso(monthly / 2)} per cutoff on semi-monthly payroll
               </p>
             </div>
           )}

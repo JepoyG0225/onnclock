@@ -203,9 +203,17 @@ export function CashAdvanceTab() {
               ))}
             </div>
             {form.amount && (
-              <p className="text-xs text-gray-400 mt-2">
-                ≈ {peso(Number(form.amount) / form.repaymentMonths)} deducted per month
-              </p>
+              <div className="mt-2 space-y-0.5">
+                <p className="text-xs text-gray-400">
+                  ≈ {peso(Number(form.amount) / form.repaymentMonths)} deducted per month
+                </p>
+                {/* Payroll divides the monthly amortisation by the number of
+                    cutoffs in a month, so this is the figure that actually
+                    appears on a payslip. Matches the admin loan form's hint. */}
+                <p className="text-xs text-gray-400">
+                  ≈ {peso(Number(form.amount) / form.repaymentMonths / 2)} per cutoff on semi-monthly payroll
+                </p>
+              </div>
             )}
           </div>
 
