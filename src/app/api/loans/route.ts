@@ -31,6 +31,20 @@ export async function GET(req: NextRequest) {
   if (employeeId) where.employeeId = employeeId
   if (status)     where.status     = status
 
+  // An EMPLOYEE sees only their own loans. This route previously had nothing
+  // but requireAuth(), so any signed-in employee could read the whole company's
+  // loan ledger — salary loans, balances and all — simply by calling it. The
+  // scoping is applied AFTER the employeeId filter above so a supplied id can
+  // never widen it.
+  if (ctx.role === 'EMPLOYEE') {
+    const self = await prisma.employee.findFirst({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: { id: true },
+    })
+    if (!self) return NextResponse.json({ loans: [], total: 0, page })
+    where.employeeId = self.id
+  }
+
   const [loans, total] = await Promise.all([
     prisma.employeeLoan.findMany({
       where,
@@ -59,15 +73,28 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data
 
+  // An EMPLOYEE may only file against themselves. Without this the employeeId
+  // came straight from the request body, so a signed-in employee could create a
+  // loan — and therefore a payroll deduction — against any colleague.
+  let targetEmployeeId = data.employeeId
+  if (ctx.role === 'EMPLOYEE') {
+    const self = await prisma.employee.findFirst({
+      where: { userId: ctx.userId, companyId: ctx.companyId },
+      select: { id: true },
+    })
+    if (!self) return NextResponse.json({ error: 'No employee record' }, { status: 403 })
+    targetEmployeeId = self.id
+  }
+
   const employee = await prisma.employee.findFirst({
-    where: { id: data.employeeId, companyId: ctx.companyId },
+    where: { id: targetEmployeeId, companyId: ctx.companyId },
   })
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
   const loan = await prisma.employeeLoan.create({
     data: {
       companyId:           ctx.companyId,
-      employeeId:          data.employeeId,
+      employeeId:          targetEmployeeId,
       loanType:            data.loanType,
       principalAmount:     data.amount,
       balance:             data.amount,
