@@ -19,6 +19,7 @@ import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { getManilaDateOnly, MANILA_TIME_ZONE } from '@/lib/date-manila'
 import { LiveClock } from '@/components/employee/LiveClock'
 import { PunchClock } from '@/components/employee/PunchClock'
+import { CalendarUserIcon } from '@/components/employee/CalendarUserIcon'
 import {
   ListChecks, FileText, CreditCard, ChevronRight, AlertTriangle,
   ClipboardEdit, Banknote, User, CheckCircle2, LogIn, LogOut,
@@ -302,7 +303,7 @@ export default async function PortalHomePage() {
         </h2>
         <div className="rounded-3xl bg-white border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
           {[
-            { href: '/portal/leaves/new',       label: 'Request leave',        icon: FileText,      tint: 'text-violet-600 bg-violet-50' },
+            { href: '/portal/leaves/new',       label: 'Request leave',        icon: CalendarUserIcon, tint: 'text-violet-600 bg-violet-50' },
             { href: '/portal/time-corrections', label: 'Fix a time entry',     icon: ClipboardEdit, tint: 'text-amber-600 bg-amber-50' },
             { href: '/portal/cash-advance',     label: 'Request cash advance', icon: Banknote,      tint: 'text-emerald-600 bg-emerald-50' },
             { href: '/portal/profile',          label: 'My profile',           icon: User,          tint: 'text-slate-600 bg-slate-100' },

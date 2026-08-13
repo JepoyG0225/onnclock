@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle, ClipboardList, ClipboardEdit, Banknote, MoreHorizontal, X, type LucideProps, ListChecks, Home} from 'lucide-react'
+import { CalendarUserIcon } from '@/components/employee/CalendarUserIcon'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 
@@ -15,7 +16,7 @@ type IconComponent = React.ComponentType<LucideProps>
 const PRIMARY_TABS: { href: string; label: string; icon: IconComponent; exact: boolean; tasks?: boolean }[] = [
   { href: '/portal',        label: 'Home',       icon: Home,       exact: true  },
   { href: '/portal/tasks',  label: 'Tasks',      icon: ListChecks, exact: false, tasks: true },
-  { href: '/portal/leaves', label: 'Leave',      icon: FileText,   exact: false },
+  { href: '/portal/leaves', label: 'Leave',      icon: CalendarUserIcon, exact: false },
 ]
 
 // Extra items exposed in the "More" drawer

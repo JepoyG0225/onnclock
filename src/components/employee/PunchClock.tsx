@@ -46,17 +46,6 @@ interface GeoPosition {
   capturedAt: number
 }
 
-interface AttendanceLog {
-  id: string
-  date: string
-  timeIn: string | null
-  timeOut: string | null
-  regularHours: number | null
-  lateMinutes: number | null
-  isHoliday: boolean
-  holidayType: string | null
-}
-
 interface ScreenCaptureFeature {
   entitled: boolean
   enabled: boolean
@@ -96,8 +85,6 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
   const [geoError, setGeoError] = useState<string | null>(null)
   const [geoLoading, setGeoLoading] = useState(false)
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [logs, setLogs] = useState<AttendanceLog[]>([])
-  const [logsLoading, setLogsLoading] = useState(true)
   const [pulse, setPulse] = useState<'in' | 'out' | null>(null)
   const [biometricEnrolled, setBiometricEnrolled] = useState(false)
   const [biometricRequired, setBiometricRequired] = useState(true)
@@ -162,18 +149,9 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
     }
   }, [])
 
-  const loadLogs = useCallback(async () => {
-    setLogsLoading(true)
-    try {
-      const res = await fetch('/api/attendance/logs?limit=7')
-      const data = await res.json()
-      setLogs(data.records ?? [])
-    } catch {
-      // silent
-    } finally {
-      setLogsLoading(false)
-    }
-  }, [])
+  /** Bumped after a punch so AttendanceHistory refetches the current month. */
+  const [historyKey, setHistoryKey] = useState(0)
+  const refreshHistory = useCallback(() => setHistoryKey(k => k + 1), [])
 
   const loadBiometricStatus = useCallback(async () => {
     setBiometricLoading(true)
@@ -304,7 +282,6 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
 
   useEffect(() => {
     loadRecord()
-    loadLogs()
     loadBiometricStatus()
     fetch('/api/employees/me')
       .then(r => r.json())
@@ -331,7 +308,7 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
         setDesktopRequired(Boolean(feature.browserClockBlocked && !feature.isDesktopApp && !feature.isMobileDevice))
       })
       .catch(() => null)
-  }, [loadRecord, loadLogs, loadBiometricStatus])
+  }, [loadRecord, loadBiometricStatus])
 
   const requestLocation = useCallback(async () => {
     if (!navigator.geolocation) {
@@ -543,7 +520,7 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
       toast.success('Clocked in successfully!')
       setSelfiePhoto(null)
       await loadRecord()
-      await loadLogs()
+      refreshHistory()
 
       // Refresh location in the background after clock-in so the live map
       // stays accurate regardless of whether we used a cached position.
@@ -586,7 +563,7 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
       toast.success('Clocked out successfully!')
       stopScreenCaptureLoop()
       await loadRecord()
-      await loadLogs()
+      refreshHistory()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to clock out')
     } finally {
@@ -1223,59 +1200,10 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
         </div>
       )}
 
-      {/* Recent Attendance Logs — same flag as the full history below, so the
-          home card shows only the punch control and none of the record. */}
-      {showHistory && (
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" style={{ color: '#032b63' }} />
-            <p className="text-sm font-bold" style={{ color: '#032b63' }}>Attendance History</p>
-          </div>
-        </div>
-
-        {logsLoading ? (
-          <div className="px-5 pb-5 space-y-2.5">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
-            ))}
-          </div>
-        ) : logs.length === 0 ? (
-          <p className="px-5 pb-5 text-sm text-slate-400">No attendance logs yet.</p>
-        ) : (
-          <div className="px-5 pb-5 space-y-2.5">
-            {logs.map((log) => {
-              const inTime = log.timeIn ? format(new Date(log.timeIn), 'h:mm a') : '-'
-              const outTime = log.timeOut ? format(new Date(log.timeOut), 'h:mm a') : '-'
-              return (
-                <div
-                  key={log.id}
-                  className="flex items-center justify-between rounded-xl px-3 py-2.5"
-                  style={{ background: '#f8fafc' }}
-                >
-                  <div>
-                    <p className="text-xs font-bold" style={{ color: '#032b63' }}>
-                      {format(new Date(log.date), 'EEE, MMM d')}
-                    </p>
-                    <p className="text-[11px] text-slate-500 font-medium">
-                      In {inTime} | Out {outTime}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold" style={{ color: '#032b63' }}>
-                      {log.regularHours ?? 0}h
-                    </p>
-                    {(log.lateMinutes ?? 0) > 0 && (
-                      <p className="text-[10px] font-semibold text-amber-500">{log.lateMinutes}m late</p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-      )}
+      {/* The seven-day "Recent Attendance Logs" list that used to sit here is
+          gone. AttendanceHistory below shows the same records with month
+          navigation and totals, so the page was rendering the same recent days
+          twice, one above the other. */}
 
       {/* Current Location Map at Bottom.
 
@@ -1294,11 +1222,12 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
             <button
               onClick={requestLocation}
               disabled={geoLoading}
-              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors"
+              aria-label="Refresh location"
+              title="Refresh location"
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-50"
               style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63' }}
             >
-              <RefreshCw className={`w-3 h-3 ${geoLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`w-4 h-4 ${geoLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
@@ -1323,7 +1252,13 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
                  needed when that address looks wrong. */
               <div>
                 <div className="rounded-xl px-3 py-2.5" style={{ background: '#f8fafc' }}>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  {/* Reverse-geocoded PH addresses run long — clamp to two
+                      lines so the card height stays predictable. The full text
+                      stays in the title attribute. */}
+                  <p
+                    className="text-xs text-slate-600 leading-relaxed line-clamp-2"
+                    title={geoPos.address ?? undefined}
+                  >
                     {geoPos.address ?? `${geoPos.lat.toFixed(5)}, ${geoPos.lng.toFixed(5)}`}
                   </p>
                   <div className="flex items-center gap-3 mt-2">
@@ -1378,7 +1313,7 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
           checks it against live on one screen. */}
       {showHistory && (
         <div className="pt-2">
-          <AttendanceHistory />
+          <AttendanceHistory refreshKey={historyKey} />
         </div>
       )}
 

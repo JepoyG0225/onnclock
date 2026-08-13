@@ -8,13 +8,14 @@ import { signOut } from 'next-auth/react'
 import {
   Clock, FileText, CreditCard, User, BarChart3,
   Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList, ClipboardEdit, Banknote, ListChecks, Home} from 'lucide-react'
+import { CalendarUserIcon } from '@/components/employee/CalendarUserIcon'
 import { cn } from '@/lib/utils'
 
 const ALL_NAV_TABS = [
   { href: '/portal',                     label: 'Home',         icon: Home,           exact: true,  pro: false, budgetReq: false, tasks: false },
   { href: '/portal/clock',               label: 'My Attendance', icon: Clock,         exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/tasks',               label: 'My Tasks',     icon: ListChecks,      exact: false, pro: false, budgetReq: false, tasks: true },
-  { href: '/portal/leaves',              label: 'Leave',        icon: FileText,        exact: false, pro: false, budgetReq: false, tasks: false },
+  { href: '/portal/leaves',              label: 'Leave',        icon: CalendarUserIcon, exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/time-corrections',    label: 'Time Fixes',   icon: ClipboardEdit,   exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/payslips',            label: 'Payslips',     icon: CreditCard,      exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/loans',               label: 'Loans & CA',   icon: Banknote,        exact: false, pro: false, budgetReq: false, tasks: false },
