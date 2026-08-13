@@ -87,6 +87,8 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
   const [scheduleReady, setScheduleReady] = useState(true)
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null)
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
+  /** Map is collapsed by default; the address alone answers the usual question. */
+  const [showMap, setShowMap] = useState(false)
   // The API distinguishes "rest day" from "no schedule" only inside the message
   // text, so the dialog reads it the same way the old banner did.
   const isRestDayMessage = !!scheduleMessage?.toLowerCase().includes('rest day')
@@ -1314,12 +1316,42 @@ export function PunchClock({ showHistory = true }: { showHistory?: boolean }) {
                 <p className="text-xs text-slate-500 font-medium">Getting current location...</p>
               </div>
             ) : geoPos ? (
+              /* Address first, map on request. The map was always rendered and
+                 ate most of a phone screen, pushing the punch control and
+                 everything below it out of view. The address is what an
+                 employee actually checks before punching; the map is only
+                 needed when that address looks wrong. */
               <div>
-                <PortalLocationMap lat={geoPos.lat} lng={geoPos.lng} />
-                <p className="text-xs text-slate-500 leading-relaxed rounded-xl px-3 py-2.5 line-clamp-2 mt-2"
-                  style={{ background: '#f8fafc' }}>
-                  {geoPos.address ?? `${geoPos.lat.toFixed(5)}, ${geoPos.lng.toFixed(5)}`}
-                </p>
+                <div className="rounded-xl px-3 py-2.5" style={{ background: '#f8fafc' }}>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {geoPos.address ?? `${geoPos.lat.toFixed(5)}, ${geoPos.lng.toFixed(5)}`}
+                  </p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowMap(v => !v)}
+                      className="inline-flex items-center gap-1 text-[11px] font-black"
+                      style={{ color: '#032b63' }}
+                      aria-expanded={showMap}
+                    >
+                      <MapPin className="w-3 h-3" />
+                      {showMap ? 'Hide map' : 'View map'}
+                    </button>
+                    {geoPos.accuracy > 0 && (
+                      <span className="text-[11px] font-semibold text-slate-400">
+                        ±{Math.round(geoPos.accuracy)}m
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mounted only when opened — the map is a dynamic import, so
+                    leaving it closed also avoids loading Leaflet at all. */}
+                {showMap && (
+                  <div className="mt-2">
+                    <PortalLocationMap lat={geoPos.lat} lng={geoPos.lng} />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-xl px-3 py-2.5 text-xs text-slate-500" style={{ background: '#f8fafc' }}>
