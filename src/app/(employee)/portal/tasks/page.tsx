@@ -507,7 +507,7 @@ export default function PortalTasksPage() {
                   )}
                 </div>
 
-                {!isDone && progressStatus && task.statusId !== progressStatus.id && (
+                {task.status.category === 'TODO' && progressStatus && task.statusId !== progressStatus.id && (
                   <button
                     type="button"
                     disabled={saving}
