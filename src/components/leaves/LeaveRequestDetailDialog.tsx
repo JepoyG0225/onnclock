@@ -134,7 +134,7 @@ export function LeaveRequestDetailDialog({
         </>
       }
       actionsSlot={
-        isHR && request.status === 'PENDING'
+        request.status === 'PENDING' && (isHR || canApprove)
           ? (
               <LeaveApprovalButtons
                 requestId={request.id}
