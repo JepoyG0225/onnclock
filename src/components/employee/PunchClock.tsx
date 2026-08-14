@@ -1108,7 +1108,7 @@ export function PunchClock() {
             className={`w-[132px] h-[132px] rounded-full text-white text-[11px] font-black tracking-[0.15em] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
               background: 'linear-gradient(145deg, var(--brand-primary), var(--brand-highlight))',
-              boxShadow: '0 14px 34px rgba(255,89,0,0.30)',
+              boxShadow: '0 14px 34px rgba(11,111,251,0.24)',
             }}
           >
             {/* No 'No Schedule' state here any more — the button reads as a

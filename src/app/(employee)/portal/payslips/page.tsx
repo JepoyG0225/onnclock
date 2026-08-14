@@ -232,7 +232,7 @@ export default function PayslipsPage() {
               onClick={() => downloadPayslip(selected.id, selected.payrollRun.periodLabel)}
               disabled={downloadingId === selected.id}
               className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-[14px] font-black text-white disabled:opacity-60 active:scale-[0.98] transition-transform"
-              style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(255,89,0,0.28)' }}
+              style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(11,111,251,0.20)' }}
             >
               {downloadingId === selected.id ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Preparing PDF…</>

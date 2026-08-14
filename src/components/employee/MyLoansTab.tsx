@@ -189,7 +189,7 @@ export function MyLoansTab() {
           type="button"
           onClick={() => setShowForm(v => !v)}
           className="inline-flex items-center gap-1.5 text-white px-4 py-2.5 rounded-2xl text-[13px] font-black shrink-0 active:scale-[0.98] transition-transform"
-          style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(255,89,0,0.28)' }}
+          style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(11,111,251,0.20)' }}
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" strokeWidth={2.6} />}
           {showForm ? 'Cancel' : 'Request loan'}
