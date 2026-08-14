@@ -233,8 +233,8 @@ export default function NewPayrollRunPage() {
 
       const { run } = await res.json()
       setUnapprovedGuard(null)
-      toast.success('Payroll run created!')
-      router.push(`/payroll/${run.id}`)
+      toast.success('Payroll period created. Review the calculated payroll inputs next.')
+      router.push(`/payroll/${run.id}?stage=inputs`)
     } catch {
       toast.error('An error occurred')
     } finally {
@@ -244,6 +244,23 @@ export default function NewPayrollRunPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-3">
+        {[
+          { number: 1, label: 'Period & Employees', detail: 'Select payroll scope', active: true },
+          { number: 2, label: 'Payroll Inputs', detail: 'Calculate and adjust', active: false },
+          { number: 3, label: 'Payroll Summary', detail: 'Review and finalize', active: false },
+        ].map((item, index) => (
+          <div key={item.number} className={`flex items-center gap-3 px-5 py-4 ${index > 0 ? 'border-t sm:border-l sm:border-t-0' : ''} ${item.active ? 'bg-blue-50' : ''}`}>
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${item.active ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {item.number}
+            </span>
+            <span>
+              <span className="block text-sm font-semibold text-[#1f2937]">{item.label}</span>
+              <span className="block text-xs text-gray-500">{item.detail}</span>
+            </span>
+          </div>
+        ))}
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900">New Payroll Run</h1>
         <p className="text-gray-500 mt-1">Set up the payroll period, scope, and pay date</p>
@@ -464,7 +481,7 @@ export default function NewPayrollRunPage() {
 
         <div className="flex gap-3">
           <Button type="submit" disabled={saving} data-tour="pr-submit">
-            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : 'Create Payroll Run'}
+            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : 'Continue to Payroll Inputs'}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancel

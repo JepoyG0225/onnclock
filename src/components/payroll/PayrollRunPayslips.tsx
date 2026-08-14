@@ -81,9 +81,11 @@ interface Props {
   holidaysInPeriod?: HolidayInPeriod[]
   /** Per-employee DTR rows for the run's period, keyed by employeeId. */
   dtrsByEmployee?: Record<string, DtrEntry[]>
+  /** Editing also requires payroll:write; read-only payroll viewers can still inspect the breakdown. */
+  allowEdits?: boolean
 }
 
-export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [], dtrsByEmployee = {} }: Props) {
+export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [], dtrsByEmployee = {}, allowEdits = true }: Props) {
   const [payslips, setPayslips] = useState<PayslipRow[]>(initial)
   const [editing, setEditing] = useState<PayslipEditData | null>(null)
   // Which payslip rows are currently expanded to show the gross-pay
@@ -100,7 +102,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
     })
   }
 
-  const canEdit = runStatus === 'COMPUTED' || runStatus === 'DRAFT' || runStatus === 'FOR_APPROVAL'
+  const canEdit = allowEdits && (runStatus === 'COMPUTED' || runStatus === 'DRAFT' || runStatus === 'FOR_APPROVAL')
 
   function openEdit(ps: PayslipRow) {
     setEditing({

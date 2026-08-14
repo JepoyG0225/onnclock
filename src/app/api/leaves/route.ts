@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
   if (ownOnly && employeeId) {
     const balances = await prisma.leaveBalance.findMany({
       where: { employeeId, year: new Date().getFullYear() },
-      include: { leaveType: { select: { name: true, code: true } } },
+      include: { leaveType: { select: { name: true, code: true, isWithPay: true } } },
     })
     return NextResponse.json({ leaves, balances, total, page, limit })
   }
@@ -141,7 +141,9 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  const available = balance ? (balance.entitled.toNumber() - balance.used.toNumber() - balance.pending.toNumber()) : 0
+  const available = balance
+    ? balance.entitled.toNumber() + balance.carriedOver.toNumber() - balance.used.toNumber() - balance.pending.toNumber()
+    : 0
 
   if (available < totalDays) {
     return NextResponse.json({

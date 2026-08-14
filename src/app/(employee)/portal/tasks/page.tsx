@@ -276,32 +276,29 @@ export default function PortalTasksPage() {
                   !isSelected && !isToday && 'hover:bg-slate-50',
                 )}
                 style={
-                  isSelected
+                  isToday
+                    ? { background: 'var(--brand-primary)' }
+                    : isSelected
                     ? { background: ORANGE }
-                    // Today gets a soft orange wash and orange type when it is
-                    // not the selected day, so "what day is it" and "what day
-                    // am I filtering" stay tellable apart: tint vs solid fill.
-                    : isToday
-                      ? { background: 'rgba(255,89,0,0.10)' }
-                      : undefined
+                    : undefined
                 }
               >
                 <span className={cn(
                   'text-[10px] font-bold',
-                  isSelected ? 'text-white/70' : isToday ? '' : 'text-slate-400',
-                )} style={!isSelected && isToday ? { color: ORANGE } : undefined}>
+                  isToday || isSelected ? 'text-white/80' : 'text-slate-400',
+                )}>
                   {d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 3)}
                 </span>
                 <span className={cn(
                   'text-[15px] font-black tabular-nums',
-                  isSelected ? 'text-white' : isToday ? '' : 'text-slate-800',
-                )} style={!isSelected && isToday ? { color: ORANGE } : undefined}>
+                  isToday || isSelected ? 'text-white' : 'text-slate-800',
+                )}>
                   {d.getDate()}
                 </span>
                 <span
                   className="w-1.5 h-1.5 rounded-full"
                   style={{
-                    background: due > 0 ? (isSelected ? '#ffffff' : 'var(--brand-highlight)') : 'transparent',
+                    background: due > 0 ? (isSelected || isToday ? '#ffffff' : 'var(--brand-highlight)') : 'transparent',
                   }}
                 />
               </button>

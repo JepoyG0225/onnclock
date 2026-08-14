@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { logAudit } from '@/lib/audit'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 
 // PATCH /api/payroll/payslip/[payslipId]
 // Allows HR/admin to manually adjust earnings and deductions on a computed payslip.
@@ -13,6 +14,9 @@ export async function PATCH(
 ) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!(await ctxHasPermission(ctx, 'payroll:write'))) {
+    return NextResponse.json({ error: 'You do not have access to adjust payroll inputs' }, { status: 403 })
+  }
 
   const { payslipId } = await params
 

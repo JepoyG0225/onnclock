@@ -5,7 +5,6 @@ import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ComputePayrollButton } from '@/components/payroll/ComputePayrollButton'
-import { ApproveRunOtButton } from '@/components/payroll/ApproveRunOtButton'
 import PayrollActionButtons from '@/components/payroll/PayrollActionButtons'
 import { PayrollRunPayslips } from '@/components/payroll/PayrollRunPayslips'
 import { PayrollPayslipsLoader } from '@/components/payroll/PayrollPayslipsLoader'
@@ -16,9 +15,18 @@ import {Users, TrendingDown, AlertTriangle, Clock3, ClipboardCheck} from 'lucide
 import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollActivityLog from '@/components/payroll/PayrollActivityLog'
+import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 
-export default async function PayrollRunPage({ params }: { params: Promise<{ runId: string }> }) {
+export default async function PayrollRunPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ runId: string }>
+  searchParams: Promise<{ stage?: string }>
+}) {
   const { runId } = await params
+  const { stage } = await searchParams
+  const isInputsStage = stage === 'inputs'
   const session = await auth()
   if (!session?.user) redirect('/login')
 
@@ -31,6 +39,8 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
   ])
   if (!run) redirect('/payroll')
   const currency = company?.payrollCurrency ?? 'PHP'
+  const permissions = await getEffectivePermissions(session.user.role, companyId, session.user.id)
+  const canWritePayroll = permissions.includes('payroll:write') || session.user.role === 'SUPER_ADMIN'
   const peso = (n: number | { toNumber: () => number }) => formatCurrency(typeof n === 'number' ? n : n.toNumber(), currency)
 
   // Compute canApprove via the same path the POST handler uses
@@ -162,6 +172,27 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
 
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-3">
+        {[
+          { number: 1, label: 'Period & Employees', detail: 'Payroll scope selected', href: '/payroll/new', active: false },
+          { number: 2, label: 'Payroll Inputs', detail: 'Calculate and adjust', href: `/payroll/${run.id}?stage=inputs`, active: isInputsStage },
+          { number: 3, label: 'Payroll Summary', detail: 'Review and finalize', href: `/payroll/${run.id}`, active: !isInputsStage },
+        ].map((item, index) => (
+          <Link
+            key={item.number}
+            href={item.href}
+            className={`flex items-center gap-3 px-5 py-4 transition-colors hover:bg-blue-50 ${index > 0 ? 'border-t sm:border-l sm:border-t-0' : ''} ${item.active ? 'bg-blue-50' : ''}`}
+          >
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${item.active ? 'bg-[var(--brand-primary)] text-white' : item.number === 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+              {item.number === 1 ? '✓' : item.number}
+            </span>
+            <span>
+              <span className="block text-sm font-semibold text-[#1f2937]">{item.label}</span>
+              <span className="block text-xs text-gray-500">{item.detail}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
       {/* Header
           ───
           Title + period on the left, status pill on the right, then a
@@ -174,7 +205,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Payroll Run</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{isInputsStage ? 'Payroll Inputs' : 'Payroll Summary'}</h1>
             <p className="text-gray-600 mt-1">
               {run.periodLabel}
               <span className="mx-2 text-gray-300">·</span>
@@ -185,19 +216,31 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
             <Badge className={`text-sm border-0 ${getStatusColor(run.status)}`}>
               {STATUS_LABELS[run.status]}
             </Badge>
-            {(run.status === 'DRAFT' || run.status === 'COMPUTED' || run.status === 'FOR_APPROVAL') && (
+            {isInputsStage && canWritePayroll && (run.status === 'DRAFT' || run.status === 'COMPUTED' || run.status === 'FOR_APPROVAL') && (
               <ComputePayrollButton runId={run.id} status={run.status} />
             )}
-            <PayrollActionButtons
+            {!isInputsStage && <PayrollActionButtons
               runId={run.id}
               status={run.status}
               periodLabel={run.periodLabel}
               canApprove={run.status !== 'FOR_APPROVAL' ? true : canApprove}
               approveDisabledReason={run.status !== 'FOR_APPROVAL' ? undefined : approveDisabledReason}
-            />
+            />}
           </div>
         </div>
-        <PayrollWorkflowStepper status={run.status} />
+        {isInputsStage ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#1f2937]">Review each employee&apos;s calculated payroll</p>
+              <p className="mt-0.5 text-xs text-gray-600">Use the edit icon to add income, deductions, or manual adjustments before generating the summary.</p>
+            </div>
+            {payslips.length > 0 && (
+              <Link href={`/payroll/${run.id}`} className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+                Generate Payroll Summary
+              </Link>
+            )}
+          </div>
+        ) : <PayrollWorkflowStepper status={run.status} />}
       </div>
 
       {/* Pre-payroll readiness warning */}
@@ -237,6 +280,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
         </div>
       )}
 
+      {!isInputsStage && <>
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="bg-white">
@@ -307,16 +351,18 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
           </CardContent>
         </Card>
       )}
+      </>}
 
       {/* Payslip Table */}
       <PayrollPayslipsLoader>
       <Card className="overflow-hidden py-0">
         <CardHeader className="border-b bg-white px-6 py-4">
-          <CardTitle className="text-base !text-[#343434]">Individual Payslips ({payslips.length})</CardTitle>
+          <CardTitle className="text-base !text-[#343434]">{isInputsStage ? 'Calculated Payroll Inputs' : 'Individual Payslips'} ({payslips.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <PayrollRunPayslips
             runStatus={run.status}
+            allowEdits={isInputsStage && canWritePayroll}
             totalBasic={run.totalBasic.toNumber()}
             totalGross={run.totalGross.toNumber()}
             totalDeductions={run.totalDeductions.toNumber()}
@@ -399,6 +445,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
       </Card>
       </PayrollPayslipsLoader>
 
+      {!isInputsStage && <>
       {/* Activity Log */}
       <PayrollActivityLog runId={run.id} />
 
@@ -441,6 +488,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
           </div>
         )
       })()}
+      </>}
     </div>
   )
 }
