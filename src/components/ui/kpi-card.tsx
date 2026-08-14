@@ -25,13 +25,19 @@ import { cn } from '@/lib/utils'
  */
 export type KpiTone = 'primary' | 'accent' | 'success' | 'warning' | 'info' | 'neutral'
 
-const TONE_STYLES: Record<KpiTone, { bg: string; text: string }> = {
-  primary:  { bg: 'bg-primary/10',   text: 'text-primary' },
-  accent:   { bg: 'bg-accent/10',    text: 'text-accent' },
-  success:  { bg: 'bg-emerald-100',  text: 'text-emerald-700' },
-  warning:  { bg: 'bg-amber-100',    text: 'text-amber-700' },
-  info:     { bg: 'bg-sky-100',      text: 'text-sky-700' },
-  neutral:  { bg: 'bg-slate-100',    text: 'text-slate-700' },
+const BASE_TONE = {
+    card: 'border-[#e5ecf4] bg-white',
+    value: 'text-[var(--brand-ink)]',
+    muted: 'text-slate-500',
+}
+
+const TONE_STYLES: Record<KpiTone, { card: string; bg: string; text: string; value: string; muted: string; strip: string }> = {
+  primary: { ...BASE_TONE, bg: 'bg-blue-50', text: 'text-[var(--brand-primary)]', strip: '' },
+  accent: { ...BASE_TONE, bg: 'bg-cyan-50', text: 'text-cyan-600', strip: '' },
+  success: { ...BASE_TONE, bg: 'bg-emerald-50', text: 'text-emerald-600', strip: '' },
+  warning: { ...BASE_TONE, bg: 'bg-rose-50', text: 'text-[var(--brand-danger)]', strip: '' },
+  info: { ...BASE_TONE, bg: 'bg-sky-50', text: 'text-sky-600', strip: '' },
+  neutral: { ...BASE_TONE, bg: 'bg-slate-100', text: 'text-slate-600', strip: '' },
 }
 
 export interface KpiCardProps {
@@ -72,18 +78,20 @@ export function KpiCard({
     <Card
       onClick={onClick}
       className={cn(
-        'transition-shadow',
-        isInteractive && 'cursor-pointer hover:shadow-md',
+        'relative overflow-hidden shadow-sm transition-all',
+        toneCls.card,
+        toneCls.strip,
+        isInteractive && 'cursor-pointer hover:-translate-y-0.5 hover:border-[var(--brand-primary)] hover:shadow-lg',
         className,
       )}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">{label}</p>
-            <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
+            <p className={cn('text-xs font-semibold', toneCls.muted)}>{label}</p>
+            <p className={cn('mt-1 text-3xl font-black tracking-tight', toneCls.value)}>{value}</p>
             {hint && (
-              <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+              <p className={cn('mt-1 text-xs', toneCls.muted)}>{hint}</p>
             )}
             {trend && (
               <p
@@ -103,7 +111,7 @@ export function KpiCard({
           {icon && (
             <div
               className={cn(
-                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm',
                 toneCls.bg,
                 toneCls.text,
               )}

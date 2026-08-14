@@ -70,7 +70,7 @@ export async function syncAutoOvertimeRequest(params: {
   // so turning either switch off actually clears the queue rather than
   // leaving orphaned rows an approver could still act on.
   const [otEnabled, timeTracked] = await Promise.all([
-    isOvertimeEnabledForCompany(companyId),
+    isOvertimeEnabledForEmployee(companyId, employeeId),
     isTimeTrackedEmployee(employeeId),
   ])
   if (!otEnabled || !timeTracked) {
@@ -179,7 +179,7 @@ export async function applyManualOtOverride(params: {
 
   const hours = Math.round(Math.max(0, Number(params.hours) || 0) * 100) / 100
   // Nothing to credit if OT is disabled for the company or the override is 0.
-  if (hours <= 0 || !(await isOvertimeEnabledForCompany(params.companyId))) return
+  if (hours <= 0 || !(await isOvertimeEnabledForEmployee(params.companyId, params.employeeId))) return
 
   const startTime = params.timeIn ? formatManilaTime(params.timeIn) : '00:00'
   const endTime = params.timeOut ? formatManilaTime(params.timeOut) : '00:00'
@@ -246,6 +246,17 @@ export async function isOvertimeEnabledForCompany(companyId: string): Promise<bo
     // payroll compute uses, so behavior stays consistent.
     return true
   }
+}
+
+/** Company policy, with an explicit employee-level opt-in taking precedence. */
+export async function isOvertimeEnabledForEmployee(companyId: string, employeeId: string): Promise<boolean> {
+  const companyEnabled = await isOvertimeEnabledForCompany(companyId)
+  if (companyEnabled) return true
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, companyId },
+    select: { overtimePayOverride: true },
+  })
+  return employee?.overtimePayOverride === true
 }
 
 /**

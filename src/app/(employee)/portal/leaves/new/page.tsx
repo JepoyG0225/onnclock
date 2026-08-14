@@ -168,7 +168,7 @@ export default function NewLeavePage() {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Type</label>
           <select
             {...register('leaveTypeId')}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
           >
             <option value="">Select leave type...</option>
             {leaveTypes.map(lt => (
@@ -226,7 +226,7 @@ export default function NewLeavePage() {
                 type="checkbox"
                 checked={isHalfDay}
                 onChange={e => setValue('isHalfDay', e.target.checked)}
-                className="w-4 h-4 rounded accent-[#032b63]"
+                className="w-4 h-4 rounded accent-[#000000]"
               />
               <span className="text-sm font-medium text-gray-700">Half-day leave (0.5 day)</span>
             </label>
@@ -239,8 +239,8 @@ export default function NewLeavePage() {
                     onClick={() => setValue('halfDayPeriod', period)}
                     className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
                       halfDayPeriod === period
-                        ? 'bg-[#032b63] text-white border-[#032b63]'
-                        : 'bg-white text-gray-600 border-gray-300 hover:border-[#032b63]'
+                        ? 'bg-[#000000] text-white border-[#000000]'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-[#000000]'
                     }`}
                   >
                     {period} — {period === 'AM' ? 'Morning' : 'Afternoon'}
@@ -253,7 +253,7 @@ export default function NewLeavePage() {
 
         {/* Days Preview */}
         {days > 0 && (
-          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: '#032b63' }}>
+          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: '#000000' }}>
             <strong>{days} working day{days !== 1 ? 's' : ''}</strong>
             {isHalfDay
               ? ` — ${halfDayPeriod === 'AM' ? 'Morning' : 'Afternoon'} half of ${format(parseISO(startDate), 'MMM d, yyyy')}`
@@ -272,7 +272,7 @@ export default function NewLeavePage() {
             {...register('reason')}
             rows={3}
             placeholder="Please state your reason for filing this leave..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63] resize-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#000000] resize-none"
           />
           {errors.reason && <p className="text-red-500 text-xs mt-1">{errors.reason.message}</p>}
         </div>

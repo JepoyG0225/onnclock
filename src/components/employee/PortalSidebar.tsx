@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -119,14 +119,14 @@ export function PortalSidebar({
     <aside
       className="hidden lg:flex fixed left-0 top-0 h-screen w-60 flex-col z-30 select-none"
       style={{
-        background: '#021e47',
-        borderRight: '1px solid rgba(255,255,255,0.07)',
+        background: '#f7faff',
+        borderRight: '1px solid #dfe7f1',
       }}
     >
       {/* ── Logo / company ── */}
       <div
         className="flex items-center gap-3 px-5 shrink-0"
-        style={{ height: '4rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+        style={{ height: '4rem', borderBottom: '1px solid #dfe7f1' }}
       >
         {companyLogoUrl ? (
           <img src={companyLogoUrl} alt="Company logo" className="h-8 w-auto max-w-[120px] object-contain" />
@@ -137,7 +137,7 @@ export function PortalSidebar({
             width={100}
             height={33}
             priority
-            style={{ filter: 'brightness(0) invert(1)' }}
+            style={{ filter: undefined }}
           />
         )}
       </div>
@@ -154,12 +154,12 @@ export function PortalSidebar({
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                 isActive
                   ? 'text-white'
-                  : 'text-white/55 hover:text-white hover:bg-white/10'
+                  : 'text-slate-600 hover:text-[var(--brand-primary)] hover:bg-blue-50'
               )}
-              style={isActive ? { background: 'rgba(250,94,1,0.85)' } : undefined}
+              style={isActive ? { background: 'var(--brand-primary)', boxShadow: '0 4px 12px rgba(11,111,251,.18)' } : undefined}
             >
               <tab.icon
-                className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-white/50')}
+                className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-slate-400')}
                 strokeWidth={isActive ? 2.5 : 1.8}
               />
               {tab.label}
@@ -171,13 +171,13 @@ export function PortalSidebar({
       {/* ── Footer: notifications + user ── */}
       <div
         className="shrink-0 px-3 pb-4 pt-3 space-y-1"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+        style={{ borderTop: '1px solid #dfe7f1' }}
       >
         {/* Notification bell */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => { setShowNotif(v => !v); setShowUserMenu(false) }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/55 hover:text-white hover:bg-white/10 transition-all"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-[var(--brand-primary)] hover:bg-blue-50 transition-all"
           >
             <div className="relative">
               <Bell className="w-4 h-4" strokeWidth={1.8} />
@@ -255,29 +255,26 @@ export function PortalSidebar({
         <div className="relative">
           <button
             onClick={() => { setShowUserMenu(v => !v); setShowNotif(false) }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 transition-all group"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 transition-all group"
           >
             {/* Avatar */}
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0"
-              style={{ background: '#ff5900' }}
-            >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-xs font-black text-blue-700 ring-1 ring-blue-200">
               {employeeInitials ?? 'E'}
             </div>
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-white text-xs font-semibold truncate leading-tight">
+              <p className="text-slate-800 text-xs font-semibold truncate leading-tight">
                 {employeeName ?? 'Employee'}
               </p>
               {employeeNo && (
-                <p className="text-white/40 text-[10px] leading-tight">{employeeNo}</p>
+                <p className="text-slate-500 text-[10px] leading-tight">{employeeNo}</p>
               )}
               {companyName && (
-                <p className="text-white/30 text-[10px] leading-tight truncate">{companyName}</p>
+                <p className="text-slate-400 text-[10px] leading-tight truncate">{companyName}</p>
               )}
             </div>
             <ChevronDown
               className={cn(
-                'w-3.5 h-3.5 text-white/30 shrink-0 transition-transform duration-150',
+                'w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150',
                 showUserMenu && 'rotate-180'
               )}
             />

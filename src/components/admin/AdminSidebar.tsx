@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -6,8 +6,8 @@ import { signOut } from 'next-auth/react'
 import { Building2, CreditCard, Receipt, Wallet, LogOut, ShieldCheck, ArrowDownToLine, FileText } from 'lucide-react'
 
 const THEME = {
-  deep: '#021e47',
-  base: '#032b63',
+  deep: '#000000',
+  base: '#000000',
   mid: '#AAB7B7',
   soft: '#c4d9ff',
   light: '#dce5f7',
@@ -79,7 +79,7 @@ export function AdminSidebar() {
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
               style={
                 isActive
-                  ? { background: '#0055d4', color: '#F8FAFC' }
+                  ? { background: '#0055d4', color: '#f7f7f7' }
                   : { color: THEME.mid }
               }
             >

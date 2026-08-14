@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download } from 'lucide-react'
+import { Download, FileSpreadsheet } from 'lucide-react'
 import Link from 'next/link'
 import { peso } from '@/lib/utils'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -95,12 +96,7 @@ export default function PhilHealthReportPage() {
           { label: 'ER Shares (2.5%)', value: totalER,     color: 'text-primary' },
           { label: 'Total Premium',    value: totalPremium, color: 'text-gray-900' },
         ].map(s => (
-          <Card key={s.label}>
-            <CardContent className="p-4">
-              <p className="text-xs text-gray-500">{s.label}</p>
-              <p className={`text-lg font-bold ${s.color}`}>{peso(s.value)}</p>
-            </CardContent>
-          </Card>
+          <KpiCard key={s.label} label={s.label} value={peso(s.value)} icon={<FileSpreadsheet className="h-5 w-5" />} />
         ))}
       </div>
 

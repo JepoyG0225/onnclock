@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
@@ -57,7 +57,7 @@ export default function LoginPage() {
               placeholder="you@company.com"
               required
               autoComplete="email"
-              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-[#032b63] focus:ring-4 focus:ring-[#032b63]/10"
+              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-[#000000] focus:ring-4 focus:ring-[#000000]/10"
             />
           </div>
         </div>
@@ -67,7 +67,7 @@ export default function LoginPage() {
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
               Password
             </label>
-            <Link href="/forgot-password" className="text-xs font-semibold" style={{ color: '#032b63' }}>
+            <Link href="/forgot-password" className="text-xs font-semibold" style={{ color: '#000000' }}>
               Forgot password?
             </Link>
           </div>
@@ -80,7 +80,7 @@ export default function LoginPage() {
               placeholder="********"
               required
               autoComplete="current-password"
-              className="w-full pl-10 pr-11 py-3 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-[#032b63] focus:ring-4 focus:ring-[#032b63]/10"
+              className="w-full pl-10 pr-11 py-3 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-[#000000] focus:ring-4 focus:ring-[#000000]/10"
             />
             <button
               type="button"
@@ -97,7 +97,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full py-3.5 rounded-xl text-sm font-black tracking-wide text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
           style={{
-            background: 'linear-gradient(135deg, #032b63, #021e47)',
+            background: 'linear-gradient(135deg, #000000, #000000)',
             boxShadow: '0 6px 20px rgba(34,127,132,0.35)',
           }}
         >
@@ -125,7 +125,7 @@ export default function LoginPage() {
 
       <Link
         href="/register"
-        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-600 hover:border-[#032b63] hover:text-primary hover:bg-[#dce5f7] transition-all"
+        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-600 hover:border-[#000000] hover:text-primary hover:bg-[#dce5f7] transition-all"
       >
         Create a free company account
       </Link>
@@ -138,7 +138,7 @@ export default function LoginPage() {
         <p className="text-xs font-semibold text-slate-500 text-center uppercase tracking-wide">Download Desktop App</p>
         <a
           href="/download"
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#032b63] hover:text-primary transition-colors"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:border-[#000000] hover:text-primary transition-colors"
         >
           <Image src="/platform-icons/windows.svg" alt="Windows" width={14} height={14} />
           <Image src="/platform-icons/mac-21.png" alt="macOS" width={14} height={14} />

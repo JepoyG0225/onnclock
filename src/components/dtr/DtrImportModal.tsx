@@ -135,7 +135,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-[#162d54]">
+          <DialogTitle className="flex items-center gap-2 text-[#000000]">
             <FileSpreadsheet className="w-5 h-5" />
             Bulk Import DTR Entries
           </DialogTitle>
@@ -158,7 +158,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                 size="sm"
                 variant="outline"
                 onClick={downloadTemplate}
-                className="border-[#162d54] text-[#162d54] hover:bg-[#162d54] hover:text-white shrink-0"
+                className="border-[#000000] text-[#000000] hover:bg-[#000000] hover:text-white shrink-0"
               >
                 <Download className="mr-1.5 w-4 h-4" />
                 Download
@@ -174,7 +174,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                 <button
                   type="button"
                   onClick={() => { setPasteMode(p => !p); }}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-[#162d54] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-[#000000] hover:underline"
                 >
                   <ClipboardPaste className="w-3.5 h-3.5" />
                   {pasteMode ? 'Use file upload' : 'Paste instead'}
@@ -186,7 +186,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                   value={csvText}
                   onChange={e => acceptText(e.target.value, null)}
                   placeholder={'employeeNo,date,timeIn,timeOut,remarks\n1001,2026-06-01,08:00,17:00,'}
-                  className="w-full h-40 border border-gray-200 rounded-lg p-3 text-sm font-mono outline-none focus:border-[#162d54]"
+                  className="w-full h-40 border border-gray-200 rounded-lg p-3 text-sm font-mono outline-none focus:border-[#000000]"
                 />
               ) : (
                 <div
@@ -194,8 +194,8 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                     dragOver
                       ? 'border-accent bg-orange-50'
                       : state === 'file-selected'
-                      ? 'border-[#162d54] bg-blue-50'
-                      : 'border-gray-300 bg-white hover:border-[#162d54] hover:bg-gray-50'
+                      ? 'border-[#000000] bg-blue-50'
+                      : 'border-gray-300 bg-white hover:border-[#000000] hover:bg-gray-50'
                   }`}
                   onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f) }}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -206,8 +206,8 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
                   {state === 'file-selected' ? (
                     <div className="flex flex-col items-center gap-2">
-                      <FileSpreadsheet className="w-10 h-10 text-[#162d54]" />
-                      <p className="text-sm font-medium text-[#162d54]">{fileName ?? 'Pasted data'}</p>
+                      <FileSpreadsheet className="w-10 h-10 text-[#000000]" />
+                      <p className="text-sm font-medium text-[#000000]">{fileName ?? 'Pasted data'}</p>
                       <p className="text-xs text-gray-500">{rowCount} row{rowCount === 1 ? '' : 's'} detected · Click to change</p>
                     </div>
                   ) : (
@@ -229,7 +229,7 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
           {/* Loading */}
           {state === 'loading' && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 className="w-10 h-10 animate-spin text-[#162d54]" />
+              <Loader2 className="w-10 h-10 animate-spin text-[#000000]" />
               <p className="text-sm font-medium text-gray-700">Importing DTR records…</p>
               <p className="text-xs text-gray-500">This may take a few seconds.</p>
             </div>
@@ -296,18 +296,18 @@ export function DtrImportModal({ open, onClose, onSuccess, endpoint }: Props) {
                 <Button variant="outline" onClick={reset}>
                   <X className="mr-1.5 w-4 h-4" /> Clear
                 </Button>
-                <Button onClick={handleImport} className="bg-[#162d54] hover:bg-[#0f1f3d] text-white">
+                <Button onClick={handleImport} className="bg-[#000000] hover:bg-[#0f1f3d] text-white">
                   <Upload className="mr-1.5 w-4 h-4" /> Import {rowCount > 0 ? `(${rowCount})` : ''}
                 </Button>
               </>
             )}
             {state === 'loading' && (
-              <Button disabled className="bg-[#162d54] text-white">
+              <Button disabled className="bg-[#000000] text-white">
                 <Loader2 className="mr-1.5 w-4 h-4 animate-spin" /> Importing…
               </Button>
             )}
             {state === 'done' && (
-              <Button onClick={handleDone} className="bg-[#162d54] hover:bg-[#0f1f3d] text-white">Done</Button>
+              <Button onClick={handleDone} className="bg-[#000000] hover:bg-[#0f1f3d] text-white">Done</Button>
             )}
           </div>
         </div>

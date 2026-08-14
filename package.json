@@ -13,6 +13,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
     "@fontsource/montserrat": "^5.2.8",
+    "@fortawesome/fontawesome-svg-core": "^7.3.1",
+    "@fortawesome/free-solid-svg-icons": "^7.3.1",
+    "@fortawesome/react-fontawesome": "^3.5.0",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-select": "^2.2.6",

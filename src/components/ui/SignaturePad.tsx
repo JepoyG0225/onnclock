@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * Canvas-based signature pad. Captures pointer events (mouse + touch),
@@ -67,7 +67,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, width, height)
-      ctx.strokeStyle = '#021e47'
+      ctx.strokeStyle = '#000000'
       ctx.lineWidth = 2.2
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
@@ -178,7 +178,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
             onPointerLeave={onPointerEnd}
             style={{
               touchAction: 'none',
-              border: '1px dashed #cbd5e1',
+              border: '1px dashed #d4d4d4',
               borderRadius: 8,
               background: '#ffffff',
               cursor: 'crosshair',

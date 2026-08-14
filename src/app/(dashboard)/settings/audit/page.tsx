@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Search, ShieldCheck } from 'lucide-react'
@@ -6,6 +6,7 @@ import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 type AuditLog = {
   id: string
@@ -62,12 +63,7 @@ export default function AuditSettingsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-slate-500">Total events</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{totalCount}</p>
-          </CardContent>
-        </Card>
+        <KpiCard label="Total events" value={totalCount} icon={<ShieldCheck className="h-5 w-5" />} />
         <Card className="md:col-span-2">
           <CardContent className="p-4">
             <div className="relative">
@@ -86,7 +82,7 @@ export default function AuditSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#032b63]" />
+            <ShieldCheck className="h-4 w-4 text-[#000000]" />
             Audit Log
           </CardTitle>
         </CardHeader>

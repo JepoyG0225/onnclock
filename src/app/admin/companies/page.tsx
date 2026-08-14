@@ -49,10 +49,10 @@ function fmt(n: number) {
 
 const THEME = {
   deep: '#FFFFFF',
-  base: '#E2E8F0',
-  mid: '#64748B',
-  soft: '#334155',
-  light: '#0F172A',
+  base: '#d4d4d4',
+  mid: '#666666',
+  soft: '#343434',
+  light: '#000000',
 } as const
 
 const STATUS_COLORS: Record<SubscriptionStatus, string> = {

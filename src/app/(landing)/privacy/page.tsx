@@ -127,9 +127,9 @@ export default function PrivacyPolicyPage() {
         </Section>
 
         <div className="mt-12 border-t pt-6 text-sm text-slate-500">
-          <Link href="/" className="text-[#2E4156] hover:underline">← Back to home</Link>
+          <Link href="/" className="text-[#000000] hover:underline">← Back to home</Link>
           {' · '}
-          <Link href="/terms" className="text-[#2E4156] hover:underline">Terms of Service</Link>
+          <Link href="/terms" className="text-[#000000] hover:underline">Terms of Service</Link>
         </div>
       </div>
     </main>
@@ -147,6 +147,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Mail() {
   return (
-    <a href="mailto:support@onclockph.com" className="text-[#2E4156] underline">support@onclockph.com</a>
+    <a href="mailto:support@onclockph.com" className="text-[#000000] underline">support@onclockph.com</a>
   )
 }

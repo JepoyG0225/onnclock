@@ -80,7 +80,7 @@ export function WelcomeOnboarding({
       <div className="fixed inset-0 z-[9995] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm" onClick={dismissWelcome} />
         <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
-          <div className="px-7 pt-8 pb-6 text-center" style={{ background: 'linear-gradient(135deg,#021e47,#032b63)' }}>
+          <div className="px-7 pt-8 pb-6 text-center" style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}>
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
               <Sparkles className="h-7 w-7 text-white" />
             </div>
@@ -92,8 +92,8 @@ export function WelcomeOnboarding({
           <div className="p-6 space-y-3">
             <button onClick={startFirstEmployee}
               className="w-full flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors hover:bg-orange-50"
-              style={{ borderColor: '#ff5900' }}>
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ background: '#ff5900' }}><UserPlus className="h-5 w-5" /></span>
+              style={{ borderColor: 'var(--brand-highlight)' }}>
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ background: 'var(--brand-highlight)' }}><UserPlus className="h-5 w-5" /></span>
               <span className="flex-1">
                 <span className="block text-sm font-bold text-slate-900">Set up your first employee</span>
                 <span className="block text-xs text-slate-500">We&apos;ll walk you through every field, step by step.</span>
@@ -131,7 +131,7 @@ export function WelcomeOnboarding({
     return (
       <div className="fixed bottom-5 right-5 z-[9990] w-[340px] rounded-2xl border border-slate-200 bg-white shadow-2xl pointer-events-auto">
         <div className="flex items-start gap-2 px-4 py-3 border-b border-slate-100">
-          <Sparkles className="h-4 w-4 mt-0.5" style={{ color: '#ff5900' }} />
+          <Sparkles className="h-4 w-4 mt-0.5" style={{ color: 'var(--brand-highlight)' }} />
           <div className="flex-1">
             <p className="text-sm font-bold text-slate-900">Nice — your team is in! 🎉</p>
             <p className="text-xs text-slate-500 mt-0.5">Here&apos;s what to set up next:</p>

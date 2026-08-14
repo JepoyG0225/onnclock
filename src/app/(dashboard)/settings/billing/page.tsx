@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
@@ -382,7 +382,7 @@ export default function BillingPage() {
       <div className="space-y-6">
         <SettingsTabs />
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-6 h-6 animate-spin text-[#032b63]" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#000000]" />
         </div>
       </div>
     )
@@ -414,7 +414,7 @@ export default function BillingPage() {
                   <Link
                     href="/admin/companies"
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
-                    style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+                    style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
                   >
                     Pick a company
                   </Link>
@@ -457,7 +457,7 @@ export default function BillingPage() {
       {(isOnTrial || isExpired) && (
         <div className={`rounded-2xl px-5 py-4 flex items-start gap-4 border ${isExpired ? 'bg-red-50 border-red-200' : 'bg-[#dce5f7] border-[#AAB7B7]'}`}>
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'bg-red-100' : 'bg-[#c4d9ff]'}`}>
-            {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-[#032b63]" />}
+            {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-[#000000]" />}
           </div>
           <div className="flex-1">
             <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-primary'}`}>
@@ -623,7 +623,7 @@ export default function BillingPage() {
                 onClick={addSeats}
                 disabled={addingSeats || seatsToAdd <= 0 || addSeatsCost.total <= 0}
                 className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+                style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
               >
                 {addingSeats
                   ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -640,7 +640,7 @@ export default function BillingPage() {
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
-              <CreditCard className="w-5 h-5" style={{ color: '#032b63' }} />
+              <CreditCard className="w-5 h-5" style={{ color: '#000000' }} />
             </div>
             <div>
               <p className="font-bold text-slate-800">Current Plan</p>
@@ -673,7 +673,7 @@ export default function BillingPage() {
           </div>
           <div>
             <p className="text-xs text-slate-400 font-medium mb-1">Est. Monthly Cost</p>
-            <p className="text-xl font-black" style={{ color: '#032b63' }}>{fmt(data.estimatedMonthly)}</p>
+            <p className="text-xl font-black" style={{ color: '#000000' }}>{fmt(data.estimatedMonthly)}</p>
           </div>
         </div>
       </div>
@@ -690,7 +690,7 @@ export default function BillingPage() {
               key={price}
               type="button"
               onClick={() => setSelectedPricePerSeat(price)}
-              className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === price ? 'border-[#032b63] bg-[#dce5f7]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
+              className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === price ? 'border-[#000000] bg-[#dce5f7]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
             >
               <p className="font-black text-slate-900 text-lg">{label}</p>
               <p className="text-xs text-slate-500 mt-1">{desc}</p>
@@ -705,7 +705,7 @@ export default function BillingPage() {
         <div className="flex items-center gap-2">
           <h3 className="text-base font-bold text-slate-900">Checkout</h3>
           {planDiscountPct > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white" style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}>
+            <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white" style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}>
               <Star className="w-2.5 h-2.5 fill-white" /> {planDiscountPct}% {DURATION_SHORT[selectedDuration].toUpperCase()} DISCOUNT
             </span>
           )}
@@ -817,7 +817,7 @@ export default function BillingPage() {
               onClick={proceedToPayment}
               disabled={selectedTotal <= 0}
               className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+              style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
             >
               <QrCode className="w-4 h-4" />
               Proceed to Payment
@@ -898,7 +898,7 @@ export default function BillingPage() {
             {/* Loading */}
             {qr.phase === 'loading' && (
               <div className="flex flex-col items-center justify-center gap-4 py-16 px-8">
-                <Loader2 className="w-10 h-10 animate-spin" style={{ color: '#032b63' }} />
+                <Loader2 className="w-10 h-10 animate-spin" style={{ color: '#000000' }} />
                 <p className="font-bold text-slate-700">Generating QR code…</p>
                 <p className="text-xs text-slate-400 text-center">Generating your QR code…</p>
               </div>
@@ -909,7 +909,7 @@ export default function BillingPage() {
               <>
                 <div className="px-6 pt-6 pb-4 text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3" style={{ background: 'rgba(46,65,86,.1)' }}>
-                    <QrCode className="w-6 h-6" style={{ color: '#032b63' }} />
+                    <QrCode className="w-6 h-6" style={{ color: '#000000' }} />
                   </div>
                   <h2 className="text-lg font-black text-slate-900">Scan to Pay</h2>
                   <p className="text-xs text-slate-500 mt-1">Use GCash, Maya, or any QR Ph-enabled bank app</p>
@@ -974,7 +974,7 @@ export default function BillingPage() {
                 <button
                   onClick={closeModal}
                   className="w-full py-3 rounded-xl font-bold text-sm text-white mt-2"
-                  style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+                  style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
                 >
                   Done
                 </button>
@@ -998,7 +998,7 @@ export default function BillingPage() {
                   <button
                     onClick={proceedToPayment}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+                    style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
                   >
                     Try Again
                   </button>
@@ -1023,7 +1023,7 @@ export default function BillingPage() {
                   <button
                     onClick={proceedToPayment}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+                    style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
                   >
                     Try Again
                   </button>

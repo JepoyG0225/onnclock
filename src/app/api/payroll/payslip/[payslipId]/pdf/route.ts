@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import { format } from 'date-fns'
 import { formatCurrency } from '@/lib/utils'
 import { pdfTextSafe as toWinAnsiSafe } from '@/lib/pdf-text-safe'
+import fs from 'fs'
+import path from 'path'
 
 function makePeso(currency: string) {
   return (n: number) => toWinAnsiSafe(formatCurrency(n, currency))
@@ -140,18 +143,35 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   try {
     const pdf = await PDFDocument.create()
     const page = pdf.addPage([595.28, 841.89])
-    const font = await pdf.embedFont(StandardFonts.Helvetica)
-    const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
+    let font
+    let bold
+    try {
+      pdf.registerFontkit(fontkit)
+      const fontDir = path.join(process.cwd(), 'public', 'fonts', 'montserrat', 'static')
+      const [regularBytes, boldBytes] = await Promise.all([
+        fs.promises.readFile(path.join(fontDir, 'Montserrat-Regular.ttf')),
+        fs.promises.readFile(path.join(fontDir, 'Montserrat-Bold.ttf')),
+      ])
+      font = await pdf.embedFont(regularBytes, { subset: true })
+      bold = await pdf.embedFont(boldBytes, { subset: true })
+    } catch (fontError) {
+      console.warn('[PDF] Montserrat unavailable; using Helvetica fallback:', fontError)
+      font = await pdf.embedFont(StandardFonts.Helvetica)
+      bold = await pdf.embedFont(StandardFonts.HelveticaBold)
+    }
 
     const C = {
-      deep: rgb(0.10, 0.18, 0.26),
-      base: rgb(0.18, 0.25, 0.34),
-      mid: rgb(0.67, 0.72, 0.72),
-      light: rgb(0.83, 0.85, 0.87),
+      deep: rgb(0.043, 0.435, 0.984),
+      base: rgb(0.122, 0.161, 0.216),
+      mid: rgb(0.098, 0.761, 0.949),
+      light: rgb(0.875, 0.906, 0.945),
       white: rgb(1, 1, 1),
-      text: rgb(0.12, 0.16, 0.21),
-      muted: rgb(0.39, 0.45, 0.52),
-      alt: rgb(0.98, 0.98, 0.98),
+      text: rgb(0.122, 0.161, 0.216),
+      muted: rgb(0.392, 0.455, 0.545),
+      alt: rgb(0.969, 0.984, 1),
+      cyanSoft: rgb(0.925, 0.984, 1),
+      rose: rgb(0.882, 0.153, 0.278),
+      roseSoft: rgb(1, 0.949, 0.957),
     }
 
     // Wrap drawText so every string goes through the WinAnsi sanitizer.
@@ -170,19 +190,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
 
     // Header
     page.drawRectangle({ x: 0, y: 0, width: 595.28, height: 3, color: C.mid })
-    page.drawRectangle({ x: 0, y: 838, width: 595.28, height: 4, color: C.base })
+    page.drawRectangle({ x: 0, y: 838, width: 595.28, height: 4, color: C.mid })
     page.drawRectangle({ x: 0, y: 760, width: 595.28, height: 78, color: C.deep })
     draw(company.name, 24, 804, 16, true, C.white)
     if (company.address) draw(company.address, 24, 790, 8, false, C.white)
     if (company.tin) draw(`TIN: ${company.tin}`, 24, 778, 8, false, C.white)
-    draw('PAYSLIP', 480, 806, 12, true, C.white)
+    page.drawRectangle({ x: 485, y: 801, width: 86, height: 24, color: C.white, opacity: 0.16 })
+    drawRight('PAYSLIP', 558, 808, 12, true, C.white)
     drawRight(`Period: ${periodStart} - ${periodEnd}`, 572, 790, 8, false, C.white)
     drawRight(`Pay Date: ${payDate}`, 572, 778, 8, false, C.white)
 
     // Employee info card — give Department and Position their OWN lines
     // (each spanning the full card width) so long values don't overlap the
     // next field. Card height bumped up slightly to fit the extra row.
-    page.drawRectangle({ x: 24, y: 678, width: 547, height: 70, color: rgb(0.97, 0.98, 0.99), borderColor: C.light, borderWidth: 1 })
+    page.drawRectangle({ x: 24, y: 678, width: 547, height: 70, color: C.white, borderColor: C.light, borderWidth: 1 })
+    page.drawRectangle({ x: 24, y: 678, width: 4, height: 70, color: C.mid })
     draw(`${emp.lastName}, ${emp.firstName}`, 32, 730, 11, true, C.deep)
     draw(`Employee No.: ${emp.employeeNo ?? '-'}`, 32, 716, 8, true, C.base)
     draw(`Department: ${emp.department?.name ?? '-'}`, 32, 704, 8, true, C.base)
@@ -190,10 +212,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     draw(`TIN: ${emp.tinNo ?? '-'}   SSS: ${emp.sssNo ?? '-'}   PhilHealth: ${emp.philhealthNo ?? '-'}   Pag-IBIG: ${emp.pagibigNo ?? '-'}`, 32, 681, 7.5, true, C.muted)
 
     // Column headers — pushed down to clear the taller employee card above
-    draw('EARNINGS', 24, 662, 9, true, C.base)
-    draw('DEDUCTIONS', 310, 662, 9, true, C.base)
-    page.drawLine({ start: { x: 24, y: 658 }, end: { x: 285, y: 658 }, thickness: 1, color: C.light })
-    page.drawLine({ start: { x: 310, y: 658 }, end: { x: 571, y: 658 }, thickness: 1, color: C.light })
+    page.drawRectangle({ x: 24, y: 650, width: 261, height: 20, color: C.alt })
+    page.drawRectangle({ x: 310, y: 650, width: 261, height: 20, color: C.roseSoft })
+    draw('EARNINGS', 30, 657, 9, true, C.deep)
+    draw('DEDUCTIONS', 316, 657, 9, true, C.rose)
 
     // Rows
     let yl = 642
@@ -203,35 +225,44 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
       drawRight(peso(value), 280, yl, 8.5, true, C.base)
       yl -= 18
     })
+    if (earningsRows.length === 0) {
+      draw('No earnings recorded', 28, yl, 8.5, false, C.muted)
+      yl -= 18
+    }
 
     // Match earnings column start (yl = 642) so the first deduction row
     // doesn't overlap the "DEDUCTIONS" header at y=662 / the underline
     // at y=658. Previously yr=654 produced a visible overlap.
     let yr = 642
     deductionRows.forEach(([label, value], i) => {
-      if (i % 2 === 1) page.drawRectangle({ x: 310, y: yr - 4, width: 261, height: 18, color: C.alt })
+      if (i % 2 === 1) page.drawRectangle({ x: 310, y: yr - 4, width: 261, height: 18, color: C.roseSoft })
       draw(label, 314, yr, 8.5, false, C.text)
-      drawRight(peso(value), 566, yr, 8.5, true, C.base)
+      drawRight(peso(value), 566, yr, 8.5, true, C.rose)
       yr -= 18
     })
+    if (deductionRows.length === 0) {
+      draw('No deductions for this period', 314, yr, 8.5, false, C.muted)
+      yr -= 18
+    }
 
     const totalsY = Math.min(yl, yr) - 10
-    page.drawRectangle({ x: 24, y: totalsY - 8, width: 261, height: 24, color: rgb(0.95, 0.97, 0.99), borderColor: C.light, borderWidth: 1 })
-    draw('Gross Pay', 28, totalsY, 9, true, C.deep)
+    page.drawRectangle({ x: 24, y: totalsY - 8, width: 261, height: 24, color: C.alt, borderColor: C.light, borderWidth: 1 })
+    draw('GROSS PAY', 28, totalsY, 9, true, C.deep)
     drawRight(peso(payslip.grossPay.toNumber()), 280, totalsY, 9, true, C.deep)
 
-    page.drawRectangle({ x: 310, y: totalsY - 8, width: 261, height: 24, color: rgb(0.95, 0.97, 0.99), borderColor: C.light, borderWidth: 1 })
-    draw('Total Deductions', 314, totalsY, 9, true, C.deep)
-    drawRight(peso(payslip.totalDeductions.toNumber()), 566, totalsY, 9, true, C.deep)
+    page.drawRectangle({ x: 310, y: totalsY - 8, width: 261, height: 24, color: C.roseSoft, borderColor: rgb(0.98, 0.78, 0.82), borderWidth: 1 })
+    draw('TOTAL DEDUCTIONS', 314, totalsY, 9, true, C.rose)
+    drawRight(peso(payslip.totalDeductions.toNumber()), 566, totalsY, 9, true, C.rose)
 
     const netY = totalsY - 52
     page.drawRectangle({ x: 24, y: netY, width: 547, height: 44, color: C.deep })
+    page.drawRectangle({ x: 24, y: netY, width: 6, height: 44, color: C.mid })
     draw('NET PAY', 34, netY + 26, 10, true, C.white)
     draw('Take-home amount for this pay period', 34, netY + 12, 7.5, false, rgb(0.85, 0.88, 0.92))
     drawRight(peso(payslip.netPay.toNumber()), 562, netY + 17, 18, true, C.white)
 
     const ytdY = netY - 52
-    page.drawRectangle({ x: 24, y: ytdY, width: 547, height: 36, color: rgb(0.97, 0.98, 0.99), borderColor: C.light, borderWidth: 1 })
+    page.drawRectangle({ x: 24, y: ytdY, width: 547, height: 36, color: C.white, borderColor: C.light, borderWidth: 1 })
     draw('YTD Gross Pay', 34, ytdY + 20, 8, true, C.muted)
     draw(peso(payslip.ytdGrossPay.toNumber()), 34, ytdY + 8, 10, true, C.deep)
     draw('YTD Withholding Tax', 310, ytdY + 20, 8, true, C.muted)

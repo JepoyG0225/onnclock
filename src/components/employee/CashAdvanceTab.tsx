@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -118,7 +118,7 @@ export function CashAdvanceTab() {
             type="button"
             onClick={() => setShowForm(true)}
             className="flex items-center gap-1.5 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors shrink-0"
-            style={{ background: '#ff5900' }}
+            style={{ background: 'var(--brand-highlight)' }}
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Request</span>
@@ -171,7 +171,7 @@ export function CashAdvanceTab() {
               value={form.amount}
               onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
+              style={{ '--tw-ring-color': 'var(--brand-highlight)' } as React.CSSProperties}
               placeholder="e.g. 5000"
             />
           </div>
@@ -183,7 +183,7 @@ export function CashAdvanceTab() {
               onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
               rows={3}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': '#ff5900' } as React.CSSProperties}
+              style={{ '--tw-ring-color': 'var(--brand-highlight)' } as React.CSSProperties}
               placeholder="Short explanation"
             />
           </div>
@@ -198,7 +198,7 @@ export function CashAdvanceTab() {
                 type="button"
                 onClick={() => setForm(f => ({ ...f, repaymentCutoffs: 1 }))}
                 className={`px-2 py-1.5 text-sm transition-colors ${
-                  form.repaymentCutoffs === 1 ? 'bg-[#032b63] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  form.repaymentCutoffs === 1 ? 'bg-[var(--brand-primary)] text-white' : 'bg-white text-gray-700 hover:bg-blue-50'
                 }`}
               >
                 1 cutoff
@@ -210,7 +210,7 @@ export function CashAdvanceTab() {
                   onClick={() => setForm(f => ({ ...f, repaymentMonths: m, repaymentCutoffs: 0 }))}
                   className={`px-2 py-1.5 text-sm transition-colors ${
                     !form.repaymentCutoffs && form.repaymentMonths === m
-                      ? 'bg-[#032b63] text-white'
+                      ? 'bg-[var(--brand-primary)] text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -258,7 +258,7 @@ export function CashAdvanceTab() {
               onClick={submit}
               disabled={submitting}
               className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {submitting ? 'Submitting...' : 'Submit Request'}
             </button>

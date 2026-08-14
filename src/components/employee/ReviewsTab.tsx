@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -436,7 +436,7 @@ function ReviewDrawer({
           <div className="shrink-0 border-t bg-white px-5 py-4">
             <Button
               className="w-full"
-              style={{ background: 'linear-gradient(135deg,#021e47,#032b63)' }}
+              style={{ background: 'linear-gradient(135deg,var(--brand-primary),var(--brand-highlight))' }}
               onClick={acknowledge}
               disabled={acking}
             >

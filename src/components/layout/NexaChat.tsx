@@ -107,7 +107,7 @@ export function NexaChat() {
         style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2)', animation: 'slideInRight 0.2s ease' }}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-2 shrink-0" style={{ background: '#ff5900' }}>
+        <div className="flex items-center gap-3 px-4 py-2 shrink-0" style={{ background: 'var(--brand-highlight)' }}>
           <div className="w-10 h-10 rounded-full overflow-hidden bg-white/20 shrink-0 flex items-center justify-center">
             <img src="/nexa.png" alt="Nexa" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
           </div>
@@ -142,19 +142,19 @@ export function NexaChat() {
           {/* Greeting bubble — always shown */}
           <div className="flex gap-2.5 justify-start">
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(255,89,0,0.1)' }}>
-              <Bot className="w-4 h-4" style={{ color: '#ff5900' }} />
+              <Bot className="w-4 h-4" style={{ color: 'var(--brand-highlight)' }} />
             </div>
             <div
               className="rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-gray-800 max-w-[80%]"
               style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                background: '#f7f7f7',
+                border: '1px solid #d4d4d4',
                 opacity: showGreeting ? 1 : 0,
                 transform: showGreeting ? 'translateY(0)' : 'translateY(6px)',
                 transition: 'opacity 0.3s ease, transform 0.3s ease',
               }}
             >
-              <span className="font-semibold" style={{ color: '#ff5900' }}>Hi, I&apos;m Nexa!</span>
+              <span className="font-semibold" style={{ color: 'var(--brand-highlight)' }}>Hi, I&apos;m Nexa!</span>
               {' '}Your AI HR assistant. Ask me anything about Philippine HR, payroll, or labor law. 👋
             </div>
           </div>
@@ -177,7 +177,7 @@ export function NexaChat() {
               <div key={i} className={`flex gap-2.5 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role === 'assistant' && (
                   <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(255,89,0,0.1)' }}>
-                    <Bot className="w-4 h-4" style={{ color: '#ff5900' }} />
+                    <Bot className="w-4 h-4" style={{ color: 'var(--brand-highlight)' }} />
                   </div>
                 )}
                 <div
@@ -186,8 +186,8 @@ export function NexaChat() {
                   }`}
                   style={
                     m.role === 'user'
-                      ? { background: '#162d54' }
-                      : { background: '#f8fafc', border: '1px solid #e2e8f0' }
+                      ? { background: '#000000' }
+                      : { background: '#f7f7f7', border: '1px solid #d4d4d4' }
                   }
                 >
                   {m.content}
@@ -204,7 +204,7 @@ export function NexaChat() {
           {sending && (
             <div className="flex gap-2.5 justify-start">
               <div className="w-7 h-7 rounded-full overflow-hidden shrink-0" style={{ background: 'rgba(255,89,0,0.1)' }}>
-                <img src="/nexa.png" alt="Nexa" className="w-full h-full object-cover" onError={e => { const el = e.target as HTMLImageElement; el.style.display='none'; el.parentElement!.innerHTML='<svg class=\'w-4 h-4 m-1.5\' style=\'color:#ff5900\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z\'/></svg>' }} />
+                <img src="/nexa.png" alt="Nexa" className="w-full h-full object-cover" onError={e => { const el = e.target as HTMLImageElement; el.style.display='none'; el.parentElement!.innerHTML='<svg class=\'w-4 h-4 m-1.5\' style=\'color:var(--brand-highlight)\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z\'/></svg>' }} />
               </div>
               <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-gray-500 flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -219,7 +219,7 @@ export function NexaChat() {
         )}
 
         {/* Input */}
-        <div className="px-3 py-3 border-t bg-white shrink-0" style={{ borderColor: '#e2e8f0' }}>
+        <div className="px-3 py-3 border-t bg-white shrink-0" style={{ borderColor: '#d4d4d4' }}>
           <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex items-end gap-2">
             <textarea
               value={input}
@@ -231,13 +231,13 @@ export function NexaChat() {
               placeholder="Ask Nexa anything…"
               disabled={sending}
               className="flex-1 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 max-h-28"
-              style={{ borderColor: '#e2e8f0', '--tw-ring-color': '#ff5900' } as React.CSSProperties}
+              style={{ borderColor: '#d4d4d4', '--tw-ring-color': 'var(--brand-highlight)' } as React.CSSProperties}
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
               className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 text-white disabled:opacity-50 transition-opacity"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
@@ -263,7 +263,7 @@ export function NexaChat() {
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full text-xs font-semibold transition-all hover:opacity-90"
-        style={{ background: '#ff5900', color: '#fff' }}
+        style={{ background: 'var(--brand-highlight)', color: '#fff' }}
         title="Chat with Nexa"
       >
         <div className="w-6 h-6 rounded-full overflow-hidden bg-white/20 shrink-0">

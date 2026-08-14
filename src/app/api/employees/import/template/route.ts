@@ -65,7 +65,7 @@ export async function GET() {
 
   const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow])
 
-  // Style header row: navy background (#162d54), white bold text
+  // Style header row: navy background (#000000), white bold text
   const navyFill = { patternType: 'solid', fgColor: { rgb: '162d54' } }
   const whiteFont = { bold: true, color: { rgb: 'FFFFFF' } }
 

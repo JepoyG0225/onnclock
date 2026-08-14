@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, FormEvent, ChangeEvent, useRef } from 'react'
 import { startRegistration } from '@simplewebauthn/browser'
@@ -317,7 +317,7 @@ export default function ProfilePage() {
                 ) : (
                   <div
                     className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-2xl shadow"
-                    style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63' }}
+                    style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
                   >
                     {initials}
                   </div>
@@ -348,7 +348,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingPersonal(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#032b63' }}
+                style={{ color: '#000000' }}
               >
                 {editingPersonal ? 'Cancel' : 'Edit'}
               </button>
@@ -445,7 +445,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingContact(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#032b63' }}
+                style={{ color: '#000000' }}
               >
                 {editingContact ? 'Cancel' : 'Edit'}
               </button>
@@ -509,7 +509,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingGov(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#032b63' }}
+                style={{ color: '#000000' }}
               >
                 {editingGov ? 'Cancel' : 'Edit'}
               </button>
@@ -641,8 +641,8 @@ export default function ProfilePage() {
                   <div className="text-sm flex items-center gap-2">
                     {biometricEnrolled ? (
                       <>
-                        <ShieldCheck className="w-4 h-4" style={{ color: '#032b63' }} />
-                        <span className="font-medium" style={{ color: '#021e47' }}>Fingerprint enrolled</span>
+                        <ShieldCheck className="w-4 h-4" style={{ color: '#000000' }} />
+                        <span className="font-medium" style={{ color: '#000000' }}>Fingerprint enrolled</span>
                       </>
                     ) : (
                       <>
@@ -773,7 +773,7 @@ function SignatureTab({ initialDataUrl, capturedAt, onSaved }: SignatureTabProps
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={saveSignature} disabled={saving} style={{ background: '#ff5900' }}>
+              <Button onClick={saveSignature} disabled={saving} style={{ background: 'var(--brand-highlight)' }}>
                 {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
                 Save Signature
               </Button>

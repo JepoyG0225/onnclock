@@ -45,7 +45,7 @@ export default function DashboardError({
           <button
             onClick={() => reset()}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
-            style={{ background: '#021e47' }}
+            style={{ background: '#000000' }}
           >
             <RefreshCw className="w-4 h-4" />
             Try again

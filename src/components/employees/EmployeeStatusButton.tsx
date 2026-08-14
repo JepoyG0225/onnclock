@@ -120,7 +120,7 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
                   <div
                     className="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium"
                     style={isActive
-                      ? { background: '#ea580c', color: 'white' }
+                      ? { background: '#343434', color: 'white' }
                       : { background: '#16a34a', color: 'white' }
                     }
                   >
@@ -130,7 +130,7 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
                   <Button
                     className="flex-1"
                     style={isActive
-                      ? { background: '#ea580c', color: 'white' }
+                      ? { background: '#343434', color: 'white' }
                       : { background: '#16a34a', color: 'white' }
                     }
                     onClick={handleToggle}

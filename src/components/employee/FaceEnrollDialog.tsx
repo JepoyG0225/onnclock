@@ -18,7 +18,7 @@ import { ShieldCheck, X, Loader2 } from 'lucide-react'
 import { FaceMeshScanner } from '@/components/employee/FaceMeshScanner'
 import { FACE_MODEL_ID } from '@/lib/face/face-api'
 
-const NAVY = '#032b63'
+const NAVY = 'var(--brand-primary)'
 
 export function FaceEnrollDialog({
   onClose,
@@ -95,7 +95,7 @@ export function FaceEnrollDialog({
                 type="button"
                 onClick={() => setConsented(true)}
                 className="w-full py-3.5 rounded-2xl text-[14px] font-black text-white active:scale-[0.98] transition-transform"
-                style={{ background: `linear-gradient(135deg, #021e47, ${NAVY})` }}
+                style={{ background: `linear-gradient(135deg, var(--brand-primary), var(--brand-highlight))` }}
               >
                 I agree — start scan
               </button>

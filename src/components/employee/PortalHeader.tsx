@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Bell } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -77,10 +77,10 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
     <header
       className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
       style={{
-        background: 'rgba(2,30,71,0.97)',
+        background: 'rgba(247,250,255,0.96)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: '1px solid #dfe7f1',
       }}
     >
       {/* Left - Onclock Logo */}
@@ -98,16 +98,16 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
             width={100}
             height={33}
             priority
-            style={{ filter: 'brightness(0) invert(1)' }}
+            style={{ filter: undefined }}
           />
         )}
         {companyName && (
-          <div className="hidden sm:block border-l border-white/20 pl-3 min-w-0">
-            <p className="text-white text-xs font-semibold truncate leading-tight opacity-70">
+          <div className="hidden sm:block border-l border-slate-200 pl-3 min-w-0">
+            <p className="text-slate-700 text-xs font-semibold truncate leading-tight">
               {companyName}
             </p>
             {employeeNo && (
-              <p className="text-white/40 text-[10px] leading-tight">{employeeNo}</p>
+              <p className="text-slate-400 text-[10px] leading-tight">{employeeNo}</p>
             )}
           </div>
         )}
@@ -117,7 +117,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
       <div className="flex items-center gap-2">
         <button
           onClick={() => setShowNotif(v => !v)}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors relative"
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-[var(--brand-primary)] hover:bg-blue-50 transition-colors relative"
         >
           <Bell className="w-4 h-4" />
           {items.length > 0 && (
@@ -149,7 +149,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
                       <p className="text-sm text-gray-900 font-medium">{item.title}</p>
                       <p
                         className="text-xs mt-0.5"
-                        style={{ color: item.status === 'APPROVED' ? '#032b63' : '#ef4444' }}
+                        style={{ color: item.status === 'APPROVED' ? '#000000' : '#ef4444' }}
                       >
                         {item.status}
                       </p>
@@ -166,8 +166,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
         <div className="relative">
           <button
             onClick={() => setShowMenu(v => !v)}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-lg transition-transform hover:scale-105 active:scale-95"
-            style={{ background: '#ff5900' }}
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-xs font-black text-blue-700 shadow-sm ring-1 ring-blue-200 transition-transform hover:scale-105 active:scale-95"
           >
             {employeeInitials ?? 'E'}
           </button>

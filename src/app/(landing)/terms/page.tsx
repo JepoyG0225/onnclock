@@ -99,13 +99,13 @@ export default function TermsPage() {
         </Section>
 
         <Section title="Contact">
-          Questions? Email <a href="mailto:support@onclockph.com" className="text-[#2E4156] underline">support@onclockph.com</a>.
+          Questions? Email <a href="mailto:support@onclockph.com" className="text-[#000000] underline">support@onclockph.com</a>.
         </Section>
 
         <div className="mt-12 border-t pt-6 text-sm text-slate-500">
-          <Link href="/" className="text-[#2E4156] hover:underline">← Back to home</Link>
+          <Link href="/" className="text-[#000000] hover:underline">← Back to home</Link>
           {' · '}
-          <Link href="/privacy" className="text-[#2E4156] hover:underline">Privacy Policy</Link>
+          <Link href="/privacy" className="text-[#000000] hover:underline">Privacy Policy</Link>
         </div>
       </div>
     </main>

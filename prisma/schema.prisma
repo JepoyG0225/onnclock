@@ -621,6 +621,9 @@ model Employee {
   // count the same missing minutes. Defaults false (deductions on).
   disableLateDeduction       Boolean @default(false)
   disableUndertimeDeduction  Boolean @default(false)
+  // Allows this employee to receive OT pay even when the company-wide
+  // payroll setting is disabled. Set explicitly from the timesheet action.
+  overtimePayOverride        Boolean @default(false)
 
   photoUrl             String?
   faceEmbedding        Json?

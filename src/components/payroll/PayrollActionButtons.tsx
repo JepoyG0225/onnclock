@@ -126,7 +126,7 @@ export default function PayrollActionButtons({
             onClick={() => action('submit')}
             disabled={!!loading}
             size="sm"
-            className="bg-primary text-white hover:bg-[#032b63] focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
+            className="bg-primary text-white hover:bg-[#000000] focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
           >
             <Send className="w-4 h-4 mr-1.5" />
             {loading === 'submit' ? 'Submitting…' : 'Submit for Approval'}
@@ -289,7 +289,7 @@ export default function PayrollActionButtons({
                 onKeyDown={e => e.key === 'Enter' && confirmed && deleteRun()}
                 placeholder="DELETE"
                 className="w-full border-2 rounded-lg px-3 py-2 text-sm font-mono outline-none transition-colors"
-                style={{ borderColor: confirmed ? '#ef4444' : confirmText ? '#fca5a5' : '#e5e7eb' }}
+                style={{ borderColor: confirmed ? '#ef4444' : confirmText ? '#fca5a5' : '#d4d4d4' }}
                 disabled={loading === 'delete'}
                 autoComplete="off"
               />

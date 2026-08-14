@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -129,8 +129,11 @@ export default function ThirteenthMonthPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Gift className="w-6 h-6 text-green-600" /> 13th Month Pay
+          <h1 className="flex items-center gap-2 text-2xl font-black text-black">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-[var(--brand-highlight)]">
+              <Gift className="h-5 w-5" />
+            </span>
+            13th Month Pay
           </h1>
           <p className="text-gray-500 text-sm mt-1">
             PD 851 - Must be paid on or before December 24. Non-taxable up to PHP 90,000.
@@ -159,7 +162,7 @@ export default function ThirteenthMonthPage() {
             data-tour="tm-compute"
             onClick={compute}
             disabled={computing}
-            className="flex items-center gap-2  px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-bold text-[var(--brand-highlight)] transition hover:bg-[#343434] disabled:opacity-50"
           >
             {computing ? (
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -171,7 +174,7 @@ export default function ThirteenthMonthPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="rounded-2xl border border-gray-200 border-l-4 border-l-[var(--brand-highlight)] bg-white p-4 shadow-sm">
         <p className="text-xs text-gray-500 uppercase mb-3">Computation Coverage</p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -195,29 +198,29 @@ export default function ThirteenthMonthPage() {
           <button
             onClick={saveCoverageSettings}
             disabled={savingSettings || !coverageStart || !coverageEnd}
-            className="bg-[#032b63] hover:bg-primary disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="bg-[#000000] hover:bg-primary disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             {savingSettings ? 'Saving...' : 'Save Coverage'}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 uppercase">Total Employees</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{entries.length}</p>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="rounded-2xl border border-black bg-black p-4 shadow-sm">
+          <p className="text-xs font-bold uppercase text-gray-300">Total Employees</p>
+          <p className="mt-1 text-3xl font-black text-[var(--brand-highlight)]">{entries.length}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 uppercase">Total Liability</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{peso(totalAmount)}</p>
+        <div className="rounded-2xl border border-[var(--brand-highlight)] bg-[var(--brand-highlight)] p-4 shadow-sm">
+          <p className="text-xs font-bold uppercase text-[#343434]">Total Liability</p>
+          <p className="mt-1 text-3xl font-black text-black">{peso(totalAmount)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 uppercase">Paid</p>
-          <p className="text-2xl font-bold text-[#032b63] mt-1">{paidCount} / {entries.length}</p>
+        <div className="rounded-2xl border border-[#343434] bg-[#343434] p-4 shadow-sm">
+          <p className="text-xs font-bold uppercase text-gray-300">Paid</p>
+          <p className="mt-1 text-3xl font-black text-white">{paidCount} / {entries.length}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 uppercase">Deadline</p>
-          <p className="text-base font-bold text-gray-900 mt-1">December 24, {year}</p>
+        <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold uppercase text-[#343434]">Deadline</p>
+          <p className="mt-1 text-base font-black text-black">December 24, {year}</p>
         </div>
       </div>
 
@@ -237,9 +240,9 @@ export default function ThirteenthMonthPage() {
               {MONTHS.map((m, i) => {
                 const val = Number(selectedEntry[MONTH_KEYS[i]])
                 return (
-                  <div key={m} className={`text-center rounded-lg p-2 ${val > 0 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-100'}`}>
+                  <div key={m} className={`rounded-lg p-2 text-center ${val > 0 ? 'border border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/15' : 'border border-gray-200 bg-gray-50'}`}>
                     <p className="text-xs text-gray-400">{m}</p>
-                    <p className={`text-xs font-medium ${val > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                    <p className={`text-xs font-bold ${val > 0 ? 'text-black' : 'text-gray-400'}`}>
                       {val > 0 ? peso(val) : '-'}
                     </p>
                   </div>
@@ -260,7 +263,7 @@ export default function ThirteenthMonthPage() {
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Months</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Total Basic Paid</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">13th Month</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -288,20 +291,20 @@ export default function ThirteenthMonthPage() {
                     <td className="px-4 py-3 text-gray-500">{entry.employee.department?.name ?? '-'}</td>
                     <td className="px-4 py-3 text-right text-gray-700">{Number(entry.proRatedMonths).toFixed(0)}/12</td>
                     <td className="px-4 py-3 text-right font-medium text-gray-900">{peso(Number(entry.totalBasicPaid))}</td>
-                    <td className="px-4 py-3 text-right font-bold text-green-600">{peso(Number(entry.thirteenthAmount))}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-right font-black text-black">{peso(Number(entry.thirteenthAmount))}</td>
+                    <td className="px-4 py-3 text-center">
                       {entry.isPaid ? (
-                        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
+                        <Badge className="h-7 w-32 justify-center gap-1 border-[var(--brand-highlight)] bg-[var(--brand-highlight)] text-black">
                           <CheckCircle className="w-3 h-3" /> Paid {entry.paidAt ? format(new Date(entry.paidAt), 'MMM d') : ''}
                         </Badge>
                       ) : (
-                        <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+                        <Badge className="h-7 w-32 justify-center gap-1 border-black bg-black text-[var(--brand-highlight)]">
                           <Clock className="w-3 h-3" /> Pending
                         </Badge>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setSelectedEntry(entry)} className="text-xs text-[#032b63] hover:text-primary">
+                      <button onClick={() => setSelectedEntry(entry)} className="text-xs text-[#000000] hover:text-primary">
                         View breakdown
                       </button>
                     </td>

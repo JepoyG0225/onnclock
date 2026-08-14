@@ -5,17 +5,17 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2.5 py-1 text-[11px] font-bold whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        default: "bg-[var(--brand-primary)] text-white [a&]:hover:bg-[#191dcc]",
         secondary:
-          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+          "border-[#d4d4d4] bg-[#f7f7f7] text-black [a&]:hover:bg-[#d4d4d4]",
         destructive:
-          "bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
+          "border-[var(--brand-danger)] bg-[var(--brand-danger)] text-white focus-visible:ring-[var(--brand-danger)]/20 [a&]:hover:bg-[var(--brand-danger-hover)]",
         outline:
-          "border-border text-foreground [a&]:hover:bg-muted",
+          "border-[#d4d4d4] bg-white text-black [a&]:hover:border-black [a&]:hover:bg-[#f7f7f7]",
         ghost: "[a&]:hover:bg-muted",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
         // ── Status variants ──
@@ -23,10 +23,10 @@ const badgeVariants = cva(
         // helper. Use these directly for record-status badges (PENDING,
         // APPROVED, REJECTED, etc.) and the existing payroll/leave/dtr
         // status enums map to them via the helper in lib/status.ts.
-        success: "bg-emerald-100 text-emerald-700 border border-emerald-200",
-        warning: "bg-amber-100 text-amber-700 border border-amber-200",
-        info: "bg-sky-100 text-sky-700 border border-sky-200",
-        pending: "bg-slate-100 text-slate-700 border border-slate-200",
+        success: "border-[var(--brand-highlight)] bg-[var(--brand-highlight)] text-black",
+        warning: "border-[var(--brand-danger)] bg-[var(--brand-danger)] text-white",
+        info: "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white",
+        pending: "border-[#d4d4d4] bg-[#d4d4d4]/35 text-[#343434]",
       },
     },
     defaultVariants: {

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -155,7 +155,7 @@ function TopUpModal({ onClose, onPaid }: { onClose: () => void; onPaid: () => vo
 
         {phase === 'loading' && (
           <div className="flex flex-col items-center gap-3 py-8">
-            <Loader2 className="w-10 h-10 animate-spin text-[#032b63]" />
+            <Loader2 className="w-10 h-10 animate-spin text-[#000000]" />
             <p className="text-sm text-gray-500">Generating QR code…</p>
           </div>
         )}
@@ -329,11 +329,11 @@ export default function DisbursementPageClient() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-[#dce5f7] rounded-xl">
-                  <Wallet className="w-6 h-6 text-[#032b63]" />
+                  <Wallet className="w-6 h-6 text-[#000000]" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Disbursement Wallet Balance</p>
-                  <p className="text-3xl font-bold text-[#032b63] mt-0.5 flex items-center gap-2">
+                  <p className="text-3xl font-bold text-[#000000] mt-0.5 flex items-center gap-2">
                     {wallet ? fmtPHP(wallet.balance) : '—'}
                     {refreshing && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
                   </p>
@@ -351,10 +351,10 @@ export default function DisbursementPageClient() {
         <Card>
           <CardHeader>
             <CardTitle data-tour="db-balance" className="text-base flex items-center gap-2">
-              <Send className="w-4 h-4 text-[#032b63]" />
+              <Send className="w-4 h-4 text-[#000000]" />
               Available for Disbursement
               {available.length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#032b63] text-white text-[10px] font-bold">
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#000000] text-white text-[10px] font-bold">
                   {available.length}
                 </span>
               )}
@@ -389,7 +389,7 @@ export default function DisbursementPageClient() {
                         <Link
                           href={`/payroll/${run.id}`}
                           onClick={e => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-[#032b63] hover:underline"
+                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-[#000000] hover:underline"
                         >
                           View run <ExternalLink className="w-3 h-3" />
                         </Link>
@@ -426,7 +426,7 @@ export default function DisbursementPageClient() {
               onClick={() => setActiveTab('disbursements')}
               className={`flex items-center gap-1.5 py-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'disbursements'
-                  ? 'border-[#032b63] text-[#032b63]'
+                  ? 'border-[#000000] text-[#000000]'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
@@ -438,7 +438,7 @@ export default function DisbursementPageClient() {
               onClick={() => setActiveTab('topups')}
               className={`flex items-center gap-1.5 py-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'topups'
-                  ? 'border-[#032b63] text-[#032b63]'
+                  ? 'border-[#000000] text-[#000000]'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
@@ -485,7 +485,7 @@ export default function DisbursementPageClient() {
                             <Link
                               href={`/payroll/${d.payrollRunId}`}
                               onClick={e => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-[#032b63] hover:underline"
+                              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-[#000000] hover:underline"
                             >
                               <ExternalLink className="w-3 h-3" />
                             </Link>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -29,15 +29,15 @@ interface LeaveRequest {
   leaveType: { name: string; code: string }
 }
 
-const NAVY = '#032b63'
-const ORANGE = '#ff5900'
+const NAVY = '#000000'
+const ORANGE = 'var(--brand-highlight)'
 
 /** Status colours: `bar` drives the card's left stripe, bg/fg the chip. */
 const STATUS_TONE: Record<string, { bar: string; bg: string; fg: string }> = {
   PENDING:   { bar: '#f59e0b', bg: '#fffbeb', fg: '#b45309' },
   APPROVED:  { bar: '#10b981', bg: '#ecfdf5', fg: '#047857' },
   REJECTED:  { bar: '#ef4444', bg: '#fef2f2', fg: '#b91c1c' },
-  CANCELLED: { bar: '#cbd5e1', bg: '#f8fafc', fg: '#64748b' },
+  CANCELLED: { bar: '#d4d4d4', bg: '#f7f7f7', fg: '#666666' },
 }
 
 export default function LeavesPage() {

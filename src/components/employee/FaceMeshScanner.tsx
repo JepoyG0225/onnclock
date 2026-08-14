@@ -48,7 +48,7 @@ export function FaceMeshScanner({
   samples = 5,
   onComplete,
   capturePhoto = false,
-  accent = '#ff5900',
+  accent = 'var(--brand-highlight)',
   hint,
 }: FaceMeshScannerProps) {
   const videoRef  = useRef<HTMLVideoElement | null>(null)
@@ -324,7 +324,7 @@ export function FaceMeshScanner({
               className="h-1.5 rounded-full transition-all duration-300"
               style={{
                 width: i < collected ? 22 : 10,
-                background: i < collected ? accent : '#e2e8f0',
+                background: i < collected ? accent : '#d4d4d4',
               }}
             />
           ))}

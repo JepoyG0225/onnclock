@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -87,7 +87,7 @@ export function OrgChartTab() {
       employeeNo: '',
       photoUrl: null,
       initials: '',
-      accent: '#032b63',
+      accent: '#000000',
       isDept: true,
       isRoot: true,
     }
@@ -199,7 +199,7 @@ export function OrgChartTab() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-[#032b63]" /> Company Org Chart
+              <Building2 className="w-4 h-4 text-[#000000]" /> Company Org Chart
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -213,7 +213,7 @@ export function OrgChartTab() {
           width: 100%;
           min-height: 780px;
           background: linear-gradient(180deg, #f3f4f7 0%, #eef0f3 100%);
-          border: 1px solid #e5e7eb;
+          border: 1px solid #d4d4d4;
           border-radius: 18px;
           overflow: hidden;
         }
@@ -257,11 +257,11 @@ function nodeContent(d: { data: OrgNode & { _directSubordinates?: number } }) {
 
   return `
     <div style="width:260px;height:190px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-family:Montserrat, sans-serif;">
-      <div style="position:relative;width:220px;background:white;border:1px solid #e5e7eb;border-top:4px solid ${accent};border-radius:16px;box-shadow:0 10px 18px rgba(15,23,42,0.08);padding:44px 16px 14px;text-align:center;">
+      <div style="position:relative;width:220px;background:white;border:1px solid #d4d4d4;border-top:4px solid ${accent};border-radius:16px;box-shadow:0 10px 18px rgba(15,23,42,0.08);padding:44px 16px 14px;text-align:center;">
         <div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:48px;height:48px;border-radius:999px;border:3px solid white;box-shadow:0 8px 16px rgba(15,23,42,0.15);background:white;display:flex;align-items:center;justify-content:center;">${avatar}</div>
         <div style="font-weight:800;color:#1f2a44;margin-top:2px;">${name}</div>
-        <div style="font-size:12px;color:#6b7280;">${position}</div>
-        <div style="font-size:11px;color:#6b7280;margin-top:6px;">
+        <div style="font-size:12px;color:#666666;">${position}</div>
+        <div style="font-size:11px;color:#666666;margin-top:6px;">
           <span style="border:1px solid #d8dee9;border-radius:999px;padding:2px 8px;display:inline-block;">${employeeNo}</span>
         </div>
       </div>

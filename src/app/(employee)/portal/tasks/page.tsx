@@ -51,14 +51,14 @@ interface TaskRow {
 /** `bar` drives the card's left priority stripe, which replaced the chip. */
 const PRIORITY_STYLE: Record<TaskRow['priority'], { label: string; bar: string }> = {
   URGENT: { label: 'Urgent', bar: '#ef4444' },
-  HIGH:   { label: 'High',   bar: '#f97316' },
+  HIGH:   { label: 'High',   bar: '#343434' },
   MEDIUM: { label: 'Medium', bar: '#f59e0b' },
-  LOW:    { label: 'Low',    bar: '#e2e8f0' },
+  LOW:    { label: 'Low',    bar: '#d4d4d4' },
 }
 
-const NAVY = '#032b63'
+const NAVY = '#000000'
 const TEAL = '#1b6a6e'
-const ORANGE = '#ff5900'
+const ORANGE = 'var(--brand-highlight)'
 
 /**
  * Day-precision key in the viewer's own timezone.
@@ -87,7 +87,7 @@ function ProgressRing({ done, total, isDone }: { done: number; total: number; is
   return (
     <div className="relative w-11 h-11 shrink-0">
       <svg viewBox="0 0 40 40" className="w-11 h-11 -rotate-90">
-        <circle cx="20" cy="20" r={r} fill="none" stroke="#e2e8f0" strokeWidth="4" />
+        <circle cx="20" cy="20" r={r} fill="none" stroke="#d4d4d4" strokeWidth="4" />
         <circle
           cx="20" cy="20" r={r} fill="none"
           stroke={isDone ? '#10b981' : TEAL}
@@ -301,7 +301,7 @@ export default function PortalTasksPage() {
                 <span
                   className="w-1.5 h-1.5 rounded-full"
                   style={{
-                    background: due > 0 ? (isSelected ? '#ffffff' : '#ff5900') : 'transparent',
+                    background: due > 0 ? (isSelected ? '#ffffff' : 'var(--brand-highlight)') : 'transparent',
                   }}
                 />
               </button>
@@ -418,7 +418,7 @@ export default function PortalTasksPage() {
               >
                 <span
                   className="absolute left-0 top-0 bottom-0 w-1"
-                  style={{ background: isDone ? '#cbd5e1' : pri.bar }}
+                  style={{ background: isDone ? '#d4d4d4' : pri.bar }}
                 />
 
                 <div className="flex items-start gap-3">

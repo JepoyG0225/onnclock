@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
@@ -117,7 +117,7 @@ export function EmployeePortalAccess({
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             {biometricStatus?.enrolled
-              ? <Fingerprint className="w-4 h-4 text-[#032b63]" />
+              ? <Fingerprint className="w-4 h-4 text-[#000000]" />
               : <Fingerprint className="w-4 h-4 text-gray-400" />}
             Fingerprint Authentication
           </CardTitle>

@@ -28,7 +28,7 @@ export function DesktopAppPopup() {
     <div ref={ref} className="relative hidden sm:block">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-[#032b63] transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-[#000000] transition-colors"
         title="Download Desktop App"
       >
         <Monitor className="w-3.5 h-3.5" />
@@ -42,7 +42,7 @@ export function DesktopAppPopup() {
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b"
-            style={{ background: '#162d54' }}>
+            style={{ background: '#000000' }}>
             <div className="flex items-center gap-2">
               <Monitor className="w-4 h-4 text-white/80" />
               <p className="text-sm font-bold text-white">Desktop App</p>
@@ -61,7 +61,7 @@ export function DesktopAppPopup() {
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-orange-50 hover:border-orange-100 transition-colors group"
               >
-                <span className="flex items-center gap-2 text-sm text-gray-700 group-hover:text-[#162d54] font-medium">
+                <span className="flex items-center gap-2 text-sm text-gray-700 group-hover:text-[#000000] font-medium">
                   <span className="text-base">{platform.icon}</span>
                   {platform.label}
                 </span>

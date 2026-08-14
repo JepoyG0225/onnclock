@@ -129,7 +129,7 @@ const GROUPS: StatementGroup[] = [
          "id"        TEXT                 NOT NULL,
          "companyId" TEXT                 NOT NULL,
          "name"      TEXT                 NOT NULL,
-         "color"     TEXT                 NOT NULL DEFAULT '#64748b',
+         "color"     TEXT                 NOT NULL DEFAULT '#666666',
          "order"     INTEGER              NOT NULL DEFAULT 0,
          "category"  "TaskStatusCategory" NOT NULL DEFAULT 'TODO',
          "isDefault" BOOLEAN              NOT NULL DEFAULT false,

@@ -138,7 +138,7 @@ export function PageTour({ userId, role, actorRole, enabled = false }: { userId:
       {rect && (
         <div
           className="fixed rounded-xl border-2 pointer-events-none transition-all"
-          style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8, borderColor: '#ff5900', boxShadow: '0 0 0 4px rgba(250,94,1,0.20), 0 0 0 9999px rgba(0,0,0,0.30)' }}
+          style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8, borderColor: 'var(--brand-highlight)', boxShadow: '0 0 0 4px rgba(184, 225, 0,0.20), 0 0 0 9999px rgba(0,0,0,0.30)' }}
         />
       )}
       <div
@@ -147,7 +147,7 @@ export function PageTour({ userId, role, actorRole, enabled = false }: { userId:
         style={{ top: cardPos.top, left: cardPos.left }}
       >
         <div className="px-4 py-3 border-b border-slate-100">
-          <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#ff5900' }}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--brand-highlight)' }}>
             {tour.label} tour · {i + 1}/{tour.steps.length}
           </p>
           <h3 className="text-sm font-bold text-slate-900 mt-0.5">{step.title}</h3>
@@ -167,7 +167,7 @@ export function PageTour({ userId, role, actorRole, enabled = false }: { userId:
             <button
               onClick={() => (isLast ? finish() : setI(v => v + 1))}
               className="px-3 py-1.5 text-xs rounded-lg text-white font-semibold"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {isLast ? 'Got it' : 'Next'}
             </button>

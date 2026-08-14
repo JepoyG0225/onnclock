@@ -404,7 +404,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
           href={proxyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90 transition-colors"
         >
           <ExternalLink className="w-4 h-4" /> Open in New Tab
         </a>
@@ -436,7 +436,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
                 href={proxyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90"
               >
                 <ExternalLink className="w-4 h-4" /> Open PDF
               </a>
@@ -464,7 +464,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
                   href={proxyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90"
                 >
                   <ExternalLink className="w-4 h-4" /> Open in New Tab
                 </a>
@@ -481,7 +481,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
           <a
             href={proxyUrl}
             download={fileName}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90"
           >
             <Download className="w-4 h-4" /> Download File
           </a>
@@ -658,7 +658,7 @@ function ApplicationDrawer({
                 onClick={() => setTab(t.key)}
                 className={`inline-flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors ${
                   tab === t.key
-                    ? 'border-[#1A2D42] text-[#1A2D42]'
+                    ? 'border-[#000000] text-[#000000]'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -799,7 +799,7 @@ function ApplicationDrawer({
                     <button
                       onClick={saveNotes}
                       disabled={savingNotes || notes === (app.internalNotes ?? '')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 disabled:opacity-50 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[#000000] hover:bg-[#000000]/90 disabled:opacity-50 transition-colors"
                     >
                       {savingNotes ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                       Save Notes
@@ -1137,7 +1137,7 @@ export default function RecruitmentJobDetailPage() {
                           {initials(app)}
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-800 group-hover:text-[#1A2D42]">
+                          <p className="font-semibold text-slate-800 group-hover:text-[#000000]">
                             {app.firstName} {app.lastName}
                           </p>
                           <div className="flex items-center gap-1.5 mt-0.5">

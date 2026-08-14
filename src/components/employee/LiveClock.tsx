@@ -24,7 +24,7 @@ export function LiveClock() {
 
   return (
     <div className="text-right leading-tight">
-      <div className="text-[15px] font-black tabular-nums" style={{ color: '#032b63' }}>
+      <div className="text-[15px] font-black tabular-nums" style={{ color: '#000000' }}>
         {now
           ? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
           : '--:--:-- --'}

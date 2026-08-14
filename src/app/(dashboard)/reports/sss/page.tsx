@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Download, FileSpreadsheet } from 'lucide-react'
 import Link from 'next/link'
 import { peso } from '@/lib/utils'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -96,7 +97,7 @@ export default function SSSReportPage() {
               ))}
             </select>
           </div>
-          <Button onClick={downloadXLSX} disabled={downloading || rows.length === 0} className="bg-[#032b63] hover:bg-[#032b63]">
+          <Button onClick={downloadXLSX} disabled={downloading || rows.length === 0} className="bg-[#000000] hover:bg-[#000000]">
             <Download className="w-4 h-4 mr-2" />
             {downloading ? 'Generating...' : 'Download XLSX'}
           </Button>
@@ -115,12 +116,7 @@ export default function SSSReportPage() {
           { label: 'EC Total',         value: totalEC,       color: 'text-yellow-700' },
           { label: 'Grand Total',      value: grandTotal,    color: 'text-red-700' },
         ].map(s => (
-          <Card key={s.label}>
-            <CardContent className="p-4">
-              <p className="text-xs text-gray-500">{s.label}</p>
-              <p className={`text-lg font-bold ${s.color}`}>{peso(s.value)}</p>
-            </CardContent>
-          </Card>
+          <KpiCard key={s.label} label={s.label} value={peso(s.value)} icon={<FileSpreadsheet className="h-5 w-5" />} />
         ))}
       </div>
 

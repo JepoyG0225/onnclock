@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Fragment, useState } from 'react'
 import { Pencil, ChevronRight, ChevronDown } from 'lucide-react'
@@ -258,7 +258,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
                     <td className="px-3 py-2.5 text-right text-red-500">
                       {loanTotal === 0 ? <span className="text-gray-300">-</span> : peso(loanTotal)}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-bold text-green-700">{peso(ps.netPay)}</td>
+                    <td className="px-3 py-2.5 text-right font-black text-[#343434]">{peso(ps.netPay)}</td>
                     <td
                       className="px-3 py-2.5 text-center"
                       // Action buttons shouldn't toggle the expander — stop
@@ -279,7 +279,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
                           href={`/api/payroll/payslip/${ps.id}/pdf`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[#032b63] hover:text-[#032b63] text-xs underline"
+                          className="text-[#000000] hover:text-[#000000] text-xs underline"
                         >
                           PDF
                         </a>
@@ -320,7 +320,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
               <td className="px-3 py-2.5 text-right text-red-500">
                 {totals.loans === 0 ? <span className="text-gray-300">-</span> : peso(totals.loans)}
               </td>
-              <td className="px-3 py-2.5 text-right text-green-700 font-bold">{peso(totals.net)}</td>
+              <td className="px-3 py-2.5 text-right font-black text-black">{peso(totals.net)}</td>
               <td className="px-3 py-2.5" />
             </tr>
           </tfoot>
@@ -417,10 +417,10 @@ function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps)
                 </tr>
               )
             })()}
-            <tr className="bg-emerald-50 border-t-2 border-emerald-200">
+            <tr className="border-t-2 border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10">
               <td className="px-3 py-2 font-black text-slate-900 text-sm">
                 Gross pay
-                <span className="ml-2 text-[10px] font-semibold text-emerald-700">stored on payslip</span>
+                <span className="ml-2 text-[10px] font-semibold text-[#343434]">stored on payslip</span>
               </td>
               <td className="px-3 py-2 text-right font-black text-slate-900 text-base whitespace-nowrap w-32">
                 {peso(ps.grossPay)}

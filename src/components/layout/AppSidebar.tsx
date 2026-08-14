@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -32,7 +32,6 @@ import {
   Receipt,
   ClipboardEdit,
   Sparkles,
-  Fingerprint,
   Send,
   FolderKanban,
   ClipboardCheck,
@@ -48,7 +47,7 @@ import { TrialCountdownBanner } from './TrialCountdownBanner'
 import { canAccessPath } from '@/lib/auth/page-access'
 import type { Permission } from '@/lib/auth/permissions'
 
-const BRAND = '#021e47'
+const BRAND = '#f7faff'
 
 interface NavItem {
   label: string
@@ -102,7 +101,6 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Organization',         href: '/organization',       icon: Building2 },
       { label: 'Recruitment',          href: '/recruitment',        icon: ClipboardList },
       { label: 'Performance',          href: '/performance',        icon: BarChart3 },
-      { label: 'Assets & Equipment',   href: '/assets',             icon: Briefcase, releasedAt: '2026-05-13T00:00:00+08:00' },
     ],
   },
   {
@@ -112,7 +110,6 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: 'Timesheets',               href: '/timesheets',             icon: Clock },
       { label: 'Live GPS Map',             href: '/attendance/map',         icon: MapPin },
-      { label: 'Biometric Terminals',      href: '/biometric-devices',      icon: Fingerprint, comingSoon: true },
       { label: 'Schedules',                href: '/schedules',              icon: Calendar },
       { label: 'Attendance Settings',      href: '/attendance/settings',    icon: Settings },
     ],
@@ -149,6 +146,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: 'Tasks',         href: '/tasks',         icon: ClipboardCheck, releasedAt: '2026-08-09T00:00:00+08:00' },
       { label: 'Announcements', href: '/announcements', icon: Megaphone },
+      { label: 'Assets & Equipment', href: '/assets', icon: Briefcase, releasedAt: '2026-05-13T00:00:00+08:00' },
     ],
   },
   {
@@ -346,7 +344,7 @@ export function AppSidebar({
       <>
         {/* Logo / Icon */}
         <div
-          className="flex items-center border-b border-white/15 transition-all duration-300 overflow-hidden"
+          className="flex items-center border-b border-slate-200 transition-all duration-300 overflow-hidden"
           style={{
             height: '4rem',
             padding: isCollapsedView ? '0 0.75rem' : '0 1.25rem',
@@ -354,10 +352,10 @@ export function AppSidebar({
           }}
         >
           {isCollapsedView ? (
-            <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {logoUrl
                 ? <img src={logoUrl} alt="Company logo" className="w-full h-full object-contain" />
-                : <span className="text-white font-black text-sm">O</span>
+                : <span className="text-[var(--brand-primary)] font-black text-sm">O</span>
               }
             </div>
           ) : (
@@ -365,13 +363,13 @@ export function AppSidebar({
               src={logoUrl || '/onclock-logo.png'}
               alt="Company logo"
               className="h-8 w-auto"
-              style={{ filter: logoUrl ? undefined : 'brightness(0) invert(1)' }}
+              style={{ filter: logoUrl ? undefined : undefined }}
             />
           )}
           {isMobileDrawer && (
             <button
               onClick={() => setMobileOpen(false)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15 transition-all"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-blue-50 transition-all"
             >
               <X className="w-5 h-5" />
             </button>
@@ -404,11 +402,11 @@ export function AppSidebar({
 
         {/* Collapse toggle button — hidden on mobile drawer */}
         {!isMobileDrawer && (
-          <div className="border-t border-white/15 p-2 flex items-center" style={{ justifyContent: isCollapsedView ? 'center' : 'flex-end' }}>
+          <div className="border-t border-slate-200 p-2 flex items-center" style={{ justifyContent: isCollapsedView ? 'center' : 'flex-end' }}>
             <Tooltip label={isCollapsedView ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!isCollapsedView}>
               <button
                 onClick={toggle}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15 transition-all"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-blue-50 transition-all"
                 title={isCollapsedView ? 'Expand sidebar' : 'Collapse sidebar'}
               >
                 {isCollapsedView
@@ -427,7 +425,7 @@ export function AppSidebar({
     <>
       {/* Desktop sidebar — hidden on mobile */}
       <aside
-        className="fixed left-0 top-0 h-screen flex-col z-20 transition-all duration-300 hidden md:flex"
+        className="fixed left-0 top-0 h-screen flex-col z-20 border-r border-slate-200 shadow-sm transition-all duration-300 hidden md:flex"
         style={{ background: BRAND, width: collapsed ? '4rem' : '16rem' }}
       >
         {sidebarContent(false)}
@@ -443,7 +441,7 @@ export function AppSidebar({
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" />
           {/* Drawer */}
           <aside
-            className="absolute left-0 top-0 h-full w-72 flex flex-col shadow-2xl animate-in slide-in-from-left duration-200"
+            className="absolute left-0 top-0 h-full w-72 flex flex-col border-r border-slate-200 shadow-2xl animate-in slide-in-from-left duration-200"
             style={{ background: BRAND }}
             onClick={e => e.stopPropagation()}
           >
@@ -553,7 +551,7 @@ function CollapsedFlyout({
     }
     if (PRO_LABELS.has(child.label) && !hrisProEnabled) {
       return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/50 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-500 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
           🔒
         </span>
       )
@@ -561,14 +559,14 @@ function CollapsedFlyout({
     const pendingCount = pendingCountForItem(child, counts)
     if (pendingCount > 0) {
       return (
-        <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-highlight)] px-1.5 py-0.5 text-[10px] font-black text-black shadow-sm">
           {pendingCount}
         </span>
       )
     }
     if (child.releasedAt && isFeatureNew(child.releasedAt)) {
       return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-fuchsia-500 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-[var(--brand-highlight)] text-black text-[9px] font-black px-1.5 py-0.5 tracking-wide">
           NEW
         </span>
       )
@@ -601,8 +599,8 @@ function CollapsedFlyout({
           style={{ position: 'fixed', top, left: SIDEBAR_W + 8, zIndex: 9999 }}
           className="animate-in fade-in slide-in-from-left-1 duration-100"
         >
-          <div className="bg-gray-900 rounded-xl shadow-2xl py-1.5 min-w-[185px] border border-white/10">
-            <p className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+          <div className="rounded-xl border border-slate-200 bg-white py-1.5 shadow-2xl min-w-[185px]">
+            <p className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               {item.label}
             </p>
             {item.children!.map(child => (
@@ -614,7 +612,7 @@ function CollapsedFlyout({
                   return (
                     <div
                       key={child.href}
-                      className="flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed whitespace-nowrap"
+                      className="flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium text-slate-400 cursor-not-allowed whitespace-nowrap"
                     >
                       <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="truncate">{child.label}</span>
@@ -632,7 +630,7 @@ function CollapsedFlyout({
                   'flex items-center gap-2.5 px-2 py-2 mx-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap',
                   childActive
                     ? 'text-white'
-                    : 'text-white/65 hover:text-white hover:bg-white/[0.07]'
+                    : 'text-slate-600 hover:bg-blue-50 hover:text-[var(--brand-primary)]'
                 )}
                 style={childActive ? activeStyle : undefined}
               >
@@ -676,12 +674,13 @@ function NavItemComponent({
   const hasChildren = item.children && item.children.length > 0
 
   const activeStyle   = {
-    background: 'rgba(255,255,255,0.13)',
-    boxShadow: 'inset 3px 0 0 #ff5900',
+    background: 'var(--brand-primary)',
+    color: '#ffffff',
+    boxShadow: '0 4px 12px rgba(11, 111, 251, 0.18)',
   }
   const baseItemClass = cn(
     'flex items-center rounded-xl text-sm font-medium transition-all duration-150 relative',
-    isActive ? 'text-white' : 'text-white/65 hover:bg-white/[0.07] hover:text-white',
+    isActive ? 'text-white' : 'text-slate-600 hover:bg-blue-50 hover:text-[var(--brand-primary)]',
     collapsed ? 'w-10 h-10 justify-center p-0' : 'px-3 py-2.5 gap-3'
   )
 
@@ -695,7 +694,7 @@ function NavItemComponent({
     }
     if (PRO_LABELS.has(child.label) && !hrisProEnabled) {
       return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-white/10 text-white/40 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-500 text-[9px] font-black px-1.5 py-0.5 tracking-wide">
           🔒
         </span>
       )
@@ -703,14 +702,14 @@ function NavItemComponent({
     const pendingCount = pendingCountForItem(child, counts)
     if (pendingCount > 0) {
       return (
-        <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-highlight)] px-1.5 py-0.5 text-[10px] font-black text-black shadow-sm">
           {pendingCount}
         </span>
       )
     }
     if (child.releasedAt && isFeatureNew(child.releasedAt)) {
       return (
-        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-fuchsia-500 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+        <span className="ml-auto inline-flex items-center justify-center rounded-full bg-[var(--brand-highlight)] text-black text-[9px] font-black px-1.5 py-0.5 tracking-wide">
           NEW
         </span>
       )
@@ -781,7 +780,7 @@ function NavItemComponent({
           data-tour-item={item.href}
           className={cn(
             'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-            isActive ? 'text-white' : 'text-white/65 hover:bg-white/[0.07] hover:text-white',
+            isActive ? 'text-white' : 'text-slate-600 hover:bg-blue-50 hover:text-[var(--brand-primary)]',
             item.comingSoon && 'cursor-not-allowed pointer-events-none'
           )}
           style={isActive ? activeStyle : undefined}
@@ -810,7 +809,7 @@ function NavItemComponent({
           )}
         </button>
         {isExpanded && !item.comingSoon && (
-          <div className="ml-4 mt-1 mb-1 space-y-0.5 border-l border-white/20 pl-3">
+          <div className="ml-4 mt-1 mb-1 space-y-0.5 border-l border-slate-200 pl-3">
             {item.children!.map(child => (
               (() => {
                 const [childPath, query] = child.href.split('?')
@@ -820,7 +819,7 @@ function NavItemComponent({
                   return (
                     <div
                       key={child.href}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-white/35 cursor-not-allowed whitespace-nowrap"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 cursor-not-allowed whitespace-nowrap"
                     >
                       <child.icon className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="truncate">{child.label}</span>
@@ -837,7 +836,7 @@ function NavItemComponent({
                   'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 whitespace-nowrap',
                   childActive
                     ? 'text-white'
-                    : 'text-white/55 hover:bg-white/[0.07] hover:text-white/90'
+                    : 'text-slate-500 hover:bg-blue-50 hover:text-[var(--brand-primary)]'
                 )}
                 style={childActive ? activeStyle : undefined}
               >

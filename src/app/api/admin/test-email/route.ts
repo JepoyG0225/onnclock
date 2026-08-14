@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       to,
       subject: '✅ Onclock SMTP Test',
       text: 'This is a test email to confirm SMTP is working correctly.',
-      html: `<p style="font-family:sans-serif">✅ <strong>SMTP is working!</strong> This test was sent from the Onclock admin panel.</p><p style="color:#64748b;font-size:12px">Host: ${smtpHost}:${smtpPort} | From: ${smtpFrom}</p>`,
+      html: `<p style="font-family:sans-serif">✅ <strong>SMTP is working!</strong> This test was sent from the Onclock admin panel.</p><p style="color:#666666;font-size:12px">Host: ${smtpHost}:${smtpPort} | From: ${smtpFrom}</p>`,
     })
 
     console.log('[test-email] ✓ sent to', to, '| messageId:', info.messageId)

@@ -50,11 +50,11 @@ export function AddEmployeeButton({ atSeatCap, activeCount, paidSeats }: Props) 
             <div className="flex flex-col items-center text-center gap-4">
               <div className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{ background: 'rgba(255,89,0,0.1)' }}>
-                <AlertCircle className="w-7 h-7" style={{ color: '#ff5900' }} />
+                <AlertCircle className="w-7 h-7" style={{ color: 'var(--brand-highlight)' }} />
               </div>
 
               <div>
-                <h2 className="text-lg font-bold" style={{ color: '#162d54' }}>
+                <h2 className="text-lg font-bold" style={{ color: '#000000' }}>
                   Seat Limit Reached
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
@@ -66,7 +66,7 @@ export function AddEmployeeButton({ atSeatCap, activeCount, paidSeats }: Props) 
               <div className="flex flex-col gap-2 w-full">
                 <Button
                   className="w-full text-white"
-                  style={{ background: '#ff5900' }}
+                  style={{ background: 'var(--brand-highlight)' }}
                   onClick={() => { setOpen(false); router.push('/settings/billing') }}
                 >
                   Upgrade Plan

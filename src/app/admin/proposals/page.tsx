@@ -114,7 +114,7 @@ export default function ProposalGeneratorPage() {
   return (
     <div className="p-6 md:p-8 max-w-6xl">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#021e47' }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#000000' }}>
           <FileText className="w-5 h-5 text-white" />
         </div>
         <div>

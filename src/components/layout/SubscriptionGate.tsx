@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -130,7 +130,7 @@ function UnpaidSeatsModal({ count }: { count: number }) {
               type="button"
               onClick={dismiss}
               className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+              style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
             >
               Settle Now
               <ArrowRight className="w-4 h-4" />
@@ -140,7 +140,7 @@ function UnpaidSeatsModal({ count }: { count: number }) {
               type="button"
               onClick={() => router.push('/settings/billing')}
               className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg,#032b63,#021e47)' }}
+              style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
             >
               Go to Billing
               <ArrowRight className="w-4 h-4" />

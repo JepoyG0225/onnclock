@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { buildOtMapKey, getApprovedOtHoursMap } from '@/lib/overtime-requests'
+import { buildOtMapKey, getApprovedOtHoursMap, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import { dtrSchema, upsertDtrRecord } from '@/lib/timesheet/dtr-upsert'
+
+function rawOvertimeHours(record: { overtimeHours: unknown; regularHours: unknown; timeIn: Date | null; timeOut: Date | null; breakIn: Date | null; breakOut: Date | null }) {
+  const stored = Number(record.overtimeHours ?? 0)
+  if (stored > 0 || !record.timeIn || !record.timeOut) return stored
+  let elapsed = (record.timeOut.getTime() - record.timeIn.getTime()) / 3_600_000
+  if (elapsed < 0) elapsed += 24
+  const breakHours = record.breakIn && record.breakOut
+    ? Math.max(0, (record.breakOut.getTime() - record.breakIn.getTime()) / 3_600_000)
+    : 1
+  return Math.round(Math.max(0, elapsed - breakHours - Number(record.regularHours ?? 0)) * 100) / 100
+}
 
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
@@ -41,7 +52,7 @@ export async function GET(req: NextRequest) {
     where.timeOut = { not: null }
   }
 
-  const [records, total, approvedOtMap] = await Promise.all([
+  const [records, total, approvedOtMap, companyOvertimeEnabled] = await Promise.all([
     prisma.dTRRecord.findMany({
       where,
       include: {
@@ -50,6 +61,7 @@ export async function GET(req: NextRequest) {
             firstName: true,
             lastName: true,
             employeeNo: true,
+            overtimePayOverride: true,
             department: { select: { name: true } },
             workSchedule: { select: { workDays: true } },
           },
@@ -72,11 +84,15 @@ export async function GET(req: NextRequest) {
           dateTo: new Date(periodEnd),
         })
       : Promise.resolve(new Map<string, number>()),
+    isOvertimeEnabledForCompany(companyId),
   ])
 
   const normalized = records.map(({ _count, ...record }) => ({
     ...record,
     overtimeHours: approvedOtMap.get(buildOtMapKey(record.employeeId, record.date)) ?? 0,
+    unreportedOvertimeHours: !companyOvertimeEnabled && !record.employee.overtimePayOverride
+      ? rawOvertimeHours(record)
+      : 0,
     screenCaptureCount: _count.screenCaptures,
   }))
 

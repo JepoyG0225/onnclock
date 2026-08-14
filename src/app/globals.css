@@ -51,21 +51,164 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* Brand palette utilities */
-  --color-brand-orange: #ff5900;
-  --color-brand-navy: #162d54;
+  /* Core brand palette: lime, black, and jet black. White and neutral gray
+     are functional surfaces only, not additional brand accents. */
+  --color-brand-orange: var(--brand-danger);
+  --color-brand-navy: var(--brand-primary);
+  --color-black: #000000;
+  /* Remap the neutral utility ramps used throughout legacy pages. This makes
+     bg-gray-50, text-slate-600, border-gray-200, etc. part of this palette. */
+  --color-gray-50: #f7f7f7;
+  --color-gray-100: #eeeeee;
+  --color-gray-200: #d4d4d4;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #777777;
+  --color-gray-500: #666666;
+  --color-gray-600: #343434;
+  --color-gray-700: #343434;
+  --color-gray-800: #343434;
+  --color-gray-900: #000000;
+  --color-slate-50: #f7f7f7;
+  --color-slate-100: #eeeeee;
+  --color-slate-200: #d4d4d4;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #777777;
+  --color-slate-500: #666666;
+  --color-slate-600: #343434;
+  --color-slate-700: #343434;
+  --color-slate-800: #343434;
+  --color-slate-900: #000000;
+  --color-zinc-50: #f7f7f7;
+  --color-zinc-100: #eeeeee;
+  --color-zinc-200: #d4d4d4;
+  --color-zinc-300: #d4d4d4;
+  --color-zinc-400: #777777;
+  --color-zinc-500: #666666;
+  --color-zinc-600: #343434;
+  --color-zinc-700: #343434;
+  --color-zinc-800: #343434;
+  --color-zinc-900: #000000;
+  /* Legacy decorative accent ramps. Components across older pages use these
+     names directly; collapse them into black/jet/neutral to prevent rainbow UI. */
+  --color-orange-50: #f7f7f7;
+  --color-orange-100: var(--brand-highlight);
+  --color-orange-200: #d4d4d4;
+  --color-orange-300: #d4d4d4;
+  --color-orange-400: #343434;
+  --color-orange-500: #343434;
+  --color-orange-600: #000000;
+  --color-orange-700: #343434;
+  --color-orange-800: #000000;
+  --color-orange-900: #000000;
+  --color-blue-50: #f7f7f7;
+  --color-blue-100: #eeeeee;
+  --color-blue-200: #d4d4d4;
+  --color-blue-300: #343434;
+  --color-blue-400: #343434;
+  --color-blue-500: #343434;
+  --color-blue-600: #343434;
+  --color-blue-700: #343434;
+  --color-blue-800: #343434;
+  --color-blue-900: #000000;
+  --color-cyan-50: #f7f7f7;
+  --color-cyan-100: #eeeeee;
+  --color-cyan-200: #d4d4d4;
+  --color-cyan-300: #343434;
+  --color-cyan-400: #343434;
+  --color-cyan-500: #343434;
+  --color-cyan-600: #343434;
+  --color-cyan-700: #343434;
+  --color-cyan-800: #343434;
+  --color-cyan-900: #000000;
+  --color-teal-50: #f7f7f7;
+  --color-teal-100: #eeeeee;
+  --color-teal-200: #d4d4d4;
+  --color-teal-300: #343434;
+  --color-teal-400: #343434;
+  --color-teal-500: #343434;
+  --color-teal-600: #343434;
+  --color-teal-700: #343434;
+  --color-teal-800: #343434;
+  --color-teal-900: #000000;
+  --color-indigo-50: #f7f7f7;
+  --color-indigo-100: #eeeeee;
+  --color-indigo-200: #d4d4d4;
+  --color-indigo-300: #777777;
+  --color-indigo-400: #343434;
+  --color-indigo-500: #343434;
+  --color-indigo-600: #343434;
+  --color-indigo-700: #343434;
+  --color-indigo-800: #343434;
+  --color-indigo-900: #000000;
+  --color-purple-50: #f7f7f7;
+  --color-purple-100: #eeeeee;
+  --color-purple-200: #d4d4d4;
+  --color-purple-300: #777777;
+  --color-purple-400: #343434;
+  --color-purple-500: #343434;
+  --color-purple-600: #343434;
+  --color-purple-700: #343434;
+  --color-purple-800: #343434;
+  --color-purple-900: #000000;
+  --color-violet-50: #f7f7f7;
+  --color-violet-100: #eeeeee;
+  --color-violet-200: #d4d4d4;
+  --color-violet-300: #777777;
+  --color-violet-400: #343434;
+  --color-violet-500: #343434;
+  --color-violet-600: #343434;
+  --color-violet-700: #343434;
+  --color-violet-800: #343434;
+  --color-violet-900: #000000;
+  --color-pink-50: #f7f7f7;
+  --color-pink-100: #eeeeee;
+  --color-pink-200: #d4d4d4;
+  --color-pink-300: #777777;
+  --color-pink-400: #343434;
+  --color-pink-500: #343434;
+  --color-pink-600: #343434;
+  --color-pink-700: #343434;
+  --color-pink-800: #343434;
+  --color-pink-900: #000000;
+  --color-fuchsia-50: #f7f7f7;
+  --color-fuchsia-100: #eeeeee;
+  --color-fuchsia-200: #d4d4d4;
+  --color-fuchsia-300: #777777;
+  --color-fuchsia-400: #343434;
+  --color-fuchsia-500: #343434;
+  --color-fuchsia-600: #343434;
+  --color-fuchsia-700: #343434;
+  --color-fuchsia-800: #343434;
+  --color-fuchsia-900: #000000;
+  --color-lime-50: #f7f7f7;
+  --color-lime-100: #f7f7f7;
+  --color-lime-200: #d4d4d4;
+  --color-lime-300: var(--brand-highlight);
+  --color-lime-400: var(--brand-highlight);
+  --color-lime-500: var(--brand-highlight);
+  --color-lime-600: #343434;
+  --color-lime-700: #343434;
+  --color-lime-800: #343434;
+  --color-lime-900: #000000;
 }
 
 :root {
   --radius: 0.75rem;
+  --brand-primary: #0b6ffb;
+  --brand-primary-hover: #075bd4;
+  --brand-highlight: #19c2f2;
+  --brand-highlight-soft: #eaf8fe;
+  --brand-danger: #f43f5e;
+  --brand-danger-hover: #dc2949;
+  --brand-ink: #1f2937;
 
   /* Light theme */
-  --background: #f1f5f9;
-  --foreground: #0f172a;
+  --background: #f3f7fc;
+  --foreground: #1f2937;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1f2937;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #1f2937;
   /* ── Brand hierarchy ──
    *
    * NAVY is the primary brand color and is now used for default buttons,
@@ -75,19 +218,19 @@
    * the NEW badge. This separation gives the brand visual hierarchy:
    * navy = "this is the right action", orange = "this is the action".
    *
-   * Previously --primary, --accent, AND --ring were all #ff5900 (orange),
+   * Previously --primary, --accent, AND --ring were all var(--brand-highlight) (orange),
    * which meant every button, focus ring, and accent looked identical
    * and there was no way to draw the eye to the truly important CTA.
    */
-  --primary: #021e47;
+  --primary: var(--brand-primary);
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
+  --secondary: #e8eef6;
+  --secondary-foreground: #1f2937;
+  --muted: #f3f7fc;
   --muted-foreground: #64748b;
-  --accent: #ff5900;
-  --accent-foreground: #ffffff;
-  --destructive: #dc2626;
+  --accent: var(--brand-highlight);
+  --accent-foreground: #000000;
+  --destructive: var(--brand-danger);
   --destructive-foreground: #ffffff;
   /* Semantic status colours. These existed only as hardcoded Tailwind
    * classes (bg-green-600, bg-amber-500, …) scattered through the app, so
@@ -95,30 +238,30 @@
    * here makes status colour a theme decision rather than a per-component
    * guess, and keeps them distinct from the brand ramp above: navy and
    * orange say "act on this", these say "this is the state". */
-  --success: #16a34a;
-  --success-foreground: #ffffff;
-  --warning: #d97706;
+  --success: var(--brand-highlight);
+  --success-foreground: #000000;
+  --warning: var(--brand-primary);
   --warning-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #021e47;
+  --border: #dfe7f1;
+  --input: #dfe7f1;
+  --ring: var(--brand-primary);
 
   /* Charts — navy lead, then chromatic for differentiation */
-  --chart-1: #021e47;
-  --chart-2: #3b82f6;
-  --chart-3: #10B981;
-  --chart-4: #a78bfa;
-  --chart-5: #f472b6;
+  --chart-1: var(--brand-primary);
+  --chart-2: var(--brand-danger);
+  --chart-3: var(--brand-highlight);
+  --chart-4: #343434;
+  --chart-5: #d4d4d4;
 
-  /* Sidebar — stays navy */
-  --sidebar: #162d54;
+  /* Sidebar — stays black */
+  --sidebar: var(--brand-primary);
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #ff5900;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-ring: #ff5900;
+  --sidebar-primary: var(--brand-highlight);
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: rgba(255, 213, 39, 0.18);
+  --sidebar-accent-foreground: var(--brand-highlight);
+  --sidebar-border: rgba(255, 255, 255, 0.18);
+  --sidebar-ring: var(--brand-highlight);
 }
 
 @layer base {
@@ -127,6 +270,36 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Compatibility for older status badges that still pass direct Tailwind
+   color classes into <Badge>. Keep every chip in the three-color system. */
+@layer components {
+  [data-slot="badge"][class*="bg-green-"],
+  [data-slot="badge"][class*="bg-emerald-"] {
+    background: var(--brand-highlight) !important;
+    border-color: var(--brand-highlight) !important;
+    color: #000000 !important;
+  }
+
+  [data-slot="badge"][class*="bg-amber-"],
+  [data-slot="badge"][class*="bg-yellow-"],
+  [data-slot="badge"][class*="bg-orange-"] {
+    background: var(--brand-danger) !important;
+    border-color: var(--brand-danger) !important;
+    color: #ffffff !important;
+  }
+
+  [data-slot="badge"][class*="bg-blue-"],
+  [data-slot="badge"][class*="bg-sky-"],
+  [data-slot="badge"][class*="bg-cyan-"],
+  [data-slot="badge"][class*="bg-indigo-"],
+  [data-slot="badge"][class*="bg-purple-"],
+  [data-slot="badge"][class*="bg-violet-"] {
+    background: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    color: #ffffff !important;
   }
 }
 
@@ -144,11 +317,11 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--brand-primary);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--brand-danger);
 }
 
 /* Minimal visible sidebar scrollbar */
@@ -177,7 +350,8 @@ html {
 /* AppSpinner tick fade */
 @keyframes app-spinner-tick {
   0%   { opacity: 1; }
-  100% { opacity: 0.15; }
+  20%  { opacity: 0.9; }
+  100% { opacity: 0.12; }
 }
 
 /* next/font exposes --font-montserrat on the class it puts on <body>, i.e. only

@@ -1,8 +1,10 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type EmployeeDocument = {
   id: string
@@ -13,25 +15,15 @@ type EmployeeDocument = {
   expiresAt: string | null
 }
 
-type StorageInfo = {
-  usedBytes: number
-  limitBytes: number
-  remainingBytes: number
-  usedLabel: string
-  limitLabel: string
-  remainingLabel: string
-  pricePerSeat: number
-}
-
 export function EmployeeDocumentsManager({ employeeId }: { employeeId: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [documents, setDocuments] = useState<EmployeeDocument[]>([])
-  const [storage, setStorage] = useState<StorageInfo | null>(null)
   const [documentType, setDocumentType] = useState('Government ID')
   const [expiresAt, setExpiresAt] = useState('')
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -40,7 +32,6 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? 'Failed to load documents')
       setDocuments(data.documents ?? [])
-      setStorage(data.storage ?? null)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load documents')
     } finally {
@@ -79,6 +70,7 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
       setFile(null)
       setNotes('')
       setExpiresAt('')
+      setUploadOpen(false)
       await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Upload failed')
@@ -101,64 +93,22 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
     }
   }
 
-  const usagePct = storage?.limitBytes ? Math.min(100, (storage.usedBytes / storage.limitBytes) * 100) : 0
-
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-800">Company document storage</p>
-            <p className="text-xs text-slate-600">
-              Plan rate: Php {Number(storage?.pricePerSeat ?? 0).toFixed(2)} / seat
-            </p>
-          </div>
-          <p className="text-xs font-medium text-slate-600">
-            {storage ? `${storage.usedLabel} / ${storage.limitLabel}` : '-'}
-          </p>
-        </div>
-        <div className="h-2 rounded-full bg-slate-200 mt-3 overflow-hidden">
-          <div className="h-2 rounded-full bg-[#032b63]" style={{ width: `${usagePct}%` }} />
-        </div>
-      </div>
+      <Button size="sm" className="absolute right-4 top-3" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" />Upload</Button>
 
-      <div className="rounded-xl border border-slate-200 p-4 space-y-3">
-        <p className="text-sm font-semibold text-slate-800">Upload document</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input
-            value={documentType}
-            onChange={(e) => setDocumentType(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Document type"
-          />
-          <input
-            type="date"
-            value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <input
-            type="file"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-          />
-        </div>
-        <input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Notes (optional)"
-        />
-        <button
-          disabled={saving}
-          onClick={upload}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-primary disabled:opacity-60"
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          Upload
-        </button>
-      </div>
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><label className="mb-1 block text-xs font-semibold">Document type</label><input value={documentType} onChange={(e) => setDocumentType(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g. Government ID" /></div>
+            <div><label className="mb-1 block text-xs font-semibold">Expiration date</label><input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
+            <div><label className="mb-1 block text-xs font-semibold">File</label><input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" /></div>
+            <div><label className="mb-1 block text-xs font-semibold">Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Optional notes" /></div>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setUploadOpen(false)} disabled={saving}>Cancel</Button><Button disabled={saving || !file} onClick={upload}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload document</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="rounded-xl border border-slate-200 overflow-hidden">
         {loading ? (
@@ -181,7 +131,7 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
                 <tr key={doc.id} className="border-b">
                   <td className="px-3 py-2">{doc.documentType}</td>
                   <td className="px-3 py-2">
-                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-[#032b63] hover:underline">
+                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-[#000000] hover:underline">
                       {doc.fileName}
                     </a>
                   </td>

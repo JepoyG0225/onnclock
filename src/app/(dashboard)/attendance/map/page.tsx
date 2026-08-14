@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
@@ -10,7 +10,7 @@ const LiveMapInner = dynamic(() => import('@/components/map/LiveMapInner'), {
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-gray-100 rounded-xl">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-[#032b63] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+        <div className="w-8 h-8 border-2 border-[#000000] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
         <p className="text-sm text-gray-500">Loading map...</p>
       </div>
     </div>
@@ -50,10 +50,10 @@ interface LatestCapture {
 }
 
 const POSITION_BADGE_PALETTE = [
-  { bg: '#ecfeff', text: '#0f766e', border: '#99f6e4' },
+  { bg: '#ecfeff', text: '#646568', border: '#99f6e4' },
   { bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd' },
   { bg: '#f5f3ff', text: '#6d28d9', border: '#c4b5fd' },
-  { bg: '#fff7ed', text: '#c2410c', border: '#fdba74' },
+  { bg: '#f7f7f7', text: '#343434', border: '#d4d4d4' },
   { bg: '#fef2f2', text: '#b91c1c', border: '#fca5a5' },
   { bg: '#f0fdf4', text: '#166534', border: '#86efac' },
 ]
@@ -180,7 +180,7 @@ export default function AttendanceMapPage() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[#032b63]" /> Live Attendance Map
+            <MapPin className="w-5 h-5 text-[#000000]" /> Live Attendance Map
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Real-time GPS tracking — <span suppressHydrationWarning>{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>
@@ -188,8 +188,8 @@ export default function AttendanceMapPage() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 text-sm">
-            <span className="flex items-center gap-1.5 text-[#032b63] font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#032b63] animate-pulse" />
+            <span className="flex items-center gap-1.5 text-[#000000] font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#000000] animate-pulse" />
               {clockedIn.length} clocked in
             </span>
           </div>
@@ -230,7 +230,7 @@ export default function AttendanceMapPage() {
               <div className="space-y-1.5">
                 {clockedIn.length > 0 && (
                   <>
-                    <p className="text-xs font-medium text-[#032b63] px-1 mt-3 mb-1">Clocked In ({clockedIn.length})</p>
+                    <p className="text-xs font-medium text-[#000000] px-1 mt-3 mb-1">Clocked In ({clockedIn.length})</p>
                     {clockedIn.map(loc => (
                       <EmployeeCard
                         key={loc.employeeId}
@@ -334,7 +334,7 @@ function EmployeeCard({
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {capture && (
-              <Monitor className="w-3.5 h-3.5 text-[#032b63] opacity-70" aria-label="Screenshot available" />
+              <Monitor className="w-3.5 h-3.5 text-[#000000] opacity-70" aria-label="Screenshot available" />
             )}
             {loc.isOnBreak && (
               <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">BREAK</span>

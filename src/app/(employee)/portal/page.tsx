@@ -147,7 +147,7 @@ export default async function PortalHomePage() {
   const statusTone = onBreak ? { bg: '#fffbeb', fg: '#b45309', dot: '#f59e0b' }
     : clockedIn ? { bg: '#ecfdf5', fg: '#047857', dot: '#10b981' }
     : clockedOut ? { bg: '#eff6ff', fg: '#1d4ed8', dot: '#3b82f6' }
-    : { bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8' }
+    : { bg: '#eeeeee', fg: '#343434', dot: '#777777' }
 
   // Worked hours so far — closed shift uses out-in; an open shift counts to now.
   const workedMs = dtr?.timeIn
@@ -178,8 +178,7 @@ export default async function PortalHomePage() {
             />
           ) : (
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black text-white shadow-sm"
-              style={{ background: 'linear-gradient(135deg, #032b63, #1b6a6e)' }}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#343434] text-sm font-black text-[var(--brand-highlight)] shadow-sm ring-1 ring-black/10"
             >
               {initials}
             </div>
@@ -187,7 +186,7 @@ export default async function PortalHomePage() {
         </Link>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-slate-400 leading-tight">{greeting()}</p>
-          <h1 className="text-[22px] font-black tracking-tight leading-tight truncate" style={{ color: '#032b63' }}>
+          <h1 className="text-[22px] font-black tracking-tight leading-tight truncate" style={{ color: '#000000' }}>
             Hi {firstName}
           </h1>
         </div>
@@ -207,7 +206,7 @@ export default async function PortalHomePage() {
       {/* Attendance — hero punch control */}
       <section className="rounded-3xl bg-white border border-slate-200 shadow-sm p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-black tracking-wide" style={{ color: '#032b63' }}>Attendance</h2>
+          <h2 className="text-[13px] font-black tracking-wide" style={{ color: '#000000' }}>Attendance</h2>
           <Link href="/portal/clock" className="text-[11px] font-bold text-slate-400 hover:text-slate-700 transition-colors">
             History
           </Link>

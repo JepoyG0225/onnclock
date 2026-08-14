@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,7 +31,7 @@ const TYPE_CONFIG = {
     label: 'Special Working',
     bg: '#dbeafe',
     text: '#1e40af',
-    dot: '#032b63',
+    dot: '#000000',
     border: '#93c5fd',
   },
 }
@@ -153,7 +153,7 @@ export function HolidaysTab() {
       {/* Page Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Holiday Calendar</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Holiday Calendar</h1>
           <p className="text-sm text-slate-500 mt-0.5">Philippine public holidays and special non-working days</p>
         </div>
         <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export function HolidaysTab() {
             onClick={syncFromGoogle}
             disabled={syncing}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-            style={{ color: '#032b63', border: '1.5px solid rgba(34,127,132,0.22)', background: '#fff' }}
+            style={{ color: '#000000', border: '1.5px solid rgba(34,127,132,0.22)', background: '#fff' }}
             title={`Sync ${year} holidays`}
           >
             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
@@ -170,7 +170,7 @@ export function HolidaysTab() {
           <button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-            style={{ background: '#ff5900', boxShadow: '0 2px 8px rgba(250,94,1,0.3)' }}
+            style={{ background: 'var(--brand-highlight)', boxShadow: '0 2px 8px rgba(184, 225, 0,0.3)' }}
           >
             <Plus className="w-4 h-4" />
             Add Holiday
@@ -182,36 +182,36 @@ export function HolidaysTab() {
       {showForm && (
         <div
           className="rounded-2xl p-5"
-          style={{ background: '#fff', border: '1px solid rgba(250,94,1,0.25)', boxShadow: '0 2px 12px rgba(250,94,1,0.08)' }}
+          style={{ background: '#fff', border: '1px solid rgba(184, 225, 0,0.25)', boxShadow: '0 2px 12px rgba(184, 225, 0,0.08)' }}
         >
-          <p className="text-sm font-bold mb-4" style={{ color: '#032b63' }}>Add New Holiday</p>
+          <p className="text-sm font-bold mb-4" style={{ color: '#000000' }}>Add New Holiday</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {[
               { label: 'Holiday Name *', field: 'name', type: 'text', placeholder: 'e.g. Independence Day' },
               { label: 'Date *', field: 'date', type: 'date', placeholder: '' },
             ].map(({ label, field, type, placeholder }) => (
               <div key={field}>
-                <label className="text-xs font-semibold block mb-1.5" style={{ color: '#64748b' }}>{label}</label>
+                <label className="text-xs font-semibold block mb-1.5" style={{ color: '#666666' }}>{label}</label>
                 <input
                   type={type}
                   value={form[field as 'name' | 'date']}
                   onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
                   placeholder={placeholder}
                   className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-                  style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#032b63' }}
-                  onFocus={e => (e.target.style.borderColor = '#ff5900')}
+                  style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#000000' }}
+                  onFocus={e => (e.target.style.borderColor = 'var(--brand-highlight)')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(10,53,59,0.15)')}
                 />
               </div>
             ))}
             <div>
-              <label className="text-xs font-semibold block mb-1.5" style={{ color: '#64748b' }}>Type *</label>
+              <label className="text-xs font-semibold block mb-1.5" style={{ color: '#666666' }}>Type *</label>
               <select
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value as Holiday['type'] }))}
                 className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-                style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#032b63' }}
-                onFocus={e => (e.target.style.borderColor = '#ff5900')}
+                style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#000000' }}
+                onFocus={e => (e.target.style.borderColor = 'var(--brand-highlight)')}
                 onBlur={e => (e.target.style.borderColor = 'rgba(10,53,59,0.15)')}
               >
                 <option value="REGULAR">Regular Holiday (200%)</option>
@@ -225,14 +225,14 @@ export function HolidaysTab() {
               onClick={addHoliday}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {saving ? 'Saving…' : 'Add Holiday'}
             </button>
             <button
               onClick={() => setShowForm(false)}
               className="px-5 py-2 rounded-xl text-sm font-semibold hover:bg-slate-100"
-              style={{ color: '#64748b', border: '1.5px solid rgba(10,53,59,0.12)' }}
+              style={{ color: '#666666', border: '1.5px solid rgba(10,53,59,0.12)' }}
             >
               Cancel
             </button>
@@ -278,7 +278,7 @@ export function HolidaysTab() {
             <div
               key={d}
               className="py-3 text-center text-xs font-bold tracking-wide"
-              style={{ color: d === 'Sun' ? '#ef4444' : '#94a3b8' }}
+              style={{ color: d === 'Sun' ? '#ef4444' : '#777777' }}
             >
               {d}
             </div>
@@ -325,10 +325,10 @@ export function HolidaysTab() {
                 <span
                   className="w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold self-start"
                   style={{
-                    background: isTodayCell ? '#ff5900' : 'transparent',
-                    color: isTodayCell ? '#fff' : cfg ? cfg.text : isSun ? '#ef4444' : '#374151',
+                    background: isTodayCell ? 'var(--brand-highlight)' : 'transparent',
+                    color: isTodayCell ? '#fff' : cfg ? cfg.text : isSun ? '#ef4444' : '#343434',
                     fontWeight: isTodayCell ? 700 : 500,
-                    boxShadow: isTodayCell ? '0 2px 6px rgba(250,94,1,0.35)' : 'none',
+                    boxShadow: isTodayCell ? '0 2px 6px rgba(184, 225, 0,0.35)' : 'none',
                   }}
                 >
                   {day}

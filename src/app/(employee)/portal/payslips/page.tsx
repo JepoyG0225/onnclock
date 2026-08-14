@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -6,8 +6,8 @@ import { CreditCard, Download, Loader2, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCurrency } from '@/hooks/useCurrency'
 
-const NAVY = '#032b63'
-const ORANGE = '#ff5900'
+const NAVY = '#000000'
+const ORANGE = 'var(--brand-highlight)'
 
 interface Payslip {
   id: string
@@ -164,7 +164,7 @@ export default function PayslipsPage() {
 
           <div
             className="mx-5 rounded-2xl px-4 py-4 flex items-end justify-between"
-            style={{ background: 'linear-gradient(135deg, #021e47, #032b63)' }}
+            style={{ background: 'linear-gradient(135deg, #000000, #000000)' }}
           >
             <div>
               <p className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Net pay</p>
@@ -267,7 +267,7 @@ export default function PayslipsPage() {
       {!loading && latest && (
         <div
           className="rounded-2xl px-4 py-4"
-          style={{ background: 'linear-gradient(135deg, #021e47, #032b63)' }}
+          style={{ background: 'linear-gradient(135deg, #000000, #000000)' }}
         >
           <p className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Latest net pay</p>
           <p className="text-[28px] font-black text-white leading-none mt-1 tabular-nums">

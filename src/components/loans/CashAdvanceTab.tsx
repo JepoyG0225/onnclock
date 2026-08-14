@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -11,6 +11,7 @@ import { peso } from '@/lib/utils'
 import { CashAdvanceDetailDialog } from '@/components/cash-advance/CashAdvanceDetailDialog'
 import { RequestRowOpener } from '@/components/ui/request-row-opener'
 import { ChevronRight } from 'lucide-react'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 type Status = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
@@ -82,7 +83,7 @@ export function CashAdvanceTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Cash Advance Requests</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Cash Advance Requests</h1>
           <p className="text-slate-500 text-sm mt-1">
             Review employee cash advance requests. Approving creates a loan that gets deducted automatically from payroll.
           </p>
@@ -91,24 +92,9 @@ export function CashAdvanceTab() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Pending</p>
-            <p className="text-2xl font-bold text-amber-700">{pendingCount}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Pending Amount</p>
-            <p className="text-xl font-bold text-amber-700">{peso(pendingTotal)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Approved (in view)</p>
-            <p className="text-xl font-bold text-green-700">{peso(approvedTotal)}</p>
-          </CardContent>
-        </Card>
+        <KpiCard label="Pending" value={pendingCount} icon={<Clock className="h-5 w-5" />} />
+        <KpiCard label="Pending Amount" value={peso(pendingTotal)} icon={<Banknote className="h-5 w-5" />} />
+        <KpiCard label="Approved (in view)" value={peso(approvedTotal)} icon={<CheckCircle2 className="h-5 w-5" />} />
       </div>
 
       {/* Filters */}

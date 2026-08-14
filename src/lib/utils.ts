@@ -133,20 +133,24 @@ export function getPeriodString(date: Date): string {
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: 'bg-green-100 text-green-800',
-  INACTIVE: 'bg-gray-100 text-gray-700',
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  REJECTED: 'bg-red-100 text-red-800',
-  CANCELLED: 'bg-gray-100 text-gray-700',
-  DRAFT: 'bg-gray-100 text-gray-700',
-  COMPUTED: 'bg-blue-100 text-blue-800',
-  FOR_APPROVAL: 'bg-yellow-100 text-yellow-800',
-  LOCKED: 'bg-purple-100 text-purple-800',
-  PROBATIONARY: 'bg-orange-100 text-orange-800',
-  REGULAR: 'bg-green-100 text-green-800',
-  RESIGNED: 'bg-gray-100 text-gray-700',
-  TERMINATED: 'bg-red-100 text-red-800',
+  ACTIVE: 'bg-[var(--brand-highlight)] text-black',
+  INACTIVE: 'bg-gray-200 text-[#343434]',
+  PENDING: 'bg-black text-[var(--brand-highlight)]',
+  APPROVED: 'bg-[var(--brand-highlight)] text-black',
+  REJECTED: 'bg-black text-white',
+  CANCELLED: 'bg-gray-200 text-[#343434]',
+  DRAFT: 'bg-gray-200 text-[#343434]',
+  COMPUTED: 'bg-[#343434] text-white',
+  FOR_APPROVAL: 'bg-black text-[var(--brand-highlight)]',
+  LOCKED: 'bg-[#343434] text-white',
+  PROBATIONARY: 'bg-[#fff4d6] text-[#8a5a00] ring-1 ring-inset ring-[#f5d98c]',
+  REGULAR: 'bg-[#e8f8f0] text-[#087a55] ring-1 ring-inset ring-[#bcebd5]',
+  PART_TIME: 'bg-[#eef4ff] text-[#315ea8] ring-1 ring-inset ring-[#cfddf5]',
+  CONTRACTUAL: 'bg-[#f3efff] text-[#6d4bb3] ring-1 ring-inset ring-[#ddd2f7]',
+  PROJECT_BASED: 'bg-[#e8f7fa] text-[#147286] ring-1 ring-inset ring-[#c4e8ef]',
+  RESIGNED: 'bg-[#f1f5f9] text-[#64748b] ring-1 ring-inset ring-[#dbe3ec]',
+  TERMINATED: 'bg-[#fdecef] text-[#c52b48] ring-1 ring-inset ring-[#f7c8d1]',
+  RETIRED: 'bg-[#f3f4f6] text-[#596273] ring-1 ring-inset ring-[#dfe3e8]',
 }
 
 export function getStatusColor(status: string): string {

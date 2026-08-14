@@ -7,6 +7,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AppSpinner } from '@/components/ui/AppSpinner'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 type Overview = {
   generatedAt: string
@@ -88,10 +89,6 @@ export default function AnalyticsPage() {
     )
   }
 
-  const turnoverColor =
-    data.turnover.ratePercent < 10 ? 'text-emerald-600' :
-    data.turnover.ratePercent < 20 ? 'text-amber-600' : 'text-red-600'
-
   // Hire/separation chart bounds
   const maxHs = Math.max(
     1,
@@ -102,8 +99,8 @@ export default function AnalyticsPage() {
     <div className="p-6 md:p-8 space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-blue-600" />
+          <h1 className="text-2xl font-bold text-[var(--brand-ink)] flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100"><BarChart3 className="w-5 h-5 text-[var(--brand-primary)]" /></span>
             HR Analytics
           </h1>
           <p className="text-gray-500 text-sm mt-1">
@@ -118,21 +115,12 @@ export default function AnalyticsPage() {
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Active Employees', value: fmtNum(data.headcount.active), sub: `${fmtNum(data.headcount.total)} total`, icon: Users, color: 'text-slate-800' },
-          { label: 'Turnover (12mo)', value: `${data.turnover.ratePercent}%`, sub: `${data.turnover.separationsLast12Mo} separations`, icon: TrendingDown, color: turnoverColor },
-          { label: 'Leave days used', value: `${data.leaveUtilization.totalDays.toFixed(1)}d`, sub: `${data.leaveUtilization.year} YTD`, icon: Calendar, color: 'text-blue-700' },
-          { label: 'Late-shift rate', value: `${data.attendance30d.lateShiftRatePercent}%`, sub: `${data.attendance30d.totalShifts} shifts (30d)`, icon: Clock, color: data.attendance30d.lateShiftRatePercent < 10 ? 'text-emerald-600' : 'text-amber-600' },
+          { label: 'Active Employees', value: fmtNum(data.headcount.active), sub: `${fmtNum(data.headcount.total)} total`, icon: Users, tone: 'primary' as const },
+          { label: 'Turnover (12mo)', value: `${data.turnover.ratePercent}%`, sub: `${data.turnover.separationsLast12Mo} separations`, icon: TrendingDown, tone: data.turnover.ratePercent >= 20 ? 'warning' as const : 'neutral' as const },
+          { label: 'Leave days used', value: `${data.leaveUtilization.totalDays.toFixed(1)}d`, sub: `${data.leaveUtilization.year} YTD`, icon: Calendar, tone: 'accent' as const },
+          { label: 'Late-shift rate', value: `${data.attendance30d.lateShiftRatePercent}%`, sub: `${data.attendance30d.totalShifts} shifts (30d)`, icon: Clock, tone: data.attendance30d.lateShiftRatePercent >= 10 ? 'warning' as const : 'info' as const },
         ].map((k) => (
-          <Card key={k.label}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">{k.label}</p>
-                <k.icon className="w-4 h-4 text-slate-400" />
-              </div>
-              <p className={`text-2xl font-black mt-1 ${k.color}`}>{k.value}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{k.sub}</p>
-            </CardContent>
-          </Card>
+          <KpiCard key={k.label} label={k.label} value={k.value} hint={k.sub} icon={<k.icon className="h-5 w-5" />} tone={k.tone} />
         ))}
       </div>
 
@@ -141,7 +129,7 @@ export default function AnalyticsPage() {
         <Card>
           <CardHeader>
             <CardTitle data-tour="an-turnover" className="text-sm flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-600" /> Hires vs Separations (12 mo)
+              <TrendingUp className="w-4 h-4 text-[var(--brand-primary)]" /> Hires vs Separations (12 mo)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -152,11 +140,11 @@ export default function AnalyticsPage() {
                   <div className="flex-1 flex gap-1">
                     <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
                       <div
-                        className="absolute inset-y-0 left-0 bg-emerald-500 rounded-sm"
+                        className="absolute inset-y-0 left-0 bg-[var(--brand-primary)] rounded-sm"
                         style={{ width: `${(m.hires / maxHs) * 100}%` }}
                         title={`${m.hires} hires`}
                       />
-                      <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-emerald-900">
+                      <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-blue-900">
                         {m.hires > 0 ? `+${m.hires}` : ''}
                       </span>
                     </div>
@@ -175,7 +163,7 @@ export default function AnalyticsPage() {
               ))}
             </div>
             <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-500">
-              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-sm" /> Hires</span>
+              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 bg-[var(--brand-primary)] rounded-sm" /> Hires</span>
               <span className="inline-flex items-center gap-1"><span className="w-2 h-2 bg-red-400 rounded-sm" /> Separations</span>
             </div>
           </CardContent>
@@ -185,7 +173,7 @@ export default function AnalyticsPage() {
         <Card>
           <CardHeader>
             <CardTitle data-tour="an-headcount" className="text-sm flex items-center gap-2">
-              <Users className="w-4 h-4 text-slate-600" /> Headcount by Department
+              <Users className="w-4 h-4 text-[var(--brand-primary)]" /> Headcount by Department
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -200,7 +188,7 @@ export default function AnalyticsPage() {
                       <span className="w-32 truncate text-slate-700">{d.name}</span>
                       <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
                         <div
-                          className="absolute inset-y-0 left-0 bg-blue-500 rounded-sm"
+                          className="absolute inset-y-0 left-0 bg-[var(--brand-primary)] rounded-sm"
                           style={{ width: `${(d.count / max) * 100}%` }}
                         />
                         <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-blue-50">
@@ -237,8 +225,8 @@ export default function AnalyticsPage() {
                     <div key={r.label} className="flex items-center gap-2 text-xs">
                       <span className="w-24 text-slate-600">{r.label}</span>
                       <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
-                        <div className="absolute inset-y-0 left-0 bg-indigo-500 rounded-sm" style={{ width: `${(r.v / max) * 100}%` }} />
-                        <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-indigo-50">{r.v}</span>
+                        <div className="absolute inset-y-0 left-0 bg-[var(--brand-highlight)] rounded-sm" style={{ width: `${(r.v / max) * 100}%` }} />
+                        <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-cyan-950">{r.v}</span>
                       </div>
                     </div>
                   ))}
@@ -252,7 +240,7 @@ export default function AnalyticsPage() {
         <Card>
           <CardHeader>
             <CardTitle data-tour="an-leave" className="text-sm flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-purple-600" /> Leave Utilization ({data.leaveUtilization.year} YTD)
+              <Calendar className="w-4 h-4 text-cyan-600" /> Leave Utilization ({data.leaveUtilization.year} YTD)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -266,8 +254,8 @@ export default function AnalyticsPage() {
                     <div key={t.code} className="flex items-center gap-2 text-xs">
                       <span className="w-32 truncate text-slate-700"><Badge variant="outline" className="mr-1">{t.code}</Badge>{t.name}</span>
                       <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
-                        <div className="absolute inset-y-0 left-0 bg-purple-500 rounded-sm" style={{ width: `${(t.days / max) * 100}%` }} />
-                        <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-purple-50">{t.days.toFixed(1)}d · {t.count} reqs</span>
+                        <div className="absolute inset-y-0 left-0 bg-cyan-500 rounded-sm" style={{ width: `${(t.days / max) * 100}%` }} />
+                        <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-cyan-950">{t.days.toFixed(1)}d · {t.count} reqs</span>
                       </div>
                     </div>
                   ))
@@ -282,40 +270,40 @@ export default function AnalyticsPage() {
       <Card>
         <CardHeader>
           <CardTitle data-tour="an-attendance" className="text-sm flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-600" /> Attendance (Last 30 Days)
+            <Clock className="w-4 h-4 text-[var(--brand-primary)]" /> Attendance (Last 30 Days)
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
+            <div className="rounded-xl bg-blue-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total shifts</p>
               <p className="text-xl font-bold mt-1">{fmtNum(data.attendance30d.totalShifts)}</p>
             </div>
-            <div>
+            <div className="rounded-xl bg-cyan-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Regular hours</p>
               <p className="text-xl font-bold mt-1">{data.attendance30d.regularHours.toFixed(1)}h</p>
             </div>
-            <div>
+            <div className="rounded-xl bg-blue-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Overtime hours</p>
-              <p className="text-xl font-bold mt-1 text-amber-700">{data.attendance30d.overtimeHours.toFixed(1)}h</p>
+              <p className="text-xl font-bold mt-1 text-[var(--brand-primary)]">{data.attendance30d.overtimeHours.toFixed(1)}h</p>
             </div>
-            <div>
+            <div className="rounded-xl bg-cyan-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Night diff hours</p>
-              <p className="text-xl font-bold mt-1 text-indigo-700">{data.attendance30d.nightDiffHours.toFixed(1)}h</p>
+              <p className="text-xl font-bold mt-1 text-cyan-700">{data.attendance30d.nightDiffHours.toFixed(1)}h</p>
             </div>
-            <div>
+            <div className="rounded-xl bg-rose-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Avg late / shift</p>
               <p className="text-xl font-bold mt-1 text-red-600">{fmtMinutes(data.attendance30d.averageLateMinutesPerShift)}</p>
             </div>
-            <div>
+            <div className="rounded-xl bg-slate-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total late</p>
               <p className="text-xl font-bold mt-1">{fmtMinutes(data.attendance30d.lateMinutes)}</p>
             </div>
-            <div>
+            <div className="rounded-xl bg-slate-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total undertime</p>
               <p className="text-xl font-bold mt-1">{fmtMinutes(data.attendance30d.undertimeMinutes)}</p>
             </div>
-            <div>
+            <div className="rounded-xl bg-rose-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Late shifts</p>
               <p className="text-xl font-bold mt-1">{fmtNum(data.attendance30d.lateShifts)}</p>
             </div>

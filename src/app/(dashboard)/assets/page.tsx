@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { AppSpinner } from '@/components/ui/AppSpinner'
+import { KpiCard } from '@/components/ui/kpi-card'
 import { toast } from 'sonner'
 
 type Asset = {
@@ -179,12 +180,7 @@ export default function AssetsPage() {
           { label: 'Assigned', value: summary.assigned, cls: 'text-blue-600' },
           { label: 'In Repair', value: summary.inRepair, cls: 'text-amber-600' },
         ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="p-4">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">{s.label}</p>
-              <p className={`text-2xl font-black mt-1 ${s.cls ?? 'text-slate-800'}`}>{s.value}</p>
-            </CardContent>
-          </Card>
+          <KpiCard key={s.label} label={s.label} value={s.value} icon={<Boxes className="h-5 w-5" />} />
         ))}
       </div>
 

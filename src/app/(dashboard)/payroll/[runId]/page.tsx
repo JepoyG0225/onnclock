@@ -1,4 +1,4 @@
-﻿import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { resolveEffectiveCompanyId } from '@/lib/effective-company'
@@ -238,48 +238,48 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="bg-white">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-[#D4D8DD] rounded-lg">
-              <Users className="w-5 h-5 text-[#2E4156]" />
+            <div className="rounded-lg bg-blue-50 p-2 ring-1 ring-inset ring-blue-100">
+              <Users className="h-5 w-5 text-[var(--brand-primary)]" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Employees</p>
-              <p className="text-xl font-bold">{payslips.length}</p>
+              <p className="text-xs font-medium text-black">Employees</p>
+              <p className="text-xl font-black text-[#343434]">{payslips.length}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
-              <PesoIcon className="w-5 h-5 text-green-600" />
+            <div className="rounded-lg bg-emerald-50 p-2 ring-1 ring-inset ring-emerald-100">
+              <PesoIcon className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Gross Pay</p>
-              <p className="text-lg font-bold text-green-700">{peso(run.totalGross.toNumber())}</p>
+              <p className="text-xs font-medium text-black">Gross Pay</p>
+              <p className="text-lg font-black text-[#343434]">{peso(run.totalGross.toNumber())}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-red-50 rounded-lg">
-              <TrendingDown className="w-5 h-5 text-red-600" />
+            <div className="rounded-lg bg-rose-50 p-2 ring-1 ring-inset ring-rose-100">
+              <TrendingDown className="h-5 w-5 text-rose-500" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Total Deductions</p>
+              <p className="text-xs font-medium text-black">Total Deductions</p>
               <p className="text-lg font-bold text-red-600">{peso(run.totalDeductions.toNumber())}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-[#D4D8DD] rounded-lg">
-              <PesoIcon className="w-5 h-5 text-[#2E4156]" />
+            <div className="rounded-lg bg-cyan-50 p-2 ring-1 ring-inset ring-cyan-100">
+              <PesoIcon className="h-5 w-5 text-cyan-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Net Pay</p>
-              <p className="text-lg font-bold text-[#2E4156]">{peso(run.totalNetPay.toNumber())}</p>
+              <p className="text-xs font-medium text-black">Net Pay</p>
+              <p className="text-lg font-black text-[#343434]">{peso(run.totalNetPay.toNumber())}</p>
             </div>
           </CardContent>
         </Card>
@@ -287,21 +287,21 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
 
       {/* Employer Contributions */}
       {payslips.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Employer Contributions (Company Share)</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-[#D4D8DD] rounded-lg">
-                <p className="text-sm font-medium text-[#1A2D42]">SSS Employer</p>
-                <p className="text-lg font-bold text-[#1A2D42]">{peso(run.totalSssEr.toNumber())}</p>
+        <Card className="overflow-hidden py-0">
+          <CardHeader className="border-b bg-white px-6 py-4"><CardTitle className="text-base !text-[#343434]">Employer Contributions (Company Share)</CardTitle></CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 border-t-4 border-t-[var(--brand-highlight)] bg-white p-4 text-center">
+                <p className="text-sm font-medium text-[#343434]">SSS Employer</p>
+                <p className="text-lg font-black text-[#343434]">{peso(run.totalSssEr.toNumber())}</p>
               </div>
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <p className="text-sm font-medium text-green-800">PhilHealth Employer</p>
-                <p className="text-lg font-bold text-green-900">{peso(run.totalPhEr.toNumber())}</p>
+              <div className="rounded-xl border border-gray-200 border-t-4 border-t-[var(--brand-highlight)] bg-white p-4 text-center">
+                <p className="text-sm font-medium text-[#343434]">PhilHealth Employer</p>
+                <p className="text-lg font-black text-[#343434]">{peso(run.totalPhEr.toNumber())}</p>
               </div>
-              <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                <p className="text-sm font-medium text-yellow-800">Pag-IBIG Employer</p>
-                <p className="text-lg font-bold text-yellow-900">{peso(run.totalPagibigEr.toNumber())}</p>
+              <div className="rounded-xl border border-gray-200 border-t-4 border-t-[var(--brand-highlight)] bg-white p-4 text-center">
+                <p className="text-sm font-medium text-[#343434]">Pag-IBIG Employer</p>
+                <p className="text-lg font-black text-[#343434]">{peso(run.totalPagibigEr.toNumber())}</p>
               </div>
             </div>
           </CardContent>
@@ -310,9 +310,9 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ run
 
       {/* Payslip Table */}
       <PayrollPayslipsLoader>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Individual Payslips ({payslips.length})</CardTitle>
+      <Card className="overflow-hidden py-0">
+        <CardHeader className="border-b bg-white px-6 py-4">
+          <CardTitle className="text-base !text-[#343434]">Individual Payslips ({payslips.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <PayrollRunPayslips

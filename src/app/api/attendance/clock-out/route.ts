@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasScreenCaptureFeature, isDesktopApp } from '@/lib/feature-gates'
 import { resolvePunchEmployeeId } from '@/lib/attendance/punch-target'
-import { syncAutoOvertimeRequest, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
+import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
@@ -211,11 +211,10 @@ export async function POST(req: NextRequest) {
       scheduledTimeOut: resolved.scheduleTimeOut,
     },
   )
-  // If the company has overtime disabled in payroll settings, never store OT
-  // hours on the DTR row — even if the math came out > cap.
-  const overtimeEnabled = await isOvertimeEnabledForCompany(ctx.companyId)
+  // Preserve worked OT even when company pay is disabled; approval and payroll
+  // remain gated, while the raw value can later be converted for one employee.
   const regularHours = computed.regularHours
-  const overtimeHours = overtimeEnabled ? computed.overtimeHours : 0
+  const overtimeHours = computed.overtimeHours
   const nightDiffHours = computed.nightDiffHours
 
   const { lateMinutes: baseLateMinutes, undertimeMinutes } = computeLateAndUndertime(

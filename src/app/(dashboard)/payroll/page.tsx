@@ -10,7 +10,7 @@ import { Plus, Settings } from 'lucide-react'
 import { peso, formatDate, getStatusColor } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollRunRowActions from '@/components/payroll/PayrollRunRowActions'
-import { PayrollRunViewButton } from '@/components/payroll/PayrollRunViewButton'
+import { ClickablePayrollRunRow } from '@/components/payroll/ClickablePayrollRunRow'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 
@@ -104,7 +104,7 @@ export default async function PayrollPage() {
                       return null
                     })()
                     return (
-                    <tr key={run.id} className="border-b hover:bg-gray-50">
+                    <ClickablePayrollRunRow key={run.id} runId={run.id}>
                       <td className="p-4">
                         <p className="font-medium text-gray-900">{run.periodLabel}</p>
                         <p className="text-xs text-gray-500">{run.payFrequency}</p>
@@ -125,14 +125,13 @@ export default async function PayrollPage() {
                       </td>
                       <td className="p-4 text-right font-medium">{peso(run.totalGross.toNumber())}</td>
                       <td className="p-4 text-right text-red-600">{peso(run.totalDeductions.toNumber())}</td>
-                      <td className="p-4 text-right font-bold text-green-700">{peso(run.totalNetPay.toNumber())}</td>
+                      <td className="p-4 text-right font-black text-[#343434]">{peso(run.totalNetPay.toNumber())}</td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <PayrollRunViewButton runId={run.id} />
                           <PayrollRunRowActions runId={run.id} status={run.status} />
                         </div>
                       </td>
-                    </tr>
+                    </ClickablePayrollRunRow>
                     )
                   })}
                 </tbody>

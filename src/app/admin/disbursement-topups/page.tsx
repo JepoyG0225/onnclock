@@ -13,11 +13,11 @@ interface TopUp {
 }
 
 const STATUS_STYLES: Record<string, { label: string; bg: string; color: string }> = {
-  PAID:      { label: 'Awaiting Approval', bg: '#fff7ed', color: '#c2410c' },
+  PAID:      { label: 'Awaiting Approval', bg: '#f7f7f7', color: '#343434' },
   CONFIRMED: { label: 'Approved',          bg: '#f0fdf4', color: '#15803d' },
   FAILED:    { label: 'Failed',            bg: '#fef2f2', color: '#b91c1c' },
-  EXPIRED:   { label: 'Expired',           bg: '#f8fafc', color: '#64748b' },
-  PENDING:   { label: 'Pending Payment',   bg: '#f8fafc', color: '#64748b' },
+  EXPIRED:   { label: 'Expired',           bg: '#f7f7f7', color: '#666666' },
+  PENDING:   { label: 'Pending Payment',   bg: '#f7f7f7', color: '#666666' },
 }
 
 function fmt(n: number) {
@@ -78,7 +78,7 @@ export default function DisbursementTopUpsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: '#021e47' }}>
+          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: '#000000' }}>
             <Wallet className="w-6 h-6" />
             Wallet Top-Up Approvals
           </h1>
@@ -124,7 +124,7 @@ export default function DisbursementTopUpsPage() {
                 className="bg-white border border-orange-100 rounded-xl p-5 flex items-center gap-4"
                 style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: '#fff7ed' }}>
+                  style={{ background: '#f7f7f7' }}>
                   <Wallet className="w-5 h-5 text-orange-500" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -135,14 +135,14 @@ export default function DisbursementTopUpsPage() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xl font-bold" style={{ color: '#021e47' }}>{fmt(t.amountPeso)}</p>
+                  <p className="text-xl font-bold" style={{ color: '#000000' }}>{fmt(t.amountPeso)}</p>
                   <p className="text-xs text-slate-400">Top-up amount</p>
                 </div>
                 <button
                   onClick={() => approve(t.id, t.company.name, t.amountPeso)}
                   disabled={approving === t.id}
                   className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
-                  style={{ background: '#162d54' }}
+                  style={{ background: '#000000' }}
                 >
                   {approving === t.id ? 'Approving…' : 'Approve'}
                 </button>

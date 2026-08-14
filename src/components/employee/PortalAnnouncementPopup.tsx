@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 
@@ -106,7 +106,7 @@ export function PortalAnnouncementPopup({ userId, companyId }: PortalAnnouncemen
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
           <button
             onClick={handleMarkAsRead}
-            className="rounded-xl bg-[#032b63] hover:bg-primary text-white text-sm font-bold px-5 py-2.5 transition-colors"
+            className="rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white text-sm font-bold px-5 py-2.5 transition-colors"
           >
             Mark as Read
           </button>

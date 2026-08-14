@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * Tiny self-contained component that owns the per-second trial countdown
@@ -80,7 +80,7 @@ export function TrialCountdownBanner({ trialEndsAtMs, collapsed }: Props) {
         <Link
           href="/settings/billing"
           className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl relative mt-1 mb-1"
-          style={{ background: 'rgba(250,94,1,0.25)' }}
+          style={{ background: 'rgba(184, 225, 0,0.25)' }}
         >
           <Timer className="w-4 h-4 text-orange-300" />
           <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-[9px] font-black text-white leading-none">
@@ -102,8 +102,8 @@ export function TrialCountdownBanner({ trialEndsAtMs, collapsed }: Props) {
           <span
             className="text-[10px] font-black px-2 py-0.5 rounded-full"
             style={{
-              background: isUrgent ? 'rgba(239,68,68,0.3)' : 'rgba(250,94,1,0.3)',
-              color: isUrgent ? '#fca5a5' : '#fdba74',
+              background: isUrgent ? 'rgba(239,68,68,0.3)' : 'rgba(184, 225, 0,0.3)',
+              color: isUrgent ? '#fca5a5' : '#d4d4d4',
             }}
           >
             {timeLeft || '—'}
@@ -116,15 +116,15 @@ export function TrialCountdownBanner({ trialEndsAtMs, collapsed }: Props) {
             style={{
               width: `${progressPct}%`,
               background: isUrgent
-                ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                : 'linear-gradient(90deg, #f97316, #fbbf24)',
+                ? 'linear-gradient(90deg, #ef4444, #343434)'
+                : 'linear-gradient(90deg, #343434, #fbbf24)',
             }}
           />
         </div>
         <Link
           href="/settings/billing"
           className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, #ff5900, #e04e00)' }}
+          style={{ background: 'linear-gradient(135deg, var(--brand-highlight), #646568)' }}
         >
           <Zap className="w-3 h-3" />
           Upgrade Now

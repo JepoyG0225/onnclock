@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { Clock, FileText, Calendar, MapPin, Fingerprint, Shield, ChevronLeft, ChevronRight, Wifi, Battery } from 'lucide-react'
@@ -50,7 +50,7 @@ function ClockScreen({ time }: { time: Date | null }) {
         <div
           className="w-[70px] h-[70px] rounded-full flex flex-col items-center justify-center"
           style={{
-            background: 'linear-gradient(135deg, #021e47, #032b63)',
+            background: 'linear-gradient(135deg, #000000, #000000)',
             boxShadow: '0 0 0 8px rgba(34,127,132,0.15), 0 0 0 16px rgba(34,127,132,0.07), 0 8px 20px rgba(0,0,0,0.5)',
           }}
         >
@@ -92,7 +92,7 @@ function PayslipScreen() {
       <p className="text-[8px] text-white/40 font-semibold uppercase tracking-wide mb-2">Payslip · March 2026</p>
 
       {/* Net Pay */}
-      <div className="bg-gradient-to-br from-[#032b63]/30 to-[#032b63]/30 rounded-xl p-2.5 mb-2 text-center">
+      <div className="bg-gradient-to-br from-[#000000]/30 to-[#000000]/30 rounded-xl p-2.5 mb-2 text-center">
         <p className="text-[7px] text-[#c4d9ff]/70 font-semibold">NET PAY</p>
         <p className="text-[20px] font-black text-[#c4d9ff] leading-tight">₱ 24,850</p>
         <p className="text-[7px] text-white/30">After deductions</p>
@@ -142,7 +142,7 @@ function LeaveScreen() {
       {/* Leave bars */}
       {[
         { type: 'Vacation Leave',  used: 3,  total: 15, color: '#7dd8db' },
-        { type: 'Sick Leave',      used: 1,  total: 10, color: '#f97316' },
+        { type: 'Sick Leave',      used: 1,  total: 10, color: '#343434' },
         { type: 'Emergency Leave', used: 0,  total: 3,  color: '#a78bfa' },
       ].map((leave) => (
         <div key={leave.type} className="mb-2.5">
@@ -167,7 +167,7 @@ function LeaveScreen() {
       <div className="mt-auto">
         <p className="text-[7px] text-white/30 uppercase tracking-wide mb-1">Latest Request</p>
         <div className="bg-white/5 rounded-xl px-2.5 py-2 flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-[#032b63]/20 flex items-center justify-center flex-shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-[#000000]/20 flex items-center justify-center flex-shrink-0">
             <Calendar className="w-3 h-3 text-[#c4d9ff]" />
           </div>
           <div className="flex-1 min-w-0">
@@ -228,7 +228,7 @@ export default function AuthLeftPanel() {
   return (
     <div
       className="hidden lg:flex flex-col w-[58%] relative overflow-hidden"
-      style={{ background: 'linear-gradient(150deg, #062d24 0%, #021e47 45%, #032b63 100%)' }}
+      style={{ background: 'linear-gradient(150deg, #062d24 0%, #000000 45%, #000000 100%)' }}
     >
       {/* Subtle grid */}
       <div
@@ -241,9 +241,9 @@ export default function AuthLeftPanel() {
 
       {/* Glow orbs */}
       <div className="absolute top-[-80px] right-[-80px] w-96 h-96 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle, #032b63, transparent)' }} />
+        style={{ background: 'radial-gradient(circle, #000000, transparent)' }} />
       <div className="absolute bottom-[-60px] left-[-60px] w-72 h-72 rounded-full opacity-15"
-        style={{ background: 'radial-gradient(circle, #ff5900, transparent)' }} />
+        style={{ background: 'radial-gradient(circle, var(--brand-highlight), transparent)' }} />
 
       <div className="relative z-10 flex flex-col h-full px-10 py-10">
 

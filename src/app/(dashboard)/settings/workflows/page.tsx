@@ -391,7 +391,7 @@ export default function WorkflowBuilderPage() {
       <SettingsTabs />
       <div className="rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm">
         <div className="flex items-center gap-2">
-          <WorkflowIcon className="w-5 h-5 text-[#032b63]" />
+          <WorkflowIcon className="w-5 h-5 text-[#000000]" />
           <h1 className="text-2xl font-bold text-gray-900">Workflow Builder</h1>
           <NewFeatureBadge releasedAt="2026-06-01T00:00:00+08:00" />
         </div>
@@ -446,7 +446,7 @@ export default function WorkflowBuilderPage() {
             <Button size="sm" variant="outline" onClick={() => addStep('NOTIFY')} className="gap-1.5 text-xs border-dashed">
               <Bell className="w-3.5 h-3.5" /> Add notification step
             </Button>
-            <Button size="sm" onClick={save} disabled={saving} className="gap-1.5 text-xs ml-auto bg-[#032b63] hover:bg-primary">
+            <Button size="sm" onClick={save} disabled={saving} className="gap-1.5 text-xs ml-auto bg-[#000000] hover:bg-primary">
               <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save workflow'}
             </Button>
           </div>
@@ -455,7 +455,7 @@ export default function WorkflowBuilderPage() {
 
       <Card>
         <CardContent className="p-4 flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-[#dce5f7]"><WorkflowIcon className="w-5 h-5 text-[#032b63]" /></div>
+          <div className="p-2 rounded-lg bg-[#dce5f7]"><WorkflowIcon className="w-5 h-5 text-[#000000]" /></div>
           <p className="text-sm text-gray-600">
             Steps run top to bottom. <strong>Approval</strong> steps wait for the assigned approver; <strong>notification</strong> steps fire
             automatically as the request passes them. A step with a <strong>condition</strong> is skipped when its rule is false —

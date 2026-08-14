@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -67,7 +67,7 @@ function resolveWsBaseUrl(): string | null {
 
 function Avatar({ name, size = 32, online }: { name: string; size?: number; online?: boolean }) {
   const initial = name.trim()[0]?.toUpperCase() ?? '?'
-  const colors = ['#032b63', '#1A5276', '#145A32', '#6E2F8A', '#7B241C', '#1A5276']
+  const colors = ['#000000', '#1A5276', '#145A32', '#6E2F8A', '#7B241C', '#1A5276']
   const idx = name.charCodeAt(0) % colors.length
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
@@ -83,7 +83,7 @@ function Avatar({ name, size = 32, online }: { name: string; size?: number; onli
           style={{
             width: size * 0.32,
             height: size * 0.32,
-            background: online ? '#22c55e' : '#94a3b8',
+            background: online ? '#22c55e' : '#777777',
           }}
         />
       )}
@@ -192,8 +192,8 @@ function CreateGroupModal({
                   <div
                     className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
                     style={{
-                      borderColor: selected.has(c.userId) ? '#021e47' : '#dce5f7',
-                      background: selected.has(c.userId) ? '#021e47' : 'transparent',
+                      borderColor: selected.has(c.userId) ? '#000000' : '#dce5f7',
+                      background: selected.has(c.userId) ? '#000000' : 'transparent',
                     }}
                   >
                     {selected.has(c.userId) && <Check className="w-2.5 h-2.5 text-white" />}
@@ -226,7 +226,7 @@ function CreateGroupModal({
             onClick={handleCreate}
             disabled={saving}
             className="flex-1 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-60"
-            style={{ background: '#021e47' }}
+            style={{ background: '#000000' }}
           >
             {saving ? 'Creating...' : 'Create Group'}
           </button>
@@ -333,8 +333,8 @@ function AddMembersModal({
                     <div
                       className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0"
                       style={{
-                        borderColor: selected.has(c.userId) ? '#021e47' : '#dce5f7',
-                        background: selected.has(c.userId) ? '#021e47' : 'transparent',
+                        borderColor: selected.has(c.userId) ? '#000000' : '#dce5f7',
+                        background: selected.has(c.userId) ? '#000000' : 'transparent',
                       }}
                     >
                       {selected.has(c.userId) && <Check className="w-2.5 h-2.5 text-white" />}
@@ -366,7 +366,7 @@ function AddMembersModal({
               onClick={handleAdd}
               disabled={saving || selected.size === 0}
               className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
-              style={{ background: '#021e47' }}
+              style={{ background: '#000000' }}
             >
               {saving ? 'Adding…' : `Add ${selected.size > 0 ? `(${selected.size})` : ''}`}
             </button>
@@ -755,7 +755,7 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
           style={{ ...panelStyle, borderColor: '#dce5f7' }}
         >
           {/* ── Top bar ── */}
-          <div className="flex items-center justify-between px-4 py-3 text-white flex-shrink-0" style={{ background: '#021e47' }}>
+          <div className="flex items-center justify-between px-4 py-3 text-white flex-shrink-0" style={{ background: '#000000' }}>
             <div className="flex items-center gap-2.5 min-w-0">
               {portalMobile && mobileView === 'conversation' && (
                 <button onClick={() => setMobileView('contacts')} className="p-1 rounded hover:bg-white/10">
@@ -819,14 +819,14 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                 <button
                   onClick={() => setTab('direct')}
                   className="flex-1 py-2 text-[11px] font-semibold transition-colors"
-                  style={{ color: tab === 'direct' ? '#021e47' : '#94a3b8', borderBottom: tab === 'direct' ? '2px solid #021e47' : '2px solid transparent' }}
+                  style={{ color: tab === 'direct' ? '#000000' : '#777777', borderBottom: tab === 'direct' ? '2px solid #000000' : '2px solid transparent' }}
                 >
                   Direct
                 </button>
                 <button
                   onClick={() => setTab('groups')}
                   className="flex-1 py-2 text-[11px] font-semibold transition-colors relative"
-                  style={{ color: tab === 'groups' ? '#021e47' : '#94a3b8', borderBottom: tab === 'groups' ? '2px solid #021e47' : '2px solid transparent' }}
+                  style={{ color: tab === 'groups' ? '#000000' : '#777777', borderBottom: tab === 'groups' ? '2px solid #000000' : '2px solid transparent' }}
                 >
                   Groups
                   {groups.reduce((s, g) => s + g.unreadCount, 0) > 0 && (
@@ -872,7 +872,7 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                             style={{
                               borderColor: '#F1F5F7',
                               background: isActive ? '#fff' : undefined,
-                              boxShadow: isActive ? 'inset 3px 0 0 #021e47' : undefined,
+                              boxShadow: isActive ? 'inset 3px 0 0 #000000' : undefined,
                             }}
                           >
                             <div className="flex items-center gap-1.5">
@@ -907,7 +907,7 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                     <button
                       onClick={() => setShowCreateGroup(true)}
                       className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-colors"
-                      style={{ background: '#021e47' }}
+                      style={{ background: '#000000' }}
                     >
                       <Plus className="w-3 h-3" />
                       New Group
@@ -927,11 +927,11 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                             style={{
                               borderColor: '#F1F5F7',
                               background: isActive ? '#fff' : undefined,
-                              boxShadow: isActive ? 'inset 3px 0 0 #021e47' : undefined,
+                              boxShadow: isActive ? 'inset 3px 0 0 #000000' : undefined,
                             }}
                           >
                             <div className="flex items-center gap-1.5">
-                              <div className="w-6 h-6 rounded-full bg-[#032b63] flex items-center justify-center flex-shrink-0">
+                              <div className="w-6 h-6 rounded-full bg-[#000000] flex items-center justify-center flex-shrink-0">
                                 <Users className="w-3 h-3 text-white" />
                               </div>
                               <div className="min-w-0 flex-1">
@@ -994,8 +994,8 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                             <div
                               className="rounded-2xl px-3 py-2 text-xs leading-relaxed"
                               style={{
-                                background: mine ? '#021e47' : '#EEF2F4',
-                                color: mine ? '#fff' : '#334155',
+                                background: mine ? '#000000' : '#EEF2F4',
+                                color: mine ? '#fff' : '#343434',
                                 borderBottomRightRadius: mine ? 4 : undefined,
                                 borderBottomLeftRadius: !mine ? 4 : undefined,
                               }}
@@ -1030,7 +1030,7 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                       onClick={sendMessage}
                       disabled={!draft.trim() || sending}
                       className="w-8 h-8 rounded-full text-white flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
-                      style={{ background: '#ff5900' }}
+                      style={{ background: 'var(--brand-highlight)' }}
                     >
                       <Send className="w-3.5 h-3.5" />
                     </button>
@@ -1048,14 +1048,14 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
           onClick={() => { setOpen(true); if (portalMobile) setMobileView('contacts') }}
           data-tour="chat-toggle"
           className="fixed right-5 z-[70] w-13 h-13 rounded-full text-white shadow-2xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-          style={{ bottom: portal ? DOCK_H + 16 : 20, width: 52, height: 52, background: 'linear-gradient(135deg, #021e47, #032b63)' }}
+          style={{ bottom: portal ? DOCK_H + 16 : 20, width: 52, height: 52, background: 'linear-gradient(135deg, #000000, #000000)' }}
           title="Open chat"
         >
           <MessageCircle className="w-5 h-5" />
           {totalUnread > 0 && (
             <span
               className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 rounded-full px-1 text-[10px] font-bold flex items-center justify-center shadow"
-              style={{ background: '#ff5900', color: '#fff' }}
+              style={{ background: 'var(--brand-highlight)', color: '#fff' }}
             >
               {totalUnread > 99 ? '99+' : totalUnread}
             </span>

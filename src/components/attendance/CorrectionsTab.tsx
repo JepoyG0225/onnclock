@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
@@ -102,7 +102,7 @@ export function CorrectionsTab() {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardEdit className="w-6 h-6 text-[#032b63]" />
+            <ClipboardEdit className="w-6 h-6 text-[#000000]" />
             Time Entry Corrections
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Review and approve employee correction requests</p>
@@ -139,7 +139,7 @@ export function CorrectionsTab() {
             onClick={() => setStatusFilter(opt.value)}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
               statusFilter === opt.value
-                ? 'bg-white text-[#032b63] shadow-sm'
+                ? 'bg-white text-[#000000] shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >

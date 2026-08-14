@@ -1,4 +1,4 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import { Lock, Zap } from 'lucide-react'
 
 interface HrisProGateProps {
@@ -24,7 +24,7 @@ export function HrisProGate({ enabled, children, featureName }: HrisProGateProps
       <Link
         href="/settings/billing"
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-        style={{ background: 'linear-gradient(135deg, #ff5900, #e04e00)' }}
+        style={{ background: 'linear-gradient(135deg, var(--brand-highlight), #646568)' }}
       >
         <Zap className="w-4 h-4" />
         Upgrade to PRO

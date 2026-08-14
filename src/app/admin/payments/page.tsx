@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Receipt, Loader2, CheckCircle, XCircle, Clock, ExternalLink, Plus, X } from 'lucide-react'
@@ -206,7 +206,7 @@ export default function AdminPaymentsPage() {
             key={f.key}
             onClick={() => setFilter(f.key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              filter === f.key ? 'bg-[#032b63] text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              filter === f.key ? 'bg-[#000000] text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
             {f.label}
@@ -237,7 +237,7 @@ export default function AdminPaymentsPage() {
                   {payment.proofOfPaymentDataUrl ? (
                     <button
                       onClick={() => setPreviewUrl(payment.proofOfPaymentDataUrl)}
-                      className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-700 overflow-hidden bg-slate-950 hover:border-[#032b63]/50 transition-colors relative group"
+                      className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-700 overflow-hidden bg-slate-950 hover:border-[#000000]/50 transition-colors relative group"
                     >
                       <img src={payment.proofOfPaymentDataUrl} alt="Proof" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

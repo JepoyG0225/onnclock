@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
@@ -32,7 +32,7 @@ function statusBadge(record: DTRRecord) {
     return (
       <Badge
         className="border"
-        style={{ background: 'rgba(170,183,183,0.28)', color: '#021e47', borderColor: 'rgba(170,183,183,0.5)' }}
+        style={{ background: 'rgba(170,183,183,0.28)', color: '#000000', borderColor: 'rgba(170,183,183,0.5)' }}
       >
         On Leave
       </Badge>
@@ -44,7 +44,7 @@ function statusBadge(record: DTRRecord) {
     return (
       <Badge
         className="border"
-        style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' }}
+        style={{ background: 'rgba(46,65,86,0.12)', color: '#000000', borderColor: 'rgba(170,183,183,0.45)' }}
       >
         Clocked In
       </Badge>
@@ -54,7 +54,7 @@ function statusBadge(record: DTRRecord) {
     return (
       <Badge
         className="border"
-        style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63', borderColor: 'rgba(170,183,183,0.45)' }}
+        style={{ background: 'rgba(46,65,86,0.12)', color: '#000000', borderColor: 'rgba(170,183,183,0.45)' }}
       >
         Present
       </Badge>
@@ -105,7 +105,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           plus two arrow buttons left barely 150px for the title and the
           correction link, which wrapped badly at 375px. */}
       <div>
-        <h2 className="text-[19px] font-black" style={{ color: '#032b63' }}>Attendance history</h2>
+        <h2 className="text-[19px] font-black" style={{ color: '#000000' }}>Attendance history</h2>
         <p className="text-slate-400 text-[13px] font-semibold mt-0.5">Your daily time records</p>
       </div>
 
@@ -137,14 +137,14 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           too cramped for the numeric values. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
         {[
-          { label: 'Days Present', value: totals.present, color: 'text-[#032b63]' },
+          { label: 'Days Present', value: totals.present, color: 'text-[#000000]' },
           { label: 'Days Absent', value: totals.absent, color: 'text-red-600' },
           { label: 'Days Late', value: totals.late, color: 'text-amber-600' },
           { label: 'Total Hours', value: `${totals.hours.toFixed(1)}h`, color: '' },
           { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-primary' },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-            <p className={`text-lg sm:text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#032b63' } : undefined}>
+            <p className={`text-lg sm:text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#000000' } : undefined}>
               {s.value}
             </p>
             <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">{s.label}</p>
@@ -203,7 +203,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                   </div>
                   <div className="ml-auto text-right">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hours</p>
-                    <p className="text-[13px] font-black tabular-nums" style={{ color: '#032b63' }}>
+                    <p className="text-[13px] font-black tabular-nums" style={{ color: '#000000' }}>
                       {record.regularHours ? `${record.regularHours}h` : '--'}
                     </p>
                   </div>

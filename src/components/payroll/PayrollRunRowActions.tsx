@@ -163,7 +163,7 @@ export default function PayrollRunRowActions({ runId, status }: Props) {
                 onKeyDown={e => e.key === 'Enter' && confirmed && handleDelete()}
                 placeholder="DELETE"
                 className="w-full border-2 rounded-lg px-3 py-2 text-sm font-mono outline-none transition-colors"
-                style={{ borderColor: confirmed ? '#ef4444' : confirmText ? '#fca5a5' : '#e5e7eb' }}
+                style={{ borderColor: confirmed ? '#ef4444' : confirmText ? '#fca5a5' : '#d4d4d4' }}
                 disabled={loading === 'delete'}
                 autoComplete="off"
               />

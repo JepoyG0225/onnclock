@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     data: {
       companyId: guard.companyId,
       name: parsed.data.name,
-      color: parsed.data.color ?? '#64748b',
+      color: parsed.data.color ?? '#666666',
       category: parsed.data.category ?? 'TODO',
       wipLimit: parsed.data.wipLimit ?? null,
       order: (last?.order ?? -1) + 1,

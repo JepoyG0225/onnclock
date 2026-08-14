@@ -134,10 +134,7 @@ export function RequestDetailDialog({
         style={{ maxHeight: 'calc(100vh - 2rem)' }}
       >
         {/* Header */}
-        <div
-          className="relative px-5 py-4"
-          style={{ background: 'linear-gradient(135deg, #ff5900 0%, #ff7a33 100%)' }}
-        >
+        <div className="relative bg-[#343434] px-5 py-4">
           <button
             type="button"
             onClick={onClose}

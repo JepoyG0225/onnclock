@@ -21,7 +21,7 @@ export default function SupportPage() {
           </p>
           <a
             href="mailto:support@onclockph.com"
-            className="mt-4 inline-flex items-center justify-center rounded-lg bg-[#2E4156] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1A2D42] transition"
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-[#000000] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#000000] transition"
           >
             support@onclockph.com
           </a>
@@ -50,7 +50,7 @@ export default function SupportPage() {
           </Faq>
           <Faq q="The app crashed or doesn't work right.">
             Try closing and reopening the app. If it still doesn&apos;t work, email
-            us at <a className="text-[#2E4156] underline" href="mailto:support@onclockph.com">support@onclockph.com</a>
+            us at <a className="text-[#000000] underline" href="mailto:support@onclockph.com">support@onclockph.com</a>
             with details of what you were doing — we&apos;ll investigate quickly.
           </Faq>
           <Faq q="I no longer work for my employer — what happens to my account?">
@@ -62,16 +62,16 @@ export default function SupportPage() {
         <Section title="For employers / admins">
           If you administer your company&apos;s OnClock account and need help with
           payroll, schedules, billing, or feature configuration, please email
-          {' '}<a className="text-[#2E4156] underline" href="mailto:support@onclockph.com">support@onclockph.com</a>{' '}
+          {' '}<a className="text-[#000000] underline" href="mailto:support@onclockph.com">support@onclockph.com</a>{' '}
           and we&apos;ll route you to the right team.
         </Section>
 
         <div className="mt-12 border-t pt-6 text-sm text-slate-500">
-          <Link href="/" className="text-[#2E4156] hover:underline">← Back to home</Link>
+          <Link href="/" className="text-[#000000] hover:underline">← Back to home</Link>
           {' · '}
-          <Link href="/privacy" className="text-[#2E4156] hover:underline">Privacy Policy</Link>
+          <Link href="/privacy" className="text-[#000000] hover:underline">Privacy Policy</Link>
           {' · '}
-          <Link href="/terms" className="text-[#2E4156] hover:underline">Terms of Service</Link>
+          <Link href="/terms" className="text-[#000000] hover:underline">Terms of Service</Link>
         </div>
       </div>
     </main>

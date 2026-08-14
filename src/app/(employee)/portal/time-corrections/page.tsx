@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -201,14 +201,14 @@ export default function TimeCorrectionPortalPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardEdit className="w-5 h-5 text-[#032b63] shrink-0" />
+            <ClipboardEdit className="w-5 h-5 text-[#000000] shrink-0" />
             <span className="truncate">Time Entry Corrections</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Request corrections to your attendance records</p>
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-primary transition shrink-0"
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#000000] text-white rounded-lg text-sm font-medium hover:bg-primary transition shrink-0"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           <span className="hidden sm:inline">{showForm ? 'Cancel' : 'New Request'}</span>
@@ -229,7 +229,7 @@ export default function TimeCorrectionPortalPage() {
                 onClick={() => switchEntryMode('pick')}
                 className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
                   entryMode === 'pick'
-                    ? 'bg-white text-[#032b63] shadow-sm'
+                    ? 'bg-white text-[#000000] shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -264,7 +264,7 @@ export default function TimeCorrectionPortalPage() {
                 <select
                   value={form.dtrRecordId}
                   onChange={e => handleSelectTimeEntry(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#000000]/30 focus:border-[#000000] outline-none"
                   required
                 >
                   <option value="">Select a time entry</option>
@@ -283,7 +283,7 @@ export default function TimeCorrectionPortalPage() {
                 value={form.date}
                 max={new Date().toISOString().slice(0, 10)}
                 onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#000000]/30 focus:border-[#000000] outline-none"
                 required
                 /* Date is autopopulated from the dropdown in pick mode,
                    so we lock it. In manual mode the user picks any past
@@ -297,7 +297,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.timeIn}
                 onChange={e => setForm(p => ({ ...p, timeIn: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#000000]/30 focus:border-[#000000] outline-none"
               />
             </div>
             <div>
@@ -306,7 +306,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.timeOut}
                 onChange={e => setForm(p => ({ ...p, timeOut: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#000000]/30 focus:border-[#000000] outline-none"
               />
             </div>
             <div>
@@ -315,7 +315,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.breakIn}
                 onChange={e => setForm(p => ({ ...p, breakIn: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#000000]/30 focus:border-[#000000] outline-none"
               />
             </div>
             <div>
@@ -324,7 +324,7 @@ export default function TimeCorrectionPortalPage() {
                 type="time"
                 value={form.breakOut}
                 onChange={e => setForm(p => ({ ...p, breakOut: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#000000]/30 focus:border-[#000000] outline-none"
               />
             </div>
             <div className="sm:col-span-2">
@@ -334,7 +334,7 @@ export default function TimeCorrectionPortalPage() {
                 onChange={e => setForm(p => ({ ...p, reason: e.target.value }))}
                 rows={3}
                 placeholder="Explain why you need this correction..."
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#032b63]/30 focus:border-[#032b63] outline-none resize-none"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#000000]/30 focus:border-[#000000] outline-none resize-none"
                 required
               />
             </div>
@@ -343,7 +343,7 @@ export default function TimeCorrectionPortalPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 bg-[#032b63] text-white rounded-lg text-sm font-medium hover:bg-primary transition disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-[#000000] text-white rounded-lg text-sm font-medium hover:bg-primary transition disabled:opacity-50"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting ? 'Submitting...' : 'Submit Request'}

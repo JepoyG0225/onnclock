@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -816,7 +816,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                     type="button"
                     onClick={openScheduleSetup}
                     className="text-white w-full md:w-auto"
-                    style={{ background: '#ff5900' }}
+                    style={{ background: 'var(--brand-highlight)' }}
                   >
                     Setup Schedule
                   </Button>
@@ -960,8 +960,8 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 <div
                   className="flex items-center justify-between p-3 rounded-lg border-2"
                   style={{
-                    background: watch('trackTime') ? 'rgba(250,94,1,0.06)' : '#f9fafb',
-                    borderColor: watch('trackTime') ? 'rgba(250,94,1,0.3)' : 'transparent',
+                    background: watch('trackTime') ? 'rgba(184, 225, 0,0.06)' : '#f7f7f7',
+                    borderColor: watch('trackTime') ? 'rgba(184, 225, 0,0.3)' : 'transparent',
                   }}
                 >
                   <div>
@@ -976,7 +976,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 <div
                   className="flex items-center justify-between p-3 rounded-lg border-2"
                   style={{
-                    background: watch('disableHolidayPay') ? 'rgba(239,68,68,0.06)' : '#f9fafb',
+                    background: watch('disableHolidayPay') ? 'rgba(239,68,68,0.06)' : '#f7f7f7',
                     borderColor: watch('disableHolidayPay') ? 'rgba(239,68,68,0.3)' : 'transparent',
                   }}
                 >
@@ -995,7 +995,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 <div
                   className="flex items-center justify-between p-3 rounded-lg border-2"
                   style={{
-                    background: watch('disableLateDeduction') ? 'rgba(239,68,68,0.06)' : '#f9fafb',
+                    background: watch('disableLateDeduction') ? 'rgba(239,68,68,0.06)' : '#f7f7f7',
                     borderColor: watch('disableLateDeduction') ? 'rgba(239,68,68,0.3)' : 'transparent',
                   }}
                 >
@@ -1239,7 +1239,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                     const alloc = leaveAllocations[lt.id] ?? { enabled: false, entitled: lt.daysEntitled }
                     return (
                       <div key={lt.id} className="flex items-center gap-4 p-3 rounded-xl border transition-colors"
-                        style={{ background: alloc.enabled ? 'rgba(250,94,1,0.04)' : '#f9fafb', borderColor: alloc.enabled ? 'rgba(250,94,1,0.25)' : '#e2e8f0' }}>
+                        style={{ background: alloc.enabled ? 'rgba(184, 225, 0,0.04)' : '#f7f7f7', borderColor: alloc.enabled ? 'rgba(184, 225, 0,0.25)' : '#d4d4d4' }}>
                         <input
                           type="checkbox"
                           className="w-4 h-4 accent-orange-500"
@@ -1250,7 +1250,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(14,166,240,0.1)', color: '#0ea6f0' }}>{lt.code}</span>
                             <span className="text-sm font-medium text-gray-800">{lt.name}</span>
-                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(250,94,1,0.1)', color: '#ff5900' }}>Dole-Mandated</span>}
+                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(184, 225, 0,0.1)', color: 'var(--brand-highlight)' }}>Dole-Mandated</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -1436,7 +1436,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
             <Button type="button" variant="outline" onClick={goToEmployeeProfile}>
               Skip for now
             </Button>
-            <Button type="button" className="text-white" style={{ background: '#ff5900' }} onClick={openWeeklyGrid}>
+            <Button type="button" className="text-white" style={{ background: 'var(--brand-highlight)' }} onClick={openWeeklyGrid}>
               Continue to Weekly Grid
             </Button>
           </DialogFooter>

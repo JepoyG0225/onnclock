@@ -80,8 +80,8 @@ export function computeProposalTotals(data: ProposalData): ProposalTotals {
 }
 
 const NAVY = rgb(0.043, 0.137, 0.298)   // #0b234
-const BLUE = rgb(0.012, 0.169, 0.388)   // #032b63
-const ORANGE = rgb(1, 0.349, 0)         // #ff5900
+const BLUE = rgb(0.012, 0.169, 0.388)   // #000000
+const ORANGE = rgb(1, 0.349, 0)         // var(--brand-highlight)
 const GRAY = rgb(0.42, 0.45, 0.5)
 const LIGHTGRAY = rgb(0.55, 0.58, 0.62)
 const INK = rgb(0.12, 0.14, 0.17)

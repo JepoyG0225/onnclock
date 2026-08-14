@@ -125,7 +125,7 @@ export default async function EmployeePortalLayout({
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#f0f6f8' }}>
+    <div className="min-h-screen bg-[var(--background)]">
       {/* Desktop sidebar — hidden on mobile */}
       <PortalSidebar {...sharedProps} />
 

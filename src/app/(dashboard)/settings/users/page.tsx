@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -211,7 +211,7 @@ export default function UsersPage() {
         </div>
         <Button
           onClick={() => setShowForm(v => !v)}
-          style={{ background: '#ff5900' }}
+          style={{ background: 'var(--brand-highlight)' }}
           className="text-white"
         >
           {showForm ? <><X className="w-4 h-4 mr-2" />Cancel</> : <><UserPlus className="w-4 h-4 mr-2" />Add User</>}
@@ -345,7 +345,7 @@ export default function UsersPage() {
                 </select>
               </div>
               <div className="md:col-span-2 flex justify-end">
-                <Button type="submit" disabled={saving} style={{ background: '#ff5900' }} className="text-white">
+                <Button type="submit" disabled={saving} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                   {saving ? 'Adding...' : 'Add User'}
                 </Button>
               </div>
@@ -527,7 +527,7 @@ export default function UsersPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={editing} style={{ background: '#ff5900' }} className="text-white">
+                <Button type="submit" disabled={editing} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                   {editing ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
@@ -566,7 +566,7 @@ export default function UsersPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={resetting} style={{ background: '#ff5900' }} className="text-white">
+                <Button type="submit" disabled={resetting} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                   {resetting ? 'Resetting...' : 'Reset Password'}
                 </Button>
               </div>

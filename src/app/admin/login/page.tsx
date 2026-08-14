@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
@@ -38,7 +38,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#032b63]/10 border border-[#032b63]/20 mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#000000]/10 border border-[#000000]/20 mb-4">
             <ShieldCheck className="w-7 h-7 text-[#c4d9ff]" />
           </div>
           <h1 className="text-xl font-black text-white tracking-tight">System Admin</h1>
@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
                 placeholder="admin@onclockph.com"
                 required
                 autoFocus
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#032b63] focus:ring-1 focus:ring-[#032b63]/30"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]/30"
               />
             </div>
 
@@ -74,7 +74,7 @@ export default function AdminLoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••••"
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 pr-10 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#032b63] focus:ring-1 focus:ring-[#032b63]/30"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 text-slate-100 px-4 py-2.5 pr-10 text-sm placeholder:text-slate-600 focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]/30"
                 />
                 <button
                   type="button"
@@ -95,7 +95,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-[#032b63] hover:bg-[#032b63] disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full rounded-xl bg-[#000000] hover:bg-[#000000] disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition-colors flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {loading ? 'Signing in…' : 'Sign In'}

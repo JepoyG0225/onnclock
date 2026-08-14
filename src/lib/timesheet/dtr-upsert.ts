@@ -4,7 +4,7 @@
  * (POST /api/dtr/bulk) so they compute hours identically.
  */
 import { prisma } from '@/lib/prisma'
-import { syncAutoOvertimeRequest, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
+import { syncAutoOvertimeRequest } from '@/lib/overtime-requests'
 import {
   computeHours,
   computeLateAndUndertime,
@@ -88,8 +88,6 @@ export async function upsertDtrRecord(companyId: string, data: DtrInput) {
       scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     })
-    const overtimeEnabled = await isOvertimeEnabledForCompany(companyId)
-    if (!overtimeEnabled) computedHours = { ...computedHours, overtimeHours: 0 }
     computedLateUt = computeLateAndUndertime(timeIn, timeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
   }
 

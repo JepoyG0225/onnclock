@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -144,7 +144,7 @@ export default function RecruitmentTemplatesPage() {
         </div>
         <button
           onClick={startCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#032b63]"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#000000]"
         >
           <Plus className="w-4 h-4" /> Add Template
         </button>
@@ -207,7 +207,7 @@ export default function RecruitmentTemplatesPage() {
             </div>
             <div className="px-5 py-4 border-t flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
-              <button onClick={submit} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[#032b63] disabled:opacity-60">
+              <button onClick={submit} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[#000000] disabled:opacity-60">
                 <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Template'}
               </button>
             </div>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -69,10 +69,10 @@ function NumberField({
           onChange={e => onChange(Math.max(0, parseFloat(e.target.value) || 0))}
           className={`w-32 pl-6 pr-2 py-1.5 text-right text-sm border rounded-lg focus:outline-none focus:ring-1 ${
             highlight === 'green'
-              ? 'border-green-200 focus:ring-green-400 text-green-700'
+              ? 'border-[var(--brand-highlight)] focus:ring-[var(--brand-highlight)] text-black'
               : highlight === 'red'
               ? 'border-red-200 focus:ring-red-400 text-red-600'
-              : 'border-gray-200 focus:ring-[#032b63]'
+              : 'border-gray-200 focus:ring-[#000000]'
           }`}
         />
       </div>
@@ -187,7 +187,7 @@ export function PayslipEditModal({ payslip, onClose, onSaved, currencySymbol = '
             {/* Gross subtotal */}
             <div className="mt-3 flex items-center justify-between px-1 text-sm font-semibold text-gray-700">
               <span className="text-xs uppercase tracking-wide text-gray-400">Gross Pay</span>
-              <span className="text-green-700">{peso(grossPay)}</span>
+              <span className="text-black">{peso(grossPay)}</span>
             </div>
           </div>
 
@@ -231,7 +231,7 @@ export function PayslipEditModal({ payslip, onClose, onSaved, currencySymbol = '
             </div>
             <div className="px-4 py-3 text-center" style={{ background: 'rgba(46,65,86,0.06)' }}>
               <p className="text-[11px] text-gray-400 uppercase tracking-wide">Net Pay</p>
-              <p className="text-base font-bold mt-0.5" style={{ color: '#032b63' }}>{peso(netPay)}</p>
+              <p className="text-base font-bold mt-0.5" style={{ color: '#000000' }}>{peso(netPay)}</p>
             </div>
           </div>
         </div>

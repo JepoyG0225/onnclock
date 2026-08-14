@@ -261,7 +261,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2">
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="text-white text-sm" style={{ background: '#0055d4' }}>
+                <AvatarFallback className="text-sm text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>

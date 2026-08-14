@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -148,7 +148,7 @@ export default function ProfilePage() {
               />
             </div>
             <div className="md:col-span-2 flex justify-end">
-              <Button type="submit" disabled={saving} style={{ background: '#ff5900' }} className="text-white">
+              <Button type="submit" disabled={saving} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                 {saving ? 'Saving...' : 'Update Password'}
               </Button>
             </div>

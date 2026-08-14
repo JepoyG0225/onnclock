@@ -109,7 +109,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Convert empty strings / undefined to null for nullable fields
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const n = (v: any) => (v === '' || v === undefined ? null : v)
+    const n = (v: any) => (v === undefined ? undefined : v === '' ? null : v)
 
     // Use the workScheduleId directly — never auto-create "Custom Day Offs" schedules.
     // dayOffDays is intentionally ignored: day-off customisation is handled via
@@ -120,10 +120,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         : existing.workScheduleId
 
     // Relation FK fields require connect/disconnect syntax in Prisma v5 EmployeeUpdateInput
-    const deptOp       = body.departmentId   ? { connect: { id: body.departmentId   } } : { disconnect: true }
-    const posOp        = body.positionId     ? { connect: { id: body.positionId     } } : { disconnect: true }
-    const scheduleOp   = resolvedWorkScheduleId ? { connect: { id: resolvedWorkScheduleId } } : { disconnect: true }
-    const managerOp    = body.directManagerId ? { connect: { id: body.directManagerId } } : { disconnect: true }
+    const deptOp = body.departmentId !== undefined
+      ? (body.departmentId ? { connect: { id: body.departmentId } } : { disconnect: true })
+      : undefined
+    const posOp = body.positionId !== undefined
+      ? (body.positionId ? { connect: { id: body.positionId } } : { disconnect: true })
+      : undefined
+    const scheduleOp = body.workScheduleId !== undefined
+      ? (resolvedWorkScheduleId ? { connect: { id: resolvedWorkScheduleId } } : { disconnect: true })
+      : undefined
+    const managerOp = body.directManagerId !== undefined
+      ? (body.directManagerId ? { connect: { id: body.directManagerId } } : { disconnect: true })
+      : undefined
 
     await prisma.employee.update({
       where: { id },
@@ -138,7 +146,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         birthDate:                body.birthDate ? new Date(body.birthDate) : undefined,
         birthPlace:               n(body.birthPlace),
         civilStatus:              body.civilStatus,
-        nationality:              body.nationality || 'Filipino',
+        nationality:              body.nationality !== undefined ? (body.nationality || 'Filipino') : undefined,
         religion:                 n(body.religion),
         personalEmail:            n(body.personalEmail),
         workEmail:                n(body.workEmail),
@@ -153,16 +161,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         emergencyContactName:     n(body.emergencyContactName),
         emergencyContactRelation: n(body.emergencyContactRelation),
         emergencyContactPhone:    n(body.emergencyContactPhone),
-        department:               deptOp,
-        position:                 posOp,
-        workSchedule:             scheduleOp,
-        manager:                  managerOp,
+        ...(deptOp ? { department: deptOp } : {}),
+        ...(posOp ? { position: posOp } : {}),
+        ...(scheduleOp ? { workSchedule: scheduleOp } : {}),
+        ...(managerOp ? { manager: managerOp } : {}),
         employmentStatus:         body.employmentStatus,
         employmentType:           body.employmentType,
         hireDate:                 body.hireDate           ? new Date(body.hireDate)           : undefined,
-        regularizationDate:       body.regularizationDate ? new Date(body.regularizationDate) : null,
-        resignationDate:          body.resignationDate    ? new Date(body.resignationDate)    : null,
-        terminationDate:          body.terminationDate    ? new Date(body.terminationDate)    : null,
+        regularizationDate:       body.regularizationDate !== undefined ? (body.regularizationDate ? new Date(body.regularizationDate) : null) : undefined,
+        resignationDate:          body.resignationDate !== undefined ? (body.resignationDate ? new Date(body.resignationDate) : null) : undefined,
+        terminationDate:          body.terminationDate !== undefined ? (body.terminationDate ? new Date(body.terminationDate) : null) : undefined,
         rateType:                 body.rateType,
         basicSalary:              body.basicSalary != null ? Number(body.basicSalary) : undefined,
         // Re-derive dailyRate / hourlyRate whenever basicSalary or rateType is updated.

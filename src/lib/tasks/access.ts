@@ -86,7 +86,7 @@ export const DEFAULT_TASK_STATUSES: Array<{
   category: 'TODO' | 'IN_PROGRESS' | 'DONE'
   isDefault: boolean
 }> = [
-  { name: 'Backlog',     color: '#94a3b8', category: 'TODO',        isDefault: false },
+  { name: 'Backlog',     color: '#777777', category: 'TODO',        isDefault: false },
   { name: 'To Do',       color: '#3b82f6', category: 'TODO',        isDefault: true  },
   { name: 'In Progress', color: '#f59e0b', category: 'IN_PROGRESS', isDefault: false },
   { name: 'Blocked',     color: '#ef4444', category: 'IN_PROGRESS', isDefault: false },

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -78,7 +78,7 @@ function JobFormFields({
   setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>
   departments: Department[]
 }) {
-  const field = 'w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#032b63] focus:ring-1 focus:ring-[#032b63]/20 placeholder:text-slate-400'
+  const field = 'w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]/20 placeholder:text-slate-400'
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -351,7 +351,7 @@ export function HiringTab() {
             <FileText className="w-4 h-4" /> Email Templates
           </Link>
           <button onClick={() => setDrawerOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#032b63] shadow-sm">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#000000] shadow-sm">
             <Plus className="w-4 h-4" /> Post a Job
           </button>
         </div>
@@ -417,7 +417,7 @@ export function HiringTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search job title or department..."
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#032b63]" />
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#000000]" />
         </div>
       </div>
 
@@ -573,7 +573,7 @@ export function HiringTab() {
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Posting Status</label>
                 <select value={form.visibility} onChange={e => setForm(p => ({ ...p, visibility: e.target.value as 'DRAFT' | 'PUBLISHED' }))}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[#032b63]">
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[#000000]">
                   <option value="DRAFT">Save as Draft</option>
                   <option value="PUBLISHED">Publish Now</option>
                 </select>
@@ -583,7 +583,7 @@ export function HiringTab() {
                 Cancel
               </button>
               <button onClick={createJob} disabled={saving}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#032b63] disabled:opacity-60 flex items-center gap-2 mt-5">
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#000000] disabled:opacity-60 flex items-center gap-2 mt-5">
                 {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><Plus className="w-4 h-4" /> Create Job</>}
               </button>
             </div>
@@ -612,7 +612,7 @@ export function HiringTab() {
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Posting Status</label>
                 <select value={editForm.visibility} onChange={e => setEditForm(p => ({ ...p, visibility: e.target.value as 'DRAFT' | 'PUBLISHED' }))}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[#032b63]">
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[#000000]">
                   <option value="DRAFT">Draft</option>
                   <option value="PUBLISHED">Published</option>
                 </select>

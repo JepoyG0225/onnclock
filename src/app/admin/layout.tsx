@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 
-const ADMIN_BG = '#F1F5F9'
+const ADMIN_BG = '#eeeeee'
 
 export default async function AdminLayout({
   children,

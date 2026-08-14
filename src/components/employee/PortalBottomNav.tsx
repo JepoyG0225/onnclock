@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -74,21 +74,21 @@ export function PortalBottomNav({
           <div
             className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg rounded-t-3xl shadow-2xl"
             style={{
-              background: 'rgba(2,30,71,0.98)',
+              background: 'rgba(255,255,255,0.98)',
               backdropFilter: 'blur(24px)',
               WebkitBackdropFilter: 'blur(24px)',
-              border: '1px solid rgba(255,255,255,0.12)',
+              border: '1px solid #dfe7f1',
               padding: '20px 20px 40px',
             }}
           >
             <div className="flex items-center justify-between mb-5">
-              <p className="text-white text-sm font-bold tracking-wide">More</p>
+              <p className="text-slate-800 text-sm font-bold tracking-wide">More</p>
               <button
                 onClick={() => setShowMore(false)}
                 className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.1)' }}
+                style={{ background: '#eff6ff' }}
               >
-                <X className="w-4 h-4 text-white/70" />
+                <X className="w-4 h-4 text-slate-500" />
               </button>
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -100,21 +100,21 @@ export function PortalBottomNav({
                     href={tab.href}
                     className="flex flex-col items-center gap-2 py-4 px-2 rounded-2xl transition-all duration-150"
                     style={isActive
-                      ? { background: 'rgba(250,94,1,0.85)' }
-                      : { background: 'rgba(255,255,255,0.08)' }}
+                      ? { background: 'var(--brand-primary)' }
+                      : { background: '#f8fafc' }}
                   >
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center"
                       style={isActive
-                        ? { background: 'rgba(255,255,255,0.25)' }
-                        : { background: 'rgba(255,255,255,0.12)' }}
+                        ? { background: 'rgba(255,255,255,0.20)' }
+                        : { background: '#eff6ff' }}
                     >
                       <tab.icon
-                        className={cn('w-5 h-5', isActive ? 'text-white' : 'text-white/60')}
+                        className={cn('w-5 h-5', isActive ? 'text-white' : 'text-[var(--brand-primary)]')}
                         strokeWidth={isActive ? 2.4 : 1.8}
                       />
                     </div>
-                    <span className={cn('text-[11px] font-semibold text-center leading-tight', isActive ? 'text-white' : 'text-white/50')}>
+                    <span className={cn('text-[11px] font-semibold text-center leading-tight', isActive ? 'text-white' : 'text-slate-600')}>
                       {tab.label}
                     </span>
                   </Link>
@@ -133,10 +133,10 @@ export function PortalBottomNav({
         <div
           className="flex items-stretch justify-around rounded-2xl shadow-2xl mx-auto max-w-lg"
           style={{
-            background: 'rgba(2,30,71,0.96)',
+            background: 'rgba(255,255,255,0.96)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.12)',
+            border: '1px solid #dfe7f1',
             padding: '8px 4px',
           }}
         >
@@ -159,10 +159,10 @@ export function PortalBottomNav({
                     'flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-200',
                     isActive ? 'scale-105' : 'scale-100'
                   )}
-                  style={isActive ? { background: '#ff5900' } : undefined}
+                  style={isActive ? { background: 'var(--brand-primary)' } : undefined}
                 >
                   <tab.icon
-                    className={cn('w-5 h-5 transition-colors', isActive ? 'text-white' : 'text-white/45')}
+                    className={cn('w-5 h-5 transition-colors', isActive ? 'text-white' : 'text-slate-400')}
                     strokeWidth={isActive ? 2.4 : 1.9}
                   />
                 </div>
@@ -183,10 +183,10 @@ export function PortalBottomNav({
                 'flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-200',
                 (showMore || moreActive) ? 'scale-105' : 'scale-100'
               )}
-              style={showMore || moreActive ? { background: '#ff5900' } : undefined}
+              style={showMore || moreActive ? { background: 'var(--brand-primary)' } : undefined}
             >
               <MoreHorizontal
-                className={cn('w-5 h-5 transition-colors', (showMore || moreActive) ? 'text-white' : 'text-white/45')}
+                className={cn('w-5 h-5 transition-colors', (showMore || moreActive) ? 'text-white' : 'text-slate-400')}
                 strokeWidth={(showMore || moreActive) ? 2.4 : 1.9}
               />
             </div>

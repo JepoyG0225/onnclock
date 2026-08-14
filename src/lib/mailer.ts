@@ -1,4 +1,4 @@
-﻿import nodemailer from 'nodemailer'
+import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
 
 const smtpHost = process.env.SMTP_HOST || 'smtp.hostinger.com'
@@ -105,7 +105,7 @@ export async function sendSubscriptionExpiryNotice({
   const formattedDate = expiryDate.toLocaleDateString('en-PH', {
     year: 'numeric', month: 'long', day: 'numeric',
   })
-  const urgencyColor = daysRemaining <= 1 ? '#dc2626' : daysRemaining <= 3 ? '#ea580c' : '#d97706'
+  const urgencyColor = daysRemaining <= 1 ? '#dc2626' : daysRemaining <= 3 ? '#343434' : '#d97706'
   const planLabel = isTrial ? 'free trial' : 'subscription'
   const subject = daysRemaining <= 1
     ? `⚠️ Your Onclock ${planLabel} expires today`
@@ -125,31 +125,31 @@ export async function sendSubscriptionExpiryNotice({
           <p style="margin:0;font-size:28px;font-weight:900;color:${urgencyColor}">
             ${daysRemaining <= 0 ? 'Expired' : `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} left`}
           </p>
-          <p style="margin:4px 0 0;font-size:13px;color:#64748b">
+          <p style="margin:4px 0 0;font-size:13px;color:#666666">
             ${isTrial ? 'Free trial' : 'Subscription'} ends on <strong>${formattedDate}</strong>
           </p>
         </div>
 
-        <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 8px">
+        <h2 style="font-size:18px;font-weight:800;color:#000000;margin:0 0 8px">
           Hi ${companyName},
         </h2>
-        <p style="font-size:14px;color:#64748b;margin:0 0 16px;line-height:1.6">
+        <p style="font-size:14px;color:#666666;margin:0 0 16px;line-height:1.6">
           Your Onclock ${planLabel} is expiring soon. To keep your payroll, attendance, and HR tools running without interruption, please renew before <strong>${formattedDate}</strong>.
         </p>
-        <p style="font-size:14px;color:#64748b;margin:0 0 24px;line-height:1.6">
+        <p style="font-size:14px;color:#666666;margin:0 0 24px;line-height:1.6">
           After expiry, access to the dashboard will be restricted until a valid subscription is active.
         </p>
 
         <a href="${billingUrl}"
-           style="display:inline-block;padding:14px 32px;background:#ff5900;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 32px;background:var(--brand-highlight);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Renew Now →
         </a>
 
-        <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
+        <p style="font-size:12px;color:#777777;margin:24px 0 0;line-height:1.6">
           If you have already renewed, please disregard this email. For billing questions, reply to this email or contact our support team.
         </p>
-        <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0" />
-        <p style="font-size:11px;color:#cbd5e1;text-align:center;margin:0">
+        <hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0" />
+        <p style="font-size:11px;color:#d4d4d4;text-align:center;margin:0">
           Onclock &mdash; Payroll &amp; Time Keeping Made Easy
         </p>
       </div>
@@ -171,20 +171,20 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
         <div style="text-align:center;margin-bottom:32px">
           <img src="https://onclockph.com/onclock-logo.png" alt="Onclock" style="height:36px" />
         </div>
-        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px">Reset your password</h2>
-        <p style="font-size:14px;color:#64748b;margin:0 0 24px;line-height:1.6">
+        <h2 style="font-size:20px;font-weight:800;color:#000000;margin:0 0 8px">Reset your password</h2>
+        <p style="font-size:14px;color:#666666;margin:0 0 24px;line-height:1.6">
           We received a request to reset the password for your Onclock account.
           Click the button below to set a new password. This link expires in <strong>1 hour</strong>.
         </p>
         <a href="${resetUrl}"
-           style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#032b63,#021e47);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#000000,#000000);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Reset Password
         </a>
-        <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
+        <p style="font-size:12px;color:#777777;margin:24px 0 0;line-height:1.6">
           If you didn&apos;t request this, you can safely ignore this email — your password won&apos;t change.
         </p>
-        <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0" />
-        <p style="font-size:11px;color:#cbd5e1;text-align:center;margin:0">
+        <hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0" />
+        <p style="font-size:11px;color:#d4d4d4;text-align:center;margin:0">
           Onclock &mdash; Payroll &amp; Time Keeping Made Easy
         </p>
       </div>
@@ -224,24 +224,24 @@ export async function sendExpiredTrialNotice({
         </div>
         <div style="background:#dc262615;border:1px solid #dc262640;border-radius:12px;padding:16px 20px;margin-bottom:24px;text-align:center">
           <p style="margin:0;font-size:28px;font-weight:900;color:#dc2626">Trial Expired</p>
-          <p style="margin:4px 0 0;font-size:13px;color:#64748b">
+          <p style="margin:4px 0 0;font-size:13px;color:#666666">
             Your free trial ended on <strong>${formattedDate}</strong>
           </p>
         </div>
-        <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 8px">
+        <h2 style="font-size:18px;font-weight:800;color:#000000;margin:0 0 8px">
           Hi ${companyName},
         </h2>
-        <p style="font-size:14px;color:#64748b;margin:0 0 16px;line-height:1.6">
+        <p style="font-size:14px;color:#666666;margin:0 0 16px;line-height:1.6">
           Your Onclock free trial has expired. To continue using payroll, attendance, and HR features, please activate your subscription.
         </p>
-        <p style="font-size:14px;color:#64748b;margin:0 0 24px;line-height:1.6">
+        <p style="font-size:14px;color:#666666;margin:0 0 24px;line-height:1.6">
           Once your subscription is active, full dashboard access will resume.
         </p>
         <a href="${billingUrl}"
-           style="display:inline-block;padding:14px 32px;background:#ff5900;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 32px;background:var(--brand-highlight);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Activate Subscription →
         </a>
-        <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
+        <p style="font-size:12px;color:#777777;margin:24px 0 0;line-height:1.6">
           If you have already renewed, please disregard this email.
         </p>
       </div>
@@ -276,21 +276,21 @@ export async function sendDemoOutreachEmail({
           <img src="https://onclockph.com/onclock-logo.png" alt="Onclock" style="height:36px" />
         </div>
 
-        <h2 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 12px">
+        <h2 style="font-size:20px;font-weight:900;color:#000000;margin:0 0 12px">
           Hi ${companyName} 👋
         </h2>
-        <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 16px">
+        <p style="font-size:14px;color:#343434;line-height:1.6;margin:0 0 16px">
           We noticed your Onclock account is all set up but hasn't had employees added yet.
           We'd love to help you get the most out of the platform!
         </p>
-        <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 24px">
+        <p style="font-size:14px;color:#343434;line-height:1.6;margin:0 0 24px">
           Whether you need a quick walkthrough of how to set up your team, configure payroll,
           or track attendance — we're here to help you get started.
         </p>
 
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:24px">
-          <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0 0 8px">✅ What a free demo includes:</p>
-          <ul style="margin:0;padding-left:20px;font-size:13px;color:#475569;line-height:1.8">
+        <div style="background:#f7f7f7;border:1px solid #d4d4d4;border-radius:12px;padding:20px 24px;margin-bottom:24px">
+          <p style="font-size:14px;font-weight:700;color:#000000;margin:0 0 8px">✅ What a free demo includes:</p>
+          <ul style="margin:0;padding-left:20px;font-size:13px;color:#343434;line-height:1.8">
             <li>Guided setup of your employees, departments &amp; positions</li>
             <li>Payroll &amp; DTR configuration walkthrough</li>
             <li>Leave management &amp; schedule setup</li>
@@ -300,24 +300,24 @@ export async function sendDemoOutreachEmail({
 
         <div style="text-align:center;margin-bottom:28px">
           <a href="${bookingLink}"
-             style="display:inline-block;background:#032b63;color:#ffffff;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none">
+             style="display:inline-block;background:#000000;color:#ffffff;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none">
             Book a Free Demo →
           </a>
         </div>
 
-        <p style="font-size:13px;color:#94a3b8;text-align:center;margin:0 0 8px">
+        <p style="font-size:13px;color:#777777;text-align:center;margin:0 0 8px">
           Or log in anytime and explore at your own pace.
         </p>
         <div style="text-align:center;margin-bottom:24px">
-          <a href="${loginUrl}" style="font-size:13px;color:#032b63;text-decoration:underline">
+          <a href="${loginUrl}" style="font-size:13px;color:#000000;text-decoration:underline">
             Go to my Onclock account
           </a>
         </div>
 
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0" />
-        <p style="font-size:11px;color:#cbd5e1;text-align:center;margin:0">
+        <hr style="border:none;border-top:1px solid #d4d4d4;margin:24px 0" />
+        <p style="font-size:11px;color:#d4d4d4;text-align:center;margin:0">
           Onclock · HR &amp; Payroll for Philippine Businesses ·
-          <a href="${appUrl}" style="color:#cbd5e1">onclockph.com</a>
+          <a href="${appUrl}" style="color:#d4d4d4">onclockph.com</a>
         </p>
       </div>
     `,
@@ -369,7 +369,7 @@ export async function sendCompanyEmail({
     to: Array.isArray(to) ? to.join(', ') : to,
     subject,
     text: body,
-    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.6">${body.replace(/\n/g, '<br/>')}</div>`,
+    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#000000;line-height:1.6">${body.replace(/\n/g, '<br/>')}</div>`,
   })
 }
 
@@ -395,7 +395,7 @@ export async function sendProposalEmail({
     to,
     subject,
     text: message,
-    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.6">${message.replace(/\n/g, '<br/>')}</div>`,
+    html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#000000;line-height:1.6">${message.replace(/\n/g, '<br/>')}</div>`,
     attachments: [
       {
         filename,
@@ -448,16 +448,16 @@ export async function sendNoEmployeeSetupEmail({
           </p>
         </div>
 
-        <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 8px">
+        <h2 style="font-size:18px;font-weight:800;color:#000000;margin:0 0 8px">
           Hi ${companyName},
         </h2>
-        <p style="font-size:14px;color:#64748b;margin:0 0 16px;line-height:1.6">
+        <p style="font-size:14px;color:#666666;margin:0 0 16px;line-height:1.6">
           Welcome to Onclock! ${trialBit}You haven't added any employees yet, so the timesheet, payroll, and attendance features aren't doing much for you. Let's fix that.
         </p>
-        <p style="font-size:14px;color:#64748b;margin:0 0 8px;line-height:1.6">
+        <p style="font-size:14px;color:#666666;margin:0 0 8px;line-height:1.6">
           Adding your first employee takes about a minute:
         </p>
-        <ol style="font-size:14px;color:#64748b;margin:0 0 24px;padding-left:20px;line-height:1.8">
+        <ol style="font-size:14px;color:#666666;margin:0 0 24px;padding-left:20px;line-height:1.8">
           <li>Open the Employees page</li>
           <li>Click <strong>Add Employee</strong></li>
           <li>Fill in name, work schedule, and rate</li>
@@ -465,15 +465,15 @@ export async function sendNoEmployeeSetupEmail({
         </ol>
 
         <a href="${setupUrl}"
-           style="display:inline-block;padding:14px 32px;background:#ff5900;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
+           style="display:inline-block;padding:14px 32px;background:var(--brand-highlight);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:700">
           Add Your First Employee →
         </a>
 
-        <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;line-height:1.6">
+        <p style="font-size:12px;color:#777777;margin:24px 0 0;line-height:1.6">
           Need help? Just reply to this email — we'll walk you through it.
         </p>
-        <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0" />
-        <p style="font-size:11px;color:#cbd5e1;text-align:center;margin:0">
+        <hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0" />
+        <p style="font-size:11px;color:#d4d4d4;text-align:center;margin:0">
           Onclock &mdash; Payroll &amp; Time Keeping Made Easy
         </p>
       </div>

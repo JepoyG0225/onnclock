@@ -105,7 +105,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: '#2E4156' }}>Edit Employee</h1>
+        <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Edit Employee</h1>
         <div className="flex items-center gap-2 flex-wrap text-sm text-slate-500 mt-1">
           <span>{employee.lastName}, {employee.firstName} {employee.middleName ?? ''}</span>
           <span>Â·</span>
@@ -116,7 +116,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
               background: ['PROBATIONARY', 'REGULAR'].includes(employee.employmentStatus)
                 ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)',
               color: ['PROBATIONARY', 'REGULAR'].includes(employee.employmentStatus)
-                ? '#059669' : '#64748b',
+                ? '#059669' : '#666666',
             }}
           >
             {employee.employmentStatus}

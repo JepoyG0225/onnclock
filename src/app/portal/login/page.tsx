@@ -148,7 +148,7 @@ export default function PortalLoginPage() {
         // layering: the repeating grid overlay and the two blurred blobs are
         // gone, since they read as busy behind a form this small.
         background:
-          'radial-gradient(1200px 700px at -10% -15%, rgba(250,94,1,0.24), transparent 55%), radial-gradient(900px 600px at 110% 115%, rgba(59,130,246,0.18), transparent 60%), linear-gradient(155deg, #0f1a2b 0%, #021e47 45%, #223a56 100%)',
+          'radial-gradient(1200px 700px at -10% -15%, rgba(184, 225, 0,0.24), transparent 55%), radial-gradient(900px 600px at 110% 115%, rgba(59,130,246,0.18), transparent 60%), linear-gradient(155deg, #0f1a2b 0%, #000000 45%, #223a56 100%)',
         paddingTop:    'max(env(safe-area-inset-top), 24px)',
         paddingBottom: 'max(env(safe-area-inset-bottom), 24px)',
         paddingLeft:   'max(env(safe-area-inset-left), 16px)',
@@ -185,7 +185,7 @@ export default function PortalLoginPage() {
         <div className="rounded-[28px] bg-white shadow-2xl shadow-black/30 overflow-hidden">
           <form onSubmit={handleLogin} className="px-6 py-7 sm:px-8 space-y-5">
             <div>
-              <h1 className="text-[22px] font-black tracking-tight" style={{ color: '#032b63' }}>
+              <h1 className="text-[22px] font-black tracking-tight" style={{ color: '#000000' }}>
                 Welcome back
               </h1>
               <p className="text-[13px] text-slate-500 mt-1">
@@ -202,7 +202,7 @@ export default function PortalLoginPage() {
                   focus state is plain CSS rather than the onFocus/onBlur inline
                   style mutation this used to do — which never showed a ring for
                   keyboard users and fought the browser's own styling. */}
-              <div className="relative flex items-center rounded-2xl bg-slate-50 border-2 border-slate-200 transition-all focus-within:border-[#032b63] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#032b63]/12">
+              <div className="relative flex items-center rounded-2xl bg-slate-50 border-2 border-slate-200 transition-all focus-within:border-[#000000] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#000000]/12">
                 <Mail className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                 <input
                   id="portal-email"
@@ -230,12 +230,12 @@ export default function PortalLoginPage() {
                     though /forgot-password already existed. */}
                 <Link
                   href="/forgot-password"
-                  className="text-[11px] font-bold text-slate-500 hover:text-[#032b63] transition-colors"
+                  className="text-[11px] font-bold text-slate-500 hover:text-[#000000] transition-colors"
                 >
                   Forgot?
                 </Link>
               </div>
-              <div className="relative flex items-center rounded-2xl bg-slate-50 border-2 border-slate-200 transition-all focus-within:border-[#032b63] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#032b63]/12">
+              <div className="relative flex items-center rounded-2xl bg-slate-50 border-2 border-slate-200 transition-all focus-within:border-[#000000] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#000000]/12">
                 <Lock className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                 <input
                   id="portal-password"
@@ -266,7 +266,7 @@ export default function PortalLoginPage() {
               disabled={loading}
               className="group w-full py-4 rounded-2xl text-[15px] font-black tracking-wide text-white transition-all active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 flex items-center justify-center gap-2"
               style={{
-                background: 'linear-gradient(135deg, #032b63, #1b6a6e)',
+                background: 'linear-gradient(135deg, #000000, #1b6a6e)',
                 boxShadow: '0 8px 24px rgba(34,127,132,0.35)',
               }}
             >
@@ -292,7 +292,7 @@ export default function PortalLoginPage() {
               {!isIos && !isAndroid && (
                 <a
                   href="/download#employee"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-bold text-slate-600 hover:border-[#032b63] hover:text-[#032b63] transition-colors"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-bold text-slate-600 hover:border-[#000000] hover:text-[#000000] transition-colors"
                 >
                   <Image src="/platform-icons/windows.svg" alt="" width={14} height={14} />
                   <Image src="/platform-icons/mac-21.png" alt="" width={14} height={14} />

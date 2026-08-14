@@ -1,4 +1,4 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Download, Building, Receipt } from 'lucide-react'
@@ -6,7 +6,7 @@ import { FileText, Download, Building, Receipt } from 'lucide-react'
 const REPORTS = [
   {
     category: 'SSS',
-    color: 'bg-[#032b63]',
+    color: 'bg-[#000000]',
     reports: [
       {
         title: 'SSS R3 — Contribution Collection List',

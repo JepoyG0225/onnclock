@@ -23,8 +23,8 @@ import { Plus, Loader2, CreditCard, X } from 'lucide-react'
 // is applied server-side on approval; this only drives the preview text.
 const CUTOFFS_PER_MONTH = 2
 
-const NAVY = '#032b63'
-const ORANGE = '#ff5900'
+const NAVY = 'var(--brand-primary)'
+const ORANGE = 'var(--brand-highlight)'
 
 type LoanStatus = 'PENDING' | 'ACTIVE' | 'FULLY_PAID' | 'CANCELLED'
 
@@ -78,7 +78,7 @@ const REPAYMENT_TERMS = [
 const STATUS_TONE: Record<LoanStatus, { bar: string; bg: string; fg: string; label: string }> = {
   PENDING:    { bar: '#f59e0b', bg: '#fffbeb', fg: '#b45309', label: 'Pending approval' },
   ACTIVE:     { bar: '#10b981', bg: '#ecfdf5', fg: '#047857', label: 'Active' },
-  FULLY_PAID: { bar: '#94a3b8', bg: '#f8fafc', fg: '#475569', label: 'Fully paid' },
+  FULLY_PAID: { bar: '#777777', bg: '#f7f7f7', fg: '#343434', label: 'Fully paid' },
   CANCELLED:  { bar: '#ef4444', bg: '#fef2f2', fg: '#b91c1c', label: 'Cancelled' },
 }
 
@@ -296,7 +296,7 @@ export function MyLoansTab() {
             type="submit"
             disabled={!valid || saving}
             className="w-full py-3 rounded-2xl text-[14px] font-black text-white disabled:opacity-50 active:scale-[0.98] transition-transform"
-            style={{ background: `linear-gradient(135deg, #021e47, ${NAVY})` }}
+            style={{ background: `linear-gradient(135deg, var(--brand-primary), var(--brand-highlight))` }}
           >
             {saving ? <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</span> : 'Submit request'}
           </button>

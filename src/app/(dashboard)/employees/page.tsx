@@ -1,16 +1,16 @@
-﻿import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { resolveEffectiveCompanyId } from '@/lib/effective-company'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { EmployeeDeleteButton } from '@/components/employees/EmployeeDeleteButton'
-import { EmployeeViewButton } from '@/components/employees/EmployeeViewButton'
+import { ClickableEmployeeRow } from '@/components/employees/ClickableEmployeeRow'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Users, Search } from 'lucide-react'
+import { Pencil, Users, Search } from 'lucide-react'
 import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
 import { EmploymentStatus } from '@prisma/client'
 import { getSeatStatus } from '@/lib/billing/seat-limit'
@@ -111,13 +111,13 @@ export default async function EmployeesPage({
                 name="search"
                 placeholder="Search by name or employee no..."
                 defaultValue={search}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
               />
             </div>
             <select
               name="department"
               defaultValue={departmentId}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
             >
               <option value="">All Departments</option>
               {departments.map(d => (
@@ -127,7 +127,7 @@ export default async function EmployeesPage({
             <select
               name="status"
               defaultValue={status}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#032b63]"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
             >
               <option value="">All Status</option>
               <option value="PROBATIONARY">Probationary</option>
@@ -164,7 +164,7 @@ export default async function EmployeesPage({
                     <th className="text-left p-4 font-semibold text-gray-600">Employee</th>
                     <th className="text-left p-4 font-semibold text-gray-600 hidden md:table-cell">Department</th>
                     <th className="text-left p-4 font-semibold text-gray-600 hidden lg:table-cell">Position</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Status</th>
+                    <th className="p-4 text-center font-semibold text-gray-600">Status</th>
                     <th className="text-right p-4 font-semibold text-gray-600 hidden sm:table-cell">Rate</th>
                     <th className="text-left p-4 font-semibold text-gray-600 hidden lg:table-cell">Hire Date</th>
                     <th className="text-center p-4 font-semibold text-gray-600">Actions</th>
@@ -172,7 +172,7 @@ export default async function EmployeesPage({
                 </thead>
                 <tbody>
                   {employees.map((emp) => (
-                    <tr key={emp.id} className="border-b hover:bg-gray-50 transition-colors">
+                    <ClickableEmployeeRow key={emp.id} employeeId={emp.id}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           {emp.photoUrl ? (
@@ -182,7 +182,7 @@ export default async function EmployeesPage({
                               className="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0"
                             />
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-[#c4d9ff] flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
+                            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-blue-700 shadow-sm ring-1 ring-inset ring-blue-200">
                               {emp.firstName[0]}{emp.lastName[0]}
                             </div>
                           )}
@@ -196,8 +196,8 @@ export default async function EmployeesPage({
                       </td>
                       <td className="p-4 text-gray-600 hidden md:table-cell">{emp.department?.name || '—'}</td>
                       <td className="p-4 text-gray-600 hidden lg:table-cell">{emp.position?.title || '—'}</td>
-                      <td className="p-4">
-                        <Badge className={`text-xs border-0 ${getStatusColor(emp.employmentStatus)}`}>
+                      <td className="p-4 text-center">
+                        <Badge className={`h-7 w-28 justify-center border-0 px-2 text-center text-[11px] font-bold ${getStatusColor(emp.employmentStatus)}`}>
                           {emp.employmentStatus}
                         </Badge>
                       </td>
@@ -210,11 +210,15 @@ export default async function EmployeesPage({
                       <td className="p-4 text-gray-600 hidden lg:table-cell">{formatDate(emp.hireDate)}</td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2" data-tour="employee-actions">
-                          <EmployeeViewButton employeeId={emp.id} />
+                          <Link href={`/employees/${emp.id}/edit`} aria-label={`Edit ${emp.firstName} ${emp.lastName}`} title="Edit employee">
+                            <Button variant="outline" size="icon-sm">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </Link>
                           <EmployeeDeleteButton employeeId={emp.id} />
                         </div>
                       </td>
-                    </tr>
+                    </ClickableEmployeeRow>
                   ))}
                 </tbody>
               </table>

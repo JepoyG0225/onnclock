@@ -1,18 +1,18 @@
-﻿import {
+import {
   Document, Page, Text, View, StyleSheet,
 } from '@react-pdf/renderer'
 import { registerPdfFonts } from './register-pdf-fonts'
 
 registerPdfFonts()
 
-const ORANGE = '#ff5900'
-const TEAL   = '#021e47'
-const MUTED  = '#64748b'
-const BORDER = '#e2e8f0'
+const ORANGE = 'var(--brand-highlight)'
+const TEAL   = '#000000'
+const MUTED  = '#666666'
+const BORDER = '#d4d4d4'
 const RED    = '#dc2626'
 const AMBER  = '#d97706'
 const LIGHT_RED = '#fef2f2'
-const LIGHT  = '#f8fafc'
+const LIGHT  = '#f7f7f7'
 
 const s = StyleSheet.create({
   page: {

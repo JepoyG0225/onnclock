@@ -17,7 +17,7 @@ export function isFeatureNew(releasedAt: string) {
 export default function NewFeatureBadge({ releasedAt, className = '' }: NewFeatureBadgeProps) {
   if (!isFeatureNew(releasedAt)) return null
   return (
-    <span className={`rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white ${className}`}>
+    <span className={`rounded-full border border-[var(--brand-highlight)] bg-[var(--brand-highlight)] px-2.5 py-1 text-[10px] font-black tracking-wide text-black ${className}`}>
       NEW
     </span>
   )

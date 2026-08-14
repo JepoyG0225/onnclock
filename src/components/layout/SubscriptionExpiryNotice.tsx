@@ -69,7 +69,7 @@ export function SubscriptionExpiryNotice({ expiresAt, isTrial }: Props) {
     daysLeft <= 1
       ? { bg: 'bg-red-600', text: 'text-white', border: 'border-red-700', badge: 'bg-red-700', hex: '#dc2626' }
       : daysLeft <= 3
-      ? { bg: 'bg-orange-500', text: 'text-white', border: 'border-orange-600', badge: 'bg-orange-600', hex: '#ea580c' }
+      ? { bg: 'bg-orange-500', text: 'text-white', border: 'border-orange-600', badge: 'bg-orange-600', hex: '#343434' }
       : { bg: 'bg-amber-400', text: 'text-amber-950', border: 'border-amber-500', badge: 'bg-amber-500', hex: '#d97706' }
 
   return (

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -169,7 +169,7 @@ function TopUpModal({ onClose, onConfirmed }: { onClose: () => void; onConfirmed
 
         {phase === 'loading' && (
           <div className="flex flex-col items-center gap-3 py-6">
-            <Loader2 className="w-10 h-10 animate-spin text-[#032b63]" />
+            <Loader2 className="w-10 h-10 animate-spin text-[#000000]" />
             <p className="text-sm text-gray-500">Generating QR code…</p>
           </div>
         )}
@@ -350,7 +350,7 @@ export default function PayrollDisbursementPanel({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-full">
-                <Send className="w-5 h-5 text-[#032b63]" />
+                <Send className="w-5 h-5 text-[#000000]" />
               </div>
               <h2 className="text-base font-semibold text-gray-900">Confirm Disbursement</h2>
             </div>
@@ -364,7 +364,7 @@ export default function PayrollDisbursementPanel({
                 <span>Processing fees ({preview.fees.count} × ₱{preview.fees.perTransfer})</span>
                 <span>{fmtPHP(preview.fees.total)}</span>
               </div>
-              <div className="flex justify-between px-3 py-2 font-semibold text-[#032b63]">
+              <div className="flex justify-between px-3 py-2 font-semibold text-[#000000]">
                 <span>Total to deduct</span>
                 <span>{fmtPHP(preview.summary.totalCost)}</span>
               </div>
@@ -447,7 +447,7 @@ export default function PayrollDisbursementPanel({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Send className="w-4 h-4 text-[#032b63]" />
+              <Send className="w-4 h-4 text-[#000000]" />
               <CardTitle className="text-base">Payroll Disbursement</CardTitle>
               {disbursement && (
                 <Badge className={`text-[11px] border-0 ${
@@ -511,7 +511,7 @@ export default function PayrollDisbursementPanel({
                   </span>
                   <span>{fmtPHP(fees.total)}</span>
                 </div>
-                <div className="flex items-center justify-between font-semibold border-t pt-1 mt-1 text-[#032b63]">
+                <div className="flex items-center justify-between font-semibold border-t pt-1 mt-1 text-[#000000]">
                   <span>Total to deduct</span>
                   <span>{fmtPHP(summary.totalCost)}</span>
                 </div>
@@ -592,7 +592,7 @@ export default function PayrollDisbursementPanel({
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${item.channel === 'instapay' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
                       {item.channel === 'instapay' ? 'InstaPay' : 'PesoNet'}
                     </span>
-                    <span className="font-semibold text-[#032b63]">{fmtPHP(item.amount)}</span>
+                    <span className="font-semibold text-[#000000]">{fmtPHP(item.amount)}</span>
                     {disbursement  ? statusBadge(displayStatus)                       : null}
                     {!disbursement ? <BadgeCheck className="w-4 h-4 text-green-500" /> : null}
                   </div>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -68,7 +68,7 @@ export default function RegisterPage() {
     }
   }
 
-  const inputCls = "w-full py-2.5 px-3.5 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-[#032b63] focus:ring-4 focus:ring-[#032b63]/10"
+  const inputCls = "w-full py-2.5 px-3.5 rounded-xl text-sm font-medium outline-none transition-all bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-[#000000] focus:ring-4 focus:ring-[#000000]/10"
   // ── Success state ──────────────────────────────────────────────────
   if (success) {
     return (
@@ -87,7 +87,7 @@ export default function RegisterPage() {
               <Globe className="w-3.5 h-3.5" />Employee Portal URL
             </p>
             <p className="text-sm font-mono font-semibold text-primary break-all">{success.portalUrl}</p>
-            <p className="text-xs text-[#032b63]">Share this link with your employees so they can clock in, view payslips, and request leaves.</p>
+            <p className="text-xs text-[#000000]">Share this link with your employees so they can clock in, view payslips, and request leaves.</p>
             <a
               href={success.portalUrl}
               target="_blank"
@@ -103,7 +103,7 @@ export default function RegisterPage() {
           onClick={() => router.push('/login')}
           className="w-full py-3.5 rounded-xl text-sm font-black tracking-wide text-white transition-all active:scale-[0.98] flex items-center justify-center gap-2"
           style={{
-            background: 'linear-gradient(135deg, #032b63, #021e47)',
+            background: 'linear-gradient(135deg, #000000, #000000)',
             boxShadow: '0 6px 20px rgba(34,127,132,0.35)',
           }}
         >
@@ -125,7 +125,7 @@ export default function RegisterPage() {
       <div className="space-y-1.5">
         {PERKS.map(p => (
           <div key={p} className="flex items-center gap-2 text-xs text-slate-500">
-            <CheckCircle className="w-3.5 h-3.5 text-[#032b63] flex-shrink-0" />
+            <CheckCircle className="w-3.5 h-3.5 text-[#000000] flex-shrink-0" />
             {p}
           </div>
         ))}
@@ -254,7 +254,7 @@ export default function RegisterPage() {
           disabled={loading}
           className="w-full py-3.5 rounded-xl text-sm font-black tracking-wide text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-1"
           style={{
-            background: 'linear-gradient(135deg, #032b63, #021e47)',
+            background: 'linear-gradient(135deg, #000000, #000000)',
             boxShadow: '0 6px 20px rgba(34,127,132,0.35)',
           }}
         >
@@ -267,7 +267,7 @@ export default function RegisterPage() {
 
       <p className="text-center text-sm text-slate-400">
         Already have an account?{' '}
-        <Link href="/login" className="font-bold text-[#032b63] hover:underline">
+        <Link href="/login" className="font-bold text-[#000000] hover:underline">
           Sign in
         </Link>
       </p>

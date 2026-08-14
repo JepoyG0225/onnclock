@@ -92,7 +92,7 @@ export default function InvoicePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-[#2E4156]" />
+        <Loader2 className="w-6 h-6 animate-spin text-[#000000]" />
       </div>
     )
   }
@@ -102,7 +102,7 @@ export default function InvoicePage() {
       <div className="text-center py-24 text-slate-400">
         <AlertCircle className="w-8 h-8 mx-auto mb-3" />
         <p className="font-medium">Invoice not found.</p>
-        <Link href="/settings/billing" className="text-[#2E4156] text-sm mt-2 inline-block hover:underline">
+        <Link href="/settings/billing" className="text-[#000000] text-sm mt-2 inline-block hover:underline">
           ← Back to Billing
         </Link>
       </div>
@@ -128,7 +128,7 @@ export default function InvoicePage() {
   const statusConfig = {
     PAID:   { label: 'PAID',   icon: CheckCircle, color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
     UNPAID: { label: 'UNPAID', icon: Clock,        color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-    DRAFT:  { label: 'DRAFT',  icon: Clock,        color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' },
+    DRAFT:  { label: 'DRAFT',  icon: Clock,        color: '#666666', bg: '#f7f7f7', border: '#d4d4d4' },
     VOID:   { label: 'VOID',   icon: AlertCircle,  color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
   }
   const sc = statusConfig[invoice.status]
@@ -147,13 +147,13 @@ export default function InvoicePage() {
     <>
       {/* Print/action bar — hidden in print */}
       <div className="no-print flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 sticky top-0 z-10">
-        <Link href="/settings/billing" className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#2E4156] transition-colors">
+        <Link href="/settings/billing" className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#000000] transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Billing
         </Link>
         <button
           onClick={() => window.print()}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-sm shadow-md hover:shadow-lg transition-all"
-          style={{ background: 'linear-gradient(135deg, #2E4156, #1A2D42)' }}
+          style={{ background: 'linear-gradient(135deg, #000000, #000000)' }}
         >
           <Printer className="w-4 h-4" /> Download / Print PDF
         </button>
@@ -163,7 +163,7 @@ export default function InvoicePage() {
       <div className="invoice-document max-w-3xl mx-auto my-8 px-4 no-print-margin">
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
           {/* Header band */}
-          <div className="px-10 pt-10 pb-8" style={{ background: 'linear-gradient(135deg, #1A2D42, #2E4156)' }}>
+          <div className="px-10 pt-10 pb-8" style={{ background: 'linear-gradient(135deg, #000000, #000000)' }}>
             <div className="flex items-start justify-between">
               <div>
                 <Image src="/onclock-logo.png" alt="Onclock" width={140} height={46} className="object-contain brightness-0 invert mb-4" />
@@ -268,7 +268,7 @@ export default function InvoicePage() {
               </div>
               <div className="flex justify-between pt-3 border-t-2 border-slate-200">
                 <span className="font-black text-slate-900 text-base">Total Due</span>
-                <span className="font-black text-xl" style={{ color: '#2E4156' }}>{fmt(invoice.total)}</span>
+                <span className="font-black text-xl" style={{ color: '#000000' }}>{fmt(invoice.total)}</span>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
@@ -356,8 +356,8 @@ export function AdminVirtualTour({
               top: targetRect.top - 2,
               width: targetRect.width + 4,
               height: targetRect.height + 4,
-              borderColor: '#ff5900',
-              boxShadow: '0 0 0 4px rgba(250,94,1,0.2)',
+              borderColor: 'var(--brand-highlight)',
+              boxShadow: '0 0 0 4px rgba(184, 225, 0,0.2)',
             }}
           />
           <div
@@ -369,7 +369,7 @@ export function AdminVirtualTour({
               height: 0,
               borderTop: '8px solid transparent',
               borderBottom: '8px solid transparent',
-              borderLeft: '12px solid #ff5900',
+              borderLeft: '12px solid var(--brand-highlight)',
               filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))',
             }}
           />
@@ -418,7 +418,7 @@ export function AdminVirtualTour({
               type="button"
               onClick={goNext}
               className="px-3 py-1.5 text-xs rounded-lg text-white"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {isLast ? 'Finish' : 'Next'}
             </button>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -242,10 +242,10 @@ function ProgressRing({ pct, size = 52 }: { pct: number; size?: number }) {
   const r = (size - 8) / 2
   const circ = 2 * Math.PI * r
   const offset = circ - (pct / 100) * circ
-  const color = pct === 100 ? '#10b981' : pct > 60 ? '#3b82f6' : pct > 30 ? '#f59e0b' : '#e2e8f0'
+  const color = pct === 100 ? '#10b981' : pct > 60 ? '#3b82f6' : pct > 30 ? '#f59e0b' : '#d4d4d4'
   return (
     <svg width={size} height={size} className="rotate-[-90deg]">
-      <circle cx={size / 2} cy={size / 2} r={r} stroke="#e2e8f0" strokeWidth={6} fill="none" />
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="#d4d4d4" strokeWidth={6} fill="none" />
       <circle
         cx={size / 2} cy={size / 2} r={r}
         stroke={color} strokeWidth={6} fill="none"

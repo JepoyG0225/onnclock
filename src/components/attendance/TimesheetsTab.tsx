@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -49,6 +49,7 @@ interface DTRRecord {
   breakOut: string | null
   regularHours: number | null
   overtimeHours: number | null
+  unreportedOvertimeHours?: number
   nightDiffHours: number | null
   lateMinutes: number | null
   undertimeMinutes: number | null
@@ -105,6 +106,7 @@ interface WeeklyGroup {
   records: DTRRecord[]
   totalRegular: number
   totalOvertime: number
+  totalUnreportedOvertime: number
   totalNightDiff: number
   totalLate: number
   totalUndertime: number
@@ -127,16 +129,16 @@ interface CompanyOption {
 }
 
 const STATUS_BADGE: Record<WeeklyGroup['status'], string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  REJECTED: 'bg-red-100 text-red-800',
-  MIXED: 'bg-indigo-100 text-indigo-800',
+  PENDING: 'bg-[var(--brand-highlight)] text-black',
+  APPROVED: 'bg-[var(--brand-primary)] text-white',
+  REJECTED: 'bg-[var(--brand-danger)] text-white',
+  MIXED: 'bg-[var(--brand-primary)] text-white',
 }
 
 const DAILY_STATUS_BADGE: Record<'PENDING' | 'APPROVED' | 'REJECTED', string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  REJECTED: 'bg-red-100 text-red-800',
+  PENDING: 'bg-[var(--brand-highlight)] text-black',
+  APPROVED: 'bg-[var(--brand-primary)] text-white',
+  REJECTED: 'bg-[var(--brand-danger)] text-white',
 }
 
 
@@ -239,6 +241,7 @@ export function TimesheetsTab() {
   // OT pay toggle from payroll settings — controls whether the merged-approval
   // popup asks "approve OT too?". Defaults to true to match payroll compute.
   const [overtimePayEnabled, setOvertimePayEnabled] = useState(true)
+  const [convertingEmployeeId, setConvertingEmployeeId] = useState<string | null>(null)
   // Pending approval awaiting confirmation. When set, the OT-confirmation
   // modal is rendered. The handler then re-dispatches with the selected
   // OT request ids — admins can pick which specific timesheets' OT to
@@ -645,6 +648,7 @@ export function TimesheetsTab() {
           records: [],
           totalRegular: 0,
           totalOvertime: 0,
+          totalUnreportedOvertime: 0,
           totalNightDiff: 0,
           totalLate: 0,
           totalUndertime: 0,
@@ -658,6 +662,7 @@ export function TimesheetsTab() {
       g.records.push(r)
       g.totalRegular += Number(r.regularHours ?? 0)
       g.totalOvertime += Number(r.overtimeHours ?? 0)
+      g.totalUnreportedOvertime += Number(r.unreportedOvertimeHours ?? 0)
       g.totalNightDiff += Number(r.nightDiffHours ?? 0)
       g.totalLate += Number(r.lateMinutes ?? 0)
       g.totalUndertime += Number(r.undertimeMinutes ?? 0)
@@ -1017,6 +1022,28 @@ export function TimesheetsTab() {
 
   function toggleExpand(key: string) {
     setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  async function convertEmployeeOvertime(group: WeeklyGroup) {
+    setConvertingEmployeeId(group.employeeId)
+    try {
+      const res = await fetch(withCompanyQuery(`/api/employees/${group.employeeId}/overtime-override`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: format(group.weekStart, 'yyyy-MM-dd'),
+          to: format(group.weekEnd, 'yyyy-MM-dd'),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to convert overtime')
+      toast.success(`Overtime pay enabled for ${group.employeeName}`)
+      await load()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to convert overtime')
+    } finally {
+      setConvertingEmployeeId(null)
+    }
   }
 
   async function toggleCaptureRow(recordId: string) {
@@ -1383,7 +1410,7 @@ export function TimesheetsTab() {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setEditRecord(null)}>Cancel</Button>
-                <Button disabled={editSaving} onClick={saveEdit} style={{ background: '#ff5900' }} className="text-white">
+                <Button disabled={editSaving} onClick={saveEdit} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                   {editSaving ? 'Saving…' : 'Save Changes'}
                 </Button>
               </div>
@@ -1692,10 +1719,10 @@ export function TimesheetsTab() {
             <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
               <Users className="w-4 h-4" />
               <span className="capitalize">{viewMode}</span> Time Sheets
-              <Badge variant="outline">{groups.length} {viewMode === 'daily' ? 'employees' : viewMode === 'monthly' ? 'employee-months' : 'employee-weeks'}</Badge>
-              <Badge className="bg-yellow-100 text-yellow-800">{totalPendingWeeks} pending</Badge>
+              <Badge className="border-[var(--brand-primary)] bg-white text-[var(--brand-primary)]">{groups.length} {viewMode === 'daily' ? 'employees' : viewMode === 'monthly' ? 'employee-months' : 'employee-weeks'}</Badge>
+              <Badge className="bg-[var(--brand-highlight)] text-black">{totalPendingWeeks} pending</Badge>
               {activeRange && (
-                <Badge variant="outline">
+                <Badge className="border-[var(--brand-primary)] bg-white text-[var(--brand-primary)]">
                   {viewMode === 'daily' && format(activeRange.start, 'MMM d, yyyy')}
                   {viewMode === 'weekly' && `${format(activeRange.start, 'MMM d')} - ${format(activeRange.end, 'MMM d, yyyy')}`}
                   {viewMode === 'monthly' && format(activeRange.start, 'MMMM yyyy')}
@@ -1706,7 +1733,7 @@ export function TimesheetsTab() {
               <Button
                 size="sm"
                 variant="success"
-                className="gap-1.5"
+                className="gap-1.5 bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] disabled:bg-[#d4d4d4] disabled:text-[var(--brand-ink)]"
                 disabled={approvingAll || pendingTotals.count === 0}
                 onClick={approveAll}
                 title={
@@ -1831,6 +1858,26 @@ export function TimesheetsTab() {
                             </div>
                           </td>
                         </tr>
+                        {!overtimePayEnabled && group.totalUnreportedOvertime > 0 && (
+                          <tr className="border-b border-black bg-black">
+                            <td colSpan={10} className="px-4 py-2.5">
+                              <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                                <span className="font-medium text-[var(--brand-highlight)]">
+                                  Unreported Overtime: {group.totalUnreportedOvertime.toFixed(2)} hrs
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="link"
+                                  className="h-auto justify-start p-0 font-bold uppercase text-[var(--brand-highlight)] underline hover:text-white sm:justify-end"
+                                  disabled={convertingEmployeeId === group.employeeId}
+                                  onClick={() => void convertEmployeeOvertime(group)}
+                                >
+                                  {convertingEmployeeId === group.employeeId ? 'Converting…' : 'Convert to Overtime'}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                         {isOpen && collapsible && (
                           <tr className="border-b bg-gray-50/60">
                             <td colSpan={10} className="p-0">

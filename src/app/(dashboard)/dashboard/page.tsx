@@ -1,4 +1,4 @@
-﻿import { cache } from 'react'
+import { cache } from 'react'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -230,22 +230,22 @@ export default async function DashboardPage() {
           Orange survives as the accent rule and in the CTA. */}
       <div
         className="relative overflow-hidden rounded-2xl p-6 sm:p-7"
-        style={{ background: 'linear-gradient(120deg, #021e47 0%, #0a2f63 55%, #123f7d 100%)' }}
+        style={{ background: 'linear-gradient(120deg, #ffffff 0%, #f4f9ff 62%, #eaf5ff 100%)', border: '1px solid #dfe7f1' }}
       >
         {/* Soft depth, kept subtle so text contrast never suffers. */}
-        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-white/[0.03]" />
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-1" style={{ background: '#ff5900' }} />
+        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-blue-100/50" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-cyan-100/30" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-1" style={{ background: 'var(--brand-highlight)' }} />
 
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-white/50">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
               {todayLabel}
             </p>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[28px]">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--brand-ink)] sm:text-[28px]">
               {greeting}{userName ? `, ${userName}` : ''}
             </h1>
-            <p className="mt-1 text-sm text-white/60">{company.name}</p>
+            <p className="mt-1 text-sm text-slate-500">{company.name}</p>
           </div>
 
           {/* At-a-glance counts of things waiting on a human. */}
@@ -253,7 +253,7 @@ export default async function DashboardPage() {
             {pendingLeaves > 0 && (
               <Link
                 href="/leaves"
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition hover:bg-white/20"
+                className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-[var(--brand-primary)] transition hover:bg-blue-100"
               >
                 <CalendarDays className="h-3.5 w-3.5" />
                 {pendingLeaves} leave{pendingLeaves === 1 ? '' : 's'} to review
@@ -263,7 +263,7 @@ export default async function DashboardPage() {
               <Link
                 href="/tasks"
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
-                style={{ background: '#ff5900' }}
+                style={{ background: 'var(--brand-highlight)' }}
               >
                 <AlarmClock className="h-3.5 w-3.5" />
                 {taskStats.overdue} task{taskStats.overdue === 1 ? '' : 's'} overdue
@@ -298,7 +298,7 @@ export default async function DashboardPage() {
           icon={<CalendarDays className="h-5 w-5" />}
           label="Pending Leaves"
           value={pendingLeaves}
-          tone={pendingLeaves > 0 ? 'warning' : 'neutral'}
+          tone="warning"
           trend={pendingLeaves > 0 ? { direction: 'flat', text: 'Action needed' } : undefined}
         />
         <KpiCard
@@ -335,7 +335,7 @@ export default async function DashboardPage() {
               icon={<ListChecks className="h-4 w-4" />}
               label="Assigned to me"
               value={taskStats.mine}
-              accent="text-blue-600"
+              accent="text-[var(--brand-primary)]"
               ring="ring-blue-100"
               bg="bg-blue-50"
             />
@@ -346,27 +346,27 @@ export default async function DashboardPage() {
               value={taskStats.overdue}
               // Only turns red when there's actually something wrong, so a
               // healthy board doesn't look like an alert.
-              accent={taskStats.overdue > 0 ? 'text-red-600' : 'text-gray-400'}
-              ring={taskStats.overdue > 0 ? 'ring-red-100' : 'ring-gray-100'}
-              bg={taskStats.overdue > 0 ? 'bg-red-50' : 'bg-gray-50'}
+              accent={taskStats.overdue > 0 ? 'text-red-700' : 'text-slate-500'}
+              ring={taskStats.overdue > 0 ? 'ring-red-200' : 'ring-slate-200'}
+              bg={taskStats.overdue > 0 ? 'bg-red-50' : 'bg-slate-50'}
             />
             <TaskStat
               href="/tasks"
               icon={<CalendarDays className="h-4 w-4" />}
               label="Due this week"
               value={taskStats.dueThisWeek}
-              accent="text-amber-600"
-              ring="ring-amber-100"
-              bg="bg-amber-50"
+              accent="text-cyan-600"
+              ring="ring-cyan-100"
+              bg="bg-cyan-50"
             />
             <TaskStat
               href="/tasks"
               icon={<CheckCircle2 className="h-4 w-4" />}
               label="Open tasks"
               value={taskStats.open}
-              accent="text-emerald-600"
-              ring="ring-emerald-100"
-              bg="bg-emerald-50"
+              accent="text-[var(--brand-primary)]"
+              ring="ring-blue-100"
+              bg="bg-blue-50"
             />
           </div>
         </section>
@@ -400,8 +400,8 @@ export default async function DashboardPage() {
         }
         function chip(diff: number) {
           if (diff <= 0)  return { color: '#ef4444', label: 'Due today' }
-          if (diff <= 5)  return { color: '#f97316', label: `${diff}d left` }
-          return           { color: '#22c55e',  label: `${diff}d left` }
+          if (diff <= 5)  return { color: '#f59e0b', label: `${diff}d left` }
+          return           { color: 'var(--brand-primary)', label: `${diff}d left` }
         }
 
         const schedules = [
@@ -413,6 +413,12 @@ export default async function DashboardPage() {
           { name: 'Pag-IBIG',   sub: 'Contribution',    date: new Date(Date.UTC(y, m + 2,  0)) },
           { name: 'BIR 1601-C', sub: 'Withholding Tax', date: new Date(Date.UTC(y, m + 1, 15)) },
         ]
+        const scheduleThemes = [
+          { card: '#ffffff', border: '#dfe7f1', title: '#1f2937', sub: '#64748b', accent: '#0b6ffb' },
+          { card: '#ffffff', border: '#dfe7f1', title: '#1f2937', sub: '#64748b', accent: '#10b981' },
+          { card: '#ffffff', border: '#dfe7f1', title: '#1f2937', sub: '#64748b', accent: '#19c2f2' },
+          { card: '#ffffff', border: '#dfe7f1', title: '#1f2937', sub: '#64748b', accent: '#0b6ffb' },
+        ]
 
         return (
           <div>
@@ -420,17 +426,19 @@ export default async function DashboardPage() {
               Remittance Schedules
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {schedules.map(s => {
+              {schedules.map((s, index) => {
                 const diff = daysLeft(s.date)
                 const { color, label } = chip(diff)
+                const theme = scheduleThemes[index]
+                const deadlineColor = diff <= 0 ? color : theme.accent
                 return (
-                  <div key={s.name} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3"
-                    style={{ border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                  <div key={s.name} className="flex items-center gap-3 rounded-2xl px-4 py-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    style={{ background: theme.card, border: `1px solid ${theme.border}` }}>
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: deadlineColor }} />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold" style={{ color: '#162d54' }}>{s.name}</p>
-                      <p className="text-[11px] text-gray-400">{s.sub}</p>
-                      <p className="text-[11px] font-semibold mt-0.5" style={{ color }}>
+                      <p className="text-sm font-black" style={{ color: theme.title }}>{s.name}</p>
+                      <p className="text-[11px]" style={{ color: theme.sub }}>{s.sub}</p>
+                      <p className="mt-0.5 text-[11px] font-bold" style={{ color: deadlineColor }}>
                         {fmt(s.date)} · {label}
                       </p>
                     </div>
@@ -450,14 +458,14 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Upcoming Birthdays */}
-          <Card className="border border-gray-100 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]">
-            <CardHeader className="pb-2 pt-4 px-5">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
-                <div className="bg-pink-100 p-1.5 rounded-lg">
-                  <Cake className="w-3.5 h-3.5 text-pink-600" />
+          <Card className="overflow-hidden border-slate-200 bg-white py-0 transition hover:-translate-y-0.5 hover:shadow-lg">
+            <CardHeader className="border-b border-slate-100 bg-white px-5 py-4">
+              <CardTitle className="flex items-center gap-2 text-sm font-bold !text-[var(--brand-ink)]">
+                <div className="rounded-lg bg-blue-50 p-1.5">
+                  <Cake className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                 </div>
                 Upcoming Birthdays
-                <Badge className="ml-auto bg-pink-100 text-pink-700 border-0 text-xs font-bold">
+                <Badge className="ml-auto border-0 bg-blue-50 text-[var(--brand-primary)]">
                   {upcomingBirthdays.length}
                 </Badge>
               </CardTitle>
@@ -476,8 +484,8 @@ export default async function DashboardPage() {
                       (nextBirthday.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
                     )
                     return (
-                      <div key={emp.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-pink-50 transition-colors">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm">
+                      <div key={emp.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#f7f7f7] transition-colors">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-[var(--brand-primary)] shadow-sm ring-1 ring-blue-100">
                           {emp.firstName[0]}{emp.lastName[0]}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -487,7 +495,7 @@ export default async function DashboardPage() {
                           <p className="text-xs text-gray-400 truncate">{emp.position?.title || '—'}</p>
                         </div>
                         {isToday ? (
-                          <Badge className="bg-pink-500 text-white border-0 text-xs shrink-0">Today!</Badge>
+                          <Badge className="border-0 bg-[var(--brand-highlight)] text-black">Today!</Badge>
                         ) : (
                           <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap bg-gray-50 px-2 py-0.5 rounded-full">
                             {daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil}d`}
@@ -502,14 +510,14 @@ export default async function DashboardPage() {
           </Card>
 
           {/* Upcoming Holidays */}
-          <Card className="border border-gray-100 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]">
-            <CardHeader className="pb-2 pt-4 px-5">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
-                <div className="bg-blue-50 p-1.5 rounded-lg">
-                  <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
+          <Card className="overflow-hidden border-slate-200 bg-white py-0 transition hover:-translate-y-0.5 hover:shadow-lg">
+            <CardHeader className="border-b border-slate-100 bg-white px-5 py-4">
+              <CardTitle className="flex items-center gap-2 text-sm font-bold !text-[var(--brand-ink)]">
+                <div className="rounded-lg bg-cyan-50 p-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-cyan-600" />
                 </div>
                 Upcoming Holidays
-                <Badge className="ml-auto bg-blue-50 text-blue-700 border-0 text-xs font-bold">
+                <Badge className="ml-auto border-0 bg-cyan-50 text-cyan-700">
                   {upcomingHolidays.length}
                 </Badge>
               </CardTitle>
@@ -529,7 +537,7 @@ export default async function DashboardPage() {
                     )
                     return (
                       <div key={holiday.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-blue-50 transition-colors">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#032b63] to-primary flex flex-col items-center justify-center shrink-0 shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-[var(--brand-primary)] flex flex-col items-center justify-center shrink-0 shadow-sm">
                           <span className="text-[9px] font-bold text-white/70 uppercase leading-none">
                             {hDate.toLocaleDateString('en-PH', { month: 'short' })}
                           </span>
@@ -541,7 +549,7 @@ export default async function DashboardPage() {
                             className={`mt-0.5 text-[10px] border-0 px-1.5 py-0 h-4 ${
                               holiday.type === 'REGULAR'
                                 ? 'bg-red-100 text-red-600'
-                                : 'bg-blue-100 text-blue-600'
+                                : 'bg-blue-50 text-[var(--brand-primary)]'
                             }`}
                           >
                             {holiday.type === 'REGULAR' ? 'Regular' : 'Special'}
@@ -559,14 +567,14 @@ export default async function DashboardPage() {
           </Card>
 
           {/* On Leave Today */}
-          <Card className="border border-gray-100 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]">
-            <CardHeader className="pb-2 pt-4 px-5">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-700">
-                <div className="bg-orange-50 p-1.5 rounded-lg">
-                  <PlaneTakeoff className="w-3.5 h-3.5 text-orange-500" />
+          <Card className="overflow-hidden border-slate-200 bg-white py-0 transition hover:-translate-y-0.5 hover:shadow-lg">
+            <CardHeader className="border-b border-slate-100 bg-white px-5 py-4">
+              <CardTitle className="flex items-center gap-2 text-sm font-bold !text-[var(--brand-ink)]">
+                <div className="rounded-lg bg-blue-50 p-1.5">
+                  <PlaneTakeoff className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                 </div>
                 On Leave Today
-                <Badge className="ml-auto bg-orange-100 text-orange-700 border-0 text-xs font-bold">
+                <Badge className="ml-auto border-0 bg-blue-50 text-[var(--brand-primary)]">
                   {onLeaveToday.length}
                 </Badge>
               </CardTitle>
@@ -580,8 +588,8 @@ export default async function DashboardPage() {
               ) : (
                 <div className="space-y-1">
                   {onLeaveToday.map((leave) => (
-                    <div key={leave.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-orange-50 transition-colors">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm">
+                    <div key={leave.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#d4d4d4]/20 transition-colors">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-[var(--brand-primary)] shadow-sm ring-1 ring-blue-100">
                         {leave.employee.firstName[0]}{leave.employee.lastName[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -590,7 +598,7 @@ export default async function DashboardPage() {
                         </p>
                         <p className="text-xs text-gray-400 truncate">{leave.employee.position?.title || '—'}</p>
                       </div>
-                      <Badge className="bg-orange-100 text-orange-700 border-0 text-xs shrink-0">
+                      <Badge className="border-0 bg-blue-50 text-[var(--brand-primary)]">
                         {leave.leaveType.name}
                       </Badge>
                     </div>
@@ -627,7 +635,7 @@ function TaskStat({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:border-gray-200 hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
+      className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,21,25,0.04)] transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-[0_6px_18px_rgba(11,111,251,0.10)]"
     >
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ${bg} ${ring} ${accent}`}>
         {icon}

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -448,7 +448,7 @@ export function OffboardingTab() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="bg-gradient-to-br from-primary to-[#032b63] px-8 py-10 text-center">
+          <div className="bg-gradient-to-br from-primary to-[#000000] px-8 py-10 text-center">
             <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-white" />
             </div>
@@ -473,7 +473,7 @@ export function OffboardingTab() {
             <Link
               href="/settings/billing"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #021e47, #032b63)' }}
+              style={{ background: 'linear-gradient(135deg, #000000, #000000)' }}
             >
               Upgrade to Pro
             </Link>
@@ -598,7 +598,7 @@ export function OffboardingTab() {
                         className="h-full rounded-full transition-all"
                         style={{
                           width: `${pct}%`,
-                          background: pct === 100 ? '#22c55e' : '#ff5900',
+                          background: pct === 100 ? '#22c55e' : 'var(--brand-highlight)',
                         }}
                       />
                     </div>
@@ -1377,7 +1377,7 @@ function DetailPanel({
                   width: `${pct}%`,
                   background: pct === 100
                     ? 'linear-gradient(90deg, #16a34a, #22c55e)'
-                    : 'linear-gradient(90deg, #ff5900, #fb923c)',
+                    : 'linear-gradient(90deg, var(--brand-highlight), #343434)',
                 }}
               />
             </div>

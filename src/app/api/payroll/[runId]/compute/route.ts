@@ -519,13 +519,11 @@ export async function POST(
   // When overtime is disabled for the company, ignore any APPROVED OT
   // requests for this period — they shouldn't pay out and shouldn't appear
   // as overtime hours on the enhanced DTR rows either.
-  const approvedOtMap = overtimeEnabled
-    ? await getApprovedOtHoursMap({
-        companyId: scopedCompanyId,
-        dateFrom: run.periodStart,
-        dateTo: run.periodEnd,
-      })
-    : new Map<string, number>()
+  const approvedOtMap = await getApprovedOtHoursMap({
+    companyId: scopedCompanyId,
+    dateFrom: run.periodStart,
+    dateTo: run.periodEnd,
+  })
 
   // ── Build payslip input data for each employee ─────────────────────────────
   type PayslipBuildItem = {
@@ -709,7 +707,7 @@ export async function POST(
       }
     }
 
-    const regularOtHours = overtimeEnabled ? regularOtHoursRaw : 0
+    const regularOtHours = (overtimeEnabled || emp.overtimePayOverride) ? regularOtHoursRaw : 0
     const nightDiffHours = nightDifferentialEnabled ? nightDiffHoursRaw : 0
     const lateMinutes = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + (d.lateMinutes ?? 0), 0)

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { Trash2 } from 'lucide-react'
 
 export function EmployeeDeleteButton({ employeeId }: { employeeId: string }) {
   const [open, setOpen] = useState(false)
@@ -32,11 +33,17 @@ export function EmployeeDeleteButton({ employeeId }: { employeeId: string }) {
 
   return (
     <>
-      <Button size="sm" variant="destructive" onClick={() => { setConfirmText(''); setOpen(true) }}>
-        Delete
+      <Button
+        size="icon-sm"
+        variant="destructive"
+        aria-label="Delete employee"
+        title="Delete employee"
+        onClick={() => { setConfirmText(''); setOpen(true) }}
+      >
+        <Trash2 className="h-4 w-4" />
       </Button>
       {open && portalTarget && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <Card className="relative w-full max-w-md border-red-200 shadow-2xl">
             <CardHeader>

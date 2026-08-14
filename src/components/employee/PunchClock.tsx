@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
@@ -867,7 +867,7 @@ export function PunchClock() {
       {desktopRequired && (
         <div
           className="rounded-2xl px-4 py-4 flex items-start gap-3 border"
-          style={{ background: '#fff7ed', borderColor: '#fed7aa' }}
+          style={{ background: '#f7f7f7', borderColor: '#d4d4d4' }}
         >
           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: 'rgba(249,115,22,0.12)' }}>
             <Monitor className="w-4 h-4 text-orange-500" />
@@ -882,7 +882,7 @@ export function PunchClock() {
                 href={process.env.NEXT_PUBLIC_DESKTOP_APP_URL}
                 download
                 className="inline-flex items-center gap-1.5 mt-2.5 text-xs font-semibold text-white rounded-lg px-3 py-1.5 no-underline"
-                style={{ background: '#021e47' }}
+                style={{ background: 'var(--brand-primary)' }}
               >
                 <Monitor className="w-3.5 h-3.5" />
                 Download OnClock Desktop
@@ -935,7 +935,7 @@ export function PunchClock() {
               screenCaptureBlocked ? 'text-red-500'
               : screenCaptureUnavailable ? 'text-amber-500'
               : isClockedIn && lastCapturedAt ? 'text-green-600'
-              : 'text-[#032b63]'
+              : 'text-[#000000]'
             }`} />
             <div className="flex-1 min-w-0">
               <p className={`font-semibold ${
@@ -997,7 +997,7 @@ export function PunchClock() {
           ) : null}
           <label
             className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
-            style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63' }}
+            style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
           >
             Capture Selfie
             <input
@@ -1015,7 +1015,7 @@ export function PunchClock() {
       {geofence?.enabled && geofence.configured && geoPos && geofenceStatus?.inside && (
         <div
           className="rounded-2xl px-4 py-2.5 text-xs font-semibold flex items-center gap-2"
-          style={{ background: 'rgba(46,65,86,0.12)', color: '#021e47' }}
+          style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
         >
           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#0055d4' }} />
           {`Inside allowed zone (${geofenceStatus.dist}m from office)`}
@@ -1090,9 +1090,9 @@ export function PunchClock() {
         {loading && !record ? (
           <div
             className="w-36 h-36 sm:w-40 sm:h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
-            style={{ background: 'rgba(46,65,86,0.12)', color: '#021e47' }}
+            style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
           >
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#032b63' }} />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#000000' }} />
             Loading...
           </div>
         ) : clockStep === 0 ? (
@@ -1107,7 +1107,7 @@ export function PunchClock() {
                fingerprint mark, soft glow. */
             className={`w-[132px] h-[132px] rounded-full text-white text-[11px] font-black tracking-[0.15em] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
-              background: 'linear-gradient(145deg, #ff5900, #e04e00)',
+              background: 'linear-gradient(145deg, var(--brand-primary), var(--brand-highlight))',
               boxShadow: '0 14px 34px rgba(255,89,0,0.30)',
             }}
           >
@@ -1202,7 +1202,7 @@ export function PunchClock() {
           <span className="text-xs font-bold text-slate-500">
             {isOnBreak ? 'On break' : 'Running'}
           </span>
-          <span className="text-sm font-black tabular-nums" style={{ color: '#032b63' }}>
+          <span className="text-sm font-black tabular-nums" style={{ color: '#000000' }}>
             {elapsedLabel}
           </span>
         </div>
@@ -1230,8 +1230,8 @@ export function PunchClock() {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" style={{ color: '#032b63' }} />
-              <p className="text-sm font-bold" style={{ color: '#032b63' }}>Current Location</p>
+              <MapPin className="w-4 h-4" style={{ color: '#000000' }} />
+              <p className="text-sm font-bold" style={{ color: '#000000' }}>Current Location</p>
             </div>
             <button
               onClick={requestLocation}
@@ -1239,7 +1239,7 @@ export function PunchClock() {
               aria-label="Refresh location"
               title="Refresh location"
               className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-50"
-              style={{ background: 'rgba(46,65,86,0.12)', color: '#032b63' }}
+              style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
             >
               <RefreshCw className={`w-4 h-4 ${geoLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -1254,7 +1254,7 @@ export function PunchClock() {
             )}
 
             {geoLoading && !geoPos ? (
-              <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: '#f8fafc' }}>
+              <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: '#f7f7f7' }}>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                 <p className="text-xs text-slate-500 font-medium">Getting current location...</p>
               </div>
@@ -1265,7 +1265,7 @@ export function PunchClock() {
                  employee actually checks before punching; the map is only
                  needed when that address looks wrong. */
               <div>
-                <div className="rounded-xl px-3 py-2.5" style={{ background: '#f8fafc' }}>
+                <div className="rounded-xl px-3 py-2.5" style={{ background: '#f7f7f7' }}>
                   {/* Reverse-geocoded PH addresses run long — clamp to two
                       lines so the card height stays predictable. The full text
                       stays in the title attribute. */}
@@ -1280,7 +1280,7 @@ export function PunchClock() {
                       type="button"
                       onClick={() => setShowMap(v => !v)}
                       className="inline-flex items-center gap-1 text-[11px] font-black"
-                      style={{ color: '#032b63' }}
+                      style={{ color: '#000000' }}
                       aria-expanded={showMap}
                     >
                       <MapPin className="w-3 h-3" />
@@ -1303,7 +1303,7 @@ export function PunchClock() {
                 )}
               </div>
             ) : (
-              <div className="rounded-xl px-3 py-2.5 text-xs text-slate-500" style={{ background: '#f8fafc' }}>
+              <div className="rounded-xl px-3 py-2.5 text-xs text-slate-500" style={{ background: '#f7f7f7' }}>
                 Location not available yet.
               </div>
             )}
@@ -1364,13 +1364,13 @@ export function PunchClock() {
             <div className="px-6 pt-7 pb-5 text-center">
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: isRestDayMessage ? '#eff6ff' : '#fff7ed' }}
+                style={{ background: isRestDayMessage ? '#eff6ff' : '#f7f7f7' }}
               >
                 {isRestDayMessage
                   ? <CalendarDays className="w-7 h-7" style={{ color: '#2563eb' }} />
-                  : <AlertCircle className="w-7 h-7" style={{ color: '#ea580c' }} />}
+                  : <AlertCircle className="w-7 h-7" style={{ color: '#343434' }} />}
               </div>
-              <h2 id="schedule-dialog-title" className="text-lg font-black" style={{ color: '#032b63' }}>
+              <h2 id="schedule-dialog-title" className="text-lg font-black" style={{ color: '#000000' }}>
                 {isRestDayMessage ? 'Today is your rest day' : 'No schedule set'}
               </h2>
               <p className="text-sm text-slate-500 mt-2 leading-relaxed">
@@ -1388,7 +1388,7 @@ export function PunchClock() {
                 type="button"
                 onClick={() => setScheduleDialogOpen(false)}
                 className="w-full py-3.5 rounded-2xl text-sm font-black text-white active:scale-[0.98] transition-transform"
-                style={{ background: 'linear-gradient(135deg, #032b63, #1b6a6e)' }}
+                style={{ background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-highlight))' }}
               >
                 Got it
               </button>

@@ -1,4 +1,4 @@
-﻿import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -25,7 +25,7 @@ function statusBadge(status: string) {
     PENDING:   { background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' },
     APPROVED:  { background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' },
     REJECTED:  { background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' },
-    CANCELLED: { background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' },
+    CANCELLED: { background: '#f7f7f7', color: '#666666', border: '1px solid #d4d4d4' },
   }
   return (
     <span
@@ -148,7 +148,7 @@ export default async function BudgetRequisitionsAdminPage({
               variant={(status === s.value || (!status && !s.value)) ? 'default' : 'outline'}
               size="sm"
               style={status === s.value || (!status && !s.value)
-                ? { background: '#ff5900', color: '#fff', borderColor: '#ff5900' }
+                ? { background: 'var(--brand-highlight)', color: '#fff', borderColor: 'var(--brand-highlight)' }
                 : {}}
             >
               {s.label}

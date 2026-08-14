@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 type Status = 'PENDING_PAIRING' | 'ACTIVE' | 'DISABLED' | 'REVOKED'
 
@@ -131,7 +132,7 @@ export default function BiometricDevicesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Biometric Terminals</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Biometric Terminals</h1>
           <p className="text-slate-500 text-sm mt-1">Fingerprint clock-in/out kiosks for your workplace.</p>
         </div>
         <Card>
@@ -157,21 +158,21 @@ export default function BiometricDevicesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#032b63' }}>Biometric Terminals</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Biometric Terminals</h1>
           <p className="text-slate-500 text-sm mt-1">
             Manage Raspberry-Pi-based fingerprint clock-in/out kiosks. Generate a 6-digit pair code, type it on the kiosk once, and the device is permanently bonded to your company.
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)} style={{ background: '#ff5900' }}>
+        <Button onClick={() => setShowCreate(true)} style={{ background: 'var(--brand-highlight)' }}>
           <Plus className="w-4 h-4 mr-2" /> Add Device
         </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Total devices</p><p className="text-2xl font-bold" style={{ color: '#032b63' }}>{summary.total}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Active</p><p className="text-2xl font-bold text-green-700">{summary.active}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Online now</p><p className="text-2xl font-bold text-blue-700">{summary.online}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Awaiting pair</p><p className="text-2xl font-bold text-amber-700">{summary.pending}</p></CardContent></Card>
+        <KpiCard label="Total devices" value={summary.total} icon={<Fingerprint className="h-5 w-5" />} />
+        <KpiCard label="Active" value={summary.active} icon={<Fingerprint className="h-5 w-5" />} />
+        <KpiCard label="Online now" value={summary.online} icon={<Wifi className="h-5 w-5" />} />
+        <KpiCard label="Awaiting pair" value={summary.pending} icon={<ScanLine className="h-5 w-5" />} />
       </div>
 
       {showCreate && (
@@ -191,7 +192,7 @@ export default function BiometricDevicesPage() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={createDevice} disabled={creating} style={{ background: '#ff5900' }}>
+              <Button onClick={createDevice} disabled={creating} style={{ background: 'var(--brand-highlight)' }}>
                 {creating ? 'Generating…' : 'Generate Pair Code'}
               </Button>
               <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>

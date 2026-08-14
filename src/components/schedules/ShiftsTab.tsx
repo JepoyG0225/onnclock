@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -34,12 +34,12 @@ const SCHEDULE_TYPE_LABELS: Record<string, string> = {
 }
 
 const CARD_COLORS = [
-  { bg: '#fff3ec', border: '#ff5900', text: '#c44d00' },
-  { bg: '#eef2f7', border: '#032b63', text: '#021e47' },
-  { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' },
-  { bg: '#fdf4ff', border: '#9333ea', text: '#7e22ce' },
-  { bg: '#fffbeb', border: '#d97706', text: '#b45309' },
-  { bg: '#f0f9ff', border: '#0284c7', text: '#0369a1' },
+  { bg: '#eff6ff', border: '#60a5fa', text: '#1d4ed8' },
+  { bg: '#ecfeff', border: '#22d3ee', text: '#0e7490' },
+  { bg: '#eef2ff', border: '#818cf8', text: '#4338ca' },
+  { bg: '#f0f9ff', border: '#38bdf8', text: '#0369a1' },
+  { bg: '#f8fafc', border: '#94a3b8', text: '#475569' },
+  { bg: '#eaf8fe', border: 'var(--brand-highlight)', text: '#087ea4' },
 ]
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -509,7 +509,7 @@ function ShiftTemplateModal({
 
           {/* Live preview */}
           {form.timeIn && form.timeOut && (
-            <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#fff3ec', borderColor: '#ff5900', color: '#c44d00' }}>
+            <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#eff6ff', borderColor: 'var(--brand-primary)', color: '#1d4ed8' }}>
               <p className="font-bold">{fmt12(form.timeIn)} - {fmt12(form.timeOut)}</p>
               <p className="text-[11px] opacity-70 mt-0.5">{form.timeIn} - {form.timeOut}{form.breakMinutes ? ` - ${form.breakMinutes}m break` : ''}</p>
             </div>
@@ -543,7 +543,7 @@ function ShiftTemplateModal({
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-bold text-white"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {saving ? 'Saving...' : initial ? 'Update' : 'Add Shift'}
             </button>
@@ -765,8 +765,8 @@ function FlexibleScheduleTab({
           </div>
           <button
             onClick={() => setShiftModal({ mode: 'create' })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-            style={{ background: '#ff5900' }}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-black"
+            style={{ background: 'var(--brand-highlight)' }}
           >
             <Plus className="w-3.5 h-3.5" /> Add Work Hours
           </button>
@@ -796,7 +796,7 @@ function FlexibleScheduleTab({
                   draggable
                   onDragStart={() => onDragStart(restDayDragId)}
                   className="cursor-grab active:cursor-grabbing select-none rounded-xl border-2 px-4 py-2.5 transition hover:shadow-md"
-                  style={{ background: '#f1f5f9', borderColor: '#94a3b8', color: '#475569' }}
+                  style={{ background: '#eeeeee', borderColor: '#777777', color: '#343434' }}
                 >
                   <p className="font-bold text-sm leading-tight">Day Off</p>
                   <p className="text-[11px] opacity-70 mt-0.5">Drag to set rest day</p>
@@ -885,8 +885,8 @@ function FlexibleScheduleTab({
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[800px]">
               <thead>
-                <tr className="bg-[#0d1b2a] text-white">
-                  <th className="text-left px-4 py-3 font-semibold text-xs w-44 sticky left-0 bg-[#0d1b2a] z-10">
+                <tr className="bg-[var(--brand-primary)] text-white">
+                  <th className="sticky left-0 z-10 w-44 bg-[var(--brand-primary)] px-4 py-3 text-left text-xs font-semibold">
                     Employee
                   </th>
                   {weekDays.map(d => {
@@ -945,7 +945,7 @@ function FlexibleScheduleTab({
                       return (
                         <td
                           key={ds}
-                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-orange-50/40' : ''} ${isDragOver ? 'bg-orange-100/60 ring-2 ring-accent ring-inset rounded-lg' : ''}`}
+                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-blue-50' : ''} ${isDragOver ? 'bg-blue-100 ring-2 ring-[var(--brand-primary)] ring-inset rounded-lg' : ''}`}
                           onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
                           onDragLeave={() => setDragOverCell(null)}
                           onDrop={() => onDrop(emp.id, ds)}
@@ -960,10 +960,10 @@ function FlexibleScheduleTab({
                                   className={`group rounded-lg pl-2 pr-5 py-1.5 cursor-pointer relative text-center ${asgn.id.startsWith('temp-') ? 'opacity-80 animate-pulse' : ''}`}
                                   style={
                                     asgn.isRestDay
-                                      ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
+                                      ? { background: '#eeeeee', border: '1px solid #d4d4d4' }
                                       : col
                                       ? { background: col.bg, border: `1px solid ${col.border}` }
-                                      : { background: '#fff3ec', border: '1px solid #ff5900' }
+                                      : { background: '#eff6ff', border: '1px solid var(--brand-primary)' }
                                   }
                                   onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: asgn })}
                                 >
@@ -974,11 +974,11 @@ function FlexibleScheduleTab({
                                     </div>
                                   ) : (
                                     <>
-                                      <p className="text-[10px] font-bold leading-tight" style={{ color: col?.text ?? '#c44d00' }}>
+                                      <p className="text-[10px] font-bold leading-tight" style={{ color: col?.text ?? '#000000' }}>
                                         {fmt12(asgn.timeIn)} - {fmt12(asgn.timeOut)}
                                       </p>
                                       {asgn.id.startsWith('temp-') && (
-                                        <p className="text-[9px] opacity-60 mt-0.5" style={{ color: col?.text ?? '#c44d00' }}>Saving...</p>
+                                        <p className="text-[9px] opacity-60 mt-0.5" style={{ color: col?.text ?? '#000000' }}>Saving...</p>
                                       )}
                                     </>
                                   )}
@@ -1004,10 +1004,10 @@ function FlexibleScheduleTab({
                                 className="rounded-lg pl-2 pr-5 py-1.5 cursor-pointer text-center relative"
                                 style={
                                   !templateIsWorkDay
-                                    ? { background: '#f1f5f9', border: '1px solid #cbd5e1' }
+                                    ? { background: '#eeeeee', border: '1px solid #d4d4d4' }
                                     : fixedTemplate?.id
-                                      ? { background: colorMap.get(fixedTemplate.id)?.bg ?? '#fff3ec', border: `1px solid ${colorMap.get(fixedTemplate.id)?.border ?? '#ff5900'}` }
-                                      : { background: '#fff3ec', border: '1px solid #ff5900' }
+                                      ? { background: colorMap.get(fixedTemplate.id)?.bg ?? '#eff6ff', border: `1px solid ${colorMap.get(fixedTemplate.id)?.border ?? 'var(--brand-primary)'}` }
+                                      : { background: '#eff6ff', border: '1px solid var(--brand-primary)' }
                                 }
                                 onClick={() => setModal({ employeeId: emp.id, employeeName: fullName(emp), fixedScheduleId: emp.workScheduleId, date: ds, existing: null })}
                               >
@@ -1017,7 +1017,7 @@ function FlexibleScheduleTab({
                                     <span className="text-[10px] font-semibold text-slate-500">Rest Day</span>
                                   </div>
                                 ) : (
-                                  <p className="text-[10px] font-bold leading-tight" style={{ color: colorMap.get(fixedTemplate?.id ?? '')?.text ?? '#c44d00' }}>
+                                  <p className="text-[10px] font-bold leading-tight" style={{ color: colorMap.get(fixedTemplate?.id ?? '')?.text ?? '#000000' }}>
                                     {fmt12(fixedTemplate?.timeIn)} - {fmt12(fixedTemplate?.timeOut)}
                                   </p>
                                 )}
@@ -1260,7 +1260,7 @@ function AssignmentModal({
                           type="button"
                           onClick={() => applyTemplate(s.id)}
                           className={`rounded-lg border px-2 py-1 text-left text-[10px] transition ${isSelected ? 'ring-2 ring-accent' : 'hover:shadow-sm'}`}
-                          style={{ borderColor: isSelected ? '#ff5900' : col.border, background: col.bg, color: col.text }}
+                          style={{ borderColor: isSelected ? 'var(--brand-highlight)' : col.border, background: col.bg, color: col.text }}
                         >
                           <p className="text-center font-bold text-xs leading-tight">
                             {fmt12(s.timeIn ?? null)} - {fmt12(s.timeOut ?? null)}
@@ -1384,7 +1384,7 @@ function AssignmentModal({
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-bold text-white"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {saving ? 'Saving...' : 'Save Schedule'}
             </button>
@@ -1535,7 +1535,7 @@ export function ShiftsTab() {
               disabled={savingCompanyBreak}
               onClick={applyCompanyBreakSetup}
               className="text-white min-w-[180px] w-auto px-5"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
             >
               {savingCompanyBreak ? 'Saving...' : 'Save Break Setup'}
             </Button>
@@ -1573,7 +1573,7 @@ export function ShiftsTab() {
 
       {/* â”€â”€ Mode hint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {mode === 'FIXED' && (
-        <div className="flex items-start gap-3 rounded-xl bg-[#fff3ec] border border-accent/30 px-4 py-3 text-sm text-[#c44d00]">
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10 px-4 py-3 text-sm text-black">
           <Clock className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Fixed mode</strong> - Assign work hours and weekly day offs per employee.
@@ -1582,7 +1582,7 @@ export function ShiftsTab() {
         </div>
       )}
       {mode === 'FLEXIBLE' && (
-        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[#032b63]/30 px-4 py-3 text-sm text-primary">
+        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[#000000]/30 px-4 py-3 text-sm text-primary">
           <LayoutGrid className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Flexible mode</strong> - Assign specific shifts per employee per day.
@@ -1788,7 +1788,7 @@ function FixedScheduleTabInner({
         <div className="flex flex-wrap gap-2">
           {DAYS.map((label, idx) => (
             <button key={label} type="button" onClick={() => onToggle(idx)}
-              className={`px-2.5 py-1 rounded-full text-xs border transition ${workDays.includes(idx) ? 'bg-[#032b63] text-white border-[#032b63]' : 'bg-white text-gray-600 border-gray-300 hover:border-accent'}`}>
+              className={`px-2.5 py-1 rounded-full text-xs border transition ${workDays.includes(idx) ? 'bg-[#000000] text-white border-[#000000]' : 'bg-white text-gray-600 border-gray-300 hover:border-accent'}`}>
               {label}
             </button>
           ))}
@@ -1826,7 +1826,7 @@ function FixedScheduleTabInner({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-gray-600">Break</label>
-            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[#032b63]' : 'bg-slate-300'}`}>
+            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[#000000]' : 'bg-slate-300'}`}>
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${f.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
             </button>
           </div>
@@ -1890,7 +1890,7 @@ function FixedScheduleTabInner({
             <Button
               size="sm"
               className="text-white"
-              style={{ background: '#ff5900' }}
+              style={{ background: 'var(--brand-highlight)' }}
               onClick={() => {
                 setShowForm(v => !v)
                 if (!showForm) onFormClose()
@@ -1957,7 +1957,7 @@ function FixedScheduleTabInner({
                         />
                         <div className="flex justify-end gap-2">
                           <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditForm(null) }}>Cancel</Button>
-                          <Button size="sm" className="text-white" style={{ background: '#ff5900' }} onClick={() => saveEdit(s.id)} disabled={savingEditId === s.id}>
+                          <Button size="sm" className="text-white" style={{ background: 'var(--brand-highlight)' }} onClick={() => saveEdit(s.id)} disabled={savingEditId === s.id}>
                             {savingEditId === s.id ? 'Saving...' : 'Save'}
                           </Button>
                         </div>
@@ -2026,7 +2026,7 @@ function FixedScheduleTabInner({
                       onClick={() => saveFixedEmployee(emp.id)}
                       disabled={savingFixedEmployeeId === emp.id}
                       className="text-white"
-                      style={{ background: '#ff5900' }}
+                      style={{ background: 'var(--brand-highlight)' }}
                     >
                       {savingFixedEmployeeId === emp.id ? 'Saving...' : 'Save'}
                     </Button>
@@ -2039,14 +2039,14 @@ function FixedScheduleTabInner({
       </Card>
 
       {(showForm || externalShowForm) && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader><CardTitle className="text-sm text-orange-800">New Work Hours</CardTitle></CardHeader>
+        <Card className="border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10">
+          <CardHeader><CardTitle className="text-sm text-black">New Work Hours</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={addSchedule} className="space-y-4">
               <FormFields f={form} onChange={patch => setForm(prev => ({ ...prev, ...patch }))} onToggleDay={d => toggleDay(d, false)} />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); onFormClose() }}>Cancel</Button>
-                <Button type="submit" disabled={saving} className="text-white" style={{ background: '#ff5900' }}>{saving ? 'Adding...' : 'Add Schedule'}</Button>
+                <Button type="submit" disabled={saving} className="text-white" style={{ background: 'var(--brand-highlight)' }}>{saving ? 'Adding...' : 'Add Schedule'}</Button>
               </div>
             </form>
           </CardContent>

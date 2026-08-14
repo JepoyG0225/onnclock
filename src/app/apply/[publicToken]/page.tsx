@@ -203,7 +203,7 @@ export default function PublicApplyPage() {
 
       {/* Company hero (shown when no banner but tagline/description exists) */}
       {!job.company.careerBannerUrl && (job.company.careerTagline || job.company.careerDescription) && (
-        <div className="bg-gradient-to-r from-[#1A2D42] to-[#2a4a6b] text-white">
+        <div className="bg-gradient-to-r from-[#000000] to-[#2a4a6b] text-white">
           <div className="max-w-6xl mx-auto px-4 py-10">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center shrink-0">
@@ -274,7 +274,7 @@ export default function PublicApplyPage() {
             {job.isOpen ? (
               <button
                 onClick={() => setDrawerOpen(true)}
-                className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 transition-colors flex items-center gap-2"
+                className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#000000] hover:bg-[#000000]/90 transition-colors flex items-center gap-2"
               >
                 Apply Now <ArrowRight className="w-4 h-4" />
               </button>
@@ -354,7 +354,7 @@ export default function PublicApplyPage() {
                     className="block rounded-xl border border-slate-200 p-3 hover:border-slate-300 hover:bg-slate-50/70 transition-all group"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-slate-800 group-hover:text-[#1A2D42] leading-snug">{item.title}</p>
+                      <p className="text-sm font-semibold text-slate-800 group-hover:text-[#000000] leading-snug">{item.title}</p>
                       <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     </div>
                     {item.department && <p className="text-xs text-slate-500 mt-1">{item.department}</p>}
@@ -466,7 +466,7 @@ export default function PublicApplyPage() {
                 </p>
                 <button
                   onClick={() => { setDrawerOpen(false); setSubmitted(false) }}
-                  className="mt-4 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90"
+                  className="mt-4 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#000000] hover:bg-[#000000]/90"
                 >
                   Close
                 </button>
@@ -571,7 +571,7 @@ export default function PublicApplyPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white bg-[#1A2D42] hover:bg-[#1A2D42]/90 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white bg-[#000000] hover:bg-[#000000]/90 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
                   >
                     {submitting ? 'Submitting...' : (
                       <>Submit Application <ArrowRight className="w-4 h-4" /></>
