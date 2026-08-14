@@ -301,6 +301,16 @@
     border-color: var(--brand-primary) !important;
     color: #ffffff !important;
   }
+
+  /* Semantic approval state intentionally stays soft green. This must follow
+     the legacy color-normalization rules above, which otherwise turn every
+     green badge into the cyan brand highlight. */
+  [data-slot="badge"].status-approved {
+    background: #dcfce7 !important;
+    border-color: #bbf7d0 !important;
+    color: #15803d !important;
+    --tw-ring-color: #bbf7d0 !important;
+  }
 }
 
 /* Smooth scrolling */
