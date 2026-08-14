@@ -310,9 +310,9 @@ export default function PortalTasksPage() {
       {/* Filter pills */}
       <div className="grid grid-cols-3 gap-2">
         {([
-          { id: 'todo', label: 'To Do' },
-          { id: 'in_progress', label: 'In Progress' },
-          { id: 'done', label: 'Done' },
+          { id: 'todo', label: 'To Do', idle: 'border-amber-200 bg-amber-50 text-amber-700', active: 'border-amber-300 bg-amber-200 text-amber-900 ring-2 ring-amber-100' },
+          { id: 'in_progress', label: 'In Progress', idle: 'border-blue-200 bg-blue-50 text-blue-700', active: 'border-blue-300 bg-blue-200 text-blue-900 ring-2 ring-blue-100' },
+          { id: 'done', label: 'Done', idle: 'border-emerald-200 bg-emerald-50 text-emerald-700', active: 'border-emerald-300 bg-emerald-200 text-emerald-900 ring-2 ring-emerald-100' },
         ] as const).map(f => (
           <button
             key={f.id}
@@ -320,9 +320,8 @@ export default function PortalTasksPage() {
             onClick={() => setFilter(f.id)}
             className={cn(
               'min-w-0 truncate text-[11px] font-black px-2 py-2 rounded-full border transition-colors sm:text-[12px]',
-              filter === f.id ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200',
+              filter === f.id ? f.active : f.idle,
             )}
-            style={filter === f.id ? { background: NAVY } : undefined}
           >
             {f.label}
           </button>
