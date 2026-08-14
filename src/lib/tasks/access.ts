@@ -128,6 +128,36 @@ export async function ensureTaskStatuses(companyId: string) {
   return prisma.taskStatus.findMany({ where: { companyId }, orderBy: { order: 'asc' } })
 }
 
+/**
+ * Employees submit completed work into this status for an administrator to
+ * review. Keep it as an IN_PROGRESS category so only an administrator moving
+ * the task into a DONE category records final completion.
+ */
+export async function ensureTaskReviewStatus(companyId: string) {
+  const statuses = await ensureTaskStatuses(companyId)
+  const existing = statuses.find(status => status.name.trim().toLowerCase() === 'in review')
+  if (existing) return existing
+
+  const nextOrder = statuses.reduce((max, status) => Math.max(max, status.order), -1) + 1
+  try {
+    return await prisma.taskStatus.create({
+      data: {
+        companyId,
+        name: 'In Review',
+        color: '#8b5cf6',
+        category: 'IN_PROGRESS',
+        isDefault: false,
+        order: nextOrder,
+      },
+    })
+  } catch {
+    // A concurrent request may have created it after the initial read.
+    const raced = await prisma.taskStatus.findFirst({ where: { companyId, name: 'In Review' } })
+    if (raced) return raced
+    throw new Error('Could not configure the task review status')
+  }
+}
+
 /** The status new tasks land in: the flagged default, else the first one. */
 export async function defaultStatusId(companyId: string): Promise<string | null> {
   const statuses = await ensureTaskStatuses(companyId)

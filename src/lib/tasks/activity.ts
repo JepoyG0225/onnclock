@@ -18,6 +18,7 @@ export type TaskAction =
   | 'priority_changed'
   | 'due_changed'
   | 'completed'
+  | 'submitted_for_review'
   | 'reopened'
   | 'commented'
   | 'time_logged'

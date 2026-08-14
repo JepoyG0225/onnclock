@@ -155,10 +155,12 @@ export function PortalTaskDetailDialog({
     const nextStatus = statuses.find(status => status.id === statusId)
     if (!nextStatus || !task || task.status.id === statusId) return
     const previousStatus = task.status
+    const reviewStatus = statuses.find(status => status.name.trim().toLowerCase() === 'in review')
+    const optimisticStatus = nextStatus.category === 'DONE' ? (reviewStatus ?? nextStatus) : nextStatus
 
     // Update the visible status immediately while persistence happens in the
     // background. This keeps the status buttons and header in sync instantly.
-    setTask(current => current ? { ...current, status: nextStatus } : current)
+    setTask(current => current ? { ...current, status: optimisticStatus } : current)
     setUpdatingStatus(true)
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
@@ -168,8 +170,11 @@ export function PortalTaskDetailDialog({
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error || 'Could not update task status')
+      if (data?.task?.status) {
+        setTask(current => current ? { ...current, status: data.task.status } : current)
+      }
       onChanged()
-      toast.success('Task status updated')
+      toast.success(data?.submittedForReview ? 'Task submitted for admin review' : 'Task status updated')
     } catch (err) {
       setTask(current => current ? { ...current, status: previousStatus } : current)
       toast.error(err instanceof Error ? err.message : 'Could not update task status')
@@ -227,7 +232,7 @@ export function PortalTaskDetailDialog({
                       ) ?? categoryStatuses[0]
                       if (!status) return null
                       const active = task.status.category === category
-                      const label = category === 'TODO' ? 'To Do' : category === 'IN_PROGRESS' ? 'In Progress' : 'Done'
+                      const label = category === 'TODO' ? 'To Do' : category === 'IN_PROGRESS' ? 'In Progress' : 'Submit for Review'
                       return (
                         <button
                           key={category}
@@ -296,9 +301,9 @@ export function PortalTaskDetailDialog({
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
                           <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${percent}%` }} />
+                            <div className="h-full rounded-full bg-[var(--brand-primary)] transition-all" style={{ width: `${percent}%` }} />
                           </div>
-                          <span className="text-xs font-black tabular-nums text-slate-500">{percent}%</span>
+                          <span className="text-xs font-black tabular-nums text-[var(--brand-primary)]">{percent}%</span>
                         </div>
                         <div className="space-y-2">
                           {task.checklist.map(item => (

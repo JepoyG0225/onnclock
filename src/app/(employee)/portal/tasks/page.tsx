@@ -90,14 +90,14 @@ function ProgressRing({ done, total, isDone }: { done: number; total: number; is
         <circle cx="20" cy="20" r={r} fill="none" stroke="#d4d4d4" strokeWidth="4" />
         <circle
           cx="20" cy="20" r={r} fill="none"
-          stroke={isDone ? '#10b981' : TEAL}
+          stroke="var(--brand-primary)"
           strokeWidth="4"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c - (c * pct) / 100}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-slate-700">
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-[var(--brand-primary)]">
         {pct}%
       </span>
     </div>
@@ -150,24 +150,40 @@ export default function PortalTasksPage() {
     [statuses],
   )
   const progressStatus = useMemo(() => statuses.find(s => s.category === 'IN_PROGRESS'), [statuses])
+  const reviewStatus   = useMemo(
+    () => statuses.find(s => s.name.trim().toLowerCase() === 'in review'),
+    [statuses],
+  )
 
   async function setStatus(task: TaskRow, statusId: string) {
     if (!statusId || statusId === task.statusId) return
     setSavingId(task.id)
     const previous = tasks
     const next = statuses.find(s => s.id === statusId)
-    if (next) setTasks(ts => ts.map(t => (t.id === task.id ? { ...t, statusId, status: next } : t)))
+    const optimisticStatus = next?.category === 'DONE' ? (reviewStatus ?? next) : next
+    if (optimisticStatus) {
+      setTasks(ts => ts.map(t => (t.id === task.id
+        ? { ...t, statusId: optimisticStatus.id, status: optimisticStatus }
+        : t)))
+    }
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ statusId }),
       })
+      const body = await res.json().catch(() => null)
       if (!res.ok) {
-        const body = await res.json().catch(() => null)
         throw new Error(body?.error || 'Could not update task')
       }
-      toast.success(next?.category === 'DONE' ? 'Task completed' : `Moved to ${next?.name}`)
+      if (body?.task?.status) {
+        setTasks(current => current.map(item => item.id === task.id ? {
+          ...item,
+          ...body.task,
+          status: body.task.status,
+        } : item))
+      }
+      toast.success(body?.submittedForReview ? 'Task submitted for admin review' : `Moved to ${body?.task?.status?.name ?? next?.name}`)
     } catch (err) {
       setTasks(previous)
       toast.error(err instanceof Error ? err.message : 'Could not update task')
@@ -310,22 +326,32 @@ export default function PortalTasksPage() {
       {/* Filter pills */}
       <div className="grid grid-cols-3 gap-2">
         {([
-          { id: 'todo', label: 'To Do', idle: 'border-amber-200 bg-amber-50 text-amber-700', active: 'border-amber-300 bg-amber-200 text-amber-900 ring-2 ring-amber-100' },
-          { id: 'in_progress', label: 'In Progress', idle: 'border-blue-200 bg-blue-50 text-blue-700', active: 'border-blue-300 bg-blue-200 text-blue-900 ring-2 ring-blue-100' },
-          { id: 'done', label: 'Done', idle: 'border-emerald-200 bg-emerald-50 text-emerald-700', active: 'border-emerald-300 bg-emerald-200 text-emerald-900 ring-2 ring-emerald-100' },
-        ] as const).map(f => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              'min-w-0 truncate text-[11px] font-black px-2 py-2 rounded-full border transition-colors sm:text-[12px]',
-              filter === f.id ? f.active : f.idle,
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+          { id: 'todo', label: 'To Do', category: 'TODO' },
+          { id: 'in_progress', label: 'In Progress', category: 'IN_PROGRESS' },
+          { id: 'done', label: 'Done', category: 'DONE' },
+        ] as const).map(f => {
+          const categoryStatuses = statuses.filter(status => status.category === f.category)
+          const status = categoryStatuses.find(item =>
+            f.category === 'TODO'
+              ? item.isDefault
+              : item.name.toLowerCase() === (f.category === 'IN_PROGRESS' ? 'in progress' : 'done'),
+          ) ?? categoryStatuses[0]
+          const active = filter === f.id
+          return (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                'min-w-0 truncate text-[11px] font-black px-2 py-2 rounded-xl border transition-colors sm:text-[12px]',
+                active ? 'border-transparent text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+              )}
+              style={active && status ? { background: status.color } : undefined}
+            >
+              {f.label}
+            </button>
+          )
+        })}
         {selectedDay !== null && (
           <button
             type="button"
@@ -388,7 +414,9 @@ export default function PortalTasksPage() {
             const saving = savingId === task.id
             const pri = PRIORITY_STYLE[task.priority]
             const overdue = !isDone && task.dueDate && dayKey(new Date(task.dueDate)) < todayKey
-            const toggleTarget = isDone ? (startStatus?.id ?? '') : (doneStatus?.id ?? '')
+            const toggleTarget = isDone
+              ? (startStatus?.id ?? '')
+              : (reviewStatus?.id ?? doneStatus?.id ?? '')
             return (
               <div
                 key={task.id}
@@ -424,7 +452,7 @@ export default function PortalTasksPage() {
                     onClick={event => { event.stopPropagation(); void setStatus(task, toggleTarget) }}
                     onKeyDown={event => event.stopPropagation()}
                     className="shrink-0 mt-0.5 disabled:opacity-40"
-                    aria-label={isDone ? 'Mark as not done' : 'Mark as done'}
+                    aria-label={isDone ? 'Mark as not done' : 'Submit for admin review'}
                   >
                     {saving ? <Loader2 className="w-[22px] h-[22px] text-slate-400 animate-spin" />
                       : isDone ? <CheckCircle2 className="w-[22px] h-[22px] text-emerald-500" />

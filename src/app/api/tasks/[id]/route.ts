@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { guardTask } from '@/lib/tasks/guard'
 import { logTaskActivity, notifyTaskAssigned } from '@/lib/tasks/activity'
-import { taskKey } from '@/lib/tasks/access'
+import { ensureTaskReviewStatus, taskKey } from '@/lib/tasks/access'
 import { TASK_LIST_INCLUDE, EMPLOYEE_BRIEF_SELECT, shapeTask } from '@/lib/tasks/select'
 
 const patchSchema = z.object({
@@ -113,14 +113,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Status category is what decides completion, so the board stays the single
   // source of truth for task state.
+  let effectiveStatusId = d.statusId
+  let submittedForReview = false
   let completedAt: Date | null | undefined
   let movedToDone = false
   if (d.statusId && d.statusId !== before.statusId) {
-    const status = await prisma.taskStatus.findFirst({
+    let status = await prisma.taskStatus.findFirst({
       where: { id: d.statusId, companyId },
       select: { id: true, category: true },
     })
     if (!status) return NextResponse.json({ error: 'Status not found' }, { status: 400 })
+
+    // Employees can finish their work, but an administrator must approve the
+    // completion. Enforce this here so a direct API request cannot bypass the
+    // review step used by the employee portal.
+    if (status.category === 'DONE' && !guard.actor.canManage) {
+      const reviewStatus = await ensureTaskReviewStatus(companyId)
+      effectiveStatusId = reviewStatus.id
+      status = { id: reviewStatus.id, category: reviewStatus.category }
+      submittedForReview = true
+    }
     movedToDone = status.category === 'DONE'
     completedAt = movedToDone ? before.completedAt ?? new Date() : null
   }
@@ -145,7 +157,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data: {
         ...(d.title !== undefined ? { title: d.title } : {}),
         ...(d.description !== undefined ? { description: d.description } : {}),
-        ...(d.statusId !== undefined ? { statusId: d.statusId } : {}),
+        ...(effectiveStatusId !== undefined ? { statusId: effectiveStatusId } : {}),
         ...(d.priority !== undefined ? { priority: d.priority } : {}),
         ...(d.startDate !== undefined ? { startDate: d.startDate ? new Date(d.startDate) : null } : {}),
         ...(d.dueDate !== undefined ? { dueDate: d.dueDate ? new Date(d.dueDate) : null } : {}),
@@ -180,8 +192,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (d.title && d.title !== before.title) {
     await logTaskActivity({ taskId: id, userId: actor, action: 'renamed', meta: { from: before.title, to: d.title } })
   }
-  if (d.statusId && d.statusId !== before.statusId) {
-    await logTaskActivity({ taskId: id, userId: actor, action: movedToDone ? 'completed' : 'moved' })
+  if (effectiveStatusId && effectiveStatusId !== before.statusId) {
+    await logTaskActivity({
+      taskId: id,
+      userId: actor,
+      action: submittedForReview ? 'submitted_for_review' : movedToDone ? 'completed' : 'moved',
+    })
   }
   if (d.priority && d.priority !== before.priority) {
     await logTaskActivity({ taskId: id, userId: actor, action: 'priority_changed', meta: { from: before.priority, to: d.priority } })
@@ -208,7 +224,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const task = await prisma.task.findUnique({ where: { id }, include: TASK_LIST_INCLUDE })
-  return NextResponse.json({ task: task ? shapeTask(task) : null })
+  return NextResponse.json({ task: task ? shapeTask(task) : null, submittedForReview })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
