@@ -1029,10 +1029,10 @@ export async function POST(
     where: { payrollRunId: runId, manualEdits: { not: null as never } },
     select: { employeeId: true, manualEdits: true },
   })
-  const manualEditsByEmployee = new Map<string, Record<string, number>>()
+  const manualEditsByEmployee = new Map<string, Record<string, unknown>>()
   for (const p of priorManualEdits) {
     if (p.manualEdits && typeof p.manualEdits === 'object') {
-      manualEditsByEmployee.set(p.employeeId, p.manualEdits as Record<string, number>)
+      manualEditsByEmployee.set(p.employeeId, p.manualEdits as Record<string, unknown>)
     }
   }
 
@@ -1066,6 +1066,26 @@ export async function POST(
     // to reflect the overrides.
     const manual = manualEditsByEmployee.get(build.employeeId)
     if (manual && Object.keys(manual).length > 0) {
+      const editableFields = [
+        'basicSalary', 'regularOtAmount', 'restDayOtAmount', 'holidayOtAmount',
+        'nightDiffAmount', 'holidayPayAmount', 'otherEarnings', 'sssEmployee',
+        'philhealthEmployee', 'pagibigEmployee', 'withholdingTax', 'lateDeduction',
+        'undertimeDeduction', 'absenceDeduction', 'otherDeductions',
+      ] as const
+      const numericManual: Record<string, number> = {}
+      for (const field of editableFields) {
+        if (typeof manual[field] === 'number' && Number.isFinite(manual[field])) {
+          numericManual[field] = manual[field]
+        }
+      }
+      const customIncomes = Array.isArray(manual.customIncomes)
+        ? manual.customIncomes as Array<{ label: string; amount: number }>
+        : []
+      const customDeductions = Array.isArray(manual.customDeductions)
+        ? manual.customDeductions as Array<{ label: string; amount: number }>
+        : []
+      const customIncomeTotal = customIncomes.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+      const customDeductionTotal = customDeductions.reduce((sum, item) => sum + Number(item.amount || 0), 0)
       const cur = await prisma.payslip.findUniqueOrThrow({
         where: { id: payslip.id },
         select: {
@@ -1081,29 +1101,29 @@ export async function POST(
         },
       })
       const merged = {
-        basicSalary:        manual.basicSalary        ?? cur.basicSalary.toNumber(),
-        regularOtAmount:    manual.regularOtAmount    ?? cur.regularOtAmount.toNumber(),
-        restDayOtAmount:    manual.restDayOtAmount    ?? cur.restDayOtAmount.toNumber(),
-        holidayOtAmount:    manual.holidayOtAmount    ?? cur.holidayOtAmount.toNumber(),
-        nightDiffAmount:    manual.nightDiffAmount    ?? cur.nightDiffAmount.toNumber(),
-        holidayPayAmount:   manual.holidayPayAmount   ?? cur.holidayPayAmount.toNumber(),
+        basicSalary:        numericManual.basicSalary        ?? cur.basicSalary.toNumber(),
+        regularOtAmount:    numericManual.regularOtAmount    ?? cur.regularOtAmount.toNumber(),
+        restDayOtAmount:    numericManual.restDayOtAmount    ?? cur.restDayOtAmount.toNumber(),
+        holidayOtAmount:    numericManual.holidayOtAmount    ?? cur.holidayOtAmount.toNumber(),
+        nightDiffAmount:    numericManual.nightDiffAmount    ?? cur.nightDiffAmount.toNumber(),
+        holidayPayAmount:   numericManual.holidayPayAmount   ?? cur.holidayPayAmount.toNumber(),
         riceAllowance:      cur.riceAllowance.toNumber(),
         clothingAllowance:  cur.clothingAllowance.toNumber(),
         medicalAllowance:   cur.medicalAllowance.toNumber(),
         otherAllowances:    cur.otherAllowances.toNumber(),
-        otherEarnings:      manual.otherEarnings      ?? cur.otherEarnings.toNumber(),
-        sssEmployee:        manual.sssEmployee        ?? cur.sssEmployee.toNumber(),
+        otherEarnings:      numericManual.otherEarnings      ?? cur.otherEarnings.toNumber() + customIncomeTotal,
+        sssEmployee:        numericManual.sssEmployee        ?? cur.sssEmployee.toNumber(),
         sssEc:              cur.sssEc.toNumber(),
-        philhealthEmployee: manual.philhealthEmployee ?? cur.philhealthEmployee.toNumber(),
-        pagibigEmployee:    manual.pagibigEmployee    ?? cur.pagibigEmployee.toNumber(),
-        withholdingTax:     manual.withholdingTax     ?? cur.withholdingTax.toNumber(),
+        philhealthEmployee: numericManual.philhealthEmployee ?? cur.philhealthEmployee.toNumber(),
+        pagibigEmployee:    numericManual.pagibigEmployee    ?? cur.pagibigEmployee.toNumber(),
+        withholdingTax:     numericManual.withholdingTax     ?? cur.withholdingTax.toNumber(),
         sssLoanDeduction:   cur.sssLoanDeduction.toNumber(),
         pagibigLoan:        cur.pagibigLoan.toNumber(),
         companyLoan:        cur.companyLoan.toNumber(),
-        lateDeduction:      manual.lateDeduction      ?? cur.lateDeduction.toNumber(),
-        undertimeDeduction: manual.undertimeDeduction ?? cur.undertimeDeduction.toNumber(),
-        absenceDeduction:   manual.absenceDeduction   ?? cur.absenceDeduction.toNumber(),
-        otherDeductions:    manual.otherDeductions    ?? cur.otherDeductions.toNumber(),
+        lateDeduction:      numericManual.lateDeduction      ?? cur.lateDeduction.toNumber(),
+        undertimeDeduction: numericManual.undertimeDeduction ?? cur.undertimeDeduction.toNumber(),
+        absenceDeduction:   numericManual.absenceDeduction   ?? cur.absenceDeduction.toNumber(),
+        otherDeductions:    numericManual.otherDeductions    ?? cur.otherDeductions.toNumber() + customDeductionTotal,
       }
       // otherEarnings already includes non-taxable income (which is also
       // stored in otherAllowances for display). Adding both would double-count.
@@ -1123,7 +1143,9 @@ export async function POST(
       await prisma.payslip.update({
         where: { id: payslip.id },
         data: {
-          ...manual,
+          ...numericManual,
+          otherEarnings: merged.otherEarnings,
+          otherDeductions: merged.otherDeductions,
           grossPay: grossPayManual,
           totalDeductions: totalDeductionsManual,
           netPay: netPayManual,

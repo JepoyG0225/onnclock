@@ -141,7 +141,7 @@ export const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-gray-200 text-[#343434]',
   DRAFT: 'bg-gray-200 text-[#343434]',
   COMPUTED: 'bg-[#343434] text-white',
-  FOR_APPROVAL: 'bg-black text-[var(--brand-highlight)]',
+  FOR_APPROVAL: 'bg-[var(--brand-primary)] text-white',
   LOCKED: 'bg-[#343434] text-white',
   PROBATIONARY: 'bg-[#fff4d6] text-[#8a5a00] ring-1 ring-inset ring-[#f5d98c]',
   REGULAR: 'bg-[#e8f8f0] text-[#087a55] ring-1 ring-inset ring-[#bcebd5]',

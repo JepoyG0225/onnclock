@@ -3,9 +3,19 @@
 import { useRouter } from 'next/navigation'
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 
-export function ClickablePayrollRunRow({ runId, children }: { runId: string; children: ReactNode }) {
+export function ClickablePayrollRunRow({
+  runId,
+  status,
+  children,
+}: {
+  runId: string
+  status: string
+  children: ReactNode
+}) {
   const router = useRouter()
-  const href = `/payroll/${runId}`
+  // A run is created only after Period & Employees is saved, so a DRAFT
+  // resumes at Payroll Inputs. Later workflow states open the summary.
+  const href = status === 'DRAFT' ? `/payroll/${runId}?stage=inputs` : `/payroll/${runId}`
   const isInteractive = (target: EventTarget | null) =>
     target instanceof Element && Boolean(target.closest('a, button, input, select, textarea, [role="dialog"], [role="menu"]'))
 

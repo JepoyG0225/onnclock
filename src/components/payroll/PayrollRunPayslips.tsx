@@ -1,9 +1,12 @@
 'use client'
 
-import { Fragment, useState } from 'react'
-import { Pencil, ChevronRight, ChevronDown } from 'lucide-react'
+import { Fragment, useEffect, useState } from 'react'
+import { Pencil, ChevronRight, ChevronDown, Trash2, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useCurrency } from '@/hooks/useCurrency'
-import { PayslipEditModal, PayslipEditData } from './PayslipEditModal'
+import { PayslipEditModal, PayslipEditData, type CustomAdjustment } from './PayslipEditModal'
 
 export interface PayslipRow {
   id: string
@@ -40,6 +43,8 @@ export interface PayslipRow {
   totalDeductions: number
   netPay: number
   incomes: { typeName: string; amount: number }[]
+  customIncomes: CustomAdjustment[]
+  customDeductions: CustomAdjustment[]
   employee: {
     id: string
     firstName: string
@@ -83,15 +88,27 @@ interface Props {
   dtrsByEmployee?: Record<string, DtrEntry[]>
   /** Editing also requires payroll:write; read-only payroll viewers can still inspect the breakdown. */
   allowEdits?: boolean
+  /** Payslip PDFs belong to the summary/final review stage, not payroll inputs. */
+  showPdf?: boolean
 }
 
-export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [], dtrsByEmployee = {}, allowEdits = true }: Props) {
+export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [], dtrsByEmployee = {}, allowEdits = true, showPdf = true }: Props) {
   const [payslips, setPayslips] = useState<PayslipRow[]>(initial)
   const [editing, setEditing] = useState<PayslipEditData | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PayslipRow | null>(null)
   // Which payslip rows are currently expanded to show the gross-pay
   // breakdown.  Set instead of an array for O(1) lookup during render.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const { fmt: peso, symbol } = useCurrency()
+  const router = useRouter()
+
+  // router.refresh() reuses this client component after computation. Keep its
+  // editable local rows aligned with the fresh server payload; useState's
+  // initializer alone only runs on the first mount and left the table empty.
+  useEffect(() => {
+    setPayslips(initial)
+  }, [initial])
 
   function toggleExpand(id: string) {
     setExpanded(prev => {
@@ -105,6 +122,8 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
   const canEdit = allowEdits && (runStatus === 'COMPUTED' || runStatus === 'DRAFT' || runStatus === 'FOR_APPROVAL')
 
   function openEdit(ps: PayslipRow) {
+    const customIncomeTotal = ps.customIncomes.reduce((sum, item) => sum + item.amount, 0)
+    const customDeductionTotal = ps.customDeductions.reduce((sum, item) => sum + item.amount, 0)
     setEditing({
       id: ps.id,
       employeeName: `${ps.employee.lastName}, ${ps.employee.firstName}`,
@@ -116,6 +135,8 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
       nightDiffAmount: ps.nightDiffAmount,
       holidayPayAmount: ps.holidayPayAmount,
       otherEarnings: ps.otherEarnings,
+      baseOtherEarnings: Math.max(0, ps.otherEarnings - customIncomeTotal),
+      customIncomes: ps.customIncomes,
       sssEmployee: ps.sssEmployee,
       philhealthEmployee: ps.philhealthEmployee,
       pagibigEmployee: ps.pagibigEmployee,
@@ -124,11 +145,33 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
       undertimeDeduction: ps.undertimeDeduction,
       absenceDeduction: ps.absenceDeduction,
       otherDeductions: ps.otherDeductions,
+      baseOtherDeductions: Math.max(0, ps.otherDeductions - customDeductionTotal),
+      customDeductions: ps.customDeductions,
       sssEc: ps.sssEc,
       sssLoanDeduction: ps.sssLoanDeduction,
       pagibigLoan: ps.pagibigLoan,
       companyLoan: ps.companyLoan,
     })
+  }
+
+  async function deletePayslip(ps: PayslipRow) {
+    setPendingDelete(null)
+    setDeletingId(ps.id)
+    try {
+      const response = await fetch(`/api/payroll/payslip/${ps.id}`, { method: 'DELETE' })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        toast.error(result.error ?? 'Failed to remove employee from payroll inputs')
+        return
+      }
+      setPayslips(current => current.filter(item => item.id !== ps.id))
+      toast.success(`${ps.employee.firstName} ${ps.employee.lastName} removed from this payroll run`)
+      router.refresh()
+    } catch {
+      toast.error('Failed to remove employee from payroll inputs')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   function handleSaved(
@@ -148,6 +191,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
               nightDiffAmount:    updated.nightDiffAmount    ?? ps.nightDiffAmount,
               holidayPayAmount:   updated.holidayPayAmount   ?? ps.holidayPayAmount,
               otherEarnings:      updated.otherEarnings      ?? ps.otherEarnings,
+              customIncomes:      updated.customIncomes      ?? ps.customIncomes,
               sssEmployee:        updated.sssEmployee        ?? ps.sssEmployee,
               philhealthEmployee: updated.philhealthEmployee ?? ps.philhealthEmployee,
               pagibigEmployee:    updated.pagibigEmployee    ?? ps.pagibigEmployee,
@@ -156,6 +200,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
               undertimeDeduction: updated.undertimeDeduction ?? ps.undertimeDeduction,
               absenceDeduction:   updated.absenceDeduction   ?? ps.absenceDeduction,
               otherDeductions:    updated.otherDeductions    ?? ps.otherDeductions,
+              customDeductions:   updated.customDeductions   ?? ps.customDeductions,
               grossPay:           updated.grossPay,
               totalDeductions:    updated.totalDeductions,
               netPay:             updated.netPay,
@@ -269,22 +314,32 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
                     >
                       <div className="flex items-center justify-center gap-2">
                         {canEdit && (
-                          <button
-                            onClick={() => openEdit(ps)}
-                            title="Edit payslip"
-                            className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => openEdit(ps)}
+                              title="Edit payroll input"
+                              className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setPendingDelete(ps)}
+                              disabled={deletingId === ps.id}
+                              title="Remove employee from payroll run"
+                              className="p-1.5 rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {deletingId === ps.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            </button>
+                          </>
                         )}
-                        <a
+                        {showPdf && <a
                           href={`/api/payroll/payslip/${ps.id}/pdf`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[#000000] hover:text-[#000000] text-xs underline"
                         >
                           PDF
-                        </a>
+                        </a>}
                       </div>
                     </td>
                   </tr>
@@ -338,6 +393,15 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
           formatAmount={peso}
         />
       )}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Remove employee from payroll?"
+        description={pendingDelete ? `${pendingDelete.employee.firstName} ${pendingDelete.employee.lastName} will be removed from this payroll run. Their calculated payroll input will be deleted and the run totals will be updated.` : undefined}
+        confirmLabel="Remove employee"
+        variant="danger"
+        onConfirm={() => { if (pendingDelete) void deletePayslip(pendingDelete) }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </>
   )
 }
@@ -403,8 +467,17 @@ function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps)
                 </td>
               </tr>
             ))}
+            {ps.customIncomes.map((inc, i) => (
+              <tr key={`custom-${i}`} className="border-b last:border-b-0">
+                <td className="px-3 py-2 align-top">
+                  <p className="font-semibold text-slate-700">{inc.label}</p>
+                  <p className="text-[10px] text-slate-400">Custom additional income</p>
+                </td>
+                <td className="px-3 py-2 text-right font-bold text-slate-800 whitespace-nowrap w-32">{peso(inc.amount)}</td>
+              </tr>
+            ))}
             {(() => {
-              const surfaced = ps.incomes.reduce((s, i) => s + i.amount, 0)
+              const surfaced = ps.incomes.reduce((s, i) => s + i.amount, 0) + ps.customIncomes.reduce((s, i) => s + i.amount, 0)
               const leftover = Math.max(0, Math.round((ps.otherEarnings - surfaced) * 100) / 100)
               if (leftover <= 0) return null
               return (

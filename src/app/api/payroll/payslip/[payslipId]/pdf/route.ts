@@ -90,9 +90,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   const incomeLines: [string, number][] = payslipIncomes
     .map(i => [i.typeName, i.amount.toNumber()] as [string, number])
     .filter(([, v]) => v > 0)
+  const manualEdits = payslip.manualEdits as {
+    customIncomes?: Array<{ label: string; amount: number }>
+    customDeductions?: Array<{ label: string; amount: number }>
+  } | null
+  const customIncomeLines: Array<[string, number]> = Array.isArray(manualEdits?.customIncomes)
+    ? manualEdits.customIncomes.filter(item => Number(item.amount) > 0).map(item => [item.label, Number(item.amount)])
+    : []
+  const customDeductionLines: Array<[string, number]> = Array.isArray(manualEdits?.customDeductions)
+    ? manualEdits.customDeductions.filter(item => Number(item.amount) > 0).map(item => [item.label, Number(item.amount)])
+    : []
 
   // Any residual otherEarnings not accounted for by the itemized incomes
-  const incomesSum = incomeLines.reduce((s, [, v]) => s + v, 0)
+  const incomesSum = [...incomeLines, ...customIncomeLines].reduce((s, [, v]) => s + v, 0)
   const residualOther = payslip.otherEarnings.toNumber() - incomesSum
 
   const earnings: [string, number][] = [
@@ -104,6 +114,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     ['Night Differential', payslip.nightDiffAmount.toNumber()],
     ['Allowances', allowancesTotal],
     ...incomeLines,
+    ...customIncomeLines,
     ...(residualOther > 0.01 ? [['Other Earnings', residualOther] as [string, number]] : []),
   ]
   const earningsRows: Array<[string, number]> = earnings.filter(([, v]) => v > 0)
@@ -123,10 +134,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     otherDedItems = rows.map(r => ({ label: r.label, amount: Number(r.amount) }))
   } catch { otherDedItems = [] }
   const itemsSum = otherDedItems.reduce((s, d) => s + d.amount, 0)
-  const useItems = otherDedItems.length > 0 && Math.abs(itemsSum - otherDedTotal) < 0.01
+  const customDeductionTotal = customDeductionLines.reduce((sum, [, amount]) => sum + amount, 0)
+  const useItems = otherDedItems.length > 0 && Math.abs(itemsSum + customDeductionTotal - otherDedTotal) < 0.01
   const otherDedLines: Array<[string, number]> = useItems
-    ? otherDedItems.filter(d => d.amount > 0).map(d => [(d.label || 'Other Deduction').trim(), d.amount] as [string, number])
-    : (otherDedTotal > 0 ? [['Other Deductions', otherDedTotal] as [string, number]] : [])
+    ? [...otherDedItems.filter(d => d.amount > 0).map(d => [(d.label || 'Other Deduction').trim(), d.amount] as [string, number]), ...customDeductionLines]
+    : customDeductionLines.length > 0 && Math.abs(customDeductionTotal - otherDedTotal) < 0.01
+      ? customDeductionLines
+      : (otherDedTotal > 0 ? [['Other Deductions', otherDedTotal] as [string, number]] : [])
 
   const deductions: Array<[string, number]> = [
     ['SSS (Employee Share)', payslip.sssEmployee.toNumber()],

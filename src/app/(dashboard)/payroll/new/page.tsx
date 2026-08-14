@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,6 +32,8 @@ interface PickerEmployee {
 
 export default function NewPayrollRunPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const existingRunId = searchParams.get('runId')
   const [saving, setSaving] = useState(false)
   const [loadingDefaults, setLoadingDefaults] = useState(true)
   const [payDateDelayDays, setPayDateDelayDays] = useState(5)
@@ -72,9 +74,12 @@ export default function NewPayrollRunPage() {
     async function loadDefaults() {
       setLoadingDefaults(true)
       try {
-        const res = await fetch('/api/payroll/settings')
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok || !active) return
+        const [settingsRes, runRes] = await Promise.all([
+          fetch('/api/payroll/settings'),
+          existingRunId ? fetch(`/api/payroll/${existingRunId}`) : Promise.resolve(null),
+        ])
+        const data = await settingsRes.json().catch(() => ({}))
+        if (!settingsRes.ok || !active) return
         const next = data.nextPeriod
         const settings = data.settings
         if (next && settings) {
@@ -87,13 +92,35 @@ export default function NewPayrollRunPage() {
             payDate: next.payDate ?? prev.payDate,
           }))
         }
+        if (runRes) {
+          const runData = await runRes.json().catch(() => ({}))
+          if (!runRes.ok) {
+            toast.error(runData.error ?? 'Failed to load payroll period')
+            router.push('/payroll')
+            return
+          }
+          if (!active) return
+          const run = runData.run
+          setFormData({
+            periodStart: String(run.periodStart).slice(0, 10),
+            periodEnd: String(run.periodEnd).slice(0, 10),
+            payFrequency: run.payFrequency,
+            payDate: String(run.payDate).slice(0, 10),
+            notes: run.notes ?? '',
+            payGroupLabel: run.payGroupLabel ?? '',
+          })
+          setScopeMode(run.employeeScopeMode ?? 'ALL')
+          setEmploymentTypeFilter(run.employmentTypeFilter ?? [])
+          setEmployeeIds(new Set(run.employeeIds ?? []))
+          setPayDateTouched(true)
+        }
       } finally {
         if (active) setLoadingDefaults(false)
       }
     }
     void loadDefaults()
     return () => { active = false }
-  }, [])
+  }, [existingRunId, router])
 
   // Suggest a default pay date when the period end changes — but ONLY before
   // the user has had a chance to override it. Once the user touches the
@@ -210,8 +237,8 @@ export default function NewPayrollRunPage() {
         employeeIds: scopeMode === 'CUSTOM' ? Array.from(employeeIds) : [],
         force,
       }
-      const res = await fetch('/api/payroll', {
-        method: 'POST',
+      const res = await fetch(existingRunId ? `/api/payroll/${existingRunId}` : '/api/payroll', {
+        method: existingRunId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
@@ -233,8 +260,8 @@ export default function NewPayrollRunPage() {
 
       const { run } = await res.json()
       setUnapprovedGuard(null)
-      toast.success('Payroll period created. Review the calculated payroll inputs next.')
-      router.push(`/payroll/${run.id}?stage=inputs`)
+      toast.success(existingRunId ? 'Payroll period updated. Recalculating payroll inputs.' : 'Payroll period created. Review the calculated payroll inputs next.')
+      router.push(`/payroll/${run.id}?stage=inputs&compute=1`)
     } catch {
       toast.error('An error occurred')
     } finally {
@@ -246,7 +273,7 @@ export default function NewPayrollRunPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-3">
         {[
-          { number: 1, label: 'Period & Employees', detail: 'Select payroll scope', active: true },
+          { number: 1, label: 'Payroll Period', detail: 'Select payroll scope', active: true },
           { number: 2, label: 'Payroll Inputs', detail: 'Calculate and adjust', active: false },
           { number: 3, label: 'Payroll Summary', detail: 'Review and finalize', active: false },
         ].map((item, index) => (
@@ -262,7 +289,7 @@ export default function NewPayrollRunPage() {
         ))}
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">New Payroll Run</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{existingRunId ? 'Edit Payroll Period' : 'New Payroll Run'}</h1>
         <p className="text-gray-500 mt-1">Set up the payroll period, scope, and pay date</p>
       </div>
 
@@ -481,7 +508,7 @@ export default function NewPayrollRunPage() {
 
         <div className="flex gap-3">
           <Button type="submit" disabled={saving} data-tour="pr-submit">
-            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : 'Continue to Payroll Inputs'}
+            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingRunId ? 'Saving...' : 'Creating...'}</> : 'Continue to Payroll Inputs'}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancel

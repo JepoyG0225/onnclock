@@ -16,17 +16,17 @@ import Link from 'next/link'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollActivityLog from '@/components/payroll/PayrollActivityLog'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
+import { ProcessPayrollButton } from '@/components/payroll/ProcessPayrollButton'
 
 export default async function PayrollRunPage({
   params,
   searchParams,
 }: {
   params: Promise<{ runId: string }>
-  searchParams: Promise<{ stage?: string }>
+  searchParams: Promise<{ stage?: string; compute?: string }>
 }) {
   const { runId } = await params
-  const { stage } = await searchParams
-  const isInputsStage = stage === 'inputs'
+  const { stage, compute } = await searchParams
   const session = await auth()
   if (!session?.user) redirect('/login')
 
@@ -38,6 +38,9 @@ export default async function PayrollRunPage({
     prisma.company.findUnique({ where: { id: companyId }, select: { payrollCurrency: true } }),
   ])
   if (!run) redirect('/payroll')
+  // Direct links and old bookmarks should resume an unfinished draft at the
+  // first incomplete step even when they do not include the stage query.
+  const isInputsStage = stage === 'inputs' || (!stage && run.status === 'DRAFT')
   const currency = company?.payrollCurrency ?? 'PHP'
   const permissions = await getEffectivePermissions(session.user.role, companyId, session.user.id)
   const canWritePayroll = permissions.includes('payroll:write') || session.user.role === 'SUPER_ADMIN'
@@ -174,7 +177,7 @@ export default async function PayrollRunPage({
     <div className="space-y-6">
       <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-3">
         {[
-          { number: 1, label: 'Period & Employees', detail: 'Payroll scope selected', href: '/payroll/new', active: false },
+          { number: 1, label: 'Payroll Period', detail: 'Payroll scope selected', href: `/payroll/new?runId=${run.id}`, active: false },
           { number: 2, label: 'Payroll Inputs', detail: 'Calculate and adjust', href: `/payroll/${run.id}?stage=inputs`, active: isInputsStage },
           { number: 3, label: 'Payroll Summary', detail: 'Review and finalize', href: `/payroll/${run.id}`, active: !isInputsStage },
         ].map((item, index) => (
@@ -217,7 +220,11 @@ export default async function PayrollRunPage({
               {STATUS_LABELS[run.status]}
             </Badge>
             {isInputsStage && canWritePayroll && (run.status === 'DRAFT' || run.status === 'COMPUTED' || run.status === 'FOR_APPROVAL') && (
-              <ComputePayrollButton runId={run.id} status={run.status} />
+              <ComputePayrollButton
+                runId={run.id}
+                status={run.status}
+                autoStart={compute === '1' && run.status === 'DRAFT'}
+              />
             )}
             {!isInputsStage && <PayrollActionButtons
               runId={run.id}
@@ -235,9 +242,7 @@ export default async function PayrollRunPage({
               <p className="mt-0.5 text-xs text-gray-600">Use the edit icon to add income, deductions, or manual adjustments before generating the summary.</p>
             </div>
             {payslips.length > 0 && (
-              <Link href={`/payroll/${run.id}`} className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
-                Generate Payroll Summary
-              </Link>
+              <ProcessPayrollButton runId={run.id} />
             )}
           </div>
         ) : <PayrollWorkflowStepper status={run.status} />}
@@ -363,6 +368,7 @@ export default async function PayrollRunPage({
           <PayrollRunPayslips
             runStatus={run.status}
             allowEdits={isInputsStage && canWritePayroll}
+            showPdf={!isInputsStage}
             totalBasic={run.totalBasic.toNumber()}
             totalGross={run.totalGross.toNumber()}
             totalDeductions={run.totalDeductions.toNumber()}
@@ -438,6 +444,14 @@ export default async function PayrollRunPage({
               totalDeductions:    ps.totalDeductions.toNumber(),
               netPay:             ps.netPay.toNumber(),
               incomes: ps.incomes.map(i => ({ typeName: i.typeName, amount: i.amount.toNumber() })),
+              customIncomes: (() => {
+                const edits = ps.manualEdits as { customIncomes?: Array<{ label: string; amount: number }> } | null
+                return Array.isArray(edits?.customIncomes) ? edits.customIncomes : []
+              })(),
+              customDeductions: (() => {
+                const edits = ps.manualEdits as { customDeductions?: Array<{ label: string; amount: number }> } | null
+                return Array.isArray(edits?.customDeductions) ? edits.customDeductions : []
+              })(),
               employee: ps.employee,
             }))}
           />

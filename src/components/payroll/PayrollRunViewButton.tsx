@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
  * until the new route's server components have finished streaming
  * (which is exactly when the row would visually change anyway).
  */
-export function PayrollRunViewButton({ runId }: { runId: string }) {
+export function PayrollRunViewButton({ runId, status }: { runId: string; status?: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   // Click registered before transition kicks in — keep our own flag so
@@ -33,7 +33,7 @@ export function PayrollRunViewButton({ runId }: { runId: string }) {
     if (loading) return
     setClicked(true)
     startTransition(() => {
-      router.push(`/payroll/${runId}`)
+      router.push(status === 'DRAFT' ? `/payroll/${runId}?stage=inputs` : `/payroll/${runId}`)
     })
   }
 

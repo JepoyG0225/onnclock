@@ -104,7 +104,7 @@ export default async function PayrollPage() {
                       return null
                     })()
                     return (
-                    <ClickablePayrollRunRow key={run.id} runId={run.id}>
+                    <ClickablePayrollRunRow key={run.id} runId={run.id} status={run.status}>
                       <td className="p-4">
                         <p className="font-medium text-gray-900">{run.periodLabel}</p>
                         <p className="text-xs text-gray-500">{run.payFrequency}</p>

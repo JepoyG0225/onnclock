@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -24,8 +24,11 @@ type VariableIncomeRequirement = {
 export function ComputePayrollButton({
   runId,
   status = 'DRAFT',
+  autoStart = false,
 }: {
   runId: string
+  /** Start the first computation when arriving from payroll creation. */
+  autoStart?: boolean
   /**
    * Current run status — determines whether the button reads "Compute" or
    * "Recompute" and whether a confirmation prompt fires before re-running
@@ -40,6 +43,7 @@ export function ComputePayrollButton({
   const [requirements, setRequirements] = useState<VariableIncomeRequirement[]>([])
   const [entryValues, setEntryValues] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
+  const autoStarted = useRef(false)
   const router = useRouter()
 
   // "Recompute" framing whenever payslips already exist (i.e. the run has
@@ -144,6 +148,15 @@ export function ComputePayrollButton({
     }
     void proceedCompute()
   }
+
+  useEffect(() => {
+    if (!autoStart || autoStarted.current) return
+    autoStarted.current = true
+    void proceedCompute()
+    // This is intentionally keyed to the navigation flag only. The ref keeps
+    // React Strict Mode and refreshes from starting a duplicate computation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart])
 
   return (
     <>
