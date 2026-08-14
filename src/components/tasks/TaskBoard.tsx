@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { Plus, MessageSquare, CheckSquare, Clock, GripVertical, AlertTriangle, Paperclip } from 'lucide-react'
+import { Plus, MessageSquare, Clock, GripVertical, AlertTriangle, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -128,7 +128,7 @@ export function TaskBoard({
   }, [draggingId, canEdit, commitMove])
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-4">
+    <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">
       {statuses.map(status => {
         const list = byStatus.get(status.id) ?? []
         const overWip = status.wipLimit !== null && list.length > status.wipLimit
@@ -136,7 +136,7 @@ export function TaskBoard({
         return (
           <section
             key={status.id}
-            className="flex w-72 shrink-0 flex-col rounded-xl bg-muted/40"
+            className="flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-xl bg-muted/40 sm:w-80"
             onDragOver={e => {
               if (!canEdit) return
               e.preventDefault()
@@ -146,11 +146,11 @@ export function TaskBoard({
               handleDrop(e, status.id, dropTarget?.statusId === status.id ? dropTarget.index : list.length)
             }
           >
-            <header className="flex items-center justify-between gap-2 px-3 pt-3 pb-2">
+            <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 rounded-t-xl bg-muted px-3 pt-3 pb-2">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: status.color }} />
-                <h3 className="truncate text-sm font-semibold text-foreground">{status.name}</h3>
-                <span className="shrink-0 text-xs text-muted-foreground">{list.length}</span>
+                <h3 className="truncate text-base font-semibold text-foreground">{status.name}</h3>
+                <span className="shrink-0 text-sm text-muted-foreground">{list.length}</span>
                 {overWip && (
                   <span title={`WIP limit is ${status.wipLimit}`}>
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
@@ -188,11 +188,13 @@ export function TaskBoard({
                   />
                   <BoardCard
                     task={task}
+                    statuses={statuses}
                     canEdit={canEdit}
                     isDragging={draggingId === task.id}
                     onOpen={() => onOpenTask(task.id)}
                     onDragStart={e => handleDragStart(e, task.id)}
                     onDragEnd={handleDragEnd}
+                    onMove={statusId => void commitMove(task.id, statusId, (byStatus.get(statusId) ?? []).length)}
                   />
                 </div>
               ))}
@@ -213,9 +215,11 @@ export function TaskBoard({
                 onDrop={e => { e.stopPropagation(); handleDrop(e, status.id, list.length) }}
               >
                 {list.length === 0 && (
-                  <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                    {canEdit ? 'Drop a task here' : 'No tasks'}
-                  </p>
+                  canEdit ? (
+                    <button type="button" onClick={() => onQuickAdd(status.id)} className="w-full px-2 py-4 text-center text-sm font-medium text-muted-foreground hover:text-foreground">
+                      <Plus className="mx-auto mb-1 h-4 w-4" /> Create a task here
+                    </button>
+                  ) : <p className="px-2 py-4 text-center text-sm text-muted-foreground">No tasks in {status.name.toLowerCase()}</p>
                 )}
               </div>
             </div>
@@ -227,14 +231,16 @@ export function TaskBoard({
 }
 
 function BoardCard({
-  task, canEdit, isDragging, onOpen, onDragStart, onDragEnd,
+  task, statuses, canEdit, isDragging, onOpen, onDragStart, onDragEnd, onMove,
 }: {
   task: TaskRow
+  statuses: TaskStatus[]
   canEdit: boolean
   isDragging: boolean
   onOpen: () => void
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
+  onMove: (statusId: string) => void
 }) {
   const overdue = isOverdue(task.dueDate, task.completedAt)
 
@@ -259,7 +265,7 @@ function BoardCard({
           {task.labels.map(l => (
             <span
               key={l.id}
-              className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium"
               style={{ backgroundColor: `${l.color}22`, color: l.color }}
             >
               {l.name}
@@ -272,18 +278,18 @@ function BoardCard({
         {canEdit && (
           <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40 opacity-0 transition group-hover:opacity-100" />
         )}
-        <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-foreground">{task.title}</p>
+        <p className="min-w-0 flex-1 text-base font-medium leading-snug text-foreground">{task.title}</p>
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className="font-mono text-[10px] text-muted-foreground">{task.key}</span>
-        <Badge variant="outline" className={cn('h-4 border px-1 text-[10px]', PRIORITY_STYLES[task.priority])}>
+        <span className="font-mono text-[11px] text-muted-foreground">{task.key}</span>
+        <Badge variant="outline" className={cn('h-5 border px-1 text-[11px]', PRIORITY_STYLES[task.priority])}>
           {task.priority}
         </Badge>
         {task.dueDate && (
           <span
             className={cn(
-              'inline-flex items-center gap-0.5 text-[10px]',
+              'inline-flex items-center gap-0.5 text-[11px]',
               overdue ? 'font-semibold text-red-600' : 'text-muted-foreground',
             )}
           >
@@ -294,7 +300,7 @@ function BoardCard({
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           {task.commentCount > 0 && (
             <span className="inline-flex items-center gap-0.5">
               <MessageSquare className="h-3 w-3" />{task.commentCount}
@@ -305,11 +311,6 @@ function BoardCard({
               <Paperclip className="h-3 w-3" />{task.attachmentCount}
             </span>
           )}
-          {task.checklistTotal > 0 && (
-            <span className="inline-flex items-center gap-0.5">
-              <CheckSquare className="h-3 w-3" />{task.checklistDone}/{task.checklistTotal}
-            </span>
-          )}
           {task.loggedHours > 0 && (
             <span className="inline-flex items-center gap-0.5" title="Hours logged">
               <Clock className="h-3 w-3" />{task.loggedHours}h
@@ -318,6 +319,18 @@ function BoardCard({
         </div>
         <AvatarStack employees={task.assignees} max={3} size="xs" />
       </div>
+      {canEdit && (
+        <select
+          value={task.statusId}
+          onClick={event => event.stopPropagation()}
+          onPointerDown={event => event.stopPropagation()}
+          onChange={event => { event.stopPropagation(); onMove(event.target.value) }}
+          className="mt-2 h-8 w-full rounded-md border border-border bg-background px-2 text-xs sm:hidden"
+          aria-label={`Move ${task.title} to status`}
+        >
+          {statuses.map(status => <option key={status.id} value={status.id}>Move to {status.name}</option>)}
+        </select>
+      )}
       {task.checklistTotal > 0 && (
         <div className="mt-2 flex items-center gap-2" aria-label={`${task.checklistDone} of ${task.checklistTotal} checklist items completed`}>
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
@@ -326,7 +339,7 @@ function BoardCard({
               style={{ width: `${Math.round((task.checklistDone / task.checklistTotal) * 100)}%` }}
             />
           </div>
-          <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
+          <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
             {Math.round((task.checklistDone / task.checklistTotal) * 100)}%
           </span>
         </div>

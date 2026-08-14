@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   LayoutGrid, List as ListIcon, Table2, CalendarDays, Plus, Search, X, Loader2,
-  Settings2, CheckCircle2, Clock,
+  Settings2, CheckCircle2, Clock, SlidersHorizontal, RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/ui/page-header'
@@ -60,6 +60,7 @@ export default function TasksPage() {
   const [priority, setPriority] = useState('')
   const [labelId, setLabelId] = useState('')
   const [includeDone, setIncludeDone] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
 
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const [showStatusManager, setShowStatusManager] = useState(false)
@@ -155,6 +156,13 @@ export default function TasksPage() {
   }
 
   const openCount = filtered.filter(t => t.status.category !== 'DONE' && !t.parentTaskId).length
+  const activeFilterCount = [assignee, priority, labelId, includeDone ? '' : 'hide-done'].filter(Boolean).length
+  const clearFilters = () => {
+    setAssignee('')
+    setPriority('')
+    setLabelId('')
+    setIncludeDone(true)
+  }
 
   return (
     <div className="space-y-4">
@@ -188,7 +196,7 @@ export default function TasksPage() {
 
       {/* View switcher + filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-md border border-border p-0.5">
+        <div className="flex max-w-full overflow-x-auto rounded-lg border border-border p-0.5">
           {VIEWS.map(v => (
             <button
               key={v.id}
@@ -196,7 +204,7 @@ export default function TasksPage() {
               data-tour-view={v.id}
               onClick={() => setView(v.id)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition',
+                'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition',
                 view === v.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -206,7 +214,7 @@ export default function TasksPage() {
           ))}
         </div>
 
-        <div className="relative min-w-40 flex-1 sm:max-w-xs">
+        <div className="relative min-w-44 flex-1 sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -226,6 +234,17 @@ export default function TasksPage() {
           )}
         </div>
 
+        <Button
+          type="button"
+          size="sm"
+          variant={activeFilterCount ? 'default' : 'outline'}
+          className="sm:hidden"
+          onClick={() => setShowFilters(value => !value)}
+        >
+          <SlidersHorizontal /> Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+        </Button>
+
+        <div className={cn('w-full flex-wrap items-center gap-2 sm:flex sm:w-auto', showFilters ? 'flex' : 'hidden')}>
         <select
           value={assignee}
           data-tour="task-assignee-filter"
@@ -264,6 +283,12 @@ export default function TasksPage() {
         <Button size="sm" variant={includeDone ? 'default' : 'outline'} onClick={() => setIncludeDone(v => !v)}>
           <CheckCircle2 /> Done
         </Button>
+        {activeFilterCount > 0 && (
+          <Button size="sm" variant="ghost" onClick={clearFilters}>
+            <RotateCcw /> Clear
+          </Button>
+        )}
+        </div>
       </div>
 
       {/* Quick-add row */}
@@ -391,8 +416,8 @@ function TaskListView({
           <section key={status.id}>
             <div className="mb-1.5 flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: status.color }} />
-              <h3 className="text-sm font-semibold text-foreground">{status.name}</h3>
-              <span className="text-xs text-muted-foreground">{rows.length}</span>
+              <h3 className="text-base font-semibold text-foreground">{status.name}</h3>
+              <span className="text-sm text-muted-foreground">{rows.length}</span>
             </div>
             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
               {rows.map(t => {
@@ -402,30 +427,34 @@ function TaskListView({
                     key={t.id}
                     type="button"
                     onClick={() => onOpenTask(t.id)}
-                    className="flex w-full flex-wrap items-center gap-2 bg-card px-3 py-2 text-left transition hover:bg-muted/40"
+                    className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 bg-card px-3 py-3 text-left transition hover:bg-muted/40 sm:grid-cols-[auto_minmax(12rem,1fr)_auto]"
                   >
-                    <span className="font-mono text-[10px] text-muted-foreground">{t.key}</span>
-                    <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', t.completedAt && 'text-muted-foreground line-through')}>
+                    <span className="font-mono text-[11px] text-muted-foreground">{t.key}</span>
+                    <span className={cn('min-w-0 flex-1 truncate text-base font-medium', t.completedAt && 'text-muted-foreground line-through')}>
                       {t.title}
                     </span>
-                    {t.labels.map(l => (
-                      <span
-                        key={l.id}
-                        className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                        style={{ backgroundColor: `${l.color}22`, color: l.color }}
-                      >
-                        {l.name}
-                      </span>
-                    ))}
-                    <Badge variant="outline" className={cn('border text-[10px]', PRIORITY_STYLES[t.priority])}>
-                      {t.priority}
-                    </Badge>
-                    {t.dueDate && (
-                      <span className={cn('inline-flex items-center gap-0.5 text-[11px]', overdue ? 'font-semibold text-red-600' : 'text-muted-foreground')}>
-                        <Clock className="h-3 w-3" />{formatDueDate(t.dueDate)}
-                      </span>
+                    <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-span-1 sm:justify-end">
+                      {t.labels.map(l => (
+                        <span key={l.id} className="rounded px-1.5 py-0.5 text-[11px] font-medium" style={{ backgroundColor: `${l.color}22`, color: l.color }}>
+                          {l.name}
+                        </span>
+                      ))}
+                      <Badge variant="outline" className={cn('border text-[11px]', PRIORITY_STYLES[t.priority])}>{t.priority}</Badge>
+                      {t.dueDate && (
+                        <span className={cn('inline-flex items-center gap-0.5 text-xs', overdue ? 'font-semibold text-red-600' : 'text-muted-foreground')}>
+                          <Clock className="h-3 w-3" />{formatDueDate(t.dueDate)}
+                        </span>
+                      )}
+                      <AvatarStack employees={t.assignees} max={3} size="xs" />
+                    </div>
+                    {t.checklistTotal > 0 && (
+                      <div className="col-span-2 flex items-center gap-2 sm:col-start-2 sm:col-end-4" aria-label={`${t.checklistDone} of ${t.checklistTotal} checklist items completed`}>
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.round((t.checklistDone / t.checklistTotal) * 100)}%` }} />
+                        </div>
+                        <span className="text-[11px] font-semibold text-muted-foreground">{Math.round((t.checklistDone / t.checklistTotal) * 100)}%</span>
+                      </div>
                     )}
-                    <AvatarStack employees={t.assignees} max={3} size="xs" />
                   </button>
                 )
               })}
@@ -442,6 +471,7 @@ function TaskCalendarView({
   tasks, onOpenTask,
 }: { tasks: TaskRow[]; onOpenTask: (id: string) => void }) {
   const [monthOffset, setMonthOffset] = useState(0)
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
 
   const { label, cells } = useMemo(() => {
     const now = new Date()
@@ -485,7 +515,7 @@ function TaskCalendarView({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{label}</h3>
+        <h3 className="text-base font-semibold">{label}</h3>
         <div className="flex gap-1">
           <Button size="sm" variant="outline" onClick={() => setMonthOffset(o => o - 1)}>Prev</Button>
           <Button size="sm" variant="outline" onClick={() => setMonthOffset(0)}>Today</Button>
@@ -493,9 +523,33 @@ function TaskCalendarView({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="space-y-2 md:hidden">
+        {cells.filter(cell => cell.day && cell.tasks.length > 0).map(cell => (
+          <section key={cell.date} className="overflow-hidden rounded-xl border border-border bg-card">
+            <header className="border-b border-border bg-muted/40 px-3 py-2 text-sm font-semibold">
+              {new Date(`${cell.date}T00:00:00`).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </header>
+            <div className="divide-y divide-border">
+              {cell.tasks.map(task => (
+                <button key={task.id} type="button" onClick={() => onOpenTask(task.id)} className="flex w-full items-center gap-2 px-3 py-3 text-left hover:bg-muted/40">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: task.status.color }} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{task.title}</span>
+                  <Badge variant="outline" className={cn('text-[10px]', PRIORITY_STYLES[task.priority])}>{task.priority}</Badge>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+        {cells.every(cell => cell.tasks.length === 0) && (
+          <div className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
+            No tasks due this month.
+          </div>
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <div className="min-w-[700px]">
-          <div className="grid grid-cols-7 gap-px rounded-t-lg bg-border text-center text-[11px] font-medium text-muted-foreground">
+          <div className="grid grid-cols-7 gap-px rounded-t-lg bg-border text-center text-xs font-medium text-muted-foreground">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
               <div key={d} className="bg-muted/60 py-1.5">{d}</div>
             ))}
@@ -512,29 +566,29 @@ function TaskCalendarView({
               >
                 {cell.day && (
                   <span className={cn(
-                    'text-[11px]',
+                    'text-xs',
                     cell.date === todayKey ? 'font-bold text-primary' : 'text-muted-foreground',
                   )}>
                     {cell.day}
                   </span>
                 )}
                 <div className="mt-0.5 space-y-0.5">
-                  {cell.tasks.slice(0, 3).map(t => (
+                  {cell.tasks.slice(0, expandedDate === cell.date ? cell.tasks.length : 3).map(t => (
                     <button
                       key={t.id}
                       type="button"
                       onClick={() => onOpenTask(t.id)}
-                      className="block w-full truncate rounded px-1 py-0.5 text-left text-[10px] font-medium hover:opacity-80"
-                      style={{ backgroundColor: `${t.status.color}22`, color: t.status.color }}
+                      className="block w-full truncate rounded border-l-2 px-1.5 py-0.5 text-left text-[11px] font-medium text-foreground hover:bg-muted"
+                      style={{ backgroundColor: `${t.status.color}18`, borderLeftColor: t.status.color }}
                       title={t.title}
                     >
                       {t.title}
                     </button>
                   ))}
-                  {cell.tasks.length > 3 && (
-                    <span className="block px-1 text-[10px] text-muted-foreground">
+                  {cell.tasks.length > 3 && expandedDate !== cell.date && (
+                    <button type="button" onClick={() => setExpandedDate(cell.date)} className="block w-full px-1 text-left text-[11px] font-medium text-primary hover:underline">
                       +{cell.tasks.length - 3} more
-                    </span>
+                    </button>
                   )}
                 </div>
               </div>
