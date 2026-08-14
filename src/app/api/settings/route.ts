@@ -32,6 +32,7 @@ const companySchema = z.object({
   birNo: z.string().optional().nullable(),
   fingerprintRequired: z.boolean().optional(),
   selfieRequired: z.boolean().optional(),
+  faceRecognitionRequired: z.boolean().optional(),
   screenCaptureEnabled: z.boolean().optional(),
   screenCaptureFrequencyMinutes: z.number().int().min(1).max(60).optional(),
   autoClockoutEnabled: z.boolean().optional(),
@@ -253,6 +254,9 @@ export async function PATCH(req: NextRequest) {
     }
     if (companyFieldSupported('selfieRequired') && hasField('selfieRequired')) {
       companyUpdateData.selfieRequired = parsed.data.selfieRequired
+    }
+    if (companyFieldSupported('faceRecognitionRequired') && hasField('faceRecognitionRequired')) {
+      companyUpdateData.faceRecognitionRequired = parsed.data.faceRecognitionRequired
     }
     if (companyFieldSupported('screenCaptureEnabled') && hasField('screenCaptureEnabled')) {
       companyUpdateData.screenCaptureEnabled = isScreenCaptureEntitled

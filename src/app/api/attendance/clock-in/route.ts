@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasScreenCaptureFeature, isDesktopApp } from '@/lib/feature-gates'
-import { resolvePortalEmployeeId } from '@/lib/portal-employee'
+import { resolvePunchEmployeeId } from '@/lib/attendance/punch-target'
 import { getManilaDateOnly, getManilaDateString, getManilaDayOfWeek } from '@/lib/date-manila'
 import { z } from 'zod'
 
@@ -12,6 +12,12 @@ const clockInSchema = z.object({
   accuracy: z.number().optional(),
   address: z.string().optional(),
   photo: z.string().optional(), // base64 data URL from face verification frame
+  /**
+   * Punch on behalf of this employee. Only honoured for callers holding
+   * dtr:write — the shared face-recognition kiosk, which has no signed-in
+   * employee of its own. Ignored (and rejected) for everyone else.
+   */
+  employeeId: z.string().optional(),
 })
 
 function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -109,7 +115,18 @@ export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth(undefined, req)
   if (error) return error
 
-  const employeeId = await resolvePortalEmployeeId(ctx)
+  // Parsed up front because the target employee can now come from the body.
+  const rawBody = await req.json()
+  const preParsed = clockInSchema.safeParse(rawBody)
+  if (!preParsed.success) {
+    return NextResponse.json({ error: preParsed.error.flatten() }, { status: 400 })
+  }
+
+  const target = await resolvePunchEmployeeId(ctx, preParsed.data.employeeId)
+  if (target.forbidden) {
+    return NextResponse.json({ error: target.forbidden }, { status: 403 })
+  }
+  const employeeId = target.employeeId
   const employee = employeeId ? await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
@@ -128,9 +145,7 @@ export async function POST(req: NextRequest) {
   }) : null
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
-  const body = await req.json()
-  const parsed = clockInSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  const parsed = preParsed
 
   const { lat, lng, accuracy, address, photo } = parsed.data
   const hasLocation = lat != null && lng != null

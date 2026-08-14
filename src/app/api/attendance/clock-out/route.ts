@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasScreenCaptureFeature, isDesktopApp } from '@/lib/feature-gates'
-import { resolvePortalEmployeeId } from '@/lib/portal-employee'
+import { resolvePunchEmployeeId } from '@/lib/attendance/punch-target'
 import { syncAutoOvertimeRequest, isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
 import {
   computeHours,
@@ -19,6 +19,8 @@ const clockOutSchema = z.object({
   lng: z.number().min(-180).max(180).optional(),
   accuracy: z.number().optional(),
   address: z.string().optional(),
+  /** See the same field on clock-in: kiosk punches name their employee. */
+  employeeId: z.string().optional(),
 })
 
 async function getCompanyDefaultBreakMinutes(companyId: string): Promise<number> {
@@ -69,7 +71,17 @@ export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth(undefined, req)
   if (error) return error
 
-  const employeeId = await resolvePortalEmployeeId(ctx)
+  // Body first, because the target employee can come from it (kiosk punches).
+  const preBody = await req.json()
+  const preParsed = clockOutSchema.safeParse(preBody)
+  if (!preParsed.success) {
+    return NextResponse.json({ error: preParsed.error.flatten() }, { status: 400 })
+  }
+  const target = await resolvePunchEmployeeId(ctx, preParsed.data.employeeId)
+  if (target.forbidden) {
+    return NextResponse.json({ error: target.forbidden }, { status: 403 })
+  }
+  const employeeId = target.employeeId
   const employee = employeeId ? await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
@@ -87,11 +99,7 @@ export async function POST(req: NextRequest) {
   }) : null
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
-  const body = await req.json()
-  const parsed = clockOutSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-
-  const { lat, lng, accuracy, address } = parsed.data
+  const { lat, lng, accuracy, address } = preParsed.data
   const hasLocation = lat != null && lng != null
   const ua = req.headers.get('user-agent') ?? ''
   const [company, sub] = await Promise.all([

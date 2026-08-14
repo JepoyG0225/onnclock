@@ -1,0 +1,43 @@
+{
+  "name": "onclock-kiosk",
+  "version": "1.0.0",
+  "description": "OnClock Face Kiosk — shared attendance terminal with facial recognition",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win",
+    "build:dir": "electron-builder --dir"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.onclock.kiosk",
+    "productName": "OnClock Face Kiosk",
+    "directories": { "output": "dist" },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "OnClock Face Kiosk"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "vendor/**/*",
+      "models/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ]
+  }
+}

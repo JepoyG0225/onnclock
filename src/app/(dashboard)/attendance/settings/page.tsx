@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
-import { MapPin, Loader2, Fingerprint, Camera, ShieldCheck, Monitor, Download, Copy, Check } from 'lucide-react'
+import { MapPin, Loader2, Fingerprint, Camera, ShieldCheck, Monitor, Download, Copy, Check, ScanFace} from 'lucide-react'
 import { toast } from 'sonner'
 
 const DESKTOP_DOWNLOAD_URL =
@@ -22,6 +22,7 @@ export default function AttendanceSettingsPage() {
     fingerprintRequired: true,
     geofenceEnabled: false,
     selfieRequired: false,
+    faceRecognitionRequired: false,
     screenCaptureEnabled: false,
     screenCaptureFrequencyMinutes: '5',
     autoClockoutEnabled: false,
@@ -55,6 +56,10 @@ export default function AttendanceSettingsPage() {
         typeof data.fingerprintRequired === 'boolean' ? data.fingerprintRequired : prev.fingerprintRequired,
       geofenceEnabled: typeof data.geofenceEnabled === 'boolean' ? data.geofenceEnabled : prev.geofenceEnabled,
       selfieRequired: typeof data.selfieRequired === 'boolean' ? data.selfieRequired : prev.selfieRequired,
+      faceRecognitionRequired:
+        typeof data.faceRecognitionRequired === 'boolean'
+          ? data.faceRecognitionRequired
+          : prev.faceRecognitionRequired,
       screenCaptureEnabled:
         (typeof data.screenCaptureEnabled === 'boolean' ? data.screenCaptureEnabled : prev.screenCaptureEnabled)
         && !!feature.entitled,
@@ -81,6 +86,7 @@ export default function AttendanceSettingsPage() {
         fingerprintRequired: Boolean(form.fingerprintRequired),
         geofenceEnabled: Boolean(form.geofenceEnabled),
         selfieRequired: Boolean(form.selfieRequired),
+        faceRecognitionRequired: Boolean(form.faceRecognitionRequired),
         screenCaptureEnabled: Boolean(form.screenCaptureEnabled),
         screenCaptureFrequencyMinutes: Number(form.screenCaptureFrequencyMinutes || 5),
         autoClockoutEnabled: Boolean(form.autoClockoutEnabled),
@@ -201,6 +207,25 @@ export default function AttendanceSettingsPage() {
               <span>
                 <span className="text-sm font-medium text-gray-700 block">Require selfie on clock in</span>
                 <span className="text-xs text-gray-500">Employees must capture selfie before clocking in.</span>
+              </span>
+            </label>
+
+            <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(form.faceRecognitionRequired)}
+                onChange={e => setForm(f => ({ ...f, faceRecognitionRequired: e.target.checked }))}
+                className="absolute top-3 right-3"
+              />
+              <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                <ScanFace className="w-5 h-5" />
+              </div>
+              <span>
+                <span className="text-sm font-medium text-gray-700 block">Require face verification</span>
+                <span className="text-xs text-gray-500">
+                  Employees must pass a live face match to clock in. They set their face up once
+                  from the portal. Also required for the Face Kiosk terminal.
+                </span>
               </span>
             </label>
 
