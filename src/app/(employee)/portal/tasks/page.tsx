@@ -23,6 +23,7 @@ import {
   MessageSquare, ChevronLeft, ChevronRight, ListChecks,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PortalTaskDetailDialog } from '@/components/employee/PortalTaskDetailDialog'
 
 interface TaskStatus {
   id: string
@@ -103,7 +104,7 @@ function ProgressRing({ done, total, isDone }: { done: number; total: number; is
   )
 }
 
-type Filter = 'all' | 'open' | 'done'
+type Filter = 'all' | 'open' | 'in_progress' | 'done'
 
 export default function PortalTasksPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([])
@@ -112,6 +113,7 @@ export default function PortalTasksPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('open')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
   /** null = no day selected, i.e. show every task rather than one day. */
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
@@ -198,6 +200,7 @@ export default function PortalTasksPage() {
   const visible = useMemo(() => {
     let rows = tasks
     if (filter === 'open') rows = rows.filter(t => t.status.category !== 'DONE')
+    if (filter === 'in_progress') rows = rows.filter(t => t.status.category === 'IN_PROGRESS')
     if (filter === 'done') rows = rows.filter(t => t.status.category === 'DONE')
     if (selectedDay !== null) {
       rows = rows.filter(t => t.dueDate && dayKey(new Date(t.dueDate)) === selectedDay)
@@ -311,6 +314,7 @@ export default function PortalTasksPage() {
       <div className="flex items-center gap-2">
         {([
           { id: 'open', label: 'Open' },
+          { id: 'in_progress', label: 'In Progress' },
           { id: 'done', label: 'Completed' },
           { id: 'all',  label: 'All' },
         ] as const).map(f => (
@@ -393,6 +397,15 @@ export default function PortalTasksPage() {
             return (
               <div
                 key={task.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedTaskId(task.id)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setSelectedTaskId(task.id)
+                  }
+                }}
                 className={cn(
                   // Borderless with a soft shadow instead of a hard 1px outline —
                   // a stack of outlined boxes reads as a table, not a feed. The
@@ -413,7 +426,8 @@ export default function PortalTasksPage() {
                   <button
                     type="button"
                     disabled={saving || !toggleTarget}
-                    onClick={() => setStatus(task, toggleTarget)}
+                    onClick={event => { event.stopPropagation(); void setStatus(task, toggleTarget) }}
+                    onKeyDown={event => event.stopPropagation()}
                     className="shrink-0 mt-0.5 disabled:opacity-40"
                     aria-label={isDone ? 'Mark as not done' : 'Mark as done'}
                   >
@@ -474,7 +488,8 @@ export default function PortalTasksPage() {
                   <button
                     type="button"
                     disabled={saving}
-                    onClick={() => setStatus(task, progressStatus.id)}
+                    onClick={event => { event.stopPropagation(); void setStatus(task, progressStatus.id) }}
+                    onKeyDown={event => event.stopPropagation()}
                     className="mt-3 ml-[34px] text-[11px] font-black inline-flex items-center gap-0.5 px-2.5 py-1 rounded-full disabled:opacity-40"
                     style={{ color: TEAL, background: 'rgba(27,106,110,0.08)' }}
                   >
@@ -486,6 +501,13 @@ export default function PortalTasksPage() {
             )
           })}
         </div>
+      )}
+      {selectedTaskId && (
+        <PortalTaskDetailDialog
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onChanged={load}
+        />
       )}
     </div>
   )

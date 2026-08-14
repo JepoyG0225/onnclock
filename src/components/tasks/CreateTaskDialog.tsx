@@ -13,7 +13,7 @@
  */
 
 import { useRef, useState } from 'react'
-import { Loader2, Paperclip, X, Upload, FileText } from 'lucide-react'
+import { CheckSquare, FileText, Loader2, Paperclip, Plus, Upload, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -46,6 +46,8 @@ export function CreateTaskDialog({
   const [priority, setPriority] = useState<Priority>('MEDIUM')
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
+  const [checklist, setChecklist] = useState<string[]>([])
+  const [checklistDraft, setChecklistDraft] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [assigneeQuery, setAssigneeQuery] = useState('')
   const [saving, setSaving] = useState(false)
@@ -98,7 +100,17 @@ export function CreateTaskDialog({
       }
       const { task } = await res.json()
 
-      // Phase two: attach files to the task we just created.
+      // Phase two: add checklist items and attachments to the task we just created.
+      const failedChecklist: string[] = []
+      for (const text of checklist) {
+        const item = await fetch(`/api/tasks/${task.id}/checklist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        })
+        if (!item.ok) failedChecklist.push(text)
+      }
+
       const failed: string[] = []
       for (const file of files) {
         const fd = new FormData()
@@ -107,12 +119,16 @@ export function CreateTaskDialog({
         if (!up.ok) failed.push(file.name)
       }
 
-      if (failed.length) {
+      if (failed.length || failedChecklist.length) {
+        const failures = [
+          failedChecklist.length ? `${failedChecklist.length} checklist item${failedChecklist.length === 1 ? '' : 's'}` : '',
+          failed.length ? `${failed.length} file${failed.length === 1 ? '' : 's'}` : '',
+        ].filter(Boolean).join(' and ')
         toast.warning(
-          `Task created, but ${failed.length} file${failed.length === 1 ? '' : 's'} failed to upload: ${failed.join(', ')}`,
+          `Task created, but ${failures} could not be saved.`,
         )
       } else {
-        toast.success(files.length ? `Task created with ${files.length} file${files.length === 1 ? '' : 's'}` : 'Task created')
+        toast.success('Task created')
       }
       onCreated()
     } catch (err) {
@@ -247,6 +263,43 @@ export function CreateTaskDialog({
               onChange={e => setNotes(e.target.value)}
               placeholder="Context, links, acceptance criteria…"
             />
+          </div>
+
+          <div>
+            <Label htmlFor="task-checklist">Checklist</Label>
+            {checklist.length > 0 && (
+              <ul className="mt-1 space-y-1">
+                {checklist.map((item, index) => (
+                  <li key={`${item}-${index}`} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
+                    <CheckSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 text-sm">{item}</span>
+                    <button type="button" onClick={() => setChecklist(items => items.filter((_, i) => i !== index))} className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${item}`}>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-1.5 flex gap-2">
+              <Input
+                id="task-checklist"
+                value={checklistDraft}
+                onChange={e => setChecklistDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key !== 'Enter') return
+                  e.preventDefault()
+                  const item = checklistDraft.trim()
+                  if (item) { setChecklist(items => [...items, item]); setChecklistDraft('') }
+                }}
+                placeholder="Add something that needs to be done…"
+              />
+              <Button type="button" variant="outline" size="icon" onClick={() => {
+                const item = checklistDraft.trim()
+                if (item) { setChecklist(items => [...items, item]); setChecklistDraft('') }
+              }} aria-label="Add checklist item">
+                <Plus />
+              </Button>
+            </div>
           </div>
 
           {/* Attachments */}

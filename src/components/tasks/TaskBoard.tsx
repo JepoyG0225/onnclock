@@ -318,6 +318,19 @@ function BoardCard({
         </div>
         <AvatarStack employees={task.assignees} max={3} size="xs" />
       </div>
+      {task.checklistTotal > 0 && (
+        <div className="mt-2 flex items-center gap-2" aria-label={`${task.checklistDone} of ${task.checklistTotal} checklist items completed`}>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: `${Math.round((task.checklistDone / task.checklistTotal) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
+            {Math.round((task.checklistDone / task.checklistTotal) * 100)}%
+          </span>
+        </div>
+      )}
     </article>
   )
 }

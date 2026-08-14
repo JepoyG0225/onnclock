@@ -533,6 +533,18 @@ export function TaskDetailDrawer({
               {/* Checklist */}
               <Section title="Checklist" icon={<CheckSquare className="h-3.5 w-3.5" />}>
                 <div className="space-y-1.5">
+                  {task.checklist.length > 0 && (() => {
+                    const done = task.checklist.filter(item => item.isDone).length
+                    const percent = Math.round((done / task.checklist.length) * 100)
+                    return (
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${percent}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold tabular-nums text-muted-foreground">{percent}%</span>
+                      </div>
+                    )
+                  })()}
                   {task.checklist.map(item => (
                     <div key={item.id} className="group flex items-center gap-2">
                       <input
