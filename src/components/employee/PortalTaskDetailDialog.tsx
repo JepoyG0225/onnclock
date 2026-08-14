@@ -16,7 +16,7 @@ interface PortalTaskDetail {
   description: string | null
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   dueDate: string | null
-  status: { name: string; color: string }
+  status: { name: string; color: string; category: 'TODO' | 'IN_PROGRESS' | 'DONE' }
   assignees: Array<{ id: string; firstName: string; lastName: string }>
   labels: Array<{ id: string; name: string; color: string }>
   checklist: Array<{ id: string; text: string; isDone: boolean }>
@@ -33,10 +33,12 @@ interface PortalTaskDetail {
 
 export function PortalTaskDetailDialog({
   taskId,
+  statuses,
   onClose,
   onChanged,
 }: {
   taskId: string
+  statuses: Array<{ id: string; name: string; color: string; category: 'TODO' | 'IN_PROGRESS' | 'DONE'; isDefault: boolean }>
   onClose: () => void
   onChanged: () => void
 }) {
@@ -45,6 +47,8 @@ export function PortalTaskDetailDialog({
   const [canEdit, setCanEdit] = useState(false)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [savingChecklistIds, setSavingChecklistIds] = useState<Set<string>>(() => new Set())
 
   const load = useCallback(async () => {
     try {
@@ -115,18 +119,56 @@ export function PortalTaskDetailDialog({
   }
 
   async function toggleChecklist(itemId: string, isDone: boolean) {
-    const res = await fetch(`/api/tasks/${taskId}/checklist`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId, isDone }),
-    })
-    const data = await res.json().catch(() => null)
-    if (!res.ok) {
-      toast.error(data?.error || 'Could not update checklist')
-      return
+    // Reflect the tick and progress immediately; the request persists it in
+    // the background. Only this item rolls back if the server rejects it.
+    setTask(current => current ? {
+      ...current,
+      checklist: current.checklist.map(item => item.id === itemId ? { ...item, isDone } : item),
+    } : current)
+    setSavingChecklistIds(current => new Set(current).add(itemId))
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/checklist`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId, isDone }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Could not update checklist')
+      onChanged()
+    } catch (err) {
+      setTask(current => current ? {
+        ...current,
+        checklist: current.checklist.map(item => item.id === itemId ? { ...item, isDone: !isDone } : item),
+      } : current)
+      toast.error(err instanceof Error ? err.message : 'Could not update checklist')
+    } finally {
+      setSavingChecklistIds(current => {
+        const next = new Set(current)
+        next.delete(itemId)
+        return next
+      })
     }
-    await load()
-    onChanged()
+  }
+
+  async function updateStatus(statusId: string) {
+    setUpdatingStatus(true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statusId }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Could not update task status')
+      await load()
+      onChanged()
+      toast.success('Task status updated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update task status')
+    } finally {
+      setUpdatingStatus(false)
+    }
   }
 
   return (
@@ -166,6 +208,40 @@ export function PortalTaskDetailDialog({
             </header>
 
             <div className="space-y-5 overflow-y-auto px-5 py-5">
+              {canEdit && (
+                <DetailSection title="Update status">
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['TODO', 'IN_PROGRESS', 'DONE'] as const).map(category => {
+                      const categoryStatuses = statuses.filter(item => item.category === category)
+                      const status = categoryStatuses.find(item =>
+                        category === 'TODO'
+                          ? item.isDefault
+                          : item.name.toLowerCase() === (category === 'IN_PROGRESS' ? 'in progress' : 'done'),
+                      ) ?? categoryStatuses[0]
+                      if (!status) return null
+                      const active = task.status.category === category
+                      const label = category === 'TODO' ? 'To Do' : category === 'IN_PROGRESS' ? 'In Progress' : 'Done'
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          disabled={updatingStatus || active}
+                          onClick={() => void updateStatus(status.id)}
+                          className={cn(
+                            'min-w-0 truncate rounded-xl border px-2 py-2 text-[11px] font-black transition sm:text-xs',
+                            active ? 'border-transparent text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+                            updatingStatus && 'opacity-60',
+                          )}
+                          style={active ? { background: status.color } : undefined}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </DetailSection>
+              )}
+
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-500">
                 <span className="capitalize">{task.priority.toLowerCase()} priority</span>
                 {task.dueDate && (
@@ -223,7 +299,7 @@ export function PortalTaskDetailDialog({
                               <input
                                 type="checkbox"
                                 checked={item.isDone}
-                                disabled={!canEdit}
+                                disabled={!canEdit || savingChecklistIds.has(item.id)}
                                 onChange={event => void toggleChecklist(item.id, event.target.checked)}
                                 className="mt-0.5 h-4 w-4 rounded border-slate-300"
                               />

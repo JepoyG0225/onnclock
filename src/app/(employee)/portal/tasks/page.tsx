@@ -104,14 +104,14 @@ function ProgressRing({ done, total, isDone }: { done: number; total: number; is
   )
 }
 
-type Filter = 'all' | 'open' | 'in_progress' | 'done'
+type Filter = 'todo' | 'in_progress' | 'done'
 
 export default function PortalTasksPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<Filter>('open')
+  const [filter, setFilter] = useState<Filter>('todo')
   const [savingId, setSavingId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
@@ -199,7 +199,7 @@ export default function PortalTasksPage() {
 
   const visible = useMemo(() => {
     let rows = tasks
-    if (filter === 'open') rows = rows.filter(t => t.status.category !== 'DONE')
+    if (filter === 'todo') rows = rows.filter(t => t.status.category === 'TODO')
     if (filter === 'in_progress') rows = rows.filter(t => t.status.category === 'IN_PROGRESS')
     if (filter === 'done') rows = rows.filter(t => t.status.category === 'DONE')
     if (selectedDay !== null) {
@@ -311,19 +311,18 @@ export default function PortalTasksPage() {
       </section>
 
       {/* Filter pills */}
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {([
-          { id: 'open', label: 'Open' },
+          { id: 'todo', label: 'To Do' },
           { id: 'in_progress', label: 'In Progress' },
-          { id: 'done', label: 'Completed' },
-          { id: 'all',  label: 'All' },
+          { id: 'done', label: 'Done' },
         ] as const).map(f => (
           <button
             key={f.id}
             type="button"
             onClick={() => setFilter(f.id)}
             className={cn(
-              'text-[12px] font-black px-3.5 py-1.5 rounded-full border transition-colors',
+              'min-w-0 truncate text-[11px] font-black px-2 py-2 rounded-full border transition-colors sm:text-[12px]',
               filter === f.id ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200',
             )}
             style={filter === f.id ? { background: NAVY } : undefined}
@@ -335,7 +334,7 @@ export default function PortalTasksPage() {
           <button
             type="button"
             onClick={() => setSelectedDay(null)}
-            className="ml-auto text-[11px] font-bold text-slate-400 hover:text-slate-700"
+            className="col-span-3 justify-self-end text-[11px] font-bold text-slate-400 hover:text-slate-700"
           >
             Clear day
           </button>
@@ -505,6 +504,7 @@ export default function PortalTasksPage() {
       {selectedTaskId && (
         <PortalTaskDetailDialog
           taskId={selectedTaskId}
+          statuses={statuses}
           onClose={() => setSelectedTaskId(null)}
           onChanged={load}
         />

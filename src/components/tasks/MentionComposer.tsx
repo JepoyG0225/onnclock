@@ -29,6 +29,15 @@ interface MentionUser {
   employeeNo: string | null
 }
 
+function encodeMentions(body: string, mentions: Array<{ name: string; userId: string }>) {
+  return [...mentions]
+    .sort((a, b) => b.name.length - a.name.length)
+    .reduce(
+      (value, mention) => value.split(`@${mention.name}`).join(`@[${mention.name}](${mention.userId})`),
+      body,
+    )
+}
+
 export function MentionComposer({
   onSubmit,
   placeholder = 'Write a comment…  use @ to mention someone',
@@ -39,6 +48,7 @@ export function MentionComposer({
   submitLabel?: string
 }) {
   const [body, setBody] = useState('')
+  const [selectedMentions, setSelectedMentions] = useState<Array<{ name: string; userId: string }>>([])
   const [posting, setPosting] = useState(false)
 
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -94,15 +104,20 @@ export function MentionComposer({
     if (start === null) return
     const el = textareaRef.current
     const caret = el?.selectionStart ?? body.length
-    const token = `@[${user.name}](${user.userId}) `
-    const next = body.slice(0, start) + token + body.slice(caret)
+    const visibleMention = `@${user.name} `
+    const next = body.slice(0, start) + visibleMention + body.slice(caret)
     setBody(next)
+    setSelectedMentions(current =>
+      current.some(mention => mention.userId === user.userId)
+        ? current
+        : [...current, { name: user.name, userId: user.userId }],
+    )
     setPickerOpen(false)
     triggerIndex.current = null
     // Restore focus and drop the caret after the inserted token.
     requestAnimationFrame(() => {
       el?.focus()
-      const pos = start + token.length
+      const pos = start + visibleMention.length
       el?.setSelectionRange(pos, pos)
     })
   }, [body])
@@ -112,8 +127,9 @@ export function MentionComposer({
     if (!trimmed) return
     setPosting(true)
     try {
-      await onSubmit(trimmed)
+      await onSubmit(encodeMentions(trimmed, selectedMentions))
       setBody('')
+      setSelectedMentions([])
     } finally {
       setPosting(false)
     }
@@ -201,12 +217,11 @@ export function MentionComposer({
         </Button>
       </div>
 
-      {/* Live preview of how the mention will render, shown only when the raw
-          token markup is present so it doesn't add noise to plain comments. */}
-      {body.includes('@[') && (
+      {/* Preview shows the final display without exposing stored user ids. */}
+      {selectedMentions.length > 0 && (
         <div className="mt-1.5 rounded-md bg-muted/40 p-2">
           <p className="mb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Preview</p>
-          <CommentBody body={body} />
+          <CommentBody body={encodeMentions(body, selectedMentions)} />
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@
 
 /**
  * Slide-over panel for a single task: description, assignees, labels, dates,
- * checklist, subtasks, time logs, comments and the activity trail.
+ * checklist, time logs, comments and the activity trail.
  *
  * Field edits save on blur/change rather than behind a Save button, matching
  * how Trello/Monday behave — the drawer is a live view of the record.
@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  X, Trash2, Plus, Clock, MessageSquare, CheckSquare, Loader2, ListTree, History,
+  X, Trash2, Plus, Clock, MessageSquare, CheckSquare, Loader2, History,
   Paperclip, Upload, FileText, Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -45,7 +45,6 @@ interface TaskDetail {
   assignees: EmployeeBrief[]
   labels: LabelBrief[]
   checklist: Array<{ id: string; text: string; isDone: boolean; order: number }>
-  subtasks: Array<{ id: string; number: number; key: string; title: string; completedAt: string | null }>
   comments: Array<{ id: string; body: string; createdAt: string; authorName: string }>
   attachments: Array<{
     id: string; fileName: string; fileUrl: string; fileSize: number
@@ -84,8 +83,6 @@ export function TaskDetailDrawer({
   const [titleDraft, setTitleDraft] = useState('')
   const [descDraft, setDescDraft] = useState('')
   const [checklistDraft, setChecklistDraft] = useState('')
-  const [subtaskDraft, setSubtaskDraft] = useState('')
-  const [addingSubtask, setAddingSubtask] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [logHours, setLogHours] = useState('')
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -161,31 +158,6 @@ export function TaskDetailDrawer({
       toast.error(err instanceof Error ? err.message : 'Could not post the comment')
       // Rethrow so the composer keeps the draft instead of clearing it.
       throw err
-    }
-  }
-
-  /** Subtasks reuse the project task-create endpoint with a parentTaskId. */
-  const addSubtask = async () => {
-    const title = subtaskDraft.trim()
-    if (!title || !task) return
-    setAddingSubtask(true)
-    try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, parentTaskId: taskId, statusId: task.statusId }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? 'Could not add the subtask')
-      }
-      setSubtaskDraft('')
-      await load()
-      onChanged()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not add the subtask')
-    } finally {
-      setAddingSubtask(false)
     }
   }
 
@@ -585,41 +557,6 @@ export function TaskDetailDrawer({
                     </div>
                   )}
                 </div>
-              </Section>
-
-              {/* Subtasks */}
-              <Section title="Subtasks" icon={<ListTree className="h-3.5 w-3.5" />}>
-                {task.subtasks.length > 0 ? (
-                  <ul className="mb-2 space-y-1">
-                    {task.subtasks.map(s => (
-                      <li key={s.id} className="flex items-center gap-2 text-sm">
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {s.key}
-                        </span>
-                        <span className={cn('flex-1', s.completedAt && 'text-muted-foreground line-through')}>
-                          {s.title}
-                        </span>
-                        {s.completedAt && <CheckSquare className="h-3.5 w-3.5 text-emerald-600" />}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mb-2 text-xs text-muted-foreground">No subtasks yet.</p>
-                )}
-                {canEdit && (
-                  <div className="flex gap-1.5">
-                    <Input
-                      value={subtaskDraft}
-                      onChange={e => setSubtaskDraft(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void addSubtask() } }}
-                      placeholder="Add a subtask…"
-                      className="h-8 text-sm"
-                    />
-                    <Button size="sm" variant="outline" onClick={() => void addSubtask()} disabled={addingSubtask}>
-                      {addingSubtask ? <Loader2 className="animate-spin" /> : <Plus />}
-                    </Button>
-                  </div>
-                )}
               </Section>
 
               {/* Attachments */}
