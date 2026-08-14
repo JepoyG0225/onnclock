@@ -16,7 +16,7 @@ interface PortalTaskDetail {
   description: string | null
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   dueDate: string | null
-  status: { name: string; color: string; category: 'TODO' | 'IN_PROGRESS' | 'DONE' }
+  status: { id: string; name: string; color: string; category: 'TODO' | 'IN_PROGRESS' | 'DONE' }
   assignees: Array<{ id: string; firstName: string; lastName: string }>
   labels: Array<{ id: string; name: string; color: string }>
   checklist: Array<{ id: string; text: string; isDone: boolean }>
@@ -152,6 +152,13 @@ export function PortalTaskDetailDialog({
   }
 
   async function updateStatus(statusId: string) {
+    const nextStatus = statuses.find(status => status.id === statusId)
+    if (!nextStatus || !task || task.status.id === statusId) return
+    const previousStatus = task.status
+
+    // Update the visible status immediately while persistence happens in the
+    // background. This keeps the status buttons and header in sync instantly.
+    setTask(current => current ? { ...current, status: nextStatus } : current)
     setUpdatingStatus(true)
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
@@ -161,10 +168,10 @@ export function PortalTaskDetailDialog({
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error || 'Could not update task status')
-      await load()
       onChanged()
       toast.success('Task status updated')
     } catch (err) {
+      setTask(current => current ? { ...current, status: previousStatus } : current)
       toast.error(err instanceof Error ? err.message : 'Could not update task status')
     } finally {
       setUpdatingStatus(false)
