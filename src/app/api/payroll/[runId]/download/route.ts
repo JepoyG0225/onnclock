@@ -25,10 +25,9 @@ export async function GET(
 
   const company = await prisma.company.findUnique({
     where: { id: ctx.companyId },
-    select: { name: true, payrollCurrency: true },
+    select: { name: true },
   })
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
-  const currency = (company.payrollCurrency || 'PHP').toUpperCase()
 
   const payslips = await prisma.payslip.findMany({
     where: { payrollRunId: runId },
@@ -40,6 +39,10 @@ export async function GET(
           lastName: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
+          otherDeductionItems: {
+            where: { isActive: true },
+            select: { label: true, amount: true },
+          },
         },
       },
       incomes: {
@@ -50,12 +53,6 @@ export async function GET(
   })
 
   const rows: PayrollRunRow[] = payslips.map(ps => {
-    const otAmount =
-      ps.regularOtAmount.toNumber() +
-      ps.restDayOtAmount.toNumber() +
-      ps.holidayOtAmount.toNumber() +
-      ps.nightDiffAmount.toNumber()
-
     // Build per-income-type breakdown
     const incomeItems: Record<string, number> = {}
     let incomesSum = 0
@@ -64,6 +61,18 @@ export async function GET(
       if (amt > 0) {
         incomeItems[inc.typeName] = (incomeItems[inc.typeName] ?? 0) + amt
         incomesSum += amt
+      }
+    }
+    const manual = ps.manualEdits as {
+      customIncomes?: Array<{ label: string; amount: number }>
+      customDeductions?: Array<{ label: string; amount: number }>
+    } | null
+    const customIncomes = Array.isArray(manual?.customIncomes) ? manual.customIncomes : []
+    for (const inc of customIncomes) {
+      const amount = Number(inc.amount)
+      if (inc.label && amount > 0) {
+        incomeItems[inc.label] = (incomeItems[inc.label] ?? 0) + amount
+        incomesSum += amount
       }
     }
 
@@ -76,10 +85,26 @@ export async function GET(
     const residualOther = ps.otherEarnings.toNumber() - incomesSum
     const allowances = deminimis + (residualOther > 0.01 ? residualOther : 0)
 
-    const loans =
-      ps.sssLoanDeduction.toNumber() +
-      ps.pagibigLoan.toNumber() +
-      ps.companyLoan.toNumber()
+    const deductionItems: Record<string, number> = {}
+    let deductionsSum = 0
+    for (const deduction of ps.employee.otherDeductionItems) {
+      const amount = Number(deduction.amount)
+      if (amount > 0) {
+        deductionItems[deduction.label] = (deductionItems[deduction.label] ?? 0) + amount
+        deductionsSum += amount
+      }
+    }
+    const customDeductions = Array.isArray(manual?.customDeductions) ? manual.customDeductions : []
+    for (const deduction of customDeductions) {
+      const amount = Number(deduction.amount)
+      if (deduction.label && amount > 0) {
+        deductionItems[deduction.label] = (deductionItems[deduction.label] ?? 0) + amount
+        deductionsSum += amount
+      }
+    }
+    const residualDeduction = ps.otherDeductions.toNumber() - deductionsSum
+    if (residualDeduction > 0.01) deductionItems['Other Deductions'] = residualDeduction
+
     const sssEmployer = ps.sssEmployer.toNumber()
     const sssEc = ps.sssEc.toNumber()
     const philhealthEmployer = ps.philhealthEmployer.toNumber()
@@ -93,14 +118,23 @@ export async function GET(
       basicPay: ps.basicSalary.toNumber(),
       allowances,
       incomeItems,
-      otAmount,
+      regularOt: ps.regularOtAmount.toNumber(),
+      restDayOt: ps.restDayOtAmount.toNumber(),
+      holidayOt: ps.holidayOtAmount.toNumber(),
+      holidayPay: ps.holidayPayAmount.toNumber(),
+      nightDiff: ps.nightDiffAmount.toNumber(),
       grossPay: ps.grossPay.toNumber(),
       sssEmployee: ps.sssEmployee.toNumber(),
       philhealthEmployee: ps.philhealthEmployee.toNumber(),
       pagibigEmployee: ps.pagibigEmployee.toNumber(),
       withholdingTax: ps.withholdingTax.toNumber(),
-      loans,
-      otherDeductions: ps.otherDeductions.toNumber(),
+      sssLoan: ps.sssLoanDeduction.toNumber(),
+      pagibigLoan: ps.pagibigLoan.toNumber(),
+      companyLoan: ps.companyLoan.toNumber(),
+      lateDeduction: ps.lateDeduction.toNumber(),
+      undertimeDeduction: ps.undertimeDeduction.toNumber(),
+      absenceDeduction: ps.absenceDeduction.toNumber(),
+      deductionItems,
       totalDeductions: ps.totalDeductions.toNumber(),
       netPay: ps.netPay.toNumber(),
       sssEmployer,
@@ -113,7 +147,7 @@ export async function GET(
 
   const payDate = run.payDate ? format(new Date(run.payDate), 'MMMM d, yyyy') : ''
   const slug = run.periodLabel.replace(/[^a-zA-Z0-9-]/g, '_')
-  const buf = generatePayrollRunExcel(company.name, run.periodLabel, payDate, rows, currency)
+  const buf = generatePayrollRunExcel(company.name, run.periodLabel, payDate, rows)
 
   return new NextResponse(Buffer.from(buf), {
     headers: {

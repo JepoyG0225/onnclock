@@ -136,7 +136,7 @@ export const STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'bg-[var(--brand-highlight)] text-black',
   INACTIVE: 'bg-gray-200 text-[#343434]',
   PENDING: 'bg-black text-[var(--brand-highlight)]',
-  APPROVED: 'bg-[var(--brand-highlight)] text-black',
+  APPROVED: 'bg-emerald-100 text-emerald-700 ring-1 ring-inset ring-emerald-200',
   REJECTED: 'bg-black text-white',
   CANCELLED: 'bg-gray-200 text-[#343434]',
   DRAFT: 'bg-gray-200 text-[#343434]',

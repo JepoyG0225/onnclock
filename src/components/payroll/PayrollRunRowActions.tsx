@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trash2, Unlock, AlertTriangle } from 'lucide-react'
+import { Trash2, Unlock, AlertTriangle, Download } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Props {
@@ -69,6 +69,15 @@ export default function PayrollRunRowActions({ runId, status }: Props) {
   return (
     <>
       <div className="flex items-center justify-center gap-1">
+        {status !== 'DRAFT' && (
+          <a
+            href={`/api/payroll/${runId}/download`}
+            title="Download payroll Excel"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--brand-primary)] transition-colors hover:bg-blue-50"
+          >
+            <Download className="h-4 w-4" />
+          </a>
+        )}
         {status === 'LOCKED' && (
           <Button
             type="button"
