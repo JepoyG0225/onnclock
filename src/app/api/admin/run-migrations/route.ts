@@ -18,6 +18,12 @@ export async function POST() {
 
   const migrations = [
     {
+      // Face-recognition gate for attendance. Defaults false so enabling it is
+      // an explicit choice per company — nobody's punches start failing on deploy.
+      name: 'add_face_recognition_required_to_companies',
+      sql: `ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "faceRecognitionRequired" BOOLEAN NOT NULL DEFAULT false;`,
+    },
+    {
       // Cutoff-based repayment for cash advances. Nullable so every existing
       // row keeps meaning "repaymentMonths months" — nothing is reinterpreted.
       name: 'add_repayment_cutoffs_to_cash_advances',

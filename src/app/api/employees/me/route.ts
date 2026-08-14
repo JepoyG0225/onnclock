@@ -37,7 +37,7 @@ export async function GET() {
     }) : Promise.resolve(null),
     prisma.company.findUnique({
       where: { id: ctx.companyId },
-      select: { selfieRequired: true },
+      select: { selfieRequired: true, faceRecognitionRequired: true },
     }),
   ])
 
@@ -47,10 +47,19 @@ export async function GET() {
     !employee.selfieExempt &&
     ((company?.selfieRequired ?? false) || !!employee.workSchedule?.requireSelfieOnClockIn)
 
+  // Face gate travels with the same payload the clock screen already fetches,
+  // so enabling it costs no extra round trip. `faceEnrolled` is derived here
+  // rather than sent as the embedding — the reference vector must never reach
+  // the browser, or a tampered client could match against it locally.
+  const faceRecognitionRequired = company?.faceRecognitionRequired ?? false
+  const faceEnrolled = !!(employee as { faceEmbedding?: unknown }).faceEmbedding
+
   return NextResponse.json({
     employee: {
       ...stripLargePrivateFields(employee),
       selfieRequired,
+      faceRecognitionRequired,
+      faceEnrolled,
     },
   })
 }

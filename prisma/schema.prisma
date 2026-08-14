@@ -338,6 +338,9 @@ model Company {
   geofenceEnabled               Boolean  @default(false)
   fingerprintRequired           Boolean  @default(true)
   selfieRequired                Boolean  @default(false)
+  /// Require a live face match before clock in/out. Defaults false so no
+  /// existing company suddenly starts blocking punches.
+  faceRecognitionRequired       Boolean  @default(false)
   screenCaptureEnabled          Boolean  @default(false)
   screenCaptureFrequencyMinutes Int      @default(5)
   // Auto clock-out after N minutes of OS-level inactivity (no keyboard

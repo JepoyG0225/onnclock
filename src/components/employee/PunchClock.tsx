@@ -6,6 +6,8 @@ import { startAuthentication } from '@simplewebauthn/browser'
 import { format, differenceInSeconds } from 'date-fns'
 import { MapPin, Clock, AlertCircle, Loader2, RefreshCw, Calendar, Coffee, Monitor, CalendarDays, Fingerprint} from 'lucide-react'
 import { toast } from 'sonner'
+import { FaceEnrollDialog } from '@/components/employee/FaceEnrollDialog'
+import { FaceVerifyDialog } from '@/components/employee/FaceVerifyDialog'
 import dynamic from 'next/dynamic'
 
 // react-leaflet touches `window` at module scope, so it cannot be evaluated on
@@ -97,6 +99,15 @@ export function PunchClock() {
     configured: boolean
   } | null>(null)
   const [selfieRequired, setSelfieRequired] = useState(false)
+  const [faceRequired, setFaceRequired] = useState(false)
+  const [faceEnrolled, setFaceEnrolled] = useState(false)
+  const [showFaceEnroll, setShowFaceEnroll] = useState(false)
+  /**
+   * Set while a punch is waiting on face verification. Holds the action to run
+   * once the face matches, so the guard chain resumes exactly where it paused
+   * rather than the caller having to re-click.
+   */
+  const [pendingFaceAction, setPendingFaceAction] = useState<null | (() => void)>(null)
   const [selfiePhoto, setSelfiePhoto] = useState<string | null>(null)
   const [screenCaptureFeature, setScreenCaptureFeature] = useState<ScreenCaptureFeature | null>(null)
   const [screenCaptureBlocked, setScreenCaptureBlocked] = useState(false)
@@ -286,6 +297,8 @@ export function PunchClock() {
         if (!e) return
         const name = [e.firstName, e.lastName].filter(Boolean).join(' ').trim()
         setSelfieRequired(!!e.selfieRequired)
+        setFaceRequired(!!e.faceRecognitionRequired)
+        setFaceEnrolled(!!e.faceEnrolled)
       })
       .catch(() => null)
     fetch('/api/attendance/geofence')
@@ -609,6 +622,17 @@ export function PunchClock() {
 
     if (biometricRequired && !biometricEnrolled) {
       toast.error('Please enroll your fingerprint in Profile > Portal Access before clocking in.')
+      return
+    }
+    // Face gate. Enrolment is offered inline rather than sending the employee
+    // off to another screen mid-punch.
+    if (faceRequired && !faceEnrolled) {
+      toast.error('Set up face verification before clocking in.')
+      setShowFaceEnroll(true)
+      return
+    }
+    if (faceRequired) {
+      setPendingFaceAction(() => () => { void executeClockIn(pos) })
       return
     }
     if (selfieRequired && !selfiePhoto) {
@@ -1301,6 +1325,25 @@ export function PunchClock() {
       {/* Full month-by-month record, moved here from the retired
           /portal/attendance page so today's punch and the history an employee
           checks it against live on one screen. */}
+
+      {showFaceEnroll && (
+        <FaceEnrollDialog
+          onClose={() => setShowFaceEnroll(false)}
+          onEnrolled={() => setFaceEnrolled(true)}
+        />
+      )}
+
+      {pendingFaceAction && (
+        <FaceVerifyDialog
+          title="Verify to clock in"
+          onVerified={() => {
+            const run = pendingFaceAction
+            setPendingFaceAction(null)
+            run?.()
+          }}
+          onCancel={() => setPendingFaceAction(null)}
+        />
+      )}
 
       {/* Why you can't clock in — shown on tap instead of disabling the button.
 
