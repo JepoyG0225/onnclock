@@ -525,14 +525,18 @@ export function TimesheetsTab() {
     setShowExport(true)
   }
 
-  async function runExport() {
-    if (!exportRange) return
+  async function downloadExport(
+    range: { from: string; to: string } | null,
+    fileFormat: 'xlsx' | 'csv',
+    closeDialog = false,
+  ) {
+    if (!range) return
     setExporting(true)
     try {
       const qs = new URLSearchParams({
-        from: exportRange.from,
-        to: exportRange.to,
-        format: exportFormat,
+        from: range.from,
+        to: range.to,
+        format: fileFormat,
       })
       const res = await fetch(withCompanyQuery(`/api/dtr/export?${qs.toString()}`))
       if (!res.ok) {
@@ -548,13 +552,13 @@ export function TimesheetsTab() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = named ?? `timesheets.${exportFormat}`
+      a.download = named ?? `timesheets.${fileFormat}`
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      toast.success('Timesheet exported')
-      setShowExport(false)
+      toast.success(fileFormat === 'xlsx' ? 'DTR Excel downloaded' : 'DTR CSV downloaded')
+      if (closeDialog) setShowExport(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Export failed')
     } finally {
@@ -1044,6 +1048,18 @@ export function TimesheetsTab() {
     } finally {
       setConvertingEmployeeId(null)
     }
+  }
+
+  function runExport() {
+    void downloadExport(exportRange, exportFormat, true)
+  }
+
+  function downloadCurrentFilterExcel() {
+    if (!activeRange) return
+    void downloadExport({
+      from: format(activeRange.start, 'yyyy-MM-dd'),
+      to: format(activeRange.end, 'yyyy-MM-dd'),
+    }, 'xlsx')
   }
 
   async function toggleCaptureRow(recordId: string) {
@@ -1703,6 +1719,20 @@ export function TimesheetsTab() {
               />
             </div>
           )}
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">Current DTR</label>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={downloadCurrentFilterExcel}
+              disabled={!activeRange || exporting || (isSystemAdmin && !selectedCompanyId)}
+              className="whitespace-nowrap"
+              title="Download an Excel workbook for the currently selected date filter"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? 'Preparing...' : 'Download DTR Excel'}
+            </Button>
+          </div>
           <div className="flex-1 min-w-48">
             <label className="text-xs font-medium text-gray-600 block mb-1">Search Employee</label>
             <div className="relative">

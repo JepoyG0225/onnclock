@@ -23,6 +23,8 @@ export type ReferenceEmployeeProfile = {
   hireDate: string; gender: string; birthDate: string; personalEmail: string; workEmail: string
   mobileNo: string; presentAddress: string; notes: string; userId: string | null
   rateType: string; basicSalary: number; payFrequency: string; bankName: string; bankAccountNo: string
+  sssEnabled: boolean; philhealthEnabled: boolean; pagibigEnabled: boolean; withholdingTaxEnabled: boolean
+  isExemptFromTax: boolean; isMinimumWageEarner: boolean
   departmentId: string; positionId: string; civilStatus: string
 }
 
@@ -134,7 +136,7 @@ export function EmployeeProfileReferenceLayout({
         <div className="space-y-4 xl:col-span-3">
           <Card><CardHeader><CardTitle className="text-sm">{format(now, 'MMMM yyyy')}</CardTitle></CardHeader><CardContent><div className="grid grid-cols-7 gap-1 text-center text-[10px]">{'SMTWTFS'.split('').map((d,i)=><b key={i} className="py-1 text-gray-400">{d}</b>)}{calendarCells.map((day,i)=><span key={i} className={`rounded-md py-2 ${day === now.getDate() ? 'bg-[var(--brand-primary)] text-white' : day && [0,6].includes(i%7) ? 'bg-[var(--brand-highlight-soft)]' : ''}`}>{day}</span>)}</div></CardContent></Card>
           <Card>
-            {editorTitle('Payroll Summary', <EmployeeBlockEditor employeeId={employee.id} title="Compensation" fields={[{ key: 'rateType', label: 'Rate Type', type: 'select', options: ['MONTHLY','DAILY','HOURLY'].map(value=>({value,label:value})) }, { key: 'basicSalary', label: 'Base Rate', type: 'number' }, { key: 'payFrequency', label: 'Pay Frequency', type: 'select', options: ['SEMI_MONTHLY','MONTHLY','WEEKLY','DAILY'].map(value=>({value,label:value.replaceAll('_',' ')})) }, { key: 'bankName', label: 'Bank Name' }, { key: 'bankAccountNo', label: 'Bank Account Number' }]} values={employee} />)}
+            {editorTitle('Payroll Summary', <EmployeeBlockEditor employeeId={employee.id} title="Compensation" fields={[{ key: 'rateType', label: 'Rate Type', type: 'select', options: ['MONTHLY','DAILY','HOURLY'].map(value=>({value,label:value})) }, { key: 'basicSalary', label: 'Base Rate', type: 'number' }, { key: 'payFrequency', label: 'Pay Frequency', type: 'select', options: ['SEMI_MONTHLY','MONTHLY','WEEKLY','DAILY'].map(value=>({value,label:value.replaceAll('_',' ')})) }, { key: 'bankName', label: 'Bank Name' }, { key: 'bankAccountNo', label: 'Bank Account Number' }]} values={{ ...employee, currency }} />)}
             <CardContent className="space-y-3 px-4 text-xs">
               <div className="divide-y">
                 <div className="flex justify-between py-3"><span>Base Salary</span><b>{money.format(employee.basicSalary)}</b></div>

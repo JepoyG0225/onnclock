@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { getSSSForPeriod } from '@/lib/payroll/sss'
+import { getPhilHealthForPeriod } from '@/lib/payroll/philhealth'
+import { getPagIBIGForPeriod } from '@/lib/payroll/pagibig'
+import { computeWithholdingTax } from '@/lib/payroll/bir'
 
 export type EmployeeEditField = {
   key: string
@@ -36,6 +40,41 @@ export function EmployeeBlockEditor({
       return [field.key, typeof value === 'string' || typeof value === 'number' ? String(value) : '']
     })),
   )
+
+  const isCompensationEditor = fields.some(field => field.key === 'basicSalary')
+  const rateType = form.rateType || String(values.rateType ?? 'MONTHLY')
+  const payFrequency = (form.payFrequency || String(values.payFrequency ?? 'SEMI_MONTHLY')) as 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
+  const baseRate = Math.max(0, Number(form.basicSalary) || 0)
+  const monthlySalary = rateType === 'HOURLY'
+    ? baseRate * 8 * 22
+    : rateType === 'DAILY'
+      ? baseRate * 22
+      : baseRate
+  const periodDivisor = payFrequency === 'MONTHLY' ? 1 : payFrequency === 'SEMI_MONTHLY' ? 2 : payFrequency === 'WEEKLY' ? 4 : 22
+  const periodBasicPay = monthlySalary / periodDivisor
+  const sss = values.sssEnabled === false ? 0 : getSSSForPeriod(periodBasicPay, monthlySalary, payFrequency).employee
+  const philhealth = values.philhealthEnabled === false ? 0 : getPhilHealthForPeriod(periodBasicPay, monthlySalary, payFrequency).employee
+  const pagibig = values.pagibigEnabled === false ? 0 : getPagIBIGForPeriod(periodBasicPay, monthlySalary, payFrequency).employee
+  const withholdingTax = values.withholdingTaxEnabled === false ? 0 : computeWithholdingTax({
+    basicAndAllowances: periodBasicPay,
+    overtimeAndPremium: 0,
+    additionalTaxable: 0,
+    deMinimisNonTaxable: 0,
+    additionalNonTaxable: 0,
+    sssEmployee: sss,
+    philhealthEmployee: philhealth,
+    pagibigEmployee: pagibig,
+    ytdWithholdingTax: 0,
+    payPeriodsInYear: periodDivisor * 12,
+    isExempt: values.isExemptFromTax === true,
+    isMinimumWageEarner: values.isMinimumWageEarner === true,
+  }).withholdingTax
+  const estimatedDeductions = sss + philhealth + pagibig + withholdingTax
+  const money = new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: String(values.currency ?? 'PHP'),
+    maximumFractionDigits: 2,
+  })
 
   async function save() {
     setSaving(true)
@@ -104,6 +143,29 @@ export function EmployeeBlockEditor({
             </div>
           ))}
         </div>
+        {isCompensationEditor && baseRate > 0 && (
+          <div className="rounded-xl border border-rose-100 bg-rose-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-rose-600">Estimated deductions per pay period</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">Updates instantly as the base rate, rate type, or pay frequency changes.</p>
+              </div>
+              <b className="text-base text-rose-700">{money.format(estimatedDeductions)}</b>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-1.5 text-xs">
+              {([['SSS', sss], ['PhilHealth', philhealth], ['Pag-IBIG', pagibig], ['Withholding Tax', withholdingTax]] as Array<[string, number]>).map(([label, amount]) => (
+                <div key={label} className="flex justify-between gap-2 border-t border-rose-100 pt-1.5">
+                  <span className="text-slate-600">{label}</span>
+                  <b className="text-rose-600">{money.format(amount)}</b>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex justify-between border-t border-rose-200 pt-2 text-xs">
+              <span className="font-medium text-slate-600">Estimated net before other adjustments</span>
+              <b>{money.format(Math.max(0, periodBasicPay - estimatedDeductions))}</b>
+            </div>
+          </div>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>

@@ -97,6 +97,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         notes: employee.notes ?? '', userId: employee.userId,
         rateType: employee.rateType, basicSalary: Number(employee.basicSalary), payFrequency: employee.payFrequency,
         bankName: employee.bankName ?? '', bankAccountNo: employee.bankAccountNo ?? '',
+        sssEnabled: employee.sssEnabled, philhealthEnabled: employee.philhealthEnabled,
+        pagibigEnabled: employee.pagibigEnabled, withholdingTaxEnabled: employee.withholdingTaxEnabled,
+        isExemptFromTax: employee.isExemptFromTax, isMinimumWageEarner: employee.isMinimumWageEarner,
       }}
       leaves={employee.leaveBalances.map(item => ({
         id: item.id, name: item.leaveType.name, code: item.leaveType.code,
