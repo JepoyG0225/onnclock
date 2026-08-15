@@ -7,6 +7,7 @@ import { Plus, Trash2, ArrowUp, ArrowDown, UserCheck, Bell, Filter, Save, Workfl
 import { toast } from 'sonner'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 // ── Domain config ────────────────────────────────────────────────────────────
 
@@ -381,7 +382,7 @@ export default function WorkflowBuilderPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <AppSpinner size="md" />
       </div>
     )
   }

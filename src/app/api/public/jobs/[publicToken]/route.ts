@@ -64,7 +64,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ public
       ],
     },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-    take: 6,
+    take: 100,
     select: {
       id: true,
       title: true,
@@ -94,6 +94,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ public
       closesAt: job.closesAt,
       isOpen,
       company: {
+        id: job.companyId,
         name: job.company.name ?? '',
         logoUrl: (job.company as Record<string, unknown>).logoUrl ?? null,
         industry: (job.company as Record<string, unknown>).industry ?? null,

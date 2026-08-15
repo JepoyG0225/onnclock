@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { format } from 'date-fns'
 import Image from 'next/image'
-import { Printer, ArrowLeft, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
+import { Printer, ArrowLeft, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 interface InvoiceDetail {
   id: string
@@ -92,7 +93,7 @@ export default function InvoicePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-[#000000]" />
+        <AppSpinner size="md" />
       </div>
     )
   }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ClipboardEdit, Plus, X, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 interface Correction {
   id: string
@@ -355,7 +356,7 @@ export default function TimeCorrectionPortalPage() {
       {/* Corrections List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <AppSpinner size="md" />
         </div>
       ) : corrections.length === 0 ? (
         <div className="text-center py-12 text-gray-400">

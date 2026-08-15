@@ -13,6 +13,7 @@ import {
 } from '@/lib/auth/permissions'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { useHasPermission } from '@/components/layout/PermissionsContext'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type RoleKey = UserRole | `custom:${string}`
 type CustomRole = {
@@ -173,7 +174,7 @@ export default function PermissionsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-2">
-          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <AppSpinner size="md" className="mx-auto" />
           <p className="text-sm text-gray-500">Loading permissions...</p>
         </div>
       </div>

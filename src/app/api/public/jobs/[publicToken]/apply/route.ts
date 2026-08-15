@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { getHrisProAccess } from '@/lib/hris-pro'
 import { recruitmentModelsReady, recruitmentModelsUnavailableResponse } from '@/lib/recruitment-runtime'
+import { pipelineStageForCategory } from '@/lib/recruitment-pipeline'
 
 const applySchema = z.object({
   firstName: z.string().min(1),
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pub
     resumeUrl = `/uploads/recruitment-resumes/${job.companyId}/${job.id}/${filename}`
   }
 
+  const appliedStage = await pipelineStageForCategory(job.companyId, 'APPLIED')
   const application = await prisma.jobApplication.create({
     data: {
       companyId: job.companyId,
@@ -133,6 +135,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pub
       coverLetter: parsed.data.coverLetter?.trim() || null,
       requirementAnswers: parsed.data.requirementAnswers,
       source: 'PUBLIC_PORTAL',
+      pipelineStageId: appliedStage?.id ?? null,
     },
     select: {
       id: true,

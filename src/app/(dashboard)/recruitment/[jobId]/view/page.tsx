@@ -5,9 +5,10 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, Briefcase, Building2, Calendar, CheckCircle2, Copy, ExternalLink,
-  Eye, EyeOff, Loader2, MapPin, Sparkles, Users, Wallet,
+  Eye, EyeOff, MapPin, Sparkles, Users, Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -111,7 +112,7 @@ export default function JobPostViewPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <AppSpinner size="md" />
       </div>
     )
   }

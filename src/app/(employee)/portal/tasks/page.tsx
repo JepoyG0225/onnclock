@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PortalTaskDetailDialog } from '@/components/employee/PortalTaskDetailDialog'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 interface TaskStatus {
   id: string
@@ -364,10 +365,7 @@ export default function PortalTasksPage() {
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-16 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          <span className="text-sm font-semibold">Loading your tasks…</span>
-        </div>
+        <div className="flex items-center justify-center py-16"><AppSpinner size="md" message="Loading your tasks…" /></div>
       )}
 
       {!loading && error && (

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { LineChart } from 'lucide-react'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type Rules = {
   regularOtRate: number
@@ -107,7 +108,7 @@ export default function PayrollRulesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {loading ? <p className="text-sm text-slate-500">Loading rules...</p> : null}
+          {loading ? <div className="flex justify-center py-8"><AppSpinner size="md" /></div> : null}
           {!loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {field('Regular OT Rate', 'regularOtRate', 'Default 1.25 (125% of hourly rate)')}

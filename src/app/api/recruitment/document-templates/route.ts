@@ -1,0 +1,16 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { requireAuth } from '@/lib/api-auth'
+import { requireHrisProApi } from '@/lib/hris-pro'
+import { prisma } from '@/lib/prisma'
+
+const signatory = z.object({ id: z.string(), role: z.enum(['CANDIDATE', 'COMPANY']), name: z.string().max(160), title: z.string().max(160).optional().default(''), email: z.string().email().or(z.literal('')).optional().default(''), required: z.boolean().default(true) })
+const schema = z.object({ id: z.string().optional(), name: z.string().min(2).max(160), type: z.enum(['JOB_OFFER', 'EMPLOYMENT_CONTRACT', 'OTHER']), title: z.string().min(2).max(240), content: z.string().min(10).max(100_000), paperSize: z.enum(['A4', 'LETTER', 'LEGAL']).default('A4'), signatories: z.array(signatory).min(1).max(12) })
+
+async function context() { const auth = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']); if (auth.error) return auth; const gate = await requireHrisProApi(auth.ctx.companyId); return { ...auth, error: gate } }
+
+export async function GET() { const { ctx, error } = await context(); if (error) return error; if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const templates = await prisma.recruitmentDocumentTemplate.findMany({ where: { companyId: ctx.companyId, isActive: true }, orderBy: { updatedAt: 'desc' } }); return NextResponse.json({ templates }) }
+export async function POST(request: NextRequest) { const { ctx, error } = await context(); if (error) return error; if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const parsed = schema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 }); const template = await prisma.recruitmentDocumentTemplate.create({ data: { companyId: ctx.companyId, createdBy: ctx.userId, ...parsed.data } }); return NextResponse.json({ template }, { status: 201 }) }
+export async function PATCH(request: NextRequest) { const { ctx, error } = await context(); if (error) return error; if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const parsed = schema.safeParse(await request.json().catch(() => null)); if (!parsed.success || !parsed.data.id) return NextResponse.json({ error: 'Invalid template' }, { status: 400 }); const existing = await prisma.recruitmentDocumentTemplate.findFirst({ where: { id: parsed.data.id, companyId: ctx.companyId }, select: { id: true } }); if (!existing) return NextResponse.json({ error: 'Template not found' }, { status: 404 }); const { id, ...data } = parsed.data; const template = await prisma.recruitmentDocumentTemplate.update({ where: { id }, data }); return NextResponse.json({ template }) }
+export async function DELETE(request: NextRequest) { const { ctx, error } = await context(); if (error) return error; if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const id = new URL(request.url).searchParams.get('id'); if (!id) return NextResponse.json({ error: 'Template ID is required' }, { status: 400 }); await prisma.recruitmentDocumentTemplate.updateMany({ where: { id, companyId: ctx.companyId }, data: { isActive: false } }); return NextResponse.json({ ok: true }) }
+

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
 import { KpiCard } from '@/components/ui/kpi-card'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type AuditLog = {
   id: string
@@ -87,7 +88,7 @@ export default function AuditSettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? <p className="text-sm text-slate-500 p-4">Loading audit logs...</p> : null}
+          {loading ? <div className="flex justify-center p-8"><AppSpinner size="md" /></div> : null}
           {!loading && logs.length === 0 ? <p className="text-sm text-slate-500 p-4">No matching audit logs.</p> : null}
           {!loading && logs.length > 0 && (
             <div className="overflow-x-auto">

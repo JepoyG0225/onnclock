@@ -38,6 +38,8 @@ import {
   Lock,
   Star,
   Receipt,
+  Search,
+  Clock3,
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -220,6 +222,7 @@ export function OffboardingTab() {
   const [processes, setProcesses] = useState<OffboardingProcess[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'ALL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'>('ALL')
+  const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<OffboardingDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
@@ -443,6 +446,14 @@ export function OffboardingTab() {
     { key: 'COMPLETED', label: 'Completed' },
     { key: 'CANCELLED', label: 'Cancelled' },
   ] as const
+  const visibleProcesses = processes.filter(process => {
+    const query = search.trim().toLowerCase()
+    return !query || `${process.employee.firstName} ${process.employee.lastName} ${process.employee.employeeNo} ${process.employee.department?.name ?? ''} ${REASON_LABELS[process.reason] ?? process.reason}`.toLowerCase().includes(query)
+  })
+  const inProgressCount = processes.filter(process => process.status === 'IN_PROGRESS').length
+  const completedCount = processes.filter(process => process.status === 'COMPLETED').length
+  const dueSoonCount = processes.filter(process => process.status === 'IN_PROGRESS' && new Date(process.lastWorkingDate).getTime() <= Date.now() + 7 * 86_400_000).length
+  const averageProgress = processes.length ? Math.round(processes.reduce((sum, process) => sum + (process.itemsTotal ? process.itemsDone / process.itemsTotal : 0), 0) / processes.length * 100) : 0
 
   if (proLocked) {
     return (
@@ -485,88 +496,94 @@ export function OffboardingTab() {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="flex h-full flex-col space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <UserMinus className="w-6 h-6 text-accent" />
-            Offboarding
-          </h1>
-          <p className="text-gray-500 mt-0.5 text-sm">Manage employee exit processes and clearance checklists</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2563eb]">Employee lifecycle</p>
+          <h1 className="mt-1 text-2xl font-black text-[#12345b]">Offboarding</h1>
+          <p className="mt-1 text-sm text-slate-500">Coordinate exits, clearances, final pay, equipment returns, and access removal.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowTemplate(true)}
-            className="text-gray-600 border-gray-200 hover:bg-gray-50"
+            className="border-slate-200 text-slate-600 hover:bg-[#f4f8ff] hover:text-[#1d4ed8]"
           >
             <Settings className="w-4 h-4 mr-1.5" />
             Checklist Template
           </Button>
-          <Button onClick={handleOpenCreate} className="bg-primary hover:bg-[#243d57] text-white">
+          <Button onClick={handleOpenCreate} className="bg-[#2563eb] text-white hover:bg-[#1d4ed8]">
             <Plus className="w-4 h-4 mr-2" />
             Start Offboarding
           </Button>
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <OffboardingMetric label="Active exits" value={inProgressCount} icon={UserMinus} tone="blue" />
+        <OffboardingMetric label="Due within 7 days" value={dueSoonCount} icon={Clock3} tone="amber" />
+        <OffboardingMetric label="Completed" value={completedCount} icon={CheckCircle2} tone="green" />
+        <OffboardingMetric label="Average clearance" value={`${averageProgress}%`} icon={ClipboardList} tone="violet" />
+      </div>
+
       {/* Tab filter */}
-      <div className="flex gap-2 border-b border-gray-200 pb-0" data-tour="off-status-tabs">
-        {tabs.map(tab => (
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:flex-row md:items-center" data-tour="off-status-tabs">
+        <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+          {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => { setActiveTab(tab.key); setSelected(null) }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
               activeTab === tab.key
-                ? 'border-accent text-accent'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-[#1d4ed8] shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             {tab.label}
             {tab.key !== 'ALL' && (
-              <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded-full px-1.5 py-0.5">
+              <span className="ml-1.5 rounded-full bg-[#eaf2ff] px-1.5 py-0.5 text-[10px] text-[#1d4ed8]">
                 {processes.filter(p => p.status === tab.key).length}
               </span>
             )}
           </button>
-        ))}
+          ))}
+        </div>
+        <label className="relative md:ml-auto md:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><span className="sr-only">Search offboarding cases</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search employee or department" className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#2563eb]" /></label>
       </div>
 
-      {/* Two-panel layout */}
-      <div className="flex gap-4 flex-1 min-h-0" style={{ height: 'calc(100vh - 220px)' }}>
-        {/* Left: List */}
-        <div className="w-80 flex-shrink-0 overflow-y-auto space-y-2 pr-1">
+      {/* Full-width offboarding list */}
+      <div className="min-h-[420px] flex-1">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="hidden grid-cols-[minmax(230px,1.4fr)_minmax(130px,.8fr)_150px_120px_minmax(170px,1fr)_90px] items-center gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 md:grid">
+            <span>Employee</span><span>Exit reason</span><span>Last working day</span><span>Status</span><span>Clearance progress</span><span />
+          </div>
+          <div className="divide-y divide-slate-100">
           {loading ? (
             <div className="space-y-2">
               {[1,2,3,4].map(n => (
                 <div key={n} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
               ))}
             </div>
-          ) : processes.length === 0 ? (
+          ) : visibleProcesses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <UserMinus className="w-12 h-12 text-gray-200 mb-3" />
               <p className="text-gray-500 font-medium">No offboarding processes</p>
               <p className="text-gray-400 text-sm mt-1">Click &quot;Start Offboarding&quot; to begin</p>
             </div>
           ) : (
-            processes.map(p => {
-              const isSelected = selected?.id === p.id
+            visibleProcesses.map(p => {
               const pct = p.itemsTotal > 0 ? Math.round((p.itemsDone / p.itemsTotal) * 100) : 0
               return (
                 <button
                   key={p.id}
                   onClick={() => handleSelectProcess(p)}
-                  className={`w-full text-left p-4 rounded-xl border transition-all ${
-                    isSelected
-                      ? 'border-accent bg-orange-50 shadow-sm'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                  }`}
+                  className="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-[#f4f8ff] md:grid-cols-[minmax(230px,1.4fr)_minmax(130px,.8fr)_150px_120px_minmax(170px,1fr)_90px] md:items-center md:gap-4"
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">
+                      <p className="truncate text-sm font-bold text-[#12345b]">
                         {p.employee.lastName}, {p.employee.firstName}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -593,54 +610,37 @@ export function OffboardingTab() {
                       <span className="text-xs text-gray-400">{p.itemsDone}/{p.itemsTotal} items</span>
                       <span className="text-xs font-medium text-gray-600">{pct}%</span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[#eaf2ff]">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{
                           width: `${pct}%`,
-                          background: pct === 100 ? '#22c55e' : 'var(--brand-highlight)',
+                          background: pct === 100 ? '#22c55e' : '#2563eb',
                         }}
                       />
                     </div>
                   </div>
 
-                  {isSelected && (
-                    <div className="flex items-center justify-end mt-1">
-                      <ChevronRight className="w-3.5 h-3.5 text-accent" />
-                    </div>
-                  )}
+                  <div className="mt-1 flex items-center justify-end"><span className="mr-1 text-[10px] font-bold text-[#2563eb]">View details</span><ChevronRight className="h-3.5 w-3.5 text-[#2563eb]" /></div>
                 </button>
               )
             })
           )}
-        </div>
+          </div>
+        </section>
 
-        {/* Right: Detail panel */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          {detailLoading ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
-              </CardContent>
-            </Card>
-          ) : selected ? (
-            <DetailPanel
-              process={selected}
-              onToggleItem={handleToggleItem}
-              onUpdateStatus={handleUpdateStatus}
-              onItemsChanged={handleItemsChanged}
-            />
-          ) : (
-            <Card className="h-full">
-              <CardContent className="flex flex-col items-center justify-center h-full py-20 text-center">
-                <ClipboardList className="w-16 h-16 text-gray-200 mb-4" />
-                <p className="text-gray-500 font-medium text-lg">Select an offboarding process</p>
-                <p className="text-gray-400 text-sm mt-1">Click any item on the left to view its checklist</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
       </div>
+
+      <Dialog open={detailLoading || Boolean(selected)} onOpenChange={open => { if (!open) setSelected(null) }}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-4 sm:p-6">
+          <DialogHeader><DialogTitle className="sr-only">Offboarding details</DialogTitle></DialogHeader>
+          {detailLoading ? (
+            <div className="flex min-h-72 items-center justify-center"><div className="h-9 w-9 animate-spin rounded-full border-2 border-[#2563eb] border-t-transparent" /></div>
+          ) : selected ? (
+            <DetailPanel process={selected} onToggleItem={handleToggleItem} onUpdateStatus={handleUpdateStatus} onItemsChanged={handleItemsChanged} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -1188,6 +1188,16 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 
+function OffboardingMetric({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: React.ComponentType<{ className?: string }>; tone: 'blue' | 'amber' | 'green' | 'violet' }) {
+  const colors = {
+    blue: 'bg-[#eaf2ff] text-[#2563eb]',
+    amber: 'bg-amber-50 text-amber-600',
+    green: 'bg-emerald-50 text-emerald-600',
+    violet: 'bg-violet-50 text-violet-600',
+  }
+  return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-semibold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-[#12345b]">{value}</p></div><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors[tone]}`}><Icon className="h-5 w-5" /></span></div></div>
+}
+
 function DetailPanel({
   process,
   onToggleItem,
@@ -1377,7 +1387,7 @@ function DetailPanel({
                   width: `${pct}%`,
                   background: pct === 100
                     ? 'linear-gradient(90deg, #16a34a, #22c55e)'
-                    : 'linear-gradient(90deg, var(--brand-highlight), #343434)',
+                    : 'linear-gradient(90deg, #2563eb, #60a5fa)',
                 }}
               />
             </div>

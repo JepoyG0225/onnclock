@@ -4,12 +4,14 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { parseCareerHeroContent } from '@/lib/career-page'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import {
   ArrowRight,
+  ArrowLeft,
   Briefcase,
   Building2,
   CheckCircle2,
-  ChevronRight,
   Clock3,
   Facebook,
   Gift,
@@ -19,6 +21,7 @@ import {
   MapPin,
   Monitor,
   PartyPopper,
+  Search,
   Twitter,
   Upload,
   Wallet,
@@ -51,6 +54,7 @@ type JobData = {
   salaryMax: number | null
   isOpen: boolean
   company: {
+    id: string
     name: string
     logoUrl: string | null
     industry: string | null
@@ -100,6 +104,10 @@ export default function PublicApplyPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [jobSearch, setJobSearch] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('ALL')
+  const [typeFilter, setTypeFilter] = useState('ALL')
+  const [setupFilter, setSetupFilter] = useState('ALL')
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -152,7 +160,7 @@ export default function PublicApplyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-sm text-slate-400 animate-pulse">Loading job posting...</p>
+        <AppSpinner size="lg" message="Loading job posting…" />
       </div>
     )
   }
@@ -167,9 +175,23 @@ export default function PublicApplyPage() {
   }
 
   const salary = salaryRange(job.salaryMin, job.salaryMax)
+  const careerHero = parseCareerHeroContent(job.company.careerDescription)
+  const careerJobs: JobListItem[] = [{ id: job.id, title: job.title, department: job.department, location: job.location, employmentType: job.employmentType, workSetup: job.workSetup, salaryMin: job.salaryMin, salaryMax: job.salaryMax, publicApplyToken: token }, ...otherJobs]
+  const departments = Array.from(new Set(careerJobs.map(item => item.department).filter((value): value is string => Boolean(value))))
+  const employmentTypes = Array.from(new Set(careerJobs.map(item => item.employmentType).filter((value): value is string => Boolean(value))))
+  const workSetups = Array.from(new Set(careerJobs.map(item => item.workSetup).filter((value): value is string => Boolean(value))))
+  const visibleCareerJobs = careerJobs.filter(item => (!jobSearch.trim() || item.title.toLowerCase().includes(jobSearch.trim().toLowerCase())) && (departmentFilter === 'ALL' || item.department === departmentFilter) && (typeFilter === 'ALL' || item.employmentType === typeFilter) && (setupFilter === 'ALL' || item.workSetup === setupFilter))
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5"><Link href={`/careers/${job.company.id}`} className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">{job.company.logoUrl ? <img src={job.company.logoUrl} alt="" className="h-full w-full object-contain" /> : <Building2 className="h-4 w-4 text-blue-600" />}</span><span className="text-sm font-black text-slate-900">{job.company.name}</span></Link><Link href={`/careers/${job.company.id}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600"><ArrowLeft className="h-3.5 w-3.5" />All jobs</Link></div></header>
+      <section className="bg-[linear-gradient(135deg,#071d3b_0%,#075bd4_62%,#0b6ffb_100%)] text-white"><div className="mx-auto max-w-6xl px-5 py-14 sm:py-20"><p className="text-xs font-bold uppercase tracking-[.2em] text-blue-100">{job.company.name}</p><h1 className="mt-4 max-w-4xl text-4xl font-black leading-tight sm:text-5xl">{job.title}</h1><div className="mt-6 flex flex-wrap gap-2">{job.department && <JobMeta icon={Briefcase} text={job.department} />}{job.location && <JobMeta icon={MapPin} text={job.location} />}{job.employmentType && <JobMeta icon={Clock3} text={job.employmentType} />}{job.workSetup && <JobMeta icon={Monitor} text={job.workSetup} />}</div></div></section>
+      <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <article className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><section><h2 className="text-xl font-black text-slate-950">About this role</h2><div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">{job.description}</div></section>{job.requirements.length > 0 && <section className="border-t border-slate-100 pt-6"><h2 className="text-xl font-black text-slate-950">Requirements</h2><ul className="mt-4 space-y-3">{job.requirements.map((item, index) => <li key={index} className="flex items-start gap-3 text-sm leading-6 text-slate-600"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />{item}</li>)}</ul></section>}{job.benefits.length > 0 && <section className="border-t border-slate-100 pt-6"><h2 className="text-xl font-black text-slate-950">Benefits</h2><ul className="mt-4 grid gap-3 sm:grid-cols-2">{job.benefits.map((item, index) => <li key={index} className="flex items-start gap-3 rounded-xl bg-blue-50/60 p-3 text-sm text-slate-700"><Gift className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />{item}</li>)}</ul></section>}</article>
+        <aside className="space-y-4 lg:sticky lg:top-24"><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-black text-slate-950">Interested in this role?</h2><p className="mt-2 text-sm leading-6 text-slate-500">Submit your application and the hiring team will review your profile.</p>{salary && <div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly salary</p><p className="mt-1 font-black text-slate-900">{salary}</p></div>}{job.isOpen ? <button onClick={() => setDrawerOpen(true)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700">Apply now<ArrowRight className="h-4 w-4" /></button> : <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-600">Applications closed</p>}</div><div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs font-black uppercase tracking-wider text-slate-400">About the company</p><p className="mt-3 font-black text-slate-900">{job.company.name}</p>{job.company.industry && <p className="mt-1 text-xs text-slate-500">{job.company.industry}</p>}<Link href={`/careers/${job.company.id}`} className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-blue-600">View company careers<ArrowRight className="h-3.5 w-3.5" /></Link></div></aside>
+      </main>
+      {otherJobs.length > 0 && <section className="mx-auto max-w-6xl px-5 pb-12"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-blue-600">Keep exploring</p><h2 className="mt-1 text-2xl font-black text-slate-950">More openings</h2></div><Link href={`/careers/${job.company.id}`} className="text-xs font-bold text-blue-600">View all</Link></div><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{otherJobs.slice(0, 3).map(item => <CareerJobCard key={item.id} job={item} current={false} />)}</div></section>}
+      <div className="hidden">
       {/* Top bar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -187,44 +209,39 @@ export default function PublicApplyPage() {
         </div>
       </header>
 
-      {/* Career banner */}
-      {job.company.careerBannerUrl && (
-        <div className="max-w-7xl mx-auto px-4 pt-5">
-          <div className="rounded-2xl overflow-hidden bg-slate-200" style={{ maxHeight: '240px' }}>
-            <img
-              src={job.company.careerBannerUrl}
-              alt={`${job.company.name} careers`}
-              className="w-full object-cover"
-              style={{ maxHeight: '240px' }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Company hero (shown when no banner but tagline/description exists) */}
-      {!job.company.careerBannerUrl && (job.company.careerTagline || job.company.careerDescription) && (
-        <div className="bg-gradient-to-r from-[#000000] to-[#2a4a6b] text-white">
-          <div className="max-w-6xl mx-auto px-4 py-10">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center shrink-0">
-                {job.company.logoUrl
-                  ? <img src={job.company.logoUrl} alt={job.company.name} className="w-full h-full object-contain" />
-                  : <Building2 className="w-7 h-7 text-white/60" />}
-              </div>
-              <div>
-                <p className="text-xs text-white/60 uppercase tracking-widest font-semibold">{job.company.industry ?? 'Company'}</p>
-                <h2 className="text-xl font-black text-white">{job.company.name}</h2>
-              </div>
+      {/* Career landing-page hero */}
+      {(job.company.careerBannerUrl || job.company.careerTagline || careerHero.subtext) && (
+        <section className="relative isolate min-h-[420px] overflow-hidden bg-slate-950 text-white">
+          {job.company.careerBannerUrl && <img src={job.company.careerBannerUrl} alt={`${job.company.name} careers`} className="absolute inset-0 -z-20 h-full w-full object-cover" />}
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(7,29,59,0.82)_0%,rgba(7,91,212,0.58)_48%,rgba(11,111,251,0.34)_100%)]" />
+          <div className="mx-auto flex min-h-[420px] max-w-7xl items-center px-5 py-16 sm:px-8">
+            <div className="max-w-3xl">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-300">Careers at {job.company.name}</p>
+              <h1 className="mt-5 text-4xl font-black leading-tight sm:text-6xl">{job.company.careerTagline || `Do your best work at ${job.company.name}.`}</h1>
+              {careerHero.subtext && <p className="mt-5 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">{careerHero.subtext}</p>}
+              <a href={careerHero.ctaUrl || '#job-details'} className="mt-8 inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-400">{careerHero.ctaLabel || 'View open positions'}<ArrowRight className="h-4 w-4" /></a>
             </div>
-            {job.company.careerTagline && (
-              <p className="text-lg font-semibold text-white/90 max-w-2xl">{job.company.careerTagline}</p>
-            )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Job header card — full width, same container as banner */}
-      <div className="max-w-7xl mx-auto px-4 pt-4">
+      <section id="open-positions" className="border-b border-slate-200 bg-white py-14">
+        <div className="mx-auto max-w-7xl px-4">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Join our team</p>
+          <h2 className="mt-2 text-3xl font-black text-slate-900">Open Positions</h2>
+          <p className="mt-2 text-sm text-slate-500">Find the role where you can do your best work.</p>
+          <div className="mt-7 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(140px,auto))]">
+            <label className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><span className="sr-only">Search jobs</span><input value={jobSearch} onChange={event => setJobSearch(event.target.value)} placeholder="Search jobs or locations" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400" /></label>
+            <CareerFilter label="Department" value={departmentFilter} onChange={setDepartmentFilter} values={departments} />
+            <CareerFilter label="Employment type" value={typeFilter} onChange={setTypeFilter} values={employmentTypes} />
+            <CareerFilter label="Work setup" value={setupFilter} onChange={setSetupFilter} values={workSetups} />
+          </div>
+          {visibleCareerJobs.length > 0 ? <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleCareerJobs.map(item => <CareerJobCard key={item.id} job={item} current={item.id === job.id} />)}</div> : <div className="mt-6 rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center text-sm text-slate-500">No open positions match those filters.</div>}
+        </div>
+      </section>
+
+      <div id="job-details" className="max-w-7xl mx-auto px-4 pt-4">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
@@ -300,7 +317,7 @@ export default function PublicApplyPage() {
             <div>
               <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                 <span className="w-1 h-4 rounded-full bg-amber-500 inline-block" />
-                What we&apos;re looking for
+                Requirements
               </h2>
               <ul className="space-y-2.5">
                 {job.requirements.map((req, i) => (
@@ -338,48 +355,13 @@ export default function PublicApplyPage() {
         </div>
       </div>
 
-      {/* Bottom row — Other Jobs + Company Info */}
-      {(otherJobs.length > 0 || job.company.careerDescription || job.company.careerTagline || job.company.careerSocialLinkedin || job.company.careerSocialFacebook || job.company.careerSocialTwitter || job.company.careerSocialInstagram || job.company.website) && (
-        <div className="max-w-7xl mx-auto px-4 pb-10 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-
-          {/* Other jobs */}
-          {otherJobs.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-slate-800 mb-4">More at {job.company.name}</h3>
-              <div className="grid grid-cols-1 gap-3">
-                {otherJobs.map(item => (
-                  <Link
-                    key={item.id}
-                    href={`/apply/${item.publicApplyToken}`}
-                    className="block rounded-xl border border-slate-200 p-3 hover:border-slate-300 hover:bg-slate-50/70 transition-all group"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-slate-800 group-hover:text-[#000000] leading-snug">{item.title}</p>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                    </div>
-                    {item.department && <p className="text-xs text-slate-500 mt-1">{item.department}</p>}
-                    {item.location && (
-                      <span className="inline-flex items-center gap-0.5 text-xs text-slate-400 mt-0.5">
-                        <MapPin className="w-2.5 h-2.5" /> {item.location}
-                      </span>
-                    )}
-                    {salaryRange(item.salaryMin, item.salaryMax) && (
-                      <p className="text-xs text-emerald-700 font-semibold mt-1">{salaryRange(item.salaryMin, item.salaryMax)}</p>
-                    )}
-                    {item.employmentType && (
-                      <span className={`inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[item.employmentType] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {item.employmentType}
-                      </span>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Company information */}
+      {(otherJobs.length > 0 || careerHero.subtext || job.company.careerTagline || job.company.careerSocialLinkedin || job.company.careerSocialFacebook || job.company.careerSocialTwitter || job.company.careerSocialInstagram || job.company.website) && (
+        <div className="mx-auto max-w-7xl px-4 pb-10 pt-2">
 
           {/* Company info */}
-          {(job.company.careerDescription || job.company.careerTagline || job.company.careerSocialLinkedin || job.company.careerSocialFacebook || job.company.careerSocialTwitter || job.company.careerSocialInstagram || job.company.website) && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+          {(careerHero.subtext || job.company.careerTagline || job.company.careerSocialLinkedin || job.company.careerSocialFacebook || job.company.careerSocialTwitter || job.company.careerSocialInstagram || job.company.website) && (
+            <div className="max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                   {job.company.logoUrl
@@ -394,8 +376,8 @@ export default function PublicApplyPage() {
               {job.company.careerTagline && (
                 <p className="text-xs font-semibold text-slate-700 italic">&ldquo;{job.company.careerTagline}&rdquo;</p>
               )}
-              {job.company.careerDescription && (
-                <p className="text-xs text-slate-600 leading-relaxed line-clamp-5">{job.company.careerDescription}</p>
+              {careerHero.subtext && (
+                <p className="text-xs text-slate-600 leading-relaxed line-clamp-5">{careerHero.subtext}</p>
               )}
               {(job.company.careerSocialLinkedin || job.company.careerSocialFacebook || job.company.careerSocialTwitter || job.company.careerSocialInstagram || job.company.website) && (
                 <div className="flex items-center gap-2 pt-1 flex-wrap">
@@ -436,6 +418,7 @@ export default function PublicApplyPage() {
         </div>
       )}
 
+      </div>
       {/* Application slide-in drawer */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -585,4 +568,23 @@ export default function PublicApplyPage() {
       )}
     </div>
   )
+}
+
+function CareerFilter({ label, value, values, onChange }: { label: string; value: string; values: string[]; onChange: (value: string) => void }) {
+  return <label><span className="sr-only">{label}</span><select value={value} onChange={event => onChange(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-blue-400"><option value="ALL">All {label.toLowerCase()}</option>{values.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+}
+
+function JobMeta({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) {
+  return <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm"><Icon className="h-3.5 w-3.5" />{text}</span>
+}
+
+function CareerJobCard({ job, current }: { job: JobListItem; current: boolean }) {
+  const pay = salaryRange(job.salaryMin, job.salaryMax)
+  return <Link href={current ? '#job-details' : `/apply/${job.publicApplyToken}`} className="group flex min-h-52 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+    <div className="flex items-start justify-between gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Briefcase className="h-5 w-5" /></span>{current && <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-600">Viewing</span>}</div>
+    <h3 className="mt-4 text-lg font-black text-slate-900 transition group-hover:text-blue-600">{job.title}</h3>
+    <p className="mt-1 text-xs text-slate-500">{job.department || 'General'}{job.location ? ` · ${job.location}` : ''}</p>
+    <div className="mt-4 flex flex-wrap gap-2">{job.employmentType && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">{job.employmentType}</span>}{job.workSetup && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-600">{job.workSetup}</span>}</div>
+    <div className="mt-auto flex items-end justify-between gap-3 pt-5"><span className="text-xs font-bold text-emerald-700">{pay || 'Salary upon application'}</span><span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600">View role <ArrowRight className="h-3.5 w-3.5" /></span></div>
+  </Link>
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Wallet, CheckCircle, Clock, RefreshCw, AlertCircle } from 'lucide-react'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 interface TopUp {
   id: string
@@ -108,7 +109,7 @@ export default function DisbursementTopUpsPage() {
         </div>
 
         {loading ? (
-          <div className="text-sm text-slate-400 py-8 text-center">Loading…</div>
+          <div className="flex justify-center py-8"><AppSpinner size="md" /></div>
         ) : error ? (
           <div className="flex items-center gap-2 text-sm text-red-600 py-4">
             <AlertCircle className="w-4 h-4" /> {error}

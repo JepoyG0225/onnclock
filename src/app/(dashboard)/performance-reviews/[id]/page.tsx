@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import {
   ArrowLeft, Loader2, Star, CheckCircle2, Clock3, CircleDot,
   Save, ChevronRight, Plus, Trash2, Target, MessageSquare,
@@ -268,7 +269,7 @@ export default function ReviewDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <AppSpinner size="md" />
       </div>
     )
   }

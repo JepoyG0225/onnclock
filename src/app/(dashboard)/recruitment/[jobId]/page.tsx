@@ -115,6 +115,17 @@ function initials(app: Application) {
   return `${app.firstName.charAt(0)}${app.lastName.charAt(0)}`.toUpperCase()
 }
 
+const TERMINAL_STAGES: Stage[] = ['HIRED', 'REJECTED', 'WITHDRAWN']
+
+function daysInCurrentStage(app: Application) {
+  const since = new Date(app.lastStageUpdatedAt ?? app.appliedAt).getTime()
+  return Math.max(0, Math.floor((Date.now() - since) / 86_400_000))
+}
+
+function needsAttention(app: Application) {
+  return !TERMINAL_STAGES.includes(app.stage) && daysInCurrentStage(app) >= 7
+}
+
 // ─── Convert to Employee Modal ────────────────────────────────────────────────
 
 function HireModal({
@@ -521,6 +532,7 @@ function ApplicationDrawer({
   const canConvert = !isHired && !['REJECTED', 'WITHDRAWN'].includes(app.stage)
   const hasRequirementAnswers =
     app.requirementAnswers && Object.keys(app.requirementAnswers).length > 0
+  const stageAge = daysInCurrentStage(app)
 
   const tabs: { key: DrawerTab; label: string; icon: React.ReactNode; show: boolean }[] = [
     { key: 'overview', label: 'Overview', icon: <Users className="w-3.5 h-3.5" />, show: true },
@@ -604,7 +616,7 @@ function ApplicationDrawer({
                       {STAGE_LABELS[app.stage]}
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      Applied {new Date(app.appliedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {stageAge === 0 ? 'Moved today' : `${stageAge}d in this stage`}
                     </span>
                   </div>
                 </div>
@@ -884,7 +896,7 @@ export default function RecruitmentJobDetailPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [search, setSearch] = useState('')
-  const [stageFilter, setStageFilter] = useState<Stage | 'ALL'>('ALL')
+  const [stageFilter, setStageFilter] = useState<Stage | 'ALL' | 'NEEDS_ATTENTION'>('ALL')
   const [loading, setLoading] = useState(true)
   const [selectedApp, setSelectedApp] = useState<Application | null>(null)
   const [autoOpenHire, setAutoOpenHire] = useState(false)
@@ -907,20 +919,33 @@ export default function RecruitmentJobDetailPage() {
   useEffect(() => {
     if (!jobId) return
     let active = true
-    setLoading(true)
+    const loadJson = async (url: string) => {
+      const response = await fetch(url)
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || `Unable to load ${url}`)
+      return payload
+    }
     Promise.all([
-      fetch(`/api/recruitment/jobs/${jobId}`).then((r) => r.json()),
-      fetch('/api/departments').then((r) => r.json()),
-      fetch('/api/positions').then((r) => r.json()),
+      loadJson(`/api/recruitment/jobs/${jobId}`),
+      loadJson('/api/departments'),
+      loadJson('/api/positions'),
     ])
       .then(([jobPayload, deptPayload, posPayload]) => {
         if (!active) return
         setJob(jobPayload.job)
-        setApplications(jobPayload.job?.applications ?? [])
+        const loadedApplications: Application[] = jobPayload.job?.applications ?? []
+        setApplications(loadedApplications)
         setDepartments(deptPayload.departments ?? [])
         setPositions(posPayload.positions ?? [])
+        const query = new URLSearchParams(window.location.search)
+        const applicationId = query.get('applicationId')
+        const linkedApplication = loadedApplications.find(item => item.id === applicationId)
+        if (linkedApplication) {
+          setSelectedApp(linkedApplication)
+          setAutoOpenHire(query.get('hire') === '1')
+        }
       })
-      .catch(() => toast.error('Failed to load data'))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to load data'))
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [jobId])
@@ -942,7 +967,8 @@ export default function RecruitmentJobDetailPage() {
 
   const filtered = useMemo(() => {
     return applications.filter((app) => {
-      if (stageFilter !== 'ALL' && app.stage !== stageFilter) return false
+      if (stageFilter === 'NEEDS_ATTENTION' && !needsAttention(app)) return false
+      if (stageFilter !== 'ALL' && stageFilter !== 'NEEDS_ATTENTION' && app.stage !== stageFilter) return false
       if (search) {
         const q = search.toLowerCase()
         return (
@@ -956,6 +982,7 @@ export default function RecruitmentJobDetailPage() {
 
   const activeStages: Stage[] = ['APPLIED', 'SCREENING', 'INTERVIEW', 'FINAL_INTERVIEW', 'OFFER', 'HIRED']
   const endStages: Stage[] = ['REJECTED', 'WITHDRAWN']
+  const attentionCount = applications.filter(needsAttention).length
 
   if (loading) {
     return (
@@ -1065,7 +1092,7 @@ export default function RecruitmentJobDetailPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -1077,14 +1104,29 @@ export default function RecruitmentJobDetailPage() {
         </div>
         <select
           value={stageFilter}
-          onChange={(e) => setStageFilter(e.target.value as Stage | 'ALL')}
+          onChange={(e) => setStageFilter(e.target.value as Stage | 'ALL' | 'NEEDS_ATTENTION')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white text-slate-700"
         >
           <option value="ALL">All Stages</option>
+          <option value="NEEDS_ATTENTION">Needs Attention ({attentionCount})</option>
           {STAGES.map((s) => (
             <option key={s} value={s}>{STAGE_LABELS[s]}</option>
           ))}
         </select>
+        {attentionCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setStageFilter(stageFilter === 'NEEDS_ATTENTION' ? 'ALL' : 'NEEDS_ATTENTION')}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+              stageFilter === 'NEEDS_ATTENTION'
+                ? 'border-amber-300 bg-amber-100 text-amber-800'
+                : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {attentionCount} stalled
+          </button>
+        )}
         {(search || stageFilter !== 'ALL') && (
           <button
             onClick={() => { setSearch(''); setStageFilter('ALL') }}
@@ -1103,7 +1145,9 @@ export default function RecruitmentJobDetailPage() {
             <p className="text-sm font-semibold text-slate-500">
               {applications.length === 0
                 ? 'No applications yet'
-                : `No applicants in ${stageFilter !== 'ALL' ? STAGE_LABELS[stageFilter as Stage] : 'this view'}`}
+                : stageFilter === 'NEEDS_ATTENTION'
+                  ? 'No candidates need attention'
+                  : `No applicants in ${stageFilter !== 'ALL' ? STAGE_LABELS[stageFilter as Stage] : 'this view'}`}
             </p>
             {applications.length === 0 && (
               <p className="text-xs text-slate-400 mt-1">Share the apply link to start receiving applications</p>
@@ -1162,7 +1206,10 @@ export default function RecruitmentJobDetailPage() {
                       {app.phone && <p className="text-xs text-slate-400 mt-0.5">{app.phone}</p>}
                     </td>
                     <td className="px-4 py-3 text-slate-500 hidden md:table-cell">
-                      {new Date(app.appliedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <p>{new Date(app.appliedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      <p className={`mt-0.5 text-[10px] font-semibold ${needsAttention(app) ? 'text-amber-600' : 'text-slate-400'}`}>
+                        {daysInCurrentStage(app) === 0 ? 'Updated today' : `${daysInCurrentStage(app)}d in stage`}
+                      </p>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <select

@@ -8,6 +8,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Copy, Check, FileText, Briefcase, ArrowUpRight, Loader2, Sparkles, AlertTriangle, PackagePlus, CheckCircle2, X, HardDrive, Paperclip, Cloud } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
@@ -505,7 +506,7 @@ function StorageTab() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+          <AppSpinner size="md" />
         </CardContent>
       </Card>
     )

@@ -307,7 +307,7 @@ enum DemoStatus {
 }
 
 model Company {
-  id                            String   @id @default(cuid())
+  id                            String     @id @default(cuid())
   name                          String
   tradeName                     String?
   industry                      String?
@@ -325,7 +325,7 @@ model Company {
   senderName                    String?
   smtpHost                      String?
   smtpPort                      Int?
-  smtpSecure                    Boolean  @default(true)
+  smtpSecure                    Boolean    @default(true)
   smtpUser                      String?
   smtpPass                      String?
   smtpFromEmail                 String?
@@ -333,129 +333,130 @@ model Company {
   website                       String?
   birNo                         String?
   portalUrl                     String?
-  portalSubdomain               String?  @unique
-  logoUrl                       String?  @db.Text
-  geofenceEnabled               Boolean  @default(false)
-  fingerprintRequired           Boolean  @default(true)
-  selfieRequired                Boolean  @default(false)
+  portalSubdomain               String?    @unique
+  logoUrl                       String?    @db.Text
+  geofenceEnabled               Boolean    @default(false)
+  fingerprintRequired           Boolean    @default(true)
+  selfieRequired                Boolean    @default(false)
   /// Require a live face match before clock in/out. Defaults false so no
   /// existing company suddenly starts blocking punches.
-  faceRecognitionRequired       Boolean  @default(false)
-  screenCaptureEnabled          Boolean  @default(false)
-  screenCaptureFrequencyMinutes Int      @default(5)
+  faceRecognitionRequired       Boolean    @default(false)
+  screenCaptureEnabled          Boolean    @default(false)
+  screenCaptureFrequencyMinutes Int        @default(5)
   // Auto clock-out after N minutes of OS-level inactivity (no keyboard
   // or mouse input across the entire desktop). The desktop app polls
   // electron's powerMonitor.getSystemIdleTime() and fires the usual
   // clock-out path when the threshold is hit. autoClockoutMinutes of
   // 0 is treated as disabled regardless of the enabled flag.
-  autoClockoutEnabled           Boolean  @default(false)
-  autoClockoutMinutes           Int      @default(10)
+  autoClockoutEnabled           Boolean    @default(false)
+  autoClockoutMinutes           Int        @default(10)
   geofenceLat                   Float?
   geofenceLng                   Float?
   geofenceRadiusMeters          Int?
-  defaultBreakMinutes           Int      @default(60)
-  timezone                      String   @default("Asia/Manila")
-  payrollCurrency               String   @default("PHP")
+  defaultBreakMinutes           Int        @default(60)
+  timezone                      String     @default("Asia/Manila")
+  payrollCurrency               String     @default("PHP")
   // Payroll disbursement wallet (funded via QR Ph top-up)
-  disbursementBalance           Decimal  @default(0) @db.Decimal(14, 2)
+  disbursementBalance           Decimal    @default(0) @db.Decimal(14, 2)
   // Source bank/wallet account for PayMongo batch_transfers
   disbursementSourceAccountNo   String?
   disbursementSourceAccountName String?
   disbursementSourceBic         String?
-  thirteenthPayStartMonth       Int      @default(1)
-  thirteenthPayStartDay         Int      @default(1)
-  thirteenthPayEndMonth         Int      @default(12)
-  thirteenthPayEndDay           Int      @default(31)
-  careerBannerUrl               String?  @db.Text
+  thirteenthPayStartMonth       Int        @default(1)
+  thirteenthPayStartDay         Int        @default(1)
+  thirteenthPayEndMonth         Int        @default(12)
+  thirteenthPayEndDay           Int        @default(31)
+  careerBannerUrl               String?    @db.Text
   careerTagline                 String?
-  careerDescription             String?  @db.Text
+  careerDescription             String?    @db.Text
   careerSocialFacebook          String?
   careerSocialLinkedin          String?
   careerSocialTwitter           String?
   careerSocialInstagram         String?
-  isActive                      Boolean     @default(true)
-  demoStatus                    DemoStatus  @default(NOT_CONTACTED)
+  isActive                      Boolean    @default(true)
+  demoStatus                    DemoStatus @default(NOT_CONTACTED)
   demoEmailSentAt               DateTime?
   demoScheduledAt               DateTime?
   demoNotes                     String?
-  createdAt                     DateTime @default(now())
-  updatedAt                     DateTime @updatedAt
+  createdAt                     DateTime   @default(now())
+  updatedAt                     DateTime   @updatedAt
 
-  users                 UserCompany[]
-  departments           Department[]
-  positions             Position[]
-  payGrades             PayGrade[]
-  employees             Employee[]
-  workSchedules         WorkSchedule[]
-  holidays              Holiday[]
-  payrollRuns           PayrollRun[]
-  attendanceScreenshots AttendanceScreenshot[]
-  payrollCycleConfig    PayrollCycleConfig?
-  leaveTypes            LeaveType[]
-  loans                 EmployeeLoan[]
-  contributionConfig    ContributionConfig?
-  deMinimisConfig       DeMinimisConfig?
-  thirteenthMonthLogs   ThirteenthMonthLog[]
-  rolePermissions       CompanyRolePermission[]
-  approverConfigs       ApproverConfig[]
-  approvalWorkflows     ApprovalWorkflow[]
-  performanceCompetencies PerformanceCompetency[]
-  subscription          Subscription?
-  invoices              Invoice[]
-  assets                CompanyAsset[]
-  cashAdvanceRequests   CashAdvanceRequest[]
+  users                     UserCompany[]
+  departments               Department[]
+  positions                 Position[]
+  payGrades                 PayGrade[]
+  employees                 Employee[]
+  workSchedules             WorkSchedule[]
+  holidays                  Holiday[]
+  payrollRuns               PayrollRun[]
+  attendanceScreenshots     AttendanceScreenshot[]
+  payrollCycleConfig        PayrollCycleConfig?
+  leaveTypes                LeaveType[]
+  loans                     EmployeeLoan[]
+  contributionConfig        ContributionConfig?
+  deMinimisConfig           DeMinimisConfig?
+  thirteenthMonthLogs       ThirteenthMonthLog[]
+  rolePermissions           CompanyRolePermission[]
+  approverConfigs           ApproverConfig[]
+  approvalWorkflows         ApprovalWorkflow[]
+  performanceCompetencies   PerformanceCompetency[]
+  subscription              Subscription?
+  invoices                  Invoice[]
+  assets                    CompanyAsset[]
+  cashAdvanceRequests       CashAdvanceRequest[]
   shiftAssignments          EmployeeShiftAssignment[]
   incomeTypes               IncomeType[]
   disbursementTopUps        DisbursementTopUp[]
   payrollDisbursements      PayrollDisbursement[]
-  jobPosts              JobPost[]
-  jobApplications       JobApplication[]
+  jobPosts                  JobPost[]
+  jobApplications           JobApplication[]
+  recruitmentPipelineStages RecruitmentPipelineStage[]
   recruitmentEmailTemplates RecruitmentEmailTemplate[]
-  onboardingTemplates   OnboardingTemplate[]
-  onboardingProcesses   OnboardingProcess[]
-  performanceReviews    PerformanceReview[]
-  offboardingProcesses     OffboardingProcess[]
-  offboardingTemplateItems OffboardingTemplateItem[]
-  overtimeRequests         OvertimeRequest[]
-  disciplinaryRecords      DisciplinaryRecord[]
-  announcements            Announcement[]
-  budgetRequisitions       BudgetRequisition[]
-  timeEntryCorrections     TimeEntryCorrection[]
-  signatures               Signature[]
-  biometricDevices         BiometricDevice[]
-  taskStatuses             TaskStatus[]
-  taskLabels               TaskLabel[]
+  onboardingTemplates       OnboardingTemplate[]
+  onboardingProcesses       OnboardingProcess[]
+  performanceReviews        PerformanceReview[]
+  offboardingProcesses      OffboardingProcess[]
+  offboardingTemplateItems  OffboardingTemplateItem[]
+  overtimeRequests          OvertimeRequest[]
+  disciplinaryRecords       DisciplinaryRecord[]
+  announcements             Announcement[]
+  budgetRequisitions        BudgetRequisition[]
+  timeEntryCorrections      TimeEntryCorrection[]
+  signatures                Signature[]
+  biometricDevices          BiometricDevice[]
+  taskStatuses              TaskStatus[]
+  taskLabels                TaskLabel[]
   /// Monotonic counter backing company-wide task numbers. Lives here rather
   /// than on Project because a task may have no project. Incremented in the
   /// same transaction that creates a task so numbers never collide.
-  taskCounter              Int                      @default(0)
+  taskCounter               Int                        @default(0)
 
   @@map("companies")
 }
 
 model PayrollCycleConfig {
-  id                     String       @id @default(cuid())
-  companyId              String       @unique
-  payFrequency           PayFrequency @default(SEMI_MONTHLY)
-  firstCutoffStartDay    Int          @default(1)
-  firstCutoffEndDay      Int          @default(15)
-  secondCutoffStartDay   Int          @default(16)
-  secondCutoffEndDay     Int          @default(31)
-  defaultPayDelayDays    Int          @default(5)
-  enableOvertime         Boolean      @default(true)
+  id                             String       @id @default(cuid())
+  companyId                      String       @unique
+  payFrequency                   PayFrequency @default(SEMI_MONTHLY)
+  firstCutoffStartDay            Int          @default(1)
+  firstCutoffEndDay              Int          @default(15)
+  secondCutoffStartDay           Int          @default(16)
+  secondCutoffEndDay             Int          @default(31)
+  defaultPayDelayDays            Int          @default(5)
+  enableOvertime                 Boolean      @default(true)
   // When TRUE, late-minutes recorded on DTRs are NOT converted into a pay
   // deduction. Useful for companies that handle tardiness via a separate
   // disciplinary process instead of docking pay.
-  disableLateDeductions  Boolean      @default(false)
-  enableNightDifferential Boolean     @default(true)
-  nightDifferentialRate  Decimal      @default(0.10) @db.Decimal(5, 4)
-  nightDifferentialStart String       @default("22:00")
-  nightDifferentialEnd   String       @default("06:00")
+  disableLateDeductions          Boolean      @default(false)
+  enableNightDifferential        Boolean      @default(true)
+  nightDifferentialRate          Decimal      @default(0.10) @db.Decimal(5, 4)
+  nightDifferentialStart         String       @default("22:00")
+  nightDifferentialEnd           String       @default("06:00")
   // When TRUE, break minutes inside the ND window count toward nightDiffHours
   // (company policy: ND coverage applies to entire stretch on premises).
   // Default FALSE — break is deducted from ND.
-  nightDifferentialIncludesBreak Boolean @default(false)
-  updatedAt              DateTime     @updatedAt
+  nightDifferentialIncludesBreak Boolean      @default(false)
+  updatedAt                      DateTime     @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -471,7 +472,7 @@ model UserCompany {
   userId              String
   companyId           String
   role                UserRole @default(EMPLOYEE)
-  managedDepartmentId String?  // Only set for DEPARTMENT_HEAD role
+  managedDepartmentId String? // Only set for DEPARTMENT_HEAD role
   isActive            Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -595,7 +596,7 @@ model Employee {
 
   bankName      String?
   bankAccountNo String?
-  bankBic       String?  // ISO 9362 BIC/SWIFT for PayMongo disbursements
+  bankBic       String? // ISO 9362 BIC/SWIFT for PayMongo disbursements
 
   isExemptFromTax     Boolean @default(false)
   isMinimumWageEarner Boolean @default(false)
@@ -606,24 +607,24 @@ model Employee {
   selfieExempt        Boolean @default(false)
 
   // Per-employee mandatory deduction toggles
-  sssEnabled            Boolean @default(true)
-  philhealthEnabled     Boolean @default(true)
-  pagibigEnabled        Boolean @default(true)
-  withholdingTaxEnabled Boolean @default(true)
+  sssEnabled                Boolean @default(true)
+  philhealthEnabled         Boolean @default(true)
+  pagibigEnabled            Boolean @default(true)
+  withholdingTaxEnabled     Boolean @default(true)
   // When TRUE, this individual employee receives ZERO holiday pay even if
   // the company calendar marks the date as a holiday. Overrides the
   // engine's default Art. 94 behaviour on a per-employee basis — useful
   // for project-based / consultancy roles where holidays aren't paid.
-  disableHolidayPay     Boolean @default(false)
+  disableHolidayPay         Boolean @default(false)
   // Per-employee toggle to suppress late + undertime pay deductions.
   // Useful for HOURLY/DAILY hires where basic pay is already pro-rated
   // by actual hours worked — deducting late/UT on top would double-
   // count the same missing minutes. Defaults false (deductions on).
-  disableLateDeduction       Boolean @default(false)
-  disableUndertimeDeduction  Boolean @default(false)
+  disableLateDeduction      Boolean @default(false)
+  disableUndertimeDeduction Boolean @default(false)
   // Allows this employee to receive OT pay even when the company-wide
   // payroll setting is disabled. Set explicitly from the timesheet action.
-  overtimePayOverride        Boolean @default(false)
+  overtimePayOverride       Boolean @default(false)
 
   photoUrl             String?
   faceEmbedding        Json?
@@ -725,13 +726,13 @@ model WorkSchedule {
   workHoursPerDay        Decimal          @default(8) @db.Decimal(4, 2)
   workDaysPerWeek        Int              @default(5)
   repeatCycle            String           @default("WEEKLY") // "WEEKLY" | "BIWEEKLY" | "MONTHLY"
-  cycleWeeks             Json?            // [{label:string, workDays:number[]}] — only for BIWEEKLY/MONTHLY
-  cycleStartDate         DateTime?        // Reference Monday to compute which cycle week is active
+  cycleWeeks             Json? // [{label:string, workDays:number[]}] — only for BIWEEKLY/MONTHLY
+  cycleStartDate         DateTime? // Reference Monday to compute which cycle week is active
   isActive               Boolean          @default(true)
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 
-  company          Company                  @relation(fields: [companyId], references: [id])
+  company          Company                   @relation(fields: [companyId], references: [id])
   employees        Employee[]
   scheduleShifts   ScheduleShift[]
   shiftAssignments EmployeeShiftAssignment[]
@@ -741,17 +742,17 @@ model WorkSchedule {
 
 // Per-employee per-day shift assignments (used by the weekly scheduling grid)
 model EmployeeShiftAssignment {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   companyId  String
   employeeId String
-  date       DateTime  @db.Date
-  scheduleId String?   // Optional link to a WorkSchedule template
-  timeIn     String?   // "HH:MM" — overrides template if set
-  timeOut    String?   // "HH:MM"
-  isRestDay  Boolean   @default(false)
+  date       DateTime @db.Date
+  scheduleId String? // Optional link to a WorkSchedule template
+  timeIn     String? // "HH:MM" — overrides template if set
+  timeOut    String? // "HH:MM"
+  isRestDay  Boolean  @default(false)
   notes      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   company  Company       @relation(fields: [companyId], references: [id])
   employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -821,7 +822,7 @@ model DTRRecord {
   isLeave          Boolean      @default(false)
   isLeavePaid      Boolean      @default(false)
   isHalfDay        Boolean      @default(false)
-  halfDayPeriod    String?      /// "AM" or "PM" when isHalfDay = true
+  halfDayPeriod    String? /// "AM" or "PM" when isHalfDay = true
   leaveRequestId   String?
   source           String       @default("MANUAL")
   remarks          String?
@@ -930,7 +931,7 @@ model LeaveRequest {
   endDate        DateTime    @db.Date
   totalDays      Decimal     @db.Decimal(6, 2)
   isHalfDay      Boolean     @default(false)
-  halfDayPeriod  String?     /// "AM" or "PM" — only set when isHalfDay = true
+  halfDayPeriod  String? /// "AM" or "PM" — only set when isHalfDay = true
   reason         String?
   status         LeaveStatus @default(PENDING)
   approvalLevel  Int         @default(0)
@@ -984,23 +985,23 @@ model ContributionConfig {
 // ─────────────────────────────────────────────
 
 model PayrollRun {
-  id              String           @id @default(cuid())
-  companyId       String
-  periodLabel     String
-  periodStart     DateTime         @db.Date
-  periodEnd       DateTime         @db.Date
-  payFrequency    PayFrequency
-  payDate         DateTime         @db.Date
-  status          PayrollRunStatus @default(DRAFT)
-  approvalLevel   Int              @default(0)
-  approvalTrail   Json             @default("[]")
-  totalBasic      Decimal          @default(0) @db.Decimal(14, 2)
-  totalGross      Decimal          @default(0) @db.Decimal(14, 2)
-  totalDeductions Decimal          @default(0) @db.Decimal(14, 2)
-  totalNetPay     Decimal          @default(0) @db.Decimal(14, 2)
-  totalSssEr      Decimal          @default(0) @db.Decimal(14, 2)
-  totalPhEr       Decimal          @default(0) @db.Decimal(14, 2)
-  totalPagibigEr  Decimal          @default(0) @db.Decimal(14, 2)
+  id                   String           @id @default(cuid())
+  companyId            String
+  periodLabel          String
+  periodStart          DateTime         @db.Date
+  periodEnd            DateTime         @db.Date
+  payFrequency         PayFrequency
+  payDate              DateTime         @db.Date
+  status               PayrollRunStatus @default(DRAFT)
+  approvalLevel        Int              @default(0)
+  approvalTrail        Json             @default("[]")
+  totalBasic           Decimal          @default(0) @db.Decimal(14, 2)
+  totalGross           Decimal          @default(0) @db.Decimal(14, 2)
+  totalDeductions      Decimal          @default(0) @db.Decimal(14, 2)
+  totalNetPay          Decimal          @default(0) @db.Decimal(14, 2)
+  totalSssEr           Decimal          @default(0) @db.Decimal(14, 2)
+  totalPhEr            Decimal          @default(0) @db.Decimal(14, 2)
+  totalPagibigEr       Decimal          @default(0) @db.Decimal(14, 2)
   // Per-run employee scoping. Default ALL preserves the original behavior
   // (every active employee in the company is included).
   //   ALL              → no filtering
@@ -1011,16 +1012,16 @@ model PayrollRun {
   // "Project XYZ", etc.) so HR can scan the run list and distinguish
   // parallel runs targeting different employee groups in the same period.
   payGroupLabel        String?
-  employeeScopeMode    String   @default("ALL")
-  employmentTypeFilter String[] @default([])
-  employeeIds          String[] @default([])
-  createdBy       String
-  approvedBy      String?
-  approvedAt      DateTime?
-  lockedAt        DateTime?
-  notes           String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  employeeScopeMode    String           @default("ALL")
+  employmentTypeFilter String[]         @default([])
+  employeeIds          String[]         @default([])
+  createdBy            String
+  approvedBy           String?
+  approvedAt           DateTime?
+  lockedAt             DateTime?
+  notes                String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   company       Company                 @relation(fields: [companyId], references: [id])
   payslips      Payslip[]
@@ -1117,12 +1118,12 @@ model OvertimeRecord {
 }
 
 model IncomeType {
-  id            String         @id @default(cuid())
-  companyId     String
-  name          String
-  code          String?
-  mode          IncomeTypeMode @default(VARIABLE)
-  defaultAmount Decimal        @default(0) @db.Decimal(12, 2)
+  id              String         @id @default(cuid())
+  companyId       String
+  name            String
+  code            String?
+  mode            IncomeTypeMode @default(VARIABLE)
+  defaultAmount   Decimal        @default(0) @db.Decimal(12, 2)
   isTaxable       Boolean        @default(true)
   excludeFrom2316 Boolean        @default(false) // exclude this income from BIR Form 2316 totals
   isActive        Boolean        @default(true)
@@ -1228,10 +1229,10 @@ model EmployeeLoan {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  company         Company                @relation(fields: [companyId], references: [id])
-  employee        Employee               @relation(fields: [employeeId], references: [id])
-  deductions      PayslipLoanDeduction[]
-  cashAdvance     CashAdvanceRequest?
+  company     Company                @relation(fields: [companyId], references: [id])
+  employee    Employee               @relation(fields: [employeeId], references: [id])
+  deductions  PayslipLoanDeduction[]
+  cashAdvance CashAdvanceRequest?
 
   @@map("employee_loans")
 }
@@ -1241,26 +1242,26 @@ model EmployeeLoan {
 // deduction logic handles repayment automatically. Available on all plans
 // (Basic + Pro) — the schema lives here for visibility.
 model CashAdvanceRequest {
-  id              String            @id @default(cuid())
-  companyId       String
-  employeeId      String
-  amountRequested Decimal           @db.Decimal(12, 2)
-  reason          String
-  repaymentMonths Int               @default(1) // 1 to 3 typically
+  id               String            @id @default(cuid())
+  companyId        String
+  employeeId       String
+  amountRequested  Decimal           @db.Decimal(12, 2)
+  reason           String
+  repaymentMonths  Int               @default(1) // 1 to 3 typically
   /// Repay in N cutoffs instead of N months. Set when the employee picks a
   /// cutoff-based term (e.g. "1 cutoff"); null means repaymentMonths applies.
   /// Nullable on purpose so every existing row keeps its current meaning.
   repaymentCutoffs Int?
-  status          CashAdvanceStatus @default(PENDING)
-  approvedById    String?
-  approvedAt      DateTime?
-  rejectionReason String?
-  approvalLevel   Int               @default(0) // workflow engine: completed approval steps
-  approvalTrail   Json?             // workflow engine: per-step action log
+  status           CashAdvanceStatus @default(PENDING)
+  approvedById     String?
+  approvedAt       DateTime?
+  rejectionReason  String?
+  approvalLevel    Int               @default(0) // workflow engine: completed approval steps
+  approvalTrail    Json? // workflow engine: per-step action log
   // Once approved, points to the EmployeeLoan that handles deduction
-  linkedLoanId    String?           @unique
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  linkedLoanId     String?           @unique
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -1383,6 +1384,7 @@ model JobApplication {
   companyId          String
   jobPostId          String
   stage              RecruitmentStage @default(APPLIED)
+  pipelineStageId    String?
   firstName          String
   lastName           String
   email              String
@@ -1403,15 +1405,36 @@ model JobApplication {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  company             Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  jobPost             JobPost             @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
-  hiredEmployee       Employee?           @relation("HiredEmployeeApplications", fields: [hiredEmployeeId], references: [id], onDelete: SetNull)
+  company             Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobPost             JobPost                   @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  pipelineStage       RecruitmentPipelineStage? @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+  hiredEmployee       Employee?                 @relation("HiredEmployeeApplications", fields: [hiredEmployeeId], references: [id], onDelete: SetNull)
   onboardingProcesses OnboardingProcess[]
 
   @@index([companyId, stage, appliedAt])
+  @@index([companyId, pipelineStageId, appliedAt])
   @@index([jobPostId, stage, appliedAt])
   @@index([email, appliedAt])
   @@map("job_applications")
+}
+
+model RecruitmentPipelineStage {
+  id        String           @id @default(cuid())
+  companyId String
+  name      String
+  color     String           @default("#0b6ffb")
+  category  RecruitmentStage
+  order     Int              @default(0)
+  isDefault Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+
+  @@unique([companyId, name])
+  @@index([companyId, order])
+  @@map("recruitment_pipeline_stages")
 }
 
 model RecruitmentEmailTemplate {
@@ -1429,6 +1452,63 @@ model RecruitmentEmailTemplate {
   @@unique([companyId, type])
   @@index([companyId, isActive])
   @@map("recruitment_email_templates")
+}
+
+enum RecruitmentDocumentType {
+  JOB_OFFER
+  EMPLOYMENT_CONTRACT
+  OTHER
+}
+
+enum RecruitmentDocumentStatus {
+  DRAFT
+  SENT
+  SIGNED
+  DECLINED
+  VOID
+}
+
+model RecruitmentDocumentTemplate {
+  id          String                  @id @default(cuid())
+  companyId   String
+  name        String
+  type        RecruitmentDocumentType
+  title       String
+  content     String                  @db.Text
+  paperSize   String                  @default("A4")
+  signatories Json                    @default("[]")
+  isActive    Boolean                 @default(true)
+  createdBy   String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([companyId, type, isActive])
+  @@map("recruitment_document_templates")
+}
+
+model RecruitmentDocument {
+  id            String                    @id @default(cuid())
+  companyId     String
+  applicationId String
+  templateId    String?
+  type          RecruitmentDocumentType
+  title         String
+  content       String                    @db.Text
+  paperSize     String                    @default("A4")
+  signatories   Json                      @default("[]")
+  status        RecruitmentDocumentStatus @default(DRAFT)
+  publicToken   String                    @unique @default(cuid())
+  expiresAt     DateTime?
+  sentAt        DateTime?
+  signedAt      DateTime?
+  declinedAt    DateTime?
+  createdBy     String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  @@index([companyId, applicationId, status])
+  @@index([publicToken, status])
+  @@map("recruitment_documents")
 }
 
 model OnboardingTemplate {
@@ -1588,8 +1668,8 @@ model OffboardingProcess {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
-  company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company  Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   items    OffboardingItem[]
 
   @@index([companyId])
@@ -1647,7 +1727,7 @@ model OvertimeRequest {
   approvedAt      DateTime?
   rejectionReason String?
   approvalLevel   Int                   @default(0) // workflow engine: completed approval steps
-  approvalTrail   Json?                 // workflow engine: per-step action log
+  approvalTrail   Json? // workflow engine: per-step action log
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
@@ -1728,11 +1808,11 @@ enum NotificationType {
 model Notification {
   id        String           @id @default(cuid())
   companyId String
-  userId    String           // recipient
+  userId    String // recipient
   type      NotificationType @default(GENERIC)
   title     String
   body      String?
-  link      String?          // optional URL the bell click navigates to
+  link      String? // optional URL the bell click navigates to
   isRead    Boolean          @default(false)
   readAt    DateTime?
   createdAt DateTime         @default(now())
@@ -1755,16 +1835,16 @@ enum AssetStatus {
 }
 
 enum AssetAssignmentStatus {
-  ACTIVE      // currently held by the employee
-  RETURNED    // returned, history record
+  ACTIVE // currently held by the employee
+  RETURNED // returned, history record
 }
 
 model CompanyAsset {
   id            String      @id @default(cuid())
   companyId     String
-  assetTag      String?     // company-issued tag (e.g. LK12-LP-001)
-  category      String      // free-form: Laptop, Phone, ID Card, Uniform, Vehicle, etc.
-  name          String      // model / description
+  assetTag      String? // company-issued tag (e.g. LK12-LP-001)
+  category      String // free-form: Laptop, Phone, ID Card, Uniform, Vehicle, etc.
+  name          String // model / description
   serialNumber  String?
   purchaseDate  DateTime?
   purchaseCost  Decimal?    @db.Decimal(12, 2)
@@ -1783,17 +1863,17 @@ model CompanyAsset {
 }
 
 model AssetAssignment {
-  id              String                @id @default(cuid())
-  assetId         String
-  employeeId      String
-  assignedAt      DateTime              @default(now())
-  returnedAt      DateTime?
-  conditionAtIssue String?              // notes about state when given out
+  id                String                @id @default(cuid())
+  assetId           String
+  employeeId        String
+  assignedAt        DateTime              @default(now())
+  returnedAt        DateTime?
+  conditionAtIssue  String? // notes about state when given out
   conditionAtReturn String?
-  status          AssetAssignmentStatus @default(ACTIVE)
-  assignedById    String?               // user id who issued the assignment
-  returnedById    String?               // user id who marked return
-  notes           String?
+  status            AssetAssignmentStatus @default(ACTIVE)
+  assignedById      String? // user id who issued the assignment
+  returnedById      String? // user id who marked return
+  notes             String?
 
   asset    CompanyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
   employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -2051,10 +2131,10 @@ model ApprovalWorkflow {
 }
 
 model ApprovalWorkflowStep {
-  id         String  @id @default(cuid())
+  id         String @id @default(cuid())
   workflowId String
   order      Int // 1-based execution order within the workflow
-  stepType   String  @default("APPROVAL") // 'APPROVAL' | 'NOTIFY'
+  stepType   String @default("APPROVAL") // 'APPROVAL' | 'NOTIFY'
   conditions Json? // optional guard: { match: 'ALL' | 'ANY', rules: [{ field, op, value }] }
 
   // APPROVAL step — who must sign off
@@ -2115,22 +2195,22 @@ model ChatGroupMember {
 // ─────────────────────────────────────────────
 
 model BudgetRequisition {
-  id          String                  @id @default(cuid())
-  companyId   String
-  employeeId  String
-  title       String
-  purpose     String                  @db.Text
-  totalAmount Decimal                 @db.Decimal(14, 2)
-  currency    String                  @default("PHP")
-  status      BudgetRequisitionStatus @default(PENDING)
-  neededBy    DateTime?               @db.Date
-  reviewedBy  String?
-  reviewNote  String?                 @db.Text
-  reviewedAt  DateTime?
-  approvalLevel Int                   @default(0) // workflow engine: completed approval steps
-  approvalTrail Json?                 // workflow engine: per-step action log
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  id            String                  @id @default(cuid())
+  companyId     String
+  employeeId    String
+  title         String
+  purpose       String                  @db.Text
+  totalAmount   Decimal                 @db.Decimal(14, 2)
+  currency      String                  @default("PHP")
+  status        BudgetRequisitionStatus @default(PENDING)
+  neededBy      DateTime?               @db.Date
+  reviewedBy    String?
+  reviewNote    String?                 @db.Text
+  reviewedAt    DateTime?
+  approvalLevel Int                     @default(0) // workflow engine: completed approval steps
+  approvalTrail Json? // workflow engine: per-step action log
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
 
   company     Company                       @relation(fields: [companyId], references: [id])
   employee    Employee                      @relation(fields: [employeeId], references: [id])
@@ -2143,14 +2223,14 @@ model BudgetRequisition {
 }
 
 model BudgetRequisitionItem {
-  id            String            @id @default(cuid())
+  id            String   @id @default(cuid())
   requisitionId String
   description   String
-  quantity      Decimal           @db.Decimal(10, 2)
+  quantity      Decimal  @db.Decimal(10, 2)
   unit          String?
-  unitCost      Decimal           @db.Decimal(14, 2)
-  totalCost     Decimal           @db.Decimal(14, 2)
-  createdAt     DateTime          @default(now())
+  unitCost      Decimal  @db.Decimal(14, 2)
+  totalCost     Decimal  @db.Decimal(14, 2)
+  createdAt     DateTime @default(now())
 
   requisition BudgetRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
 
@@ -2159,14 +2239,14 @@ model BudgetRequisitionItem {
 }
 
 model BudgetRequisitionAttachment {
-  id            String            @id @default(cuid())
+  id            String   @id @default(cuid())
   requisitionId String
   fileName      String
   fileUrl       String
   fileSize      Int
   mimeType      String
   uploadedBy    String?
-  createdAt     DateTime          @default(now())
+  createdAt     DateTime @default(now())
 
   requisition BudgetRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
 
@@ -2181,25 +2261,25 @@ enum TimeEntryCorrectionStatus {
 }
 
 model TimeEntryCorrection {
-  id           String                     @id @default(cuid())
-  companyId    String
-  employeeId   String
-  dtrRecordId  String?                    // optional — new entries won't have an existing record
-  date         DateTime                   @db.Date
+  id            String                    @id @default(cuid())
+  companyId     String
+  employeeId    String
+  dtrRecordId   String? // optional — new entries won't have an existing record
+  date          DateTime                  @db.Date
   // Requested values (null = no change requested for that field)
-  timeIn       String?                    // "HH:mm" local Manila time
-  timeOut      String?
-  breakIn      String?
-  breakOut     String?
-  reason       String
-  status       TimeEntryCorrectionStatus  @default(PENDING)
-  adminNotes   String?
-  reviewedBy   String?
-  reviewedAt   DateTime?
+  timeIn        String? // "HH:mm" local Manila time
+  timeOut       String?
+  breakIn       String?
+  breakOut      String?
+  reason        String
+  status        TimeEntryCorrectionStatus @default(PENDING)
+  adminNotes    String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
   approvalLevel Int                       @default(0) // workflow engine: completed approval steps
-  approvalTrail Json?                      // workflow engine: per-step action log
-  createdAt    DateTime                   @default(now())
-  updatedAt    DateTime                   @updatedAt
+  approvalTrail Json? // workflow engine: per-step action log
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
 
   company  Company  @relation(fields: [companyId], references: [id])
   employee Employee @relation(fields: [employeeId], references: [id])
@@ -2228,12 +2308,12 @@ model Signature {
   signerName       String
   signerEmail      String?
   // What was signed
-  documentType     String   // e.g. "OFFER_LETTER" | "EMPLOYMENT_CONTRACT" | "DISCIPLINARY" | "PERFORMANCE_REVIEW" | "COE" | "OTHER"
-  documentRefId    String?  // ID of the underlying record where applicable
-  documentTitle    String?  // Human-friendly title shown in audit logs
+  documentType     String // e.g. "OFFER_LETTER" | "EMPLOYMENT_CONTRACT" | "DISCIPLINARY" | "PERFORMANCE_REVIEW" | "COE" | "OTHER"
+  documentRefId    String? // ID of the underlying record where applicable
+  documentTitle    String? // Human-friendly title shown in audit logs
   // The signature itself
-  signatureDataUrl String   @db.Text  // PNG data URL captured from the canvas pad
-  typedName        String?  // Optional typed full legal name accompanying the drawn signature
+  signatureDataUrl String   @db.Text // PNG data URL captured from the canvas pad
+  typedName        String? // Optional typed full legal name accompanying the drawn signature
   // Audit trail
   ipAddress        String?
   userAgent        String?  @db.Text
@@ -2265,30 +2345,30 @@ enum BiometricDeviceStatus {
 }
 
 model BiometricDevice {
-  id            String                @id @default(cuid())
-  companyId     String
-  name          String                // human-friendly: "Front gate kiosk"
-  serialNumber  String?               @unique // Pi serial (cat /proc/cpuinfo)
+  id                String                @id @default(cuid())
+  companyId         String
+  name              String // human-friendly: "Front gate kiosk"
+  serialNumber      String?               @unique // Pi serial (cat /proc/cpuinfo)
   // Pairing flow: an admin generates a 6-digit pairCode that the device
   // exchanges for a long-lived token. Once paired, pairCode is cleared and
   // tokenHash is set.
-  pairCode      String?               @unique
+  pairCode          String?               @unique
   pairCodeExpiresAt DateTime?
-  tokenHash     String?               // SHA-256 of the bearer token
-  pairedAt      DateTime?
-  lastSeenAt    DateTime?
-  status        BiometricDeviceStatus @default(PENDING_PAIRING)
+  tokenHash         String? // SHA-256 of the bearer token
+  pairedAt          DateTime?
+  lastSeenAt        DateTime?
+  status            BiometricDeviceStatus @default(PENDING_PAIRING)
   // Optional location / metadata
-  location      String?
-  ipAddress     String?
-  firmwareVersion String?
+  location          String?
+  ipAddress         String?
+  firmwareVersion   String?
   // Audit
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  createdByUserId String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  createdByUserId   String?
 
-  company    Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  events     BiometricClockEvent[]
+  company     Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  events      BiometricClockEvent[]
   enrollments FingerprintEnrollment[]
 
   @@index([companyId, status])
@@ -2301,19 +2381,19 @@ model BiometricDevice {
 // combination is enforced. The template blob is the ZK9500-specific
 // proprietary biometric template — we don't store raw fingerprint images.
 model FingerprintEnrollment {
-  id          String   @id @default(cuid())
-  companyId   String
-  employeeId  String
-  finger      String   // "RIGHT_THUMB" | "RIGHT_INDEX" | "LEFT_INDEX" | etc.
-  templateB64 String   @db.Text  // Base64-encoded ZK9500 template
-  qualityScore Int?              // 0-100 reported by the reader
-  enrolledAt  DateTime @default(now())
+  id                 String   @id @default(cuid())
+  companyId          String
+  employeeId         String
+  finger             String // "RIGHT_THUMB" | "RIGHT_INDEX" | "LEFT_INDEX" | etc.
+  templateB64        String   @db.Text // Base64-encoded ZK9500 template
+  qualityScore       Int? // 0-100 reported by the reader
+  enrolledAt         DateTime @default(now())
   enrolledByDeviceId String?
   // Optional: cache the finger name for the kiosk welcome screen
   enrolledByUserId   String?
 
-  employee  Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  device    BiometricDevice?  @relation(fields: [enrolledByDeviceId], references: [id], onDelete: SetNull)
+  employee Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  device   BiometricDevice? @relation(fields: [enrolledByDeviceId], references: [id], onDelete: SetNull)
 
   @@unique([employeeId, finger])
   @@index([companyId])
@@ -2348,8 +2428,8 @@ model BiometricClockEvent {
   dtrRecordId String?
   notes       String?
 
-  device      BiometricDevice    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  employee    Employee?          @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  device   BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  employee Employee?       @relation(fields: [employeeId], references: [id], onDelete: SetNull)
 
   @@index([companyId, capturedAt])
   @@index([deviceId, capturedAt])
@@ -2363,17 +2443,17 @@ model BiometricClockEvent {
 
 /// Records each QR Ph top-up of the company disbursement wallet
 model DisbursementTopUp {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   companyId       String
-  amountPeso      Decimal  @db.Decimal(12, 2)
+  amountPeso      Decimal   @db.Decimal(12, 2)
   /// PENDING | CONFIRMED | FAILED | EXPIRED
-  status          String   @default("PENDING")
+  status          String    @default("PENDING")
   paymentIntentId String?
-  qrImage         String?  @db.Text
+  qrImage         String?   @db.Text
   expiresAt       DateTime?
   confirmedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   company Company @relation(fields: [companyId], references: [id])
 
@@ -2383,23 +2463,23 @@ model DisbursementTopUp {
 
 /// One record per payroll-run disbursement batch
 model PayrollDisbursement {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   companyId       String
-  payrollRunId    String   @unique
-  totalAmount     Decimal  @db.Decimal(14, 2)
+  payrollRunId    String    @unique
+  totalAmount     Decimal   @db.Decimal(14, 2)
   /// PENDING | PROCESSING | COMPLETED | PARTIAL | FAILED | CANCELLED
-  status          String   @default("PENDING")
+  status          String    @default("PENDING")
   /// PayMongo /v2/batch_transfers id
   batchTransferId String?
   initiatedBy     String
-  initiatedAt     DateTime @default(now())
+  initiatedAt     DateTime  @default(now())
   completedAt     DateTime?
   notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  company    Company    @relation(fields: [companyId], references: [id])
-  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id])
+  company    Company                   @relation(fields: [companyId], references: [id])
+  payrollRun PayrollRun                @relation(fields: [payrollRunId], references: [id])
   items      PayrollDisbursementItem[]
 
   @@index([companyId, createdAt])
@@ -2423,7 +2503,7 @@ model PayrollDisbursementItem {
   status         String   @default("PENDING")
   /// PayMongo transfer ID for this single employee transfer.
   /// Used by the status-polling route to query each transfer individually.
-  pmTransferId   String?   /// PayMongo batch_transfers id for this individual transfer (send-money approach)
+  pmTransferId   String? /// PayMongo batch_transfers id for this individual transfer (send-money approach)
   referenceNo    String?
   failureReason  String?
   createdAt      DateTime @default(now())
@@ -2494,17 +2574,18 @@ model TaskLabel {
 
   createdAt DateTime @default(now())
 
-  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   tasks   TaskLabelLink[]
 
   @@unique([companyId, name])
   @@map("task_labels_catalog")
 }
+
 model Task {
-  id        String @id @default(cuid())
-  companyId String
+  id           String  @id @default(cuid())
+  companyId    String
   /// Where the task sits in the company's workflow. Always set.
-  statusId  String
+  statusId     String
   /// Set for subtasks; null for top-level tasks.
   parentTaskId String?
 
@@ -2531,17 +2612,17 @@ model Task {
   parent   Task?      @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
   subtasks Task[]     @relation("TaskSubtasks")
 
-  assignees     TaskAssignee[]
-  labels        TaskLabelLink[]
-  checklist     TaskChecklistItem[]
-  comments      TaskComment[]
-  attachments   TaskAttachment[]
-  activity      TaskActivity[]
-  timeLogs      TaskTimeLog[]
+  assignees    TaskAssignee[]
+  labels       TaskLabelLink[]
+  checklist    TaskChecklistItem[]
+  comments     TaskComment[]
+  attachments  TaskAttachment[]
+  activity     TaskActivity[]
+  timeLogs     TaskTimeLog[]
   /// Tasks this one waits on.
-  dependencies  TaskDependency[] @relation("DependentTask")
+  dependencies TaskDependency[]    @relation("DependentTask")
   /// Tasks waiting on this one.
-  dependents    TaskDependency[] @relation("BlockingTask")
+  dependents   TaskDependency[]    @relation("BlockingTask")
 
   @@unique([companyId, number])
   @@index([companyId, dueDate])
@@ -2593,12 +2674,12 @@ model TaskChecklistItem {
 }
 
 model TaskComment {
-  id     String @id @default(cuid())
-  taskId String
+  id       String   @id @default(cuid())
+  taskId   String
   /// Actor reference kept as a bare id, matching AuditLog — display names are
   /// batch-resolved by the API rather than denormalised here.
-  userId String
-  body   String @db.Text
+  userId   String
+  body     String   @db.Text
   /// User ids @mentioned in `body`. Resolved server-side when the comment is
   /// posted so the mention survives the user later changing their name, and
   /// so notification fan-out doesn't have to re-parse the text.

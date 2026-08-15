@@ -7,6 +7,7 @@ import {
   Download, Loader2, TrendingUp, Star, Clock, RefreshCw,
   FileText, QrCode, CheckCircle2, XCircle, TimerReset,
 } from 'lucide-react'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
@@ -382,7 +383,7 @@ export default function BillingPage() {
       <div className="space-y-6">
         <SettingsTabs />
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-6 h-6 animate-spin text-[#000000]" />
+          <AppSpinner size="md" />
         </div>
       </div>
     )
@@ -898,7 +899,7 @@ export default function BillingPage() {
             {/* Loading */}
             {qr.phase === 'loading' && (
               <div className="flex flex-col items-center justify-center gap-4 py-16 px-8">
-                <Loader2 className="w-10 h-10 animate-spin" style={{ color: '#000000' }} />
+                <AppSpinner size="md" />
                 <p className="font-bold text-slate-700">Generating QR code…</p>
                 <p className="text-xs text-slate-400 text-center">Generating your QR code…</p>
               </div>

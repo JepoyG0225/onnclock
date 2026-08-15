@@ -275,10 +275,10 @@ function ProcessCard({
   const color = avatarColor(`${emp.firstName}${emp.lastName}`)
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md transition-all group">
+    <div className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#bfdbfe] hover:shadow-md">
       <div
         onClick={onClick}
-        className="p-5 cursor-pointer"
+        className="flex-1 cursor-pointer p-5"
       >
         <div className="flex items-start gap-4">
           {/* Avatar */}
@@ -1219,7 +1219,7 @@ export function OnboardingManager() {
   }, [processes, statusFilter, search])
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 p-6">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -1309,7 +1309,7 @@ export function OnboardingManager() {
               <p className="text-xs text-slate-400 mt-1">Click &ldquo;Start Onboarding&rdquo; to add an employee.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid items-stretch gap-4 md:grid-cols-2 2xl:grid-cols-3">
               {filtered.map((process) => (
                 <ProcessCard
                   key={process.id}

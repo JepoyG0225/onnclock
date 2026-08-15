@@ -9,6 +9,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 interface ReqAttachment {
   id: string
@@ -268,7 +269,7 @@ export default function BudgetRequisitionsPage() {
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-16 text-gray-400">
-          <Loader2 className="w-6 h-6 animate-spin" />
+          <AppSpinner size="md" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">

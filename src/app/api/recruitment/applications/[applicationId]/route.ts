@@ -10,6 +10,7 @@ const updateApplicationSchema = z.object({
   stage: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'FINAL_INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN']).optional(),
   internalNotes: z.string().nullable().optional(),
   hiredEmployeeId: z.string().nullable().optional(),
+  pipelineStageId: z.string().optional(),
 })
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ applicationId: string }> }) {
@@ -73,7 +74,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ap
 
   if (!current) return NextResponse.json({ error: 'Application not found' }, { status: 404 })
 
-  const nextStage = parsed.data.stage
+  let nextStage = parsed.data.stage
+  let pipelineStageId = parsed.data.pipelineStageId
+  if (pipelineStageId) {
+    if (pipelineStageId.startsWith('legacy-')) {
+      const category = pipelineStageId.slice(7)
+      const valid = updateApplicationSchema.shape.stage.safeParse(category)
+      if (!valid.success) return NextResponse.json({ error: 'Pipeline stage not found' }, { status: 400 })
+      nextStage = valid.data
+      pipelineStageId = undefined
+    } else {
+      const pipelineStage = await prisma.recruitmentPipelineStage.findFirst({
+        where: { id: pipelineStageId, companyId: ctx.companyId },
+        select: { id: true, category: true },
+      })
+      if (!pipelineStage) return NextResponse.json({ error: 'Pipeline stage not found' }, { status: 400 })
+      pipelineStageId = pipelineStage.id
+      nextStage = pipelineStage.category
+    }
+  }
   const hiredEmployeeId = parsed.data.hiredEmployeeId
 
   if (hiredEmployeeId) {
@@ -93,10 +112,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ap
       where: { id: applicationId },
       data: {
         ...(nextStage ? { stage: nextStage, lastStageUpdatedAt: now, reviewedByUserId: ctx.userId } : {}),
+        ...(pipelineStageId ? { pipelineStageId } : {}),
         ...(parsed.data.internalNotes !== undefined ? { internalNotes: parsed.data.internalNotes } : {}),
         ...(hiredEmployeeId !== undefined ? { hiredEmployeeId } : {}),
         ...(nextStage === 'HIRED' ? { hiredAt: now } : {}),
         ...(nextStage === 'REJECTED' ? { rejectedAt: now } : {}),
+      },
+      select: {
+        id: true, firstName: true, lastName: true, email: true,
+        stage: true, jobPostId: true,
       },
     })
 

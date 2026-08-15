@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Receipt, Loader2, CheckCircle, XCircle, Clock, ExternalLink, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type InvoiceStatus = 'DRAFT' | 'UNPAID' | 'PAID' | 'VOID'
 type FilterTab = 'ALL' | 'UNPAID' | 'PAID' | 'VOID'
@@ -220,7 +221,7 @@ export default function AdminPaymentsPage() {
       {/* Payment list */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[#c4d9ff]" />
+          <AppSpinner size="md" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-800 py-16 text-center text-slate-500 text-sm">

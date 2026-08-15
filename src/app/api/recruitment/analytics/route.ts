@@ -6,7 +6,8 @@ export async function GET() {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  const [total, stageCounts, recent] = await Promise.all([
+  const staleBefore = new Date(Date.now() - 7 * 86_400_000)
+  const [total, stageCounts, recent, staleApplications] = await Promise.all([
     prisma.jobApplication.count({ where: { companyId: ctx.companyId } }),
     prisma.jobApplication.groupBy({
       by: ['stage'],
@@ -18,6 +19,13 @@ export async function GET() {
       select: { appliedAt: true, hiredAt: true },
       orderBy: { appliedAt: 'desc' },
       take: 300,
+    }),
+    prisma.jobApplication.count({
+      where: {
+        companyId: ctx.companyId,
+        stage: { notIn: ['HIRED', 'REJECTED', 'WITHDRAWN'] },
+        lastStageUpdatedAt: { lt: staleBefore },
+      },
     }),
   ])
 
@@ -42,6 +50,14 @@ export async function GET() {
       hired,
       conversionRate,
       avgTimeToHireDays,
+      needsReview: Number(stageMap.APPLIED ?? 0),
+      activePipeline: Number(
+        (stageMap.SCREENING ?? 0) +
+        (stageMap.INTERVIEW ?? 0) +
+        (stageMap.FINAL_INTERVIEW ?? 0) +
+        (stageMap.OFFER ?? 0),
+      ),
+      staleApplications,
     },
     stageCounts: stageMap,
   })

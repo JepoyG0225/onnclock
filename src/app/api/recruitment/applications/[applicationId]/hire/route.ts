@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { requireHrisProApi } from '@/lib/hris-pro'
 import { recruitmentModelsReady, recruitmentModelsUnavailableResponse } from '@/lib/recruitment-runtime'
 import { sendRecruitmentStageEmail } from '@/lib/mailer'
+import { pipelineStageForCategory } from '@/lib/recruitment-pipeline'
 
 // Minimum required fields to create an employee from an application.
 // Name / email / phone / address are pre-filled from the application.
@@ -84,6 +85,7 @@ export async function POST(
 
   const now = new Date()
 
+  const hiredPipelineStage = await pipelineStageForCategory(ctx.companyId, 'HIRED')
   const result = await prisma.$transaction(async (tx) => {
     // 1. Create the employee record pre-filled from application data
     const employee = await tx.employee.create({
@@ -121,6 +123,7 @@ export async function POST(
         hiredEmployeeId: employee.id,
         lastStageUpdatedAt: now,
         reviewedByUserId: ctx.userId,
+        pipelineStageId: hiredPipelineStage?.id ?? null,
       },
     })
 

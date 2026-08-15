@@ -10,6 +10,7 @@ import {
   Clock, ExternalLink, Loader2, RefreshCw, Send, Wallet, X, Hourglass,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import Image from 'next/image'
 import Link from 'next/link'
 import PayrollDisbursementPanel from '@/components/payroll/PayrollDisbursementPanel'
@@ -155,8 +156,7 @@ function TopUpModal({ onClose, onPaid }: { onClose: () => void; onPaid: () => vo
 
         {phase === 'loading' && (
           <div className="flex flex-col items-center gap-3 py-8">
-            <Loader2 className="w-10 h-10 animate-spin text-[#000000]" />
-            <p className="text-sm text-gray-500">Generating QR code…</p>
+            <AppSpinner size="md" message="Generating QR code…" />
           </div>
         )}
 
@@ -267,7 +267,7 @@ export default function DisbursementPageClient() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400">
-        <Loader2 className="w-6 h-6 animate-spin mr-2" /><span>Loading…</span>
+        <AppSpinner size="md" />
       </div>
     )
   }

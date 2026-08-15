@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Building2, Facebook, Globe, ImageIcon, Instagram, Linkedin, Save, Twitter, X } from 'lucide-react'
+import { ArrowLeft, Building2, ExternalLink, Facebook, Globe, ImageIcon, Instagram, Linkedin, Save, Twitter, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { parseCareerHeroContent, serializeCareerHeroContent } from '@/lib/career-page'
 
 interface CareerSettings {
+  id: string
   name: string
   logoUrl: string | null
   careerBannerUrl: string | null
@@ -21,25 +23,16 @@ interface CareerSettings {
 export default function RecruitmentSettingsPage() {
   const [settings, setSettings] = useState<CareerSettings | null>(null)
   const [saving, setSaving] = useState(false)
-  const [savingEmail, setSavingEmail] = useState(false)
   const [form, setForm] = useState({
     careerBannerUrl: null as string | null,
     careerTagline: '',
     careerDescription: '',
+    careerCtaLabel: 'View open positions',
+    careerCtaUrl: '#open-positions',
     careerSocialFacebook: '',
     careerSocialLinkedin: '',
     careerSocialTwitter: '',
     careerSocialInstagram: '',
-  })
-  const [smtp, setSmtp] = useState({
-    smtpHost: '',
-    smtpPort: 465,
-    smtpSecure: true,
-    smtpUser: '',
-    smtpPass: '',
-    smtpFromEmail: '',
-    smtpFromName: '',
-    hasSmtpPass: false,
   })
   const bannerInputRef = useRef<HTMLInputElement>(null)
 
@@ -48,10 +41,13 @@ export default function RecruitmentSettingsPage() {
       .then(r => r.json())
       .then(data => {
         setSettings(data)
+        const hero = parseCareerHeroContent(data.careerDescription)
         setForm({
           careerBannerUrl: data.careerBannerUrl ?? null,
           careerTagline: data.careerTagline ?? '',
-          careerDescription: data.careerDescription ?? '',
+          careerDescription: hero.subtext,
+          careerCtaLabel: hero.ctaLabel,
+          careerCtaUrl: hero.ctaUrl,
           careerSocialFacebook: data.careerSocialFacebook ?? '',
           careerSocialLinkedin: data.careerSocialLinkedin ?? '',
           careerSocialTwitter: data.careerSocialTwitter ?? '',
@@ -59,26 +55,6 @@ export default function RecruitmentSettingsPage() {
         })
       })
       .catch(() => toast.error('Failed to load settings'))
-  }, [])
-
-  useEffect(() => {
-    fetch('/api/recruitment/email-settings')
-      .then(r => r.json())
-      .then(data => {
-        if (data?.smtp) {
-          setSmtp({
-            smtpHost: data.smtp.smtpHost ?? '',
-            smtpPort: Number(data.smtp.smtpPort ?? 465),
-            smtpSecure: Boolean(data.smtp.smtpSecure ?? true),
-            smtpUser: data.smtp.smtpUser ?? '',
-            smtpPass: '',
-            smtpFromEmail: data.smtp.smtpFromEmail ?? '',
-            smtpFromName: data.smtp.smtpFromName ?? '',
-            hasSmtpPass: Boolean(data.smtp.hasSmtpPass),
-          })
-        }
-      })
-      .catch(() => toast.error('Failed to load recruitment email settings'))
   }, [])
 
   function handleBannerFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -104,7 +80,7 @@ export default function RecruitmentSettingsPage() {
         body: JSON.stringify({
           careerBannerUrl: form.careerBannerUrl,
           careerTagline: form.careerTagline || null,
-          careerDescription: form.careerDescription || null,
+          careerDescription: serializeCareerHeroContent({ subtext: form.careerDescription, ctaLabel: form.careerCtaLabel, ctaUrl: form.careerCtaUrl }),
           careerSocialFacebook: form.careerSocialFacebook || null,
           careerSocialLinkedin: form.careerSocialLinkedin || null,
           careerSocialTwitter: form.careerSocialTwitter || null,
@@ -120,7 +96,9 @@ export default function RecruitmentSettingsPage() {
         ...p,
         careerBannerUrl: data.careerBannerUrl ?? p.careerBannerUrl,
         careerTagline: data.careerTagline ?? p.careerTagline,
-        careerDescription: data.careerDescription ?? p.careerDescription,
+        careerDescription: parseCareerHeroContent(data.careerDescription).subtext,
+        careerCtaLabel: parseCareerHeroContent(data.careerDescription).ctaLabel,
+        careerCtaUrl: parseCareerHeroContent(data.careerDescription).ctaUrl,
         careerSocialFacebook: data.careerSocialFacebook ?? p.careerSocialFacebook,
         careerSocialLinkedin: data.careerSocialLinkedin ?? p.careerSocialLinkedin,
         careerSocialTwitter: data.careerSocialTwitter ?? p.careerSocialTwitter,
@@ -133,92 +111,42 @@ export default function RecruitmentSettingsPage() {
     }
   }
 
-  async function saveEmailSettings() {
-    setSavingEmail(true)
-    try {
-      const res = await fetch('/api/recruitment/email-settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          smtpHost: smtp.smtpHost || null,
-          smtpPort: Number(smtp.smtpPort || 465),
-          smtpSecure: smtp.smtpSecure,
-          smtpUser: smtp.smtpUser || null,
-          smtpPass: smtp.smtpPass || undefined,
-          smtpFromEmail: smtp.smtpFromEmail || null,
-          smtpFromName: smtp.smtpFromName || null,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error ?? 'Failed to save email settings')
-      setSmtp(prev => ({ ...prev, smtpPass: '', hasSmtpPass: Boolean(prev.smtpPass || prev.hasSmtpPass) }))
-      toast.success('Recruitment email settings saved')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save email settings')
-    } finally {
-      setSavingEmail(false)
-    }
-  }
-
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <div>
-        <Link href="/recruitment" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-3 font-medium">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div><Link href="/recruitment" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-3 font-medium">
           <ArrowLeft className="w-3 h-3" /> Back to Recruitment
         </Link>
         <h1 className="text-2xl font-black text-slate-900">Career Page Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Customize what applicants see on your public job postings page.</p>
+        <p className="text-sm text-slate-500 mt-1">Build a branded landing page that introduces your company and guides candidates to open roles.</p></div>
+        {settings?.id && <Link href={`/careers/${settings.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-[#1d4ed8] hover:bg-blue-100"><ExternalLink className="h-4 w-4" /> View Live Career Page</Link>}
       </div>
 
-      {/* Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-        <h2 className="text-sm font-bold text-slate-800">Banner Image</h2>
-        <p className="text-xs text-slate-500">Displayed at the top of your public careers page. Recommended size: 1200 &times; 400px (JPG/PNG, max 4MB).</p>
-
-        <div className="relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200" style={{ height: '180px' }}>
-          {form.careerBannerUrl ? (
-            <>
-              <img src={form.careerBannerUrl} alt="Career banner" className="w-full h-full object-cover" />
-              <button
-                onClick={() => { setForm(p => ({ ...p, careerBannerUrl: null })); if (bannerInputRef.current) bannerInputRef.current.value = '' }}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => bannerInputRef.current?.click()}
-              className="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              <ImageIcon className="w-8 h-8" />
-              <span className="text-sm font-medium">Click to upload banner</span>
-              <span className="text-xs">JPG, PNG &bull; Max 4MB</span>
-            </button>
-          )}
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-[#071d3b] shadow-sm">
+        <div className="relative min-h-[360px]">
+          {form.careerBannerUrl && <img src={form.careerBannerUrl} alt="Career page hero preview" className="absolute inset-0 h-full w-full object-cover" />}
+          <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(7,29,59,0.82)_0%,rgba(7,91,212,0.58)_48%,rgba(11,111,251,0.34)_100%)]" />
+          <div className="relative z-10 flex min-h-[360px] max-w-2xl flex-col justify-center px-8 py-12 sm:px-12">
+            <span className="mb-5 text-xs font-bold uppercase tracking-[0.22em] text-white">Careers at {settings?.name ?? 'Your company'}</span>
+            <h2 className="text-3xl font-black leading-tight text-white sm:text-5xl">{form.careerTagline || 'Do your best work with us.'}</h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-blue-50 sm:text-base">{form.careerDescription || 'Tell candidates what makes your company, culture, and mission worth joining.'}</p>
+            <span className="mt-7 inline-flex w-fit rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#075bd4] shadow-sm">{form.careerCtaLabel || 'View open positions'}</span>
+          </div>
         </div>
+        <div className="border-t border-slate-200 bg-white px-5 py-3 text-xs text-slate-500">Live hero preview · Changes appear here as you type</div>
+      </section>
 
-        {form.careerBannerUrl && (
-          <button
-            onClick={() => bannerInputRef.current?.click()}
-            className="text-xs text-slate-500 hover:text-slate-700 font-medium underline underline-offset-2"
-          >
-            Replace image
-          </button>
-        )}
-
-        <input
-          ref={bannerInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleBannerFile}
-          className="sr-only"
-        />
-      </div>
-
-      {/* Company blurb */}
+      {/* Hero copy */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-        <h2 className="text-sm font-bold text-slate-800">Company Branding</h2>
+        <h2 className="text-sm font-bold text-slate-800">Hero Content</h2>
+
+        <div>
+          <div className="mb-2 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold text-slate-600">Hero image</p><p className="mt-1 text-xs text-slate-400">Recommended: 1600 &times; 900px · JPG, PNG or WebP · Max 4MB</p></div>{form.careerBannerUrl && <button type="button" onClick={() => bannerInputRef.current?.click()} className="shrink-0 text-xs font-bold text-blue-600 hover:text-blue-700">Replace image</button>}</div>
+          <div className="relative h-44 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+            {form.careerBannerUrl ? <><img src={form.careerBannerUrl} alt="Career banner" className="h-full w-full object-cover" /><button type="button" onClick={() => { setForm(p => ({ ...p, careerBannerUrl: null })); if (bannerInputRef.current) bannerInputRef.current.value = '' }} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/60 text-white hover:bg-slate-950/80" aria-label="Remove hero image"><X className="h-4 w-4" /></button></> : <button type="button" onClick={() => bannerInputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400 transition hover:bg-slate-50 hover:text-blue-600"><ImageIcon className="h-8 w-8" /><span className="text-sm font-semibold">Upload hero image</span></button>}
+          </div>
+          <input ref={bannerInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleBannerFile} className="sr-only" />
+        </div>
 
         {/* Preview of logo + name */}
         {settings && (
@@ -238,28 +166,32 @@ export default function RecruitmentSettingsPage() {
         )}
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tagline <span className="text-slate-400 font-normal">(max 200 chars)</span></label>
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Hero headline <span className="text-slate-400 font-normal">(max 200 chars)</span></label>
           <input
             value={form.careerTagline}
             onChange={e => setForm(p => ({ ...p, careerTagline: e.target.value }))}
             maxLength={200}
-            placeholder="e.g. Building the future of Filipino workplaces"
+            placeholder="e.g. Build the future with us"
             className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
           />
           <p className="text-xs text-slate-400 mt-1 text-right">{form.careerTagline.length}/200</p>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">About the Company <span className="text-slate-400 font-normal">(shown on every job posting)</span></label>
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Hero supporting text</label>
           <textarea
             value={form.careerDescription}
             onChange={e => setForm(p => ({ ...p, careerDescription: e.target.value }))}
-            maxLength={2000}
+            maxLength={1500}
             rows={5}
-            placeholder="Tell applicants about your mission, culture, and what makes your company a great place to work..."
+            placeholder="Give candidates a short, compelling reason to explore your open roles..."
             className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none"
           />
-          <p className="text-xs text-slate-400 mt-1 text-right">{form.careerDescription.length}/2000</p>
+          <p className="text-xs text-slate-400 mt-1 text-right">{form.careerDescription.length}/1500</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="mb-1.5 block text-xs font-semibold text-slate-600">CTA button label</label><input value={form.careerCtaLabel} onChange={e => setForm(p => ({ ...p, careerCtaLabel: e.target.value }))} maxLength={50} placeholder="View open positions" className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300" /></div>
+          <div><label className="mb-1.5 block text-xs font-semibold text-slate-600">CTA destination</label><input value={form.careerCtaUrl} onChange={e => setForm(p => ({ ...p, careerCtaUrl: e.target.value }))} maxLength={300} placeholder="#open-positions or https://..." className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300" /></div>
         </div>
       </div>
 
@@ -325,32 +257,6 @@ export default function RecruitmentSettingsPage() {
             </div>
           )}
         </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-        <h2 className="text-sm font-bold text-slate-800">Company SMTP for Recruitment Emails</h2>
-        <p className="text-xs text-slate-500">Used when sending interview, rejection, and offer emails to applicants.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input value={smtp.smtpHost} onChange={e => setSmtp(p => ({ ...p, smtpHost: e.target.value }))} placeholder="SMTP Host (e.g. smtp.gmail.com)" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <input type="number" value={smtp.smtpPort} onChange={e => setSmtp(p => ({ ...p, smtpPort: Number(e.target.value || 465) }))} placeholder="SMTP Port" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <input value={smtp.smtpUser} onChange={e => setSmtp(p => ({ ...p, smtpUser: e.target.value }))} placeholder="SMTP Username" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <input type="password" value={smtp.smtpPass} onChange={e => setSmtp(p => ({ ...p, smtpPass: e.target.value }))} placeholder={smtp.hasSmtpPass ? 'SMTP Password (leave blank to keep current)' : 'SMTP Password'} className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <input value={smtp.smtpFromName} onChange={e => setSmtp(p => ({ ...p, smtpFromName: e.target.value }))} placeholder="From Name (e.g. ACME HR)" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <input type="email" value={smtp.smtpFromEmail} onChange={e => setSmtp(p => ({ ...p, smtpFromEmail: e.target.value }))} placeholder="From Email" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-        </div>
-        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={smtp.smtpSecure} onChange={e => setSmtp(p => ({ ...p, smtpSecure: e.target.checked }))} />
-          Use secure connection (SSL/TLS)
-        </label>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
-        <h2 className="text-sm font-bold text-slate-800">Recruitment Email Templates</h2>
-        <p className="text-xs text-slate-500">Manage all template types in a dedicated page (add, edit, delete).</p>
-        <Link href="/recruitment/templates" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">
-          <Save className="w-4 h-4" />
-          Open Email Templates
-        </Link>
       </div>
 
       <div className="flex justify-end">

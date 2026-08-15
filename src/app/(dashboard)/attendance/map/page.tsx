@@ -4,15 +4,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { MapPin, Users, RefreshCw, Clock, Monitor } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 const LiveMapInner = dynamic(() => import('@/components/map/LiveMapInner'), {
   ssr: false,
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-gray-100 rounded-xl">
-      <div className="text-center">
-        <div className="w-8 h-8 border-2 border-[#000000] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-        <p className="text-sm text-gray-500">Loading map...</p>
-      </div>
+      <AppSpinner size="md" message="Loading map…" />
     </div>
   ),
 })

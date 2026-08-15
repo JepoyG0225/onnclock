@@ -50,6 +50,13 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ jobId:
       applications: {
         orderBy: [{ appliedAt: 'desc' }],
         take: 100,
+        select: {
+          id: true, firstName: true, lastName: true, email: true, phone: true,
+          currentAddress: true, expectedSalary: true, resumeUrl: true,
+          coverLetter: true, requirementAnswers: true, stage: true,
+          appliedAt: true, lastStageUpdatedAt: true, internalNotes: true,
+          source: true, hiredAt: true, hiredEmployeeId: true,
+        },
       },
       _count: { select: { applications: true } },
     },

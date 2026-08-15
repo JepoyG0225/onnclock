@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Wallet, Plus, Save, Trash2, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type PaymentMethodType = 'GCASH' | 'BANK_TRANSFER' | 'E_WALLET' | 'OTHER'
 
@@ -297,7 +298,7 @@ export default function AdminPaymentMethodsPage() {
       {/* Methods list */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[#c4d9ff]" />
+          <AppSpinner size="md" />
         </div>
       ) : methods.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-800 py-16 text-center text-slate-500 text-sm">

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type ProfileData = {
   user: { id: string; name: string | null; email: string; createdAt: string }
@@ -89,7 +90,7 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent>
           {loading || !profile ? (
-            <div className="text-sm text-gray-400">Loading...</div>
+            <div className="flex justify-center py-12"><AppSpinner size="md" /></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

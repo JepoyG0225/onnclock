@@ -7,6 +7,7 @@ import {
   Mail, AlertCircle, ChevronDown, RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 import { format } from 'date-fns'
 
 type SubscriptionPlan = 'TRIAL' | 'MONTHLY' | 'ANNUAL'
@@ -307,7 +308,7 @@ export default function AdminCompaniesPage() {
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: THEME.base, background: THEME.deep }}>
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: THEME.soft }} />
+            <AppSpinner size="md" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-sm" style={{ color: THEME.mid }}>No companies found.</div>

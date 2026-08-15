@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CreditCard, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type SubscriptionPlan = 'TRIAL' | 'MONTHLY' | '3_MONTH' | '6_MONTH' | 'ANNUAL'
 type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'EXPIRED'
@@ -201,7 +202,7 @@ export default function AdminSubscriptionsPage() {
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
+          <AppSpinner size="md" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center text-slate-500 text-sm">
