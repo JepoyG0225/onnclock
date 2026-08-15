@@ -5,6 +5,7 @@ import { logAudit } from '@/lib/audit'
 import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
+import { clearLateDeductionForApprovedCorrection } from '@/lib/time-corrections/clear-late-deduction'
 
 const ADMIN_ROLES = ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD']
 
@@ -124,6 +125,7 @@ export async function POST(req: NextRequest) {
     const reqBreakIn = toDateTime(correction.breakIn)
     const reqBreakOut = toDateTime(correction.breakOut)
 
+    let affectedDtrId: string
     if (targetDtr) {
       const newTimeIn = reqTimeIn ?? targetDtr.timeIn
       const newTimeOut = reqTimeOut ?? targetDtr.timeOut
@@ -139,8 +141,9 @@ export async function POST(req: NextRequest) {
           ...(newBreakOut !== undefined ? { breakOut: newBreakOut } : {}),
         },
       })
+      affectedDtrId = targetDtr.id
     } else {
-      await prisma.dTRRecord.create({
+      const createdDtr = await prisma.dTRRecord.create({
         data: {
           employeeId: correction.employee.id,
           date: correction.date,
@@ -152,7 +155,15 @@ export async function POST(req: NextRequest) {
           remarks: `Created from manual time correction request (${correction.id}).`,
         },
       })
+      affectedDtrId = createdDtr.id
     }
+
+    await clearLateDeductionForApprovedCorrection({
+      companyId: ctx.companyId,
+      employeeId: correction.employee.id,
+      correctionDate: correction.date,
+      dtrRecordId: affectedDtrId,
+    })
 
     // Update correction status
     await prisma.timeEntryCorrection.update({

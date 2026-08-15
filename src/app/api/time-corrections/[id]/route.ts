@@ -7,6 +7,7 @@ import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engin
 import { notifyAfterApprove } from '@/lib/approvals/notify'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
+import { clearLateDeductionForApprovedCorrection } from '@/lib/time-corrections/clear-late-deduction'
 
 const ADMIN_ROLES = ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD']
 const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
@@ -170,6 +171,7 @@ export async function PATCH(
     const reqBreakIn  = toDateTime(correction.breakIn)
     const reqBreakOut = toDateTime(correction.breakOut)
 
+    let affectedDtrId: string
     if (targetDtr) {
       // Update existing DTR — only overwrite the fields the request includes.
       const newTimeIn  = reqTimeIn  ?? targetDtr.timeIn
@@ -186,10 +188,11 @@ export async function PATCH(
           ...(newBreakOut !== undefined ? { breakOut: newBreakOut } : {}),
         },
       })
+      affectedDtrId = targetDtr.id
     } else {
       // Manual entry — no DTR exists yet. Create a fresh row so the
       // employee's day actually shows the worked time.
-      await prisma.dTRRecord.create({
+      const createdDtr = await prisma.dTRRecord.create({
         data: {
           employeeId: correction.employee.id,
           date: correction.date,
@@ -201,7 +204,15 @@ export async function PATCH(
           remarks: `Created from manual time correction request (${correction.id}). Employee reason: ${correction.reason}`,
         },
       })
+      affectedDtrId = createdDtr.id
     }
+
+    await clearLateDeductionForApprovedCorrection({
+      companyId,
+      employeeId: correction.employee.id,
+      correctionDate: correction.date,
+      dtrRecordId: affectedDtrId,
+    })
   }
 
   const updated = await prisma.timeEntryCorrection.update({
