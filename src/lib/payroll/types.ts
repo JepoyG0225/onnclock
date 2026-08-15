@@ -17,9 +17,8 @@ export interface PayrollInput {
     /**
      * Per-employee override: when TRUE the late-minutes pay deduction
      * is suppressed for THIS employee even if the company-wide setting
-     * has it enabled. Useful for HOURLY/DAILY hires where basic pay
-     * already pro-rates by actual hours worked — deducting late on top
-     * would double-count the same missed minutes.
+     * has it enabled. This is the explicit opt-out for employees whose
+     * tardiness should be tracked in DTR without affecting payroll.
      */
     disableLateDeduction?: boolean
     /**
