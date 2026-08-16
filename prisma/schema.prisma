@@ -45,6 +45,11 @@ enum PayFrequency {
   DAILY
 }
 
+enum MandatoryDeductionFrequency {
+  SEMI_MONTHLY
+  MONTHLY
+}
+
 enum RateType {
   MONTHLY
   DAILY
@@ -77,6 +82,30 @@ enum BudgetRequisitionStatus {
   APPROVED
   REJECTED
   CANCELLED
+}
+
+enum ExpenseClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum BenefitPlanType {
+  HMO
+  LIFE_INSURANCE
+  RETIREMENT
+  WELLNESS
+  ALLOWANCE
+  OTHER
+}
+
+enum BenefitEnrollmentStatus {
+  PENDING
+  ACTIVE
+  WAIVED
+  ENDED
 }
 
 enum LoanType {
@@ -421,6 +450,9 @@ model Company {
   disciplinaryRecords       DisciplinaryRecord[]
   announcements             Announcement[]
   budgetRequisitions        BudgetRequisition[]
+  expenseClaims             ExpenseClaim[]
+  benefitPlans              BenefitPlan[]
+  learningCourses           LearningCourse[]
   timeEntryCorrections      TimeEntryCorrection[]
   signatures                Signature[]
   biometricDevices          BiometricDevice[]
@@ -438,6 +470,7 @@ model PayrollCycleConfig {
   id                             String       @id @default(cuid())
   companyId                      String       @unique
   payFrequency                   PayFrequency @default(SEMI_MONTHLY)
+  mandatoryDeductionFrequency   MandatoryDeductionFrequency @default(SEMI_MONTHLY)
   firstCutoffStartDay            Int          @default(1)
   firstCutoffEndDay              Int          @default(15)
   secondCutoffStartDay           Int          @default(16)
@@ -666,24 +699,28 @@ model Employee {
   incomeAssignments            EmployeeIncomeAssignment[]
   otherDeductionItems          EmployeeOtherDeduction[]
   payrollIncomeEntries         PayrollRunIncomeEntry[]
-  hiredApplications            JobApplication[]           @relation("HiredEmployeeApplications")
+  hiredApplications            JobApplication[]            @relation("HiredEmployeeApplications")
   onboardingProcesses          OnboardingProcess[]
-  performanceReviewsAsReviewee PerformanceReview[]        @relation("RevieweePerformanceReviews")
-  performanceReviewsAsReviewer PerformanceReview[]        @relation("ReviewerPerformanceReviews")
+  performanceReviewsAsReviewee PerformanceReview[]         @relation("RevieweePerformanceReviews")
+  performanceReviewsAsReviewer PerformanceReview[]         @relation("ReviewerPerformanceReviews")
   attendanceScreenshots        AttendanceScreenshot[]
   offboardingProcesses         OffboardingProcess[]
   overtimeRequests             OvertimeRequest[]
   disciplinaryRecords          DisciplinaryRecord[]
   shiftAssignments             EmployeeShiftAssignment[]
   budgetRequisitions           BudgetRequisition[]
+  expenseClaims                ExpenseClaim[]
+  benefitEnrollments           EmployeeBenefitEnrollment[]
+  learningEnrollments          LearningEnrollment[]
+  certifications               EmployeeCertification[]
   timeEntryCorrections         TimeEntryCorrection[]
   assetAssignments             AssetAssignment[]
   cashAdvanceRequests          CashAdvanceRequest[]
   signatures                   Signature[]
   fingerprintEnrollments       FingerprintEnrollment[]
   biometricClockEvents         BiometricClockEvent[]
-  taskAssignments              TaskAssignee[]             @relation("TaskAssignments")
-  taskTimeLogs                 TaskTimeLog[]              @relation("TaskTimeLogs")
+  taskAssignments              TaskAssignee[]              @relation("TaskAssignments")
+  taskTimeLogs                 TaskTimeLog[]               @relation("TaskTimeLogs")
 
   @@unique([companyId, employeeNo])
   @@index([companyId])
@@ -2766,4 +2803,247 @@ model TaskDependency {
   @@unique([taskId, dependsOnTaskId])
   @@index([dependsOnTaskId])
   @@map("task_dependencies")
+}
+
+// Employee reimbursements and cash-advance liquidation.
+model ExpenseClaim {
+  id                String             @id @default(cuid())
+  companyId         String
+  employeeId        String
+  category          String
+  description       String             @db.Text
+  expenseDate       DateTime           @db.Date
+  amount            Decimal            @db.Decimal(12, 2)
+  approvedAmount    Decimal?           @db.Decimal(12, 2)
+  currency          String             @default("PHP")
+  receiptUrl        String?            @db.Text
+  receiptFileName   String?
+  isLiquidation     Boolean            @default(false)
+  cashAdvanceAmount Decimal?           @db.Decimal(12, 2)
+  status            ExpenseClaimStatus @default(PENDING)
+  reviewNote        String?            @db.Text
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  paidAt            DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status, createdAt])
+  @@index([employeeId, status])
+  @@map("expense_claims")
+}
+
+model BenefitPlan {
+  id                String          @id @default(cuid())
+  companyId         String
+  name              String
+  provider          String?
+  type              BenefitPlanType @default(HMO)
+  description       String?         @db.Text
+  employerShare     Decimal         @default(0) @db.Decimal(12, 2)
+  employeeShare     Decimal         @default(0) @db.Decimal(12, 2)
+  dependentLimit    Int             @default(0)
+  eligibilityMonths Int             @default(0)
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  company     Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enrollments EmployeeBenefitEnrollment[]
+
+  @@index([companyId, isActive])
+  @@map("benefit_plans")
+}
+
+model EmployeeBenefitEnrollment {
+  id            String                  @id @default(cuid())
+  employeeId    String
+  benefitPlanId String
+  status        BenefitEnrollmentStatus @default(ACTIVE)
+  effectiveDate DateTime                @db.Date
+  endDate       DateTime?               @db.Date
+  memberNumber  String?
+  dependents    Json                    @default("[]")
+  employeeShare Decimal?                @db.Decimal(12, 2)
+  employerShare Decimal?                @db.Decimal(12, 2)
+  notes         String?                 @db.Text
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  plan     BenefitPlan @relation(fields: [benefitPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, benefitPlanId])
+  @@index([benefitPlanId, status])
+  @@map("employee_benefit_enrollments")
+}
+
+model LearningCourse {
+  id             String   @id @default(cuid())
+  companyId      String
+  title          String
+  provider       String?
+  description    String?  @db.Text
+  category       String?
+  durationHours  Decimal? @db.Decimal(8, 2)
+  validityMonths Int?
+  isActive       Boolean  @default(true)
+  status         String   @default("DRAFT")
+  thumbnailUrl   String?  @db.Text
+  passingScore   Int      @default(70)
+  sequential     Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company      Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enrollments  LearningEnrollment[]
+  modules      LearningModule[]
+  certificates EmployeeCertification[]
+
+  @@index([companyId, isActive])
+  @@map("learning_courses")
+}
+
+model LearningEnrollment {
+  id          String    @id @default(cuid())
+  courseId    String
+  employeeId  String
+  status      String    @default("ASSIGNED")
+  assignedAt  DateTime  @default(now())
+  dueDate     DateTime? @db.Date
+  completedAt DateTime? @db.Date
+  score       Decimal?  @db.Decimal(5, 2)
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  course   LearningCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  employee Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  progress LessonProgress[]
+  attempts QuizAttempt[]
+
+  @@unique([courseId, employeeId])
+  @@index([employeeId, status])
+  @@map("learning_enrollments")
+}
+
+model LearningModule {
+  id          String   @id @default(cuid())
+  courseId    String
+  title       String
+  description String?  @db.Text
+  position    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course  LearningCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons LearningLesson[]
+
+  @@unique([courseId, position])
+  @@index([courseId])
+  @@map("learning_modules")
+}
+
+model LearningLesson {
+  id              String   @id @default(cuid())
+  moduleId        String
+  title           String
+  type            String   @default("TEXT")
+  content         String?  @db.Text
+  resourceUrl     String?  @db.Text
+  durationMinutes Int?
+  position        Int
+  isRequired      Boolean  @default(true)
+  passingScore    Int?
+  attemptLimit    Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  module    LearningModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  progress  LessonProgress[]
+  attempts  QuizAttempt[]
+
+  @@unique([moduleId, position])
+  @@index([moduleId])
+  @@map("learning_lessons")
+}
+
+model QuizQuestion {
+  id          String   @id @default(cuid())
+  lessonId    String
+  prompt      String   @db.Text
+  type        String   @default("SINGLE_CHOICE")
+  options     Json     @default("[]")
+  answer      Json
+  points      Int      @default(1)
+  explanation String?  @db.Text
+  position    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lesson LearningLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, position])
+  @@map("quiz_questions")
+}
+
+model LessonProgress {
+  id           String    @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  status       String    @default("NOT_STARTED")
+  startedAt    DateTime?
+  completedAt  DateTime?
+  lastPosition Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  enrollment LearningEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     LearningLesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+  @@index([lessonId, status])
+  @@map("lesson_progress")
+}
+
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  answers      Json
+  score        Decimal  @db.Decimal(5, 2)
+  passed       Boolean
+  attemptedAt  DateTime @default(now())
+
+  enrollment LearningEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     LearningLesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId, lessonId, attemptedAt])
+  @@map("quiz_attempts")
+}
+
+model EmployeeCertification {
+  id             String    @id @default(cuid())
+  employeeId     String
+  sourceCourseId String?
+  name           String
+  issuingBody    String?
+  credentialId   String?
+  issuedDate     DateTime? @db.Date
+  expiryDate     DateTime? @db.Date
+  certificateUrl String?   @db.Text
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  sourceCourse LearningCourse? @relation(fields: [sourceCourseId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, sourceCourseId])
+  @@index([employeeId, expiryDate])
+  @@map("employee_certifications")
 }

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/audit'
 import { Prisma } from '@prisma/client'
 import { resolveWorkflow, buildPlan, authorizeAdvance, type RequestFacts } from '@/lib/approvals/engine'
+import { auditPayrollRun } from '@/lib/payroll/anomalies'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
@@ -19,6 +20,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
   if (run.status !== 'FOR_APPROVAL') {
     return NextResponse.json({ error: 'Payroll must be submitted for approval first' }, { status: 400 })
   }
+  const critical = (await auditPayrollRun(runId, ctx.companyId)).filter(item => item.severity === 'critical')
+  if (critical.length) return NextResponse.json({ error: `Approval blocked by ${critical.length} critical payroll check${critical.length === 1 ? '' : 's'}.`, code: 'PAYROLL_ANOMALIES', anomalies: critical }, { status: 422 })
 
   const currentLevel = run.approvalLevel ?? 0
   let nextLevel: number

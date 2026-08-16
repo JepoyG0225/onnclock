@@ -70,6 +70,9 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   { prefix: '/cash-advance',        required: ['loans:read', 'cashadvance:approve'] },
   { prefix: '/final-pay',           required: ['payroll:read'] },
   { prefix: '/disbursement',        required: ['payroll:read', 'disbursement:manage'] },
+  { prefix: '/expenses',            required: ['expenses:read', 'expenses:approve'] },
+  { prefix: '/benefits',            required: ['benefits:manage', 'employees:read'] },
+  { prefix: '/learning',            required: ['learning:manage', 'employees:read'] },
 
   // ── Misc ────────────────────────────────────────────────────────────
   { prefix: '/budget-requisitions', required: ['payroll:read', 'employees:read', 'budget:read', 'budget:approve'] },

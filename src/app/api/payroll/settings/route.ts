@@ -10,6 +10,7 @@ const HHMM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/
 
 const payrollSettingsSchema = z.object({
   payFrequency: z.enum(['SEMI_MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY']),
+  mandatoryDeductionFrequency: z.enum(['SEMI_MONTHLY', 'MONTHLY']).optional(),
   firstCutoffStartDay: z.coerce.number().int().min(1).max(31),
   firstCutoffEndDay: z.coerce.number().int().min(1).max(31),
   secondCutoffStartDay: z.coerce.number().int().min(1).max(31),
@@ -37,6 +38,7 @@ function addDays(date: Date, days: number) {
 
 type PayrollCycleConfigRow = {
   payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
+  mandatoryDeductionFrequency?: 'SEMI_MONTHLY' | 'MONTHLY'
   firstCutoffStartDay: number
   firstCutoffEndDay: number
   secondCutoffStartDay: number
@@ -283,6 +285,7 @@ export async function GET() {
 
     const resolved = {
       payFrequency: config?.payFrequency ?? 'SEMI_MONTHLY',
+      mandatoryDeductionFrequency: config?.mandatoryDeductionFrequency ?? 'SEMI_MONTHLY',
       firstCutoffStartDay: config?.firstCutoffStartDay ?? 1,
       firstCutoffEndDay: config?.firstCutoffEndDay ?? 15,
       secondCutoffStartDay: config?.secondCutoffStartDay ?? 16,
@@ -367,6 +370,7 @@ export async function PATCH(req: NextRequest) {
   // databases keep working.
   const baseFields = {
     payFrequency: data.payFrequency,
+    mandatoryDeductionFrequency: data.mandatoryDeductionFrequency ?? 'SEMI_MONTHLY',
     firstCutoffStartDay: data.firstCutoffStartDay,
     firstCutoffEndDay: data.firstCutoffEndDay,
     secondCutoffStartDay: data.secondCutoffStartDay,
