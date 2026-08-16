@@ -45,6 +45,11 @@ enum PayFrequency {
   DAILY
 }
 
+enum MandatoryDeductionFrequency {
+  SEMI_MONTHLY
+  MONTHLY
+}
+
 enum RateType {
   MONTHLY
   DAILY
@@ -465,6 +470,7 @@ model PayrollCycleConfig {
   id                             String       @id @default(cuid())
   companyId                      String       @unique
   payFrequency                   PayFrequency @default(SEMI_MONTHLY)
+  mandatoryDeductionFrequency   MandatoryDeductionFrequency @default(SEMI_MONTHLY)
   firstCutoffStartDay            Int          @default(1)
   firstCutoffEndDay              Int          @default(15)
   secondCutoffStartDay           Int          @default(16)

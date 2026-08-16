@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 
 type PayrollSettings = {
   payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
+  mandatoryDeductionFrequency: 'SEMI_MONTHLY' | 'MONTHLY'
   firstCutoffStartDay: number
   firstCutoffEndDay: number
   secondCutoffStartDay: number
@@ -29,6 +30,7 @@ type PayrollSettings = {
 
 const DEFAULT_SETTINGS: PayrollSettings = {
   payFrequency: 'SEMI_MONTHLY',
+  mandatoryDeductionFrequency: 'SEMI_MONTHLY',
   firstCutoffStartDay: 1,
   firstCutoffEndDay: 15,
   secondCutoffStartDay: 16,
@@ -142,6 +144,25 @@ export default function PayrollCycleSettingsCard() {
                   value={settings.defaultPayDelayDays}
                   onChange={e => setSettings(prev => ({ ...prev, defaultPayDelayDays: Number(e.target.value || 0) }))}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Mandatory Deductions</Label>
+                <Select
+                  value={settings.mandatoryDeductionFrequency}
+                  onValueChange={v => setSettings(prev => ({
+                    ...prev,
+                    mandatoryDeductionFrequency: v as PayrollSettings['mandatoryDeductionFrequency'],
+                  }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SEMI_MONTHLY">Semi-monthly — split across both cutoffs</SelectItem>
+                    <SelectItem value="MONTHLY">Monthly — full amount on second cutoff</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  Controls when SSS, PhilHealth, and Pag-IBIG contributions are deducted.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Company Timezone</Label>

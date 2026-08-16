@@ -317,6 +317,7 @@ export async function POST(
     nightDifferentialEnd?: string | null
     nightDifferentialIncludesBreak?: boolean | null
     disableLateDeductions?: boolean
+    mandatoryDeductionFrequency?: 'SEMI_MONTHLY' | 'MONTHLY'
   } | null = null
   try {
     payrollConfig = await prisma.payrollCycleConfig.findUnique({
@@ -329,6 +330,7 @@ export async function POST(
         nightDifferentialEnd: true,
         nightDifferentialIncludesBreak: true,
         disableLateDeductions: true,
+        mandatoryDeductionFrequency: true,
       },
     })
   } catch {
@@ -336,6 +338,7 @@ export async function POST(
   }
   const overtimeEnabled = payrollConfig?.enableOvertime ?? true
   const disableLateDeductions = payrollConfig?.disableLateDeductions ?? false
+  const mandatoryDeductionFrequency = payrollConfig?.mandatoryDeductionFrequency ?? 'SEMI_MONTHLY'
   const nightDifferentialEnabled = payrollConfig?.enableNightDifferential ?? true
   const nightDiffRate = nightDifferentialEnabled
     ? (payrollConfig?.nightDifferentialRate && typeof payrollConfig.nightDifferentialRate === 'object'
@@ -895,6 +898,7 @@ export async function POST(
         workingDays,
         payFrequency: run.payFrequency,
         isFirstCutoff: firstCutoff,
+        mandatoryDeductionFrequency,
         nightDifferentialRate: nightDiffRate,
         regularOtRate: differentialRules.regularOtRate,
         restDayOtRate: differentialRules.restDayOtRate,
