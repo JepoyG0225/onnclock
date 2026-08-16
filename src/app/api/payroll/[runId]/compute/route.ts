@@ -452,6 +452,25 @@ export async function POST(
       list.push({ label: it.label, amount: Number(it.amount) })
       otherDeductionMap.set(it.employeeId, list)
     }
+    // Active employee-paid benefit premiums are monthly amounts. Split them
+    // across the run frequency and include them in the same itemized deduction
+    // bucket used by recurring employee deductions.
+    const benefitDivisor = run.payFrequency === 'MONTHLY' ? 1 : run.payFrequency === 'SEMI_MONTHLY' ? 2 : run.payFrequency === 'WEEKLY' ? 4 : 22
+    const enrollments = await prisma.employeeBenefitEnrollment.findMany({
+      where: {
+        employeeId: { in: employees.map(e => e.id) }, status: 'ACTIVE',
+        effectiveDate: { lte: run.periodEnd }, OR: [{ endDate: null }, { endDate: { gte: run.periodStart } }],
+      },
+      include: { plan: { select: { name: true, employeeShare: true, isActive: true } } },
+    })
+    for (const enrollment of enrollments) {
+      if (!enrollment.plan.isActive) continue
+      const monthly = Number(enrollment.employeeShare ?? enrollment.plan.employeeShare)
+      if (monthly <= 0) continue
+      const list = otherDeductionMap.get(enrollment.employeeId) ?? []
+      list.push({ label: `Benefit: ${enrollment.plan.name}`, amount: Math.round(monthly / benefitDivisor * 100) / 100 })
+      otherDeductionMap.set(enrollment.employeeId, list)
+    }
   } catch (err) {
     console.error('[payroll compute] other deductions unavailable (run migration)', err)
   }

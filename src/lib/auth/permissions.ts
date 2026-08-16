@@ -37,6 +37,10 @@ export type Permission =
   | 'budget:read'
   | 'budget:approve'
   | 'disbursement:manage'
+  | 'expenses:read'
+  | 'expenses:approve'
+  | 'benefits:manage'
+  | 'learning:manage'
   | 'reports:generate'
   // Settings & admin
   | 'settings:read'
@@ -77,7 +81,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   'leaves:read', 'leaves:write', 'leaves:approve',
   'payroll:read', 'payroll:write', 'payroll:approve', 'payroll:lock',
   'loans:read', 'loans:write', 'cashadvance:approve', 'budget:read', 'budget:approve',
-  'disbursement:manage', 'reports:generate',
+  'disbursement:manage', 'expenses:read', 'expenses:approve', 'benefits:manage', 'learning:manage', 'reports:generate',
   'settings:read', 'settings:write', 'approvals:manage', 'users:manage', 'billing:manage', 'audit:read',
   'tasks:read', 'tasks:manage',
 ]
@@ -91,7 +95,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'disciplinary:manage', 'assets:manage', 'announcements:write',
     'dtr:read', 'dtr:write', 'dtr:approve', 'corrections:approve', 'overtime:approve', 'biometrics:manage',
     'leaves:read', 'leaves:write', 'leaves:approve',
-    'payroll:read', 'loans:read', 'cashadvance:approve', 'budget:read', 'budget:approve',
+    'payroll:read', 'loans:read', 'cashadvance:approve', 'budget:read', 'budget:approve', 'expenses:read', 'expenses:approve', 'benefits:manage', 'learning:manage',
     'reports:generate',
     'settings:read', 'approvals:manage', 'audit:read',
     'tasks:read', 'tasks:manage',
@@ -101,10 +105,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'dtr:read', 'overtime:approve',
     'leaves:read',
     'payroll:read', 'payroll:write',
-    'loans:read', 'loans:write', 'cashadvance:approve', 'budget:read', 'disbursement:manage',
+    'loans:read', 'loans:write', 'cashadvance:approve', 'budget:read', 'disbursement:manage', 'expenses:read', 'expenses:approve',
     'reports:generate',
     'settings:read',
     'tasks:read',
+    'expenses:read',
   ],
   // Employees can see the company's tasks and work on what they're assigned,
   // but not administer statuses or labels.
@@ -171,6 +176,9 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/loans': 'loans:read',
   '/cash-advance': 'cashadvance:approve',
   '/budget-requisitions': 'budget:read',
+  '/expenses': 'expenses:read',
+  '/benefits': 'benefits:manage',
+  '/learning': 'learning:manage',
 
   // Task management
   '/tasks': 'tasks:read',
@@ -324,6 +332,10 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
       { key: 'cash_advance',       label: 'Cash Advance',             permission: 'cashadvance:approve' },
       { key: 'final_pay',          label: 'Final Pay',                permission: 'payroll:write' },
       { key: 'disbursement',       label: 'Payroll Disbursement',     permission: 'disbursement:manage' },
+      { key: 'expenses',           label: 'Expense Claims',           permission: 'expenses:read' },
+      { key: 'expenses_approve',   label: 'Approve Expenses',         permission: 'expenses:approve' },
+      { key: 'benefits',           label: 'Benefits & HMO',           permission: 'benefits:manage' },
+      { key: 'learning',           label: 'Learning & Certifications', permission: 'learning:manage' },
     ],
   },
   {
