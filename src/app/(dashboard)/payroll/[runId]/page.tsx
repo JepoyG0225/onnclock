@@ -193,6 +193,7 @@ export default async function PayrollRunPage({
       lateDeduction: Number(item.lateDeduction), sssEmployee: Number(item.sssEmployee),
       philhealthEmployee: Number(item.philhealthEmployee), pagibigEmployee: Number(item.pagibigEmployee),
       withholdingTax: Number(item.withholdingTax), trackTime: item.employee.trackTime,
+      rateType: item.employee.rateType,
       disableLateDeduction: item.employee.disableLateDeduction, sssEnabled: item.employee.sssEnabled,
       philhealthEnabled: item.employee.philhealthEnabled, pagibigEnabled: item.employee.pagibigEnabled,
     })),
