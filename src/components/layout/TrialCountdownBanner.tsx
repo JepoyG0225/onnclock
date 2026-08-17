@@ -80,9 +80,9 @@ export function TrialCountdownBanner({ trialEndsAtMs, collapsed }: Props) {
         <Link
           href="/settings/billing"
           className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl relative mt-1 mb-1"
-          style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}
+          style={{ background: 'var(--brand-highlight)' }}
         >
-          <Timer className="w-4 h-4 text-white" />
+          <Timer className="w-4 h-4" style={{ color: 'var(--sidebar-primary-foreground)' }} />
           <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-[9px] font-black text-white leading-none">
             {daysLeft}
           </span>
@@ -92,41 +92,46 @@ export function TrialCountdownBanner({ trialEndsAtMs, collapsed }: Props) {
   }
 
   return (
-    <div className="mx-3 mt-1 mb-2 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
+    <div className="mx-3 mt-1 mb-2 rounded-2xl overflow-hidden" style={{ background: 'var(--brand-highlight)' }}>
       <div className="px-3 pt-3 pb-2">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
-            <Timer className="w-3.5 h-3.5 text-white" />
-            <span className="text-[11px] font-bold text-white/90 uppercase tracking-wide">Free Trial</span>
+            <Timer className="w-3.5 h-3.5" style={{ color: 'var(--sidebar-primary-foreground)' }} />
+            <span
+              className="text-[11px] font-bold uppercase tracking-wide"
+              style={{ color: 'var(--sidebar-primary-foreground)' }}
+            >
+              Free Trial
+            </span>
           </div>
           <span
             className="text-[10px] font-black px-2 py-0.5 rounded-full"
             style={{
-              // Lime/grey read as mud on the green panel — urgent stays red,
-              // everything else is a translucent white chip.
-              background: isUrgent ? 'rgba(239,68,68,0.85)' : 'rgba(255,255,255,0.22)',
-              color: '#ffffff',
+              // The theme pairs --brand-highlight with a black foreground
+              // (--success-foreground / the green-badge rule), so the chip is
+              // translucent black rather than white. Urgent uses the brand's
+              // own danger red instead of a one-off.
+              background: isUrgent ? 'var(--brand-danger)' : 'rgba(0,0,0,0.15)',
+              color: isUrgent ? '#ffffff' : 'var(--sidebar-primary-foreground)',
             }}
           >
             {timeLeft || '—'}
           </span>
         </div>
         {/* Progress bar — 7 day trial */}
-        <div className="h-1 rounded-full mb-2.5" style={{ background: 'rgba(255,255,255,0.25)' }}>
+        <div className="h-1 rounded-full mb-2.5" style={{ background: 'rgba(0,0,0,0.15)' }}>
           <div
             className="h-1 rounded-full transition-all"
             style={{
               width: `${progressPct}%`,
-              background: isUrgent
-                ? 'linear-gradient(90deg, #ef4444, #b91c1c)'
-                : 'linear-gradient(90deg, rgba(255,255,255,0.6), #ffffff)',
+              background: isUrgent ? 'var(--brand-danger)' : 'var(--brand-primary)',
             }}
           />
         </div>
         <Link
           href="/settings/billing"
           className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
+          style={{ background: 'var(--brand-primary)' }}
         >
           <Zap className="w-3 h-3" />
           Upgrade Now
