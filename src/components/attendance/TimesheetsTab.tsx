@@ -1504,7 +1504,7 @@ export function TimesheetsTab() {
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPendingApproval(null)} />
-              <Card className="relative w-full max-w-xl border-emerald-200 shadow-2xl max-h-[90vh] flex flex-col">
+              <Card className="relative w-full max-w-2xl border-emerald-200 shadow-2xl max-h-[90vh] flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-base text-emerald-700">{title}</CardTitle>
                 </CardHeader>
@@ -1610,7 +1610,11 @@ export function TimesheetsTab() {
                     </p>
                   )}
                 </CardContent>
-                <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                {/* Buttons carry shrink-0 + whitespace-nowrap, so a long OT
+                    label ("Approve OT (65.60h · 48 requests)") can't compress
+                    and used to push Cancel out past the card's left edge.
+                    flex-wrap lets the row break instead of overflowing. */}
+                <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2 sm:justify-end">
                   <Button variant="outline" onClick={() => setPendingApproval(null)}>Cancel</Button>
                   {showOtPicker ? (
                     <>
