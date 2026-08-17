@@ -49,6 +49,7 @@ interface DTRRecord {
   breakOut: string | null
   regularHours: number | null
   overtimeHours: number | null
+  pendingOvertimeHours?: number
   unreportedOvertimeHours?: number
   nightDiffHours: number | null
   lateMinutes: number | null
@@ -106,6 +107,7 @@ interface WeeklyGroup {
   records: DTRRecord[]
   totalRegular: number
   totalOvertime: number
+  totalPendingOvertime: number
   totalUnreportedOvertime: number
   totalNightDiff: number
   totalLate: number
@@ -652,6 +654,7 @@ export function TimesheetsTab() {
           records: [],
           totalRegular: 0,
           totalOvertime: 0,
+          totalPendingOvertime: 0,
           totalUnreportedOvertime: 0,
           totalNightDiff: 0,
           totalLate: 0,
@@ -666,6 +669,7 @@ export function TimesheetsTab() {
       g.records.push(r)
       g.totalRegular += Number(r.regularHours ?? 0)
       g.totalOvertime += Number(r.overtimeHours ?? 0)
+      g.totalPendingOvertime += Number(r.pendingOvertimeHours ?? 0)
       g.totalUnreportedOvertime += Number(r.unreportedOvertimeHours ?? 0)
       g.totalNightDiff += Number(r.nightDiffHours ?? 0)
       g.totalLate += Number(r.lateMinutes ?? 0)
@@ -754,7 +758,10 @@ export function TimesheetsTab() {
   async function approveRecord(id: string, action: 'APPROVED' | 'REJECTED') {
     if (action !== 'APPROVED') return executeApproveSingle(id, action, [])
     const rec = records.find(r => r.id === id)
-    const otHours = Number(rec?.overtimeHours ?? 0)
+    // Count PENDING OT too — approved-only would mean the OT picker never
+    // opens for OT that still needs approving, which is the only case that
+    // matters here.
+    const otHours = Number(rec?.overtimeHours ?? 0) + Number(rec?.pendingOvertimeHours ?? 0)
     if (overtimePayEnabled && otHours > 0 && rec) {
       setPendingApproval({
         kind: 'single',
@@ -795,7 +802,7 @@ export function TimesheetsTab() {
 
   async function approveEmployeeWeek(group: WeeklyGroup, action: 'APPROVED' | 'REJECTED') {
     if (action !== 'APPROVED') return executeApproveEmployeeWeek(group, action, [])
-    if (overtimePayEnabled && group.totalOvertime > 0) {
+    if (overtimePayEnabled && group.totalOvertime + group.totalPendingOvertime > 0) {
       setPendingApproval({ kind: 'employee-week', group })
     } else {
       await executeApproveEmployeeWeek(group, action, undefined)
@@ -834,7 +841,7 @@ export function TimesheetsTab() {
     for (const r of records) {
       if (dailyStatus(r) !== 'PENDING') continue
       count++
-      ot += Number(r.overtimeHours ?? 0)
+      ot += Number(r.overtimeHours ?? 0) + Number(r.pendingOvertimeHours ?? 0)
       regular += Number(r.regularHours ?? 0)
     }
     return { count, ot, regular }
@@ -1464,7 +1471,9 @@ export function TimesheetsTab() {
       {pendingApproval && portalTarget && createPortal(
         (() => {
           const pa = pendingApproval
-          const otHours = pa.kind === 'employee-week' ? pa.group.totalOvertime : pa.otHours
+          const otHours = pa.kind === 'employee-week'
+            ? pa.group.totalOvertime + pa.group.totalPendingOvertime
+            : pa.otHours
           const regularHours = pa.kind === 'employee-week' ? pa.group.totalRegular : pa.regularHours
           const recordCount = pa.kind === 'all' ? pa.recordCount : undefined
           const title =
@@ -1847,7 +1856,21 @@ export function TimesheetsTab() {
                           <td className="p-3 text-gray-600">{group.department}</td>
                           <td className="p-3 text-right">{group.totalRegular.toFixed(2)}h</td>
                           {overtimePayEnabled && (
-                            <td className="p-3 text-right">{group.totalOvertime > 0 ? `${group.totalOvertime.toFixed(2)}h` : '-'}</td>
+                            <td className="p-3 text-right">
+                              {group.totalOvertime + group.totalPendingOvertime > 0 ? (
+                                <span
+                                  className={group.totalPendingOvertime > 0 ? 'font-medium text-amber-600' : 'font-medium text-blue-700'}
+                                  title={group.totalPendingOvertime > 0
+                                    ? `${group.totalPendingOvertime.toFixed(2)}h awaiting approval${group.totalOvertime > 0 ? ` · ${group.totalOvertime.toFixed(2)}h approved` : ''}`
+                                    : 'Approved overtime'}
+                                >
+                                  {(group.totalOvertime + group.totalPendingOvertime).toFixed(2)}h
+                                  {group.totalPendingOvertime > 0 && (
+                                    <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">pending</span>
+                                  )}
+                                </span>
+                              ) : '-'}
+                            </td>
                           )}
                           <td className="p-3 text-right">
                             {group.totalNightDiff > 0
@@ -1994,13 +2017,22 @@ export function TimesheetsTab() {
                                               {breakHrs > 0 ? `${breakHrs.toFixed(2)}h` : '—'}
                                             </td>
                                             <td className="py-2 px-2 text-right font-medium">{Number(r.regularHours ?? 0).toFixed(2)}h</td>
-                                            {overtimePayEnabled && (
-                                              <td className="py-2 px-2 text-right">
-                                                {Number(r.overtimeHours ?? 0) > 0
-                                                  ? <span className="text-blue-700 font-medium">{Number(r.overtimeHours).toFixed(2)}h</span>
-                                                  : <span className="text-gray-300">—</span>}
-                                              </td>
-                                            )}
+                                            {overtimePayEnabled && (() => {
+                                              const approvedOt = Number(r.overtimeHours ?? 0)
+                                              const pendingOt = Number(r.pendingOvertimeHours ?? 0)
+                                              return (
+                                                <td className="py-2 px-2 text-right">
+                                                  {approvedOt + pendingOt > 0
+                                                    ? <span
+                                                        className={pendingOt > 0 ? 'text-amber-600 font-medium' : 'text-blue-700 font-medium'}
+                                                        title={pendingOt > 0 ? `${pendingOt.toFixed(2)}h awaiting approval` : 'Approved overtime'}
+                                                      >
+                                                        {(approvedOt + pendingOt).toFixed(2)}h{pendingOt > 0 ? '*' : ''}
+                                                      </span>
+                                                    : <span className="text-gray-300">—</span>}
+                                                </td>
+                                              )
+                                            })()}
                                             <td className="py-2 px-2 text-right">
                                               {nightDiff > 0
                                                 ? <span className="text-indigo-700 font-medium">{nightDiff.toFixed(2)}h</span>
