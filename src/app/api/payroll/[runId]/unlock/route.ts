@@ -22,33 +22,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     return NextResponse.json({ error: 'Only LOCKED payroll runs can be unlocked' }, { status: 400 })
   }
 
-  await prisma.$transaction(async tx => {
-    const deductions = await tx.payslipLoanDeduction.findMany({
-      where: { payslip: { payrollRunId: runId } },
-      select: { id: true, loanId: true, amount: true },
-    })
-
-    for (const d of deductions) {
-      const loan = await tx.employeeLoan.findUnique({ where: { id: d.loanId } })
-      if (!loan) continue
-      const newBalance = loan.balance.toNumber() + d.amount.toNumber()
-      await tx.employeeLoan.update({
-        where: { id: d.loanId },
-        data: {
-          balance: newBalance,
-          status: newBalance > 0 ? 'ACTIVE' : 'FULLY_PAID',
-        },
-      })
-    }
-
-    await tx.payslipLoanDeduction.deleteMany({
-      where: { payslip: { payrollRunId: runId } },
-    })
-
-    await tx.payrollRun.update({
-      where: { id: runId },
-      data: { status: 'APPROVED' },
-    })
+  // Status change only — the mirror of lock.
+  //
+  // This used to credit every PayslipLoanDeduction back to its loan and delete
+  // the ledger rows. Those rows belong to the compute route now, so wiping
+  // them here would erase the record of repayments that were actually withheld
+  // and leave the run with no ledger at all unless someone remembered to
+  // recompute. Recompute already reverses and re-applies correctly on its own.
+  await prisma.payrollRun.update({
+    where: { id: runId },
+    data: { status: 'APPROVED' },
   })
 
   await logAudit(ctx, 'UNLOCK', 'PayrollRun', runId, {

@@ -24,68 +24,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     return NextResponse.json({ error: 'Payroll must be APPROVED before locking' }, { status: 400 })
   }
 
-  // Lock payroll: update status and update loan balances for deductions
-  const payslips = await prisma.payslip.findMany({
-    where: { payrollRunId: runId },
-    select: {
-      id: true,
-      employeeId: true,
-      sssLoanDeduction: true,
-      pagibigLoan: true,
-      companyLoan: true,
-    },
-  })
-
-  await prisma.$transaction(async tx => {
-    await tx.payrollRun.update({
-      where: { id: runId },
-      data: { status: 'LOCKED' },
-    })
-
-    // Reduce outstanding loan balances for each employee
-    for (const ps of payslips) {
-      const totalLoanDeduction =
-        ps.sssLoanDeduction.toNumber() +
-        ps.pagibigLoan.toNumber() +
-        ps.companyLoan.toNumber()
-
-      if (totalLoanDeduction <= 0) continue
-
-      const activeLoans = await tx.employeeLoan.findMany({
-        where: { employeeId: ps.employeeId, status: 'ACTIVE' },
-        orderBy: { startDate: 'asc' },
-      })
-
-      let remaining = totalLoanDeduction
-      for (const loan of activeLoans) {
-        if (remaining <= 0) break
-        const deduct = Math.min(remaining, loan.monthlyAmortization.toNumber(), loan.balance.toNumber())
-        const newBalance = loan.balance.toNumber() - deduct
-
-        await tx.employeeLoan.update({
-          where: { id: loan.id },
-          data: {
-            balance: newBalance,
-            status: newBalance <= 0 ? 'FULLY_PAID' : 'ACTIVE',
-          },
-        })
-
-        // Record the deduction
-        await tx.payslipLoanDeduction.create({
-          data: {
-            payslipId: ps.id,
-            loanId:    loan.id,
-            amount:    deduct,
-          },
-        })
-
-        remaining -= deduct
-      }
-    }
+  // Locking is a STATUS CHANGE ONLY.
+  //
+  // It used to also walk the payslips and draw down loan balances, writing a
+  // PayslipLoanDeduction row per loan. But the compute route already does
+  // exactly that (its Step 3), and it does it recompute-safely — crediting
+  // prior debits back before re-applying. Lock knew nothing about that, so
+  // every locked run debited each loan a SECOND time and left a duplicate
+  // ledger row, while the employee was only ever withheld once (the payslip's
+  // own sssLoanDeduction / pagibigLoan / companyLoan figures).
+  //
+  // That silently under-collected: balances fell by twice what was withheld
+  // and loans flipped to FULLY_PAID early. Compute is now the single owner of
+  // the loan ledger and of loan balances; nothing here touches them.
+  await prisma.payrollRun.update({
+    where: { id: runId },
+    data: { status: 'LOCKED' },
   })
 
   logAudit(ctx, 'LOCK', 'PayrollRun', runId, {
-    description: `Locked payroll run — loan deductions applied`,
+    description: 'Locked payroll run',
   }).catch(() => {})
   return NextResponse.json({ ok: true, status: 'LOCKED' })
 }
