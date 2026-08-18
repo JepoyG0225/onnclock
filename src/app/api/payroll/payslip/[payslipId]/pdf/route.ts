@@ -218,13 +218,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     const C = {
       deep: rgb(0.043, 0.435, 0.984),
       base: rgb(0.122, 0.161, 0.216),
-      mid: rgb(0.098, 0.761, 0.949),
+      // Brand highlight green (--brand-highlight, #aadd30). Used only for the
+      // decorative accent bars, never behind text — it is far too light to
+      // carry white type.
+      highlight: rgb(0.667, 0.867, 0.188),
       light: rgb(0.875, 0.906, 0.945),
       white: rgb(1, 1, 1),
       text: rgb(0.122, 0.161, 0.216),
       muted: rgb(0.392, 0.455, 0.545),
       alt: rgb(0.969, 0.984, 1),
-      cyanSoft: rgb(0.925, 0.984, 1),
       rose: rgb(0.882, 0.153, 0.278),
       roseSoft: rgb(1, 0.949, 0.957),
     }
@@ -244,8 +246,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     }
 
     // Header
-    page.drawRectangle({ x: 0, y: 0, width: 595.28, height: 3, color: C.mid })
-    page.drawRectangle({ x: 0, y: 838, width: 595.28, height: 4, color: C.mid })
+    page.drawRectangle({ x: 0, y: 0, width: 595.28, height: 3, color: C.highlight })
+    page.drawRectangle({ x: 0, y: 838, width: 595.28, height: 4, color: C.highlight })
     page.drawRectangle({ x: 0, y: 760, width: 595.28, height: 78, color: C.deep })
     draw(company.name, 24, 804, 16, true, C.white)
     if (company.address) draw(company.address, 24, 790, 8, false, C.white)
@@ -259,7 +261,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     // (each spanning the full card width) so long values don't overlap the
     // next field. Card height bumped up slightly to fit the extra row.
     page.drawRectangle({ x: 24, y: 678, width: 547, height: 70, color: C.white, borderColor: C.light, borderWidth: 1 })
-    page.drawRectangle({ x: 24, y: 678, width: 4, height: 70, color: C.mid })
+    page.drawRectangle({ x: 24, y: 678, width: 4, height: 70, color: C.highlight })
     draw(`${emp.lastName}, ${emp.firstName}`, 32, 730, 11, true, C.deep)
     draw(`Employee No.: ${emp.employeeNo ?? '-'}`, 32, 716, 8, true, C.base)
     draw(`Department: ${emp.department?.name ?? '-'}`, 32, 704, 8, true, C.base)
@@ -339,7 +341,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
 
     const netY = totalsY - 52
     page.drawRectangle({ x: 24, y: netY, width: 547, height: 44, color: C.deep })
-    page.drawRectangle({ x: 24, y: netY, width: 6, height: 44, color: C.mid })
+    page.drawRectangle({ x: 24, y: netY, width: 6, height: 44, color: C.highlight })
     draw('NET PAY', 34, netY + 26, 10, true, C.white)
     draw('Take-home amount for this pay period', 34, netY + 12, 7.5, false, rgb(0.85, 0.88, 0.92))
     drawRight(peso(payslip.netPay.toNumber()), 562, netY + 17, 18, true, C.white)
