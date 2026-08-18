@@ -388,7 +388,7 @@ export default function FinalPayPage() {
                       className="pl-8"
                     />
                   </div>
-                  <div className="max-h-56 overflow-y-auto rounded-lg border border-[#e5ecf4]">
+                  <div className="h-[100vh] overflow-y-auto rounded-lg border border-[#e5ecf4]">
                     {visible.length === 0 ? (
                       <p className="p-3 text-xs text-slate-400">No matches</p>
                     ) : (
