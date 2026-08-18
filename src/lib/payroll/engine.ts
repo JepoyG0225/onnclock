@@ -183,13 +183,52 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // Applying a separate per-minute late deduction would dock the same missed
   // minutes twice. MONTHLY basic pay is not hour-derived, so its explicit late
   // deduction remains applicable.
-  const skipLate = period.disableLateDeductions
-    || employee.disableLateDeduction === true
-    || employee.rateType === 'DAILY'
-    || employee.rateType === 'HOURLY'
-  const lateDeduction = skipLate
-    ? 0
-    : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
+  // DAILY and HOURLY basic pay is hour-derived, so arriving late already
+  // shrinks it — the money never appeared as a deduction, it just quietly
+  // failed to appear as pay. The payslip then showed a reduced Basic Pay next
+  // to a Late Deduction of zero, with nothing to explain the gap.
+  //
+  // So for those rate types we now gross basic back UP to what the days
+  // actually present would have paid at full schedule, and charge the same
+  // amount as an explicit late deduction. Net pay is identical either way —
+  // this moves the figure out of gross and into the deductions block where it
+  // belongs, rather than changing what anyone is paid.
+  //
+  // The gross-up is capped two ways:
+  //   - by the late minutes actually recorded (so a genuine half-day or an
+  //     early-out is never re-credited as pay), and
+  //   - by the gap between hour-derived and full scheduled pay (so an employee
+  //     who made up their lost time isn't grossed past a full day).
+  // MONTHLY basic is not hour-derived, so it keeps its plain late deduction.
+  const suppressLate = period.disableLateDeductions || employee.disableLateDeduction === true
+  const isHourDerived = employee.rateType === 'DAILY' || employee.rateType === 'HOURLY'
+
+  const scheduledForDaysPresent = employee.rateType === 'DAILY'
+    ? parseFloat((employee.dailyRate * attendance.daysWorked).toFixed(2))
+    : employee.rateType === 'HOURLY'
+      ? parseFloat((employee.basicSalary * attendance.daysWorked * 8).toFixed(2))
+      : basicPayWithHolidayCredit
+  const absorbedByHours = Math.max(
+    0,
+    parseFloat((scheduledForDaysPresent - basicPayWithHolidayCredit).toFixed(2)),
+  )
+
+  let lateDeduction = 0
+  // How much of the late deduction was added back into basic pay above. Kept
+  // so the 13th-month accrual can still be taken on basic actually EARNED.
+  let lateGrossUp = 0
+  if (suppressLate) {
+    lateDeduction = 0
+  } else if (isHourDerived) {
+    lateGrossUp = Math.min(
+      parseFloat((minuteRate * attendance.lateMinutes).toFixed(2)),
+      absorbedByHours,
+    )
+    lateDeduction = lateGrossUp
+    basicPayWithHolidayCredit = parseFloat((basicPayWithHolidayCredit + lateGrossUp).toFixed(2))
+  } else {
+    lateDeduction = parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
+  }
   // Undertime deductions are GLOBALLY DISABLED.
   //   1. HOURLY / DAILY: basic pay already pro-rates by actual hours
   //      worked (no work, no pay) — deducting UT on top double-counts.
@@ -297,7 +336,11 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // Art. 94 holiday pay for unworked regular holidays counts as basic
   // salary for 13th-month purposes — so use basicPayWithHolidayCredit,
   // not the raw worked-day basicPay.
-  const thirteenthMonthContribution = parseFloat((basicPayWithHolidayCredit / 12).toFixed(2))
+  // Net of the late gross-up above — 13th month accrues on basic actually
+  // earned, so surfacing lateness as a deduction must not inflate it.
+  const thirteenthMonthContribution = parseFloat((
+    (basicPayWithHolidayCredit - lateGrossUp) / 12
+  ).toFixed(2))
 
   // ── 10. TOTALS ────────────────────────────────
   const totalDeductions = parseFloat((
