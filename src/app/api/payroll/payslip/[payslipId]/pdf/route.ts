@@ -180,9 +180,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   // line otherwise (including at zero).
   const deductionRows: Row[] = [
     ['MANDATORY', null],
-    ['SSS (Employee Share)', payslip.sssEmployee.toNumber()],
-    ['PhilHealth (Employee)', payslip.philhealthEmployee.toNumber()],
-    ['Pag-IBIG (Employee)', payslip.pagibigEmployee.toNumber()],
+    ['SSS', payslip.sssEmployee.toNumber()],
+    ['PhilHealth', payslip.philhealthEmployee.toNumber()],
+    ['Pag-IBIG', payslip.pagibigEmployee.toNumber()],
     ['Withholding Tax', payslip.withholdingTax.toNumber()],
     ['ATTENDANCE', null],
     ['Late / Undertime', payslip.lateDeduction.toNumber() + payslip.undertimeDeduction.toNumber()],
@@ -273,47 +273,59 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     draw('DEDUCTIONS', 316, 657, 9, true, C.rose)
 
     // Rows
-    let yl = 642
-    let lz = 0
-    earningsRows.forEach(([label, value]) => {
-      if (value === null) {
-        draw(label, 28, yl, 7, true, C.muted)
-        yl -= 13
-        return
+    // Shared row painter for both columns.
+    //
+    // Geometry matters here: the zebra band is drawn from the baseline
+    // upwards, so at the old 13pt heading gap its top edge cut through the
+    // bottom of the heading above it. Sections now get a lead-in gap and a
+    // taller drop, and the band sits low enough to clear the text above.
+    const ROW_H = 19
+    const HEAD_DROP = 18
+    const HEAD_LEAD = 9
+    const paintRows = (
+      rows: Row[],
+      x: number,
+      rightX: number,
+      zebra: ReturnType<typeof rgb>,
+      valueColor: ReturnType<typeof rgb>,
+    ): number => {
+      let y = 638
+      let z = 0
+      let first = true
+      for (const [label, value] of rows) {
+        if (value === null) {
+          if (!first) y -= HEAD_LEAD
+          draw(label, x + 4, y, 7, true, C.muted)
+          y -= HEAD_DROP
+          z = 0                     // each section starts unshaded
+          first = false
+          continue
+        }
+        if (z % 2 === 1) {
+          page.drawRectangle({ x, y: y - 5, width: 261, height: ROW_H, color: zebra })
+        }
+        z += 1
+        draw(label, x + 4, y, 8.5, false, C.text)
+        drawRight(peso(value), rightX, y, 8.5, true, value > 0 ? valueColor : C.muted)
+        y -= ROW_H
+        first = false
       }
-      if (lz % 2 === 1) page.drawRectangle({ x: 24, y: yl - 4, width: 261, height: 18, color: C.alt })
-      lz += 1
-      draw(label, 28, yl, 8.5, false, C.text)
-      drawRight(peso(value), 280, yl, 8.5, true, C.base)
-      yl -= 18
-    })
+      return y
+    }
+
+    let yl = paintRows(earningsRows, 24, 280, C.alt, C.base)
     if (earningsRows.length === 0) {
       draw('No earnings recorded', 28, yl, 8.5, false, C.muted)
-      yl -= 18
+      yl -= ROW_H
     }
 
     // Match earnings column start (yl = 642) so the first deduction row
     // doesn't overlap the "DEDUCTIONS" header at y=662 / the underline
     // at y=658. Previously yr=654 produced a visible overlap.
-    let yr = 642
-    let rz = 0
-    deductionRows.forEach(([label, value]) => {
-      if (value === null) {
-        draw(label, 314, yr, 7, true, C.muted)
-        yr -= 13
-        return
-      }
-      if (rz % 2 === 1) page.drawRectangle({ x: 310, y: yr - 4, width: 261, height: 18, color: C.roseSoft })
-      rz += 1
-      draw(label, 314, yr, 8.5, false, C.text)
-      // A zero deduction is stated plainly rather than dashed out — the point
-      // of showing it is that the reader can see it was nil.
-      drawRight(peso(value), 566, yr, 8.5, true, value > 0 ? C.rose : C.muted)
-      yr -= 18
-    })
+    let yr = paintRows(deductionRows, 310, 566, C.roseSoft, C.rose)
     if (deductionRows.length === 0) {
       draw('No deductions for this period', 314, yr, 8.5, false, C.muted)
-      yr -= 18
+      yr -= ROW_H
     }
 
     const totalsY = Math.min(yl, yr) - 10
