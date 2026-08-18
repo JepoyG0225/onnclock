@@ -4,8 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AppSpinner } from '@/components/ui/AppSpinner'
-import { Calculator, Printer, Search, ChevronDown, AlertTriangle, FileText } from 'lucide-react'
+import { Calculator, Printer, Search, ChevronDown, AlertTriangle, FileText, Receipt, X } from 'lucide-react'
 import { DatePicker } from '@/components/ui/date-picker'
 import { peso } from '@/lib/utils'
 import { format, addDays } from 'date-fns'
@@ -165,6 +164,9 @@ export default function FinalPayPage() {
   const [overrides,  setOverrides]  = useState<Overrides>(EMPTY_OVERRIDES)
   const [computing,  setComputing]  = useState(false)
   const [data,       setData]       = useState<FinalPayResponse | null>(null)
+  // The statement opens as a popup over the worksheet. Dismissing it keeps the
+  // result — the header offers it back rather than making you recompute.
+  const [showStatement, setShowStatement] = useState(false)
 
   // The exact inputs that produced `data`. Kept so the statement can say which
   // figures were overridden and which came from records, and so deduction
@@ -175,6 +177,16 @@ export default function FinalPayPage() {
   useEffect(() => {
     fetch('/api/employees?limit=500').then(r => r.json()).then(d => setEmployees(d.employees ?? []))
   }, [])
+
+  // Escape closes the statement popup.
+  useEffect(() => {
+    if (!showStatement) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowStatement(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showStatement])
 
   const matches = useMemo(() => {
     const q = empSearch.trim().toLowerCase()
@@ -214,6 +226,7 @@ export default function FinalPayPage() {
       }
       setData(await res.json())
       setComputedWith({ sig, overrides: { ...overrides } })
+      setShowStatement(true)
     } finally {
       setComputing(false)
     }
@@ -265,6 +278,23 @@ export default function FinalPayPage() {
           aside, header, nav, .print\\:hidden { display: none !important; }
           body { background: white !important; }
           .print\\:break-inside-avoid { break-inside: avoid; }
+          /* The statement lives in a fixed overlay on screen. For print, drop
+             it back into normal flow at full height so it paginates instead of
+             printing one clipped viewport. */
+          .fp-backdrop { display: none !important; }
+          .fp-overlay {
+            position: static !important;
+            display: block !important;
+            padding: 0 !important;
+            z-index: auto !important;
+          }
+          .fp-sheet {
+            max-width: none !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: 0 !important;
+          }
         }
       `}</style>
 
@@ -283,20 +313,20 @@ export default function FinalPayPage() {
             for outright.
           </p>
         </div>
-        {data && (
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" />Print statement
+        {data && !showStatement && (
+          <Button variant="outline" onClick={() => setShowStatement(true)}>
+            <Receipt className="mr-2 h-4 w-4" />
+            View statement · {peso(data.result.netFinalPay)}
           </Button>
         )}
       </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+      {/* ── Worksheet: three panels side by side ────────────────────────── */}
+      <div className="grid items-start gap-4 print:hidden lg:grid-cols-3">
 
-        {/* ── Left rail: inputs ─────────────────────────────────────────── */}
-        <div className="space-y-4 lg:sticky lg:top-4 print:hidden">
-
-          {/* Employee */}
-          <Card>
+        {/* Employee */}
+        <div>
+          <Card className="h-full">
             <CardContent className="space-y-3 p-4">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Employee</p>
 
@@ -384,9 +414,11 @@ export default function FinalPayPage() {
               )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* Separation */}
-          <Card>
+        {/* Separation */}
+        <div>
+          <Card className="h-full">
             <CardContent className="space-y-3 p-4">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Separation</p>
               <div>
@@ -424,9 +456,11 @@ export default function FinalPayPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Adjustments */}
-          <Card>
+        {/* Adjustments */}
+        <div>
+          <Card className="h-full">
             <CardContent className="space-y-1 p-4">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Adjustments</p>
 
@@ -473,49 +507,51 @@ export default function FinalPayPage() {
               </AdjustGroup>
             </CardContent>
           </Card>
-
-          <div className="space-y-2">
-            <Button
-              onClick={compute}
-              disabled={!employeeId || computing}
-              className="w-full"
-            >
-              <Calculator className="mr-2 h-4 w-4" />
-              {computing ? 'Computing…' : data ? 'Recompute' : 'Compute final pay'}
-            </Button>
-            {stale && (
-              <p className="flex items-start gap-1.5 rounded-lg bg-[#fff5d6] px-2.5 py-2 text-[11px] font-medium text-[#8a6100]">
-                <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
-                Inputs changed since this statement was computed — recompute to bring it up to date.
-              </p>
-            )}
-          </div>
         </div>
+      </div>
 
-        {/* ── Right: the statement ──────────────────────────────────────── */}
-        <div className="space-y-4 print:space-y-2">
-          {computing && !data && (
-            <div className="flex items-center justify-center py-24"><AppSpinner size="md" /></div>
-          )}
+      {/* ── Compute ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col items-center gap-2 print:hidden">
+        <Button
+          onClick={compute}
+          disabled={!employeeId || computing}
+          size="lg"
+          className="min-w-[260px]"
+        >
+          <Calculator className="mr-2 h-4 w-4" />
+          {computing ? 'Computing…' : data ? 'Recompute final pay' : 'Compute final pay'}
+        </Button>
+        {!employeeId && (
+          <p className="text-[11px] text-slate-400">Pick an employee to enable this.</p>
+        )}
+        {stale && (
+          <p className="flex items-center gap-1.5 rounded-lg bg-[#fff5d6] px-3 py-2 text-[11px] font-medium text-[#8a6100]">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Inputs changed since the statement was computed — recompute to bring it up to date.
+          </p>
+        )}
+      </div>
 
-          {!data && !computing && (
-            <Card className="print:hidden">
-              <CardContent className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7f0ff] text-[var(--brand-primary)]">
-                  <Calculator className="h-6 w-6" />
-                </div>
-                <p className="text-sm font-semibold text-[var(--brand-ink)]">No statement yet</p>
-                <p className="max-w-sm text-xs text-slate-500">
-                  Pick an employee and their last working day, then compute. Unpaid wages, pro-rated
-                  13th month, leave conversion and any separation pay will break down here, with the
-                  formula behind every line.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {data && (
-            <div className={stale ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+      {/* ── Statement popup ─────────────────────────────────────────────── */}
+      {data && showStatement && (
+        <div className="fp-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
+          <div
+            className="fp-backdrop fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowStatement(false)}
+          />
+          <div className="fp-sheet relative my-auto w-full max-w-3xl rounded-2xl border border-[#dfe7f1] bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-[#eef3f9] px-5 py-3 print:hidden">
+              <p className="text-sm font-bold text-[var(--brand-ink)]">Final pay statement</p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => window.print()}>
+                  <Printer className="mr-1.5 h-3.5 w-3.5" />Print
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowStatement(false)} aria-label="Close statement">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="p-5">
               {/* Net — the answer, first */}
               <Card className="overflow-hidden border-[#cfe0fb] print:break-inside-avoid">
                 <div className="bg-gradient-to-b from-[#e7f0ff] to-transparent px-5 py-4">
@@ -618,9 +654,9 @@ export default function FinalPayPage() {
                 regular payroll cycle so BIR 1601C and the Alphalist reconcile.
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
