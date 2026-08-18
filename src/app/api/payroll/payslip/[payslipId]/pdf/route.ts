@@ -105,19 +105,50 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   const incomesSum = [...incomeLines, ...customIncomeLines].reduce((s, [, v]) => s + v, 0)
   const residualOther = payslip.otherEarnings.toNumber() - incomesSum
 
-  const earnings: [string, number][] = [
-    ['Basic Pay', payslip.basicSalary.toNumber()],
-    ['Regular Overtime (125%)', payslip.regularOtAmount.toNumber()],
-    ['Rest Day OT (130%)', payslip.restDayOtAmount.toNumber()],
-    ['Holiday OT', payslip.holidayOtAmount.toNumber()],
+  // A row is either a figure or, when the amount is null, a section heading.
+  type Row = [string, number | null]
+
+  // Basic pay shows the rate and the units it was earned over, so the figure
+  // can be checked without opening the run.
+  const daysWorked = payslip.daysWorked.toNumber()
+  const hoursWorked = payslip.hoursWorked.toNumber()
+  const dailyRateNum = payslip.dailyRate.toNumber()
+  const hourlyRateNum = dailyRateNum / 8
+  const basicDetail =
+    emp.rateType === 'HOURLY'
+      ? `${peso(hourlyRateNum)}/hr x ${hoursWorked.toFixed(2)} hrs`
+      : emp.rateType === 'DAILY'
+        ? `${peso(dailyRateNum)}/day x ${daysWorked.toFixed(2)} days`
+        : `Monthly rate - ${daysWorked.toFixed(2)} days worked`
+
+  const otTotal =
+    payslip.regularOtAmount.toNumber()
+    + payslip.restDayOtAmount.toNumber()
+    + payslip.holidayOtAmount.toNumber()
+  const otHours =
+    payslip.regularOtHours.toNumber()
+    + payslip.restDayOtHours.toNumber()
+    + payslip.holidayOtHours.toNumber()
+
+  // Other earnings — everything that is neither basic nor overtime.
+  const otherEarningRows: Row[] = ([
     ['Holiday Pay', payslip.holidayPayAmount.toNumber()],
     ['Night Differential', payslip.nightDiffAmount.toNumber()],
     ['Allowances', allowancesTotal],
     ...incomeLines,
     ...customIncomeLines,
     ...(residualOther > 0.01 ? [['Other Earnings', residualOther] as [string, number]] : []),
+  ] as Array<[string, number]>).filter(([, v]) => v > 0)
+
+  const earningsRows: Row[] = [
+    ['BASIC PAY', null],
+    [basicDetail, payslip.basicSalary.toNumber()],
+    ['OVERTIME', null],
+    [otHours > 0 ? `${otHours.toFixed(2)} hrs at OT rates` : 'No overtime this period', otTotal],
+    ...(otherEarningRows.length > 0
+      ? ([['OTHER EARNINGS', null]] as Row[]).concat(otherEarningRows)
+      : []),
   ]
-  const earningsRows: Array<[string, number]> = earnings.filter(([, v]) => v > 0)
 
   // Itemize "Other Deductions" from the employee's deduction setup, but only
   // when those items reconcile with the payslip's stored total (so the
@@ -142,17 +173,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
       ? customDeductionLines
       : (otherDedTotal > 0 ? [['Other Deductions', otherDedTotal] as [string, number]] : [])
 
-  const deductions: Array<[string, number]> = [
+  // Deductions are NOT filtered by amount. A zero line is information — it
+  // says the deduction was considered and came to nothing, which is exactly
+  // what an employee querying their payslip wants to see. Only "Other
+  // Deductions" collapses: itemized when there is a breakdown, one general
+  // line otherwise (including at zero).
+  const deductionRows: Row[] = [
+    ['MANDATORY', null],
     ['SSS (Employee Share)', payslip.sssEmployee.toNumber()],
     ['PhilHealth (Employee)', payslip.philhealthEmployee.toNumber()],
     ['Pag-IBIG (Employee)', payslip.pagibigEmployee.toNumber()],
     ['Withholding Tax', payslip.withholdingTax.toNumber()],
-    ['Late/Undertime', payslip.lateDeduction.toNumber() + payslip.undertimeDeduction.toNumber()],
+    ['ATTENDANCE', null],
+    ['Late / Undertime', payslip.lateDeduction.toNumber() + payslip.undertimeDeduction.toNumber()],
     ['Absences', payslip.absenceDeduction.toNumber()],
+    ['CASH ADVANCE / LOANS', null],
     ['Loan Amortizations', loanDeductionsTotal],
-    ...otherDedLines,
+    ['OTHER DEDUCTIONS', null],
+    ...(otherDedLines.length > 0
+      ? (otherDedLines as Row[])
+      : ([['Other Deductions', otherDedTotal]] as Row[])),
   ]
-  const deductionRows: Array<[string, number]> = deductions.filter(([, v]) => v > 0)
 
   try {
     const pdf = await PDFDocument.create()
@@ -233,8 +274,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
 
     // Rows
     let yl = 642
-    earningsRows.forEach(([label, value], i) => {
-      if (i % 2 === 1) page.drawRectangle({ x: 24, y: yl - 4, width: 261, height: 18, color: C.alt })
+    let lz = 0
+    earningsRows.forEach(([label, value]) => {
+      if (value === null) {
+        draw(label, 28, yl, 7, true, C.muted)
+        yl -= 13
+        return
+      }
+      if (lz % 2 === 1) page.drawRectangle({ x: 24, y: yl - 4, width: 261, height: 18, color: C.alt })
+      lz += 1
       draw(label, 28, yl, 8.5, false, C.text)
       drawRight(peso(value), 280, yl, 8.5, true, C.base)
       yl -= 18
@@ -248,10 +296,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     // doesn't overlap the "DEDUCTIONS" header at y=662 / the underline
     // at y=658. Previously yr=654 produced a visible overlap.
     let yr = 642
-    deductionRows.forEach(([label, value], i) => {
-      if (i % 2 === 1) page.drawRectangle({ x: 310, y: yr - 4, width: 261, height: 18, color: C.roseSoft })
+    let rz = 0
+    deductionRows.forEach(([label, value]) => {
+      if (value === null) {
+        draw(label, 314, yr, 7, true, C.muted)
+        yr -= 13
+        return
+      }
+      if (rz % 2 === 1) page.drawRectangle({ x: 310, y: yr - 4, width: 261, height: 18, color: C.roseSoft })
+      rz += 1
       draw(label, 314, yr, 8.5, false, C.text)
-      drawRight(peso(value), 566, yr, 8.5, true, C.rose)
+      // A zero deduction is stated plainly rather than dashed out — the point
+      // of showing it is that the reader can see it was nil.
+      drawRight(peso(value), 566, yr, 8.5, true, value > 0 ? C.rose : C.muted)
       yr -= 18
     })
     if (deductionRows.length === 0) {
