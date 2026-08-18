@@ -117,6 +117,7 @@ export async function PATCH(
       lateDeduction: true, undertimeDeduction: true, absenceDeduction: true,
       otherDeductions: true,
       manualEdits: true,
+      employee: { select: { rateType: true } },
     },
   })
 
@@ -180,6 +181,20 @@ export async function PATCH(
 
   const netPay = parseFloat((grossPay - totalDeductions).toFixed(2))
 
+  // The 13th-month accrual is DERIVED from basic pay, so an edit to basic has
+  // to move it too. It previously did not: the payslip kept whatever the
+  // original compute had accrued, and the two silently disagreed the moment
+  // anyone touched basic. 206 payslips had drifted apart this way.
+  //
+  // Mirrors the engine: DAILY/HOURLY basic carries the late gross-up, which the
+  // accrual nets back out so 13th month still accrues on basic actually earned.
+  // MONTHLY basic has no gross-up, so it accrues on the full figure.
+  const hourDerivedRate = cur.employee.rateType === 'DAILY' || cur.employee.rateType === 'HOURLY'
+  const thirteenthBasis = hourDerivedRate
+    ? Math.max(0, merged.basicSalary - merged.lateDeduction)
+    : merged.basicSalary
+  const thirteenthMonthContribution = parseFloat((thirteenthBasis / 12).toFixed(2))
+
   // Persist the manual override per field so future recomputes keep these
   // values. The compute route merges manualEdits back in after rebuilding
   // the payslip from the engine.
@@ -206,6 +221,9 @@ export async function PATCH(
       grossPay,
       totalDeductions,
       netPay,
+      // Deliberately NOT added to `data`/manualEdits above — freezing a derived
+      // accrual as an override would stop recompute from ever correcting it.
+      thirteenthMonthContribution,
       manualEdits: nextManualEdits as Prisma.InputJsonValue,
     },
   })
