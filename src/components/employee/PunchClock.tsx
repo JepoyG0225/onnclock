@@ -69,6 +69,10 @@ interface ScreenCaptureFeature {
  * Records live on /portal/clock, which renders AttendanceHistory on its own —
  * this component is purely the punch control.
  */
+// How long a pre-fetched WebAuthn challenge stays usable. The server rejects
+// anything older than 5 minutes, so refresh with room to spare.
+const BIOMETRIC_OPTIONS_TTL_MS = 3 * 60 * 1000
+
 export function PunchClock() {
   const [record, setRecord] = useState<TodayRecord | null>(null)
   const [loading, setLoading] = useState(true)
@@ -91,6 +95,14 @@ export function PunchClock() {
   const [biometricRequired, setBiometricRequired] = useState(true)
   const [biometricLoading, setBiometricLoading] = useState(true)
   const [lastBiometricOkAt, setLastBiometricOkAt] = useState<Date | null>(null)
+  // Pre-fetched WebAuthn challenge. iOS/WebKit only allows
+  // navigator.credentials.get() while the tap that triggered it still counts as
+  // a user activation, and any awaited work in between spends that activation —
+  // so the options round-trip has to happen BEFORE the tap, not during it.
+  // Server allows a 5-minute challenge TTL; we refresh well inside that.
+  const biometricOptionsRef = useRef<{ options: unknown; fetchedAt: number } | null>(null)
+  // True while the biometric sheet is open, so background work doesn't race it.
+  const biometricInFlightRef = useRef(false)
   const [geofence, setGeofence] = useState<{
     enabled: boolean
     lat: number | null
@@ -447,6 +459,10 @@ export function PunchClock() {
 
   useEffect(() => {
     const onFocus = () => {
+      // Opening the biometric sheet blurs the page and fires this. Kicking off a
+      // geolocation request against a live auth prompt can dismiss it on iOS —
+      // which surfaces as a bogus "cancelled". Stay out of the way until it's done.
+      if (biometricInFlightRef.current) return
       // Re-request on focus so browser can re-prompt when permission is in prompt state.
       void ensureLocation({ forceFresh: true })
     }
@@ -472,21 +488,69 @@ export function PunchClock() {
     return dist <= geofence.radiusMeters!
   }
 
+  // Fetch a challenge ahead of time and park it. Safe to call repeatedly —
+  // requesting a new challenge simply supersedes the previous one.
+  const prefetchBiometricOptions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/biometric/auth/options', { method: 'POST' })
+      if (!res.ok) return
+      biometricOptionsRef.current = { options: await res.json(), fetchedAt: Date.now() }
+    } catch {
+      // Offline or transient — authenticateBiometric falls back to fetching inline.
+    }
+  }, [])
+
+  // Warm a challenge as soon as we know biometrics will be needed, and keep it
+  // fresh, so the punch button can go straight into startAuthentication.
+  useEffect(() => {
+    if (!biometricRequired || !biometricEnrolled) return
+    void prefetchBiometricOptions()
+    const t = setInterval(() => {
+      if (biometricInFlightRef.current) return
+      void prefetchBiometricOptions()
+    }, BIOMETRIC_OPTIONS_TTL_MS)
+    return () => clearInterval(t)
+  }, [biometricRequired, biometricEnrolled, prefetchBiometricOptions])
+
   // Authenticate with biometric; returns true if ok
   async function authenticateBiometric(): Promise<boolean> {
     // If recently verified, skip prompt (3 min grace)
     if (lastBiometricOkAt && (Date.now() - lastBiometricOkAt.getTime()) < 3 * 60 * 1000) {
       return true
     }
+
+    if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+      toast.error('Fingerprint sign-in is not available on this device or app version.')
+      return false
+    }
+
+    const cached = biometricOptionsRef.current
+    const cachedUsable = cached && (Date.now() - cached.fetchedAt) < BIOMETRIC_OPTIONS_TTL_MS
+
+    biometricInFlightRef.current = true
+    // Set just before the WebAuthn call so a slow fallback fetch can't inflate it.
+    let promptShownAt = Date.now()
     try {
-      const optRes = await fetch('/api/biometric/auth/options', { method: 'POST' })
-      if (!optRes.ok) {
-        const d = await optRes.json()
-        toast.error(d.error ?? 'Failed to start authentication')
-        return false
-      }
-      const options = await optRes.json()
-      const authResp = await startAuthentication({ optionsJSON: options })
+      // The pre-fetched challenge lets startAuthentication run with nothing
+      // awaited since the tap, which is what iOS requires. The inline fetch is
+      // only a fallback — on iOS it will usually have spent the activation
+      // already, but it still works everywhere else.
+      const options = cachedUsable
+        ? cached!.options
+        : await (async () => {
+            const optRes = await fetch('/api/biometric/auth/options', { method: 'POST' })
+            if (!optRes.ok) {
+              const d = await optRes.json().catch(() => ({}))
+              throw new Error(d.error ?? 'Failed to start authentication')
+            }
+            return optRes.json()
+          })()
+
+      // A challenge is single-use; drop it whether or not this attempt succeeds.
+      biometricOptionsRef.current = null
+
+      promptShownAt = Date.now()
+      const authResp = await startAuthentication({ optionsJSON: options as Parameters<typeof startAuthentication>[0]['optionsJSON'] })
       const verRes = await fetch('/api/biometric/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -497,12 +561,41 @@ export function PunchClock() {
       setLastBiometricOkAt(new Date())
       return true
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === 'NotAllowedError') {
-        toast.error('Fingerprint authentication was cancelled.')
+      const name = e instanceof Error ? e.name : ''
+
+      // WebKit reports "the prompt never ran" and "the user dismissed it" with
+      // the SAME NotAllowedError, so reporting every one as a cancellation sent
+      // people hunting for a mistake they never made. Nobody dismisses a sheet
+      // in under a third of a second — a rejection that fast means the request
+      // was refused outright (WKWebView without app-bound domains, an insecure
+      // origin, or a spent user activation), not declined.
+      if (name === 'NotAllowedError') {
+        const elapsed = Date.now() - promptShownAt
+        if (elapsed < 350) {
+          toast.error('This device blocked the fingerprint prompt. Please update the app or clock in from a browser.')
+        } else {
+          toast.error('Fingerprint authentication was cancelled.')
+        }
+        return false
+      }
+      if (name === 'SecurityError') {
+        toast.error('Fingerprint sign-in is not allowed on this address. Please open the app from onclockph.com.')
+        return false
+      }
+      if (name === 'NotSupportedError' || name === 'InvalidStateError') {
+        toast.error('This device does not support fingerprint sign-in for this account.')
+        return false
+      }
+      if (name === 'AbortError') {
+        toast.error('Fingerprint authentication timed out. Please try again.')
         return false
       }
       toast.error(e instanceof Error ? e.message : 'Authentication failed')
       return false
+    } finally {
+      biometricInFlightRef.current = false
+      // Re-arm for the next punch (clock-in and clock-out both need one).
+      void prefetchBiometricOptions()
     }
   }
 
