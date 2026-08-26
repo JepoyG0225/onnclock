@@ -168,8 +168,9 @@ export async function PATCH(
     + merged.otherEarnings
   ).toFixed(2))
 
+  // sssEc excluded: Employees' Compensation is employer-borne.
   const totalDeductions = parseFloat((
-    merged.sssEmployee + merged.sssEc
+    merged.sssEmployee
     + merged.philhealthEmployee
     + merged.pagibigEmployee
     + merged.withholdingTax

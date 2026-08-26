@@ -38,6 +38,12 @@ export type SeparationReason =
 
 export interface FinalPayInput {
   employeeId: string
+  /**
+   * MONTHLY EQUIVALENT salary (₱). For DAILY / HOURLY employees this is NOT
+   * `Employee.basicSalary` — that column holds their day/hour rate. Callers
+   * must normalize with `deriveMonthlyEquivalent()` using
+   * `FINAL_PAY_DAYS_PER_MONTH` as the divisor before passing it here.
+   */
   monthlySalary: number
   hireDate: Date
   lastWorkingDay: Date
@@ -108,7 +114,15 @@ export interface FinalPayResult {
   netFinalPay: number
 }
 
-const DAYS_PER_MONTH = 26   // SC / DOLE convention for daily-rate divisor on monthly employees
+/**
+ * SC / DOLE convention for the monthly ⇄ daily divisor in final pay.
+ *
+ * Exported so callers that must first build a MONTHLY EQUIVALENT for a
+ * DAILY / HOURLY employee use this same figure — otherwise the conversion
+ * up and the conversion back down here disagree and the daily rate drifts.
+ */
+export const FINAL_PAY_DAYS_PER_MONTH = 26
+const DAYS_PER_MONTH = FINAL_PAY_DAYS_PER_MONTH
 
 function asDate(d: Date | string): Date {
   return d instanceof Date ? d : new Date(d)

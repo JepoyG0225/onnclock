@@ -21,7 +21,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { computeFinalPay, type SeparationReason } from '@/lib/payroll/final-pay'
+import { computeFinalPay, FINAL_PAY_DAYS_PER_MONTH, type SeparationReason } from '@/lib/payroll/final-pay'
+import { deriveMonthlyEquivalent } from '@/lib/payroll/rates'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
@@ -82,9 +83,13 @@ export async function POST(req: NextRequest) {
       lastName: true,
       middleName: true,
       basicSalary: true,
+      rateType: true,
+      dailyRate: true,
+      hourlyRate: true,
       hireDate: true,
       department: { select: { name: true } },
       position:   { select: { title: true } },
+      workSchedule: { select: { workHoursPerDay: true } },
     },
   })
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
@@ -155,15 +160,38 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Normalize the pay rate ────────────────────────────────────────────────
+  // `basicSalary` is rate-type dependent: it holds a MONTHLY figure only for
+  // MONTHLY employees, a day rate for DAILY and an hour rate for HOURLY.
+  // computeFinalPay prices whole months (separation pay, 13th-month, "one
+  // month pay" minimums), so feed it a true monthly equivalent — passing the
+  // raw column would read a daily-paid employee's day rate as their month.
+  const monthlyEquivalent = parseFloat(deriveMonthlyEquivalent(
+    {
+      basicSalary: employee.basicSalary.toNumber(),
+      dailyRate:   employee.dailyRate?.toNumber()  ?? 0,
+      hourlyRate:  employee.hourlyRate?.toNumber() ?? 0,
+      rateType:    employee.rateType,
+    },
+    {
+      workHoursPerDay: employee.workSchedule?.workHoursPerDay
+        ? Number(employee.workSchedule.workHoursPerDay)
+        : undefined,
+      // Same divisor computeFinalPay uses to convert back down to a daily
+      // rate, so the round-trip is exact for DAILY / HOURLY employees.
+      workingDaysPerMonth: FINAL_PAY_DAYS_PER_MONTH,
+    },
+  ).toFixed(2))
+
   // ── Compute ───────────────────────────────────────────────────────────────
   const result = computeFinalPay({
     employeeId:                  employee.id,
-    monthlySalary:               employee.basicSalary.toNumber(),
+    monthlySalary:               monthlyEquivalent,
     hireDate:                    employee.hireDate,
     lastWorkingDay:              lastDay,
     reason:                      input.reason as SeparationReason,
     thirteenthMonthAlreadyPaid:  thirteenthPaidYTD,
-    basicEarnedYTD:              basicEarnedYTD || (employee.basicSalary.toNumber() * 1), // fallback in case no payslips
+    basicEarnedYTD:              basicEarnedYTD || monthlyEquivalent, // fallback in case no payslips
     unusedLeaveDays,
     unpaidWorkedDays:            input.unpaidWorkedDays,
     taxWithheldYTD,
@@ -183,7 +211,11 @@ export async function POST(req: NextRequest) {
       department: employee.department?.name ?? null,
       position:   employee.position?.title ?? null,
       hireDate:   employee.hireDate,
-      monthlySalary: employee.basicSalary.toNumber(),
+      rateType:   employee.rateType,
+      /** Rate as stored — a day rate for DAILY, an hour rate for HOURLY. */
+      baseRate:   employee.basicSalary.toNumber(),
+      /** Normalized monthly equivalent, the basis every figure below uses. */
+      monthlySalary: monthlyEquivalent,
     },
     snapshot: {
       lastWorkingDay: input.lastWorkingDay,

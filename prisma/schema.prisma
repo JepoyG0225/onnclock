@@ -448,6 +448,15 @@ model PayrollCycleConfig {
   // deduction. Useful for companies that handle tardiness via a separate
   // disciplinary process instead of docking pay.
   disableLateDeductions          Boolean      @default(false)
+  // When TRUE, undertime minutes recorded on DTRs are NOT converted into a
+  // pay deduction. Independent of disableLateDeductions so a company can
+  // dock one and not the other.
+  disableUndertimeDeductions     Boolean      @default(false)
+  // Scheduled work days in a month — the divisor that converts a MONTHLY
+  // salary into a daily rate (and from there into the hourly / per-minute
+  // rate used for late and undertime deductions). 22 matches the value the
+  // app previously hardcoded, so existing companies are unaffected.
+  workingDaysPerMonth            Decimal      @default(22) @db.Decimal(5, 2)
   enableNightDifferential        Boolean      @default(true)
   nightDifferentialRate          Decimal      @default(0.10) @db.Decimal(5, 4)
   nightDifferentialStart         String       @default("22:00")

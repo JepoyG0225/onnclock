@@ -6,8 +6,13 @@ import { computeWithholdingTax } from './bir'
 import {
   computeHolidayPayAdditional,
   computeNightDifferential,
-  computeAbsenceDeduction,
 } from './overtime'
+import {
+  normalizeRateBasis,
+  deriveDailyRate,
+  deriveHourlyRate,
+  deriveMinuteRate,
+} from './rates'
 
 /**
  * Master payroll computation engine.
@@ -28,11 +33,29 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     : period.payFrequency === 'WEEKLY' ? 52
     : 261 // DAILY — typical working days per year
 
+  // ── RATE BASIS ───────────────────────────────
+  // Single source of truth for every rate conversion in this function.
+  // Both divisors come from company setup (work schedule + payroll config)
+  // rather than hardcoded constants, so MONTHLY / DAILY / HOURLY all price
+  // an hour — and therefore a late or undertime minute — the same way.
+  const rateBasis = normalizeRateBasis({
+    workHoursPerDay: period.workHoursPerDay,
+    workingDaysPerMonth: period.workingDaysPerMonth,
+  })
+  const effectiveDailyRate = deriveDailyRate(employee, rateBasis)
+
   // ── 1. BASIC PAY ─────────────────────────────
-  // For HOURLY employees we feed in the actual regular hours sourced from
-  // DTR timestamps (compute route) so basic pay = hourlyRate × hoursWorked
-  // rather than the old hourlyRate × 8 × daysWorked which silently assumed
-  // a full 8-hour shift every day even on half-day shifts.
+  // Basic pay is the employee's GROSS entitlement for the period: scheduled
+  // hours × rate, including days they were absent. It is deliberately NOT
+  // reduced by late arrivals, early-outs or absences — each of those is
+  // charged once, further down, as an explicit lateDeduction /
+  // undertimeDeduction / absenceDeduction line, so the payslip shows every
+  // deduction in its own column coming off the full Basic Pay figure rather
+  // than hiding some of them inside it.
+  //
+  // `scheduledHours` (workHoursPerDay × paid days) is supplied by the
+  // compute route. When it's missing we fall back to the DTR-derived
+  // `regularHours` so legacy runs keep their previous behavior.
   const basicPay = computeBasicPay(
     employee.basicSalary,
     employee.rateType,
@@ -40,6 +63,8 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     period.workingDays,
     period.payFrequency,
     attendance.regularHours,
+    attendance.scheduledHours,
+    rateBasis.workHoursPerDay,
   )
 
   // If basic pay is zero, zero out all earnings/deductions for the period.
@@ -80,7 +105,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   }
 
   // ── 2. OVERTIME & PREMIUM PAY ─────────────────
-  const hourlyRate = employee.hourlyRate > 0 ? employee.hourlyRate : employee.dailyRate / 8
+  const hourlyRate = deriveHourlyRate(employee, rateBasis)
 
   const regularOtAmount = parseFloat((hourlyRate * attendance.regularOtHours * regularOtRate).toFixed(2))
   const restDayOtAmount = parseFloat((hourlyRate * attendance.restDayOtHours * restDayOtRate).toFixed(2))
@@ -137,10 +162,10 @@ export function computePayroll(input: PayrollInput): PayrollResult {
         : 0
     } else {
       regularHolidayPremium = computeHolidayPayAdditional(
-        employee.dailyRate, attendance.regularHolidaysWorked, 'REGULAR'
+        effectiveDailyRate, attendance.regularHolidaysWorked, 'REGULAR'
       )
       specialHolidayPremium = computeHolidayPayAdditional(
-        employee.dailyRate, attendance.specialHolidaysWorked, 'SPECIAL_NON_WORKING'
+        effectiveDailyRate, attendance.specialHolidaysWorked, 'SPECIAL_NON_WORKING'
       )
     }
   }
@@ -161,12 +186,17 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   if (!disableHoliday
       && employee.rateType === 'DAILY'
       && attendance.regularHolidayNonWorkDays && attendance.regularHolidayNonWorkDays > 0) {
-    const credit = parseFloat((employee.dailyRate * attendance.regularHolidayNonWorkDays).toFixed(2))
+    const credit = parseFloat((effectiveDailyRate * attendance.regularHolidayNonWorkDays).toFixed(2))
     basicPayWithHolidayCredit = parseFloat((basicPay + credit).toFixed(2))
   }
 
   // ── 3. DEDUCTIONS (attendance) ────────────────
-  const minuteRate = hourlyRate / 60
+  // One per-minute rate for every rate type. For a MONTHLY employee this
+  // is monthlySalary ÷ workingDaysPerMonth ÷ workHoursPerDay ÷ 60; for
+  // DAILY it is dailyRate ÷ workHoursPerDay ÷ 60; for HOURLY it is simply
+  // hourlyRate ÷ 60. Late and undertime are then charged identically
+  // regardless of how the employee happens to be paid.
+  const minuteRate = deriveMinuteRate(employee, rateBasis)
   // Late deductions can be suppressed by company-wide config or per-
   // employee toggle. The DTR still records lateMinutes for audit even
   // when the deduction is skipped.
@@ -180,25 +210,35 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // future split — track them separately on the DTR.
   //
   // Late minutes are an explicit attendance deduction for every rate type.
-  // DAILY and HOURLY basic pay still reflects actual hours worked, while this
-  // line enforces the separate tardiness policy recorded by the DTR. This also
-  // covers employees who arrive late but extend their time-out and therefore
-  // still complete the same number of paid hours.
+  // Basic pay above is computed on SCHEDULED hours, so tardiness is not
+  // reflected there — this line is the single place it is charged, which is
+  // what the payslip's separate Late / Undertime column reports.
   const skipLate = period.disableLateDeductions
     || employee.disableLateDeduction === true
   const lateDeduction = skipLate
     ? 0
     : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
-  // Undertime deductions are GLOBALLY DISABLED.
-  //   1. HOURLY / DAILY: basic pay already pro-rates by actual hours
-  //      worked (no work, no pay) — deducting UT on top double-counts.
-  //   2. MONTHLY: company policy decision — undertime is handled via
-  //      disciplinary process, not payroll docking.
-  // The DTR's undertimeMinutes is still recorded for audit + late /
-  // overbreak (which the clock-out route stores inside lateMinutes)
-  // remain deductible.
-  const undertimeDeduction = 0
-  const absenceDeduction = computeAbsenceDeduction(employee.dailyRate, attendance.absentDays)
+  // Undertime is an explicit deduction for every rate type, mirroring late.
+  // This is the other half of paying basic pay on SCHEDULED hours: because
+  // basic pay no longer shrinks when an employee clocks out early, the
+  // shortfall has to be charged here — otherwise early-outs would be paid
+  // in full. There is no double-count, since basic pay is measured against
+  // the schedule and undertimeMinutes measures the gap to that same
+  // schedule.
+  //
+  // Suppressed by the company-wide setting or the per-employee override,
+  // exactly like late.
+  const skipUndertime = period.disableUndertimeDeductions
+    || employee.disableUndertimeDeduction === true
+  const undertimeDeduction = skipUndertime
+    ? 0
+    : parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
+  // Absences are already reflected in basic pay, which is paid strictly as
+  // worked days × daily rate — an unworked day is simply never paid. Charging
+  // an absence deduction on top would take the same day off twice, so this
+  // line stays at zero. (Late and undertime are different: basic pay is NOT
+  // reduced for them, which is exactly why they are charged separately.)
+  const absenceDeduction = 0
 
   // ── 4. ALLOWANCES & DE MINIMIS ────────────────
   const deMinimisTotal = deMinimis.riceSubsidy + deMinimis.clothing +
@@ -285,9 +325,11 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const thirteenthMonthContribution = parseFloat((basicPayWithHolidayCredit / 12).toFixed(2))
 
   // ── 10. TOTALS ────────────────────────────────
+  // NOTE: sss.ec is deliberately NOT here. Employees' Compensation is a
+  // 100% employer-borne premium (SSS Circular / PD 626) — it is reported as
+  // employer cost and must never reduce the employee's net pay.
   const totalDeductions = parseFloat((
     sss.employee
-    + sss.ec
     + ph.employee
     + pagibig.employee
     + taxResult.withholdingTax
@@ -347,31 +389,39 @@ function computeBasicPay(
   workingDaysInPeriod: number,
   payFrequency: string,
   regularHours: number,
+  scheduledHours: number | undefined,
+  workHoursPerDay: number,
 ): number {
+  // Hours basic pay is measured against. Prefer SCHEDULED hours so basic
+  // pay is the gross entitlement for days present — late arrivals and
+  // early-outs are charged separately as late / undertime deductions
+  // rather than being netted out of this line. Fall back to DTR-derived
+  // actual hours for callers/runs that don't supply scheduledHours.
+  const payableHours = scheduledHours != null && scheduledHours > 0
+    ? scheduledHours
+    : regularHours
+
   if (rateType === 'DAILY') {
-    // Pro-rate basic pay by actual regular hours so a half-day clock-in
-    // pays a half-day. Previously DAILY counted every "checked-in" DTR
-    // as a full day regardless of hours — a 4-hour shift paid the same
-    // as an 8-hour shift, which violates strict DOLE "no work, no pay".
+    // Convert payable hours into fractional days so a genuinely half-day
+    // shift still pays a half day (DOLE "no work, no pay"), while a full
+    // shift the employee showed up late for pays a full day here and is
+    // docked in the deductions column instead.
     //
-    // Falls back to whole-day count when no DTR-derived hours exist
-    // (legacy data, time-tracking off, manual present-flag without
-    // timestamps) so historical behavior holds for those rows.
-    const STANDARD_HOURS_PER_DAY = 8
-    const fractionalDays = regularHours > 0
-      ? regularHours / STANDARD_HOURS_PER_DAY
+    // Falls back to whole-day count when no hours exist at all (legacy
+    // data, time-tracking off, manual present-flag without timestamps).
+    const fractionalDays = payableHours > 0
+      ? payableHours / workHoursPerDay
       : daysWorked
     return parseFloat((basicSalary * fractionalDays).toFixed(2))
   }
 
   if (rateType === 'HOURLY') {
-    // basicSalary IS the hourly rate. Pay = rate × actual regular hours
-    // worked (already capped at the schedule's workHoursPerDay upstream
-    // so overtime hours don't double-count in regular pay).
-    // Fallback to daysWorked × 8 only when no DTR-derived hours exist
-    // (e.g. legacy data, no time tracking) so we never silently zero out
-    // pay for an HOURLY employee on a manual run.
-    const hours = regularHours > 0 ? regularHours : daysWorked * 8
+    // basicSalary IS the hourly rate. Pay = rate × payable (scheduled)
+    // hours, already capped at the schedule's workHoursPerDay upstream
+    // so overtime hours don't double-count in regular pay.
+    // Fallback to daysWorked × 8 only when no hours exist at all so we
+    // never silently zero out pay for an HOURLY employee on a manual run.
+    const hours = payableHours > 0 ? payableHours : daysWorked * workHoursPerDay
     return parseFloat((basicSalary * hours).toFixed(2))
   }
 
@@ -385,7 +435,8 @@ function computeBasicPay(
 
   if (daysWorked >= workingDaysInPeriod) return parseFloat(periodSalary.toFixed(2))
 
-  // Pro-rate for incomplete period
+  // Pro-rate down to days actually worked — same "worked days × daily rate"
+  // basis the DAILY branch uses.
   const dailyRate = periodSalary / workingDaysInPeriod
   return parseFloat((dailyRate * daysWorked).toFixed(2))
 }

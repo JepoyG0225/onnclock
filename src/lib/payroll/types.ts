@@ -47,10 +47,45 @@ export interface PayrollInput {
      * disciplinary process can flip this to keep payroll separate.
      */
     disableLateDeductions?: boolean
+    /**
+     * Same, for undertime minutes. Independent of the late toggle so a
+     * company can dock one and not the other.
+     */
+    disableUndertimeDeductions?: boolean
+    /**
+     * Standard paid hours in one work day, from the employee's work
+     * schedule. Divisor for converting daily → hourly → per-minute rates.
+     * Defaults to 8 when absent.
+     */
+    workHoursPerDay?: number
+    /**
+     * Scheduled work days in a month, from the company payroll config.
+     * Divisor for converting a MONTHLY salary → daily rate. Defaults to 22
+     * (the value this app previously hardcoded) when absent.
+     */
+    workingDaysPerMonth?: number
   }
   attendance: {
     daysWorked: number
     regularHours: number
+    /**
+     * Hours the employee was SCHEDULED to work on the days they were
+     * present (or on paid leave) — i.e. workHoursPerDay × paid days,
+     * ignoring how late they clocked in or how early they clocked out.
+     *
+     * This is the basis for basic pay so the payslip's Basic Pay line
+     * shows the full gross entitlement. Tardiness and early-outs are
+     * then charged ONCE, in the separate Late / Undertime deduction
+     * column, instead of being silently baked into basic pay.
+     *
+     * Absent days are NOT included here — the engine adds them back from
+     * `absentDays` so basic pay covers them too and the Absences column
+     * deducts them exactly once.
+     *
+     * Falls back to `regularHours` when absent (legacy runs / callers
+     * that don't supply it) so historical behavior is preserved.
+     */
+    scheduledHours?: number
     regularOtHours: number        // OT on regular weekday
     restDayOtHours: number        // OT on rest day
     regularHolidayOtHours: number

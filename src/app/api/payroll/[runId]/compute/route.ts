@@ -334,8 +334,42 @@ export async function POST(
   } catch {
     payrollConfig = null
   }
+  // The two attendance-deduction settings live in a separate best-effort
+  // read. They're deliberately NOT added to the select above: that query's
+  // catch nulls out the ENTIRE config, so a database that hasn't run the
+  // 20260822000000_add_attendance_deduction_settings migration yet would
+  // silently lose every other payroll setting. Reading them on their own
+  // means an un-migrated DB just falls back to the defaults for these two.
+  let attendanceDeductionConfig: {
+    disableUndertimeDeductions: boolean
+    workingDaysPerMonth: number
+  } | null = null
+  try {
+    const rows = await prisma.$queryRaw<Array<{
+      disableUndertimeDeductions: boolean | null
+      workingDaysPerMonth: unknown
+    }>>`
+      SELECT "disableUndertimeDeductions", "workingDaysPerMonth"
+      FROM "payroll_cycle_configs"
+      WHERE "companyId" = ${scopedCompanyId}
+      LIMIT 1
+    `
+    const row = rows?.[0]
+    if (row) {
+      const wdpm = Number(row.workingDaysPerMonth)
+      attendanceDeductionConfig = {
+        disableUndertimeDeductions: row.disableUndertimeDeductions ?? false,
+        workingDaysPerMonth: Number.isFinite(wdpm) && wdpm > 0 ? wdpm : 22,
+      }
+    }
+  } catch {
+    attendanceDeductionConfig = null
+  }
+
   const overtimeEnabled = payrollConfig?.enableOvertime ?? true
   const disableLateDeductions = payrollConfig?.disableLateDeductions ?? false
+  const disableUndertimeDeductions = attendanceDeductionConfig?.disableUndertimeDeductions ?? false
+  const workingDaysPerMonth = attendanceDeductionConfig?.workingDaysPerMonth ?? 22
   const nightDifferentialEnabled = payrollConfig?.enableNightDifferential ?? true
   const nightDiffRate = nightDifferentialEnabled
     ? (payrollConfig?.nightDifferentialRate && typeof payrollConfig.nightDifferentialRate === 'object'
@@ -653,6 +687,29 @@ export async function POST(
       regularHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
     }
 
+    // ── Scheduled regular hours (basis for BASIC PAY) ─────────────────
+    // Same day set as regularHoursTotal above, but each paid day is
+    // credited its FULL scheduled length regardless of when the employee
+    // actually clocked in or out. This keeps the payslip's Basic Pay line
+    // showing the gross entitlement; tardiness and early-outs are charged
+    // once, in the separate late / undertime deduction column.
+    let scheduledHoursTotal = 0
+    if (hasDtr) {
+      for (const d of enhancedDtr) {
+        if (d.isAbsent) continue
+        if (d.isLeave && !d.isLeavePaid) continue
+        if (d.isLeave && d.isLeavePaid) {
+          const halfDay = (d as { isHalfDay?: boolean }).isHalfDay ?? false
+          scheduledHoursTotal += halfDay ? workHoursPerDayForCap / 2 : workHoursPerDayForCap
+          continue
+        }
+        scheduledHoursTotal += workHoursPerDayForCap
+      }
+      scheduledHoursTotal = Math.round(scheduledHoursTotal * 100) / 100
+    } else {
+      scheduledHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
+    }
+
     // Overtime requires DTR-based pay — NOT `trackTime || hasDtr` like the
     // other DTR-derived figures below.
     //
@@ -882,10 +939,16 @@ export async function POST(
         regularHolidayOtRate: differentialRules.regularHolidayOtRate,
         specialHolidayOtRate: differentialRules.specialHolidayOtRate,
         disableLateDeductions,
+        disableUndertimeDeductions,
+        // Rate basis: both divisors come from company setup, so late /
+        // undertime minutes are priced the same way for every rate type.
+        workHoursPerDay: workHoursPerDayForCap,
+        workingDaysPerMonth,
       },
       attendance: {
         daysWorked,
         regularHours:          regularHoursTotal,
+        scheduledHours:        scheduledHoursTotal,
         regularOtHours,
         restDayOtHours:        0,
         regularHolidayOtHours: 0,
@@ -1133,8 +1196,9 @@ export async function POST(
         + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance
         + merged.otherEarnings
       ).toFixed(2))
+      // sssEc excluded: Employees' Compensation is employer-borne.
       const totalDeductionsManual = parseFloat((
-        merged.sssEmployee + merged.sssEc + merged.philhealthEmployee + merged.pagibigEmployee
+        merged.sssEmployee + merged.philhealthEmployee + merged.pagibigEmployee
         + merged.withholdingTax + merged.sssLoanDeduction + merged.pagibigLoan + merged.companyLoan
         + merged.lateDeduction + merged.undertimeDeduction + merged.absenceDeduction
         + merged.otherDeductions

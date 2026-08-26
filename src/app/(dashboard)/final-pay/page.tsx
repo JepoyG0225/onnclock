@@ -35,10 +35,16 @@ const REASON_OPTIONS: { value: Reason; label: string; hint: string; sepPay: bool
   { value: 'RETIREMENT',             label: 'Retirement',                        hint: 'RA 7641 / Art. 302. ½ mo/yr. Tax-exempt up to ₱10M.',    sepPay: true  },
 ]
 
-interface Employee { id: string; firstName: string; lastName: string; employeeNo: string; department?: { name: string } | null; position?: { title: string } | null; basicSalary: number; hireDate: string }
+const RATE_LABEL: Record<'MONTHLY' | 'DAILY' | 'HOURLY', string> = {
+  MONTHLY: 'Monthly',
+  DAILY:   'Daily rate',
+  HOURLY:  'Hourly rate',
+}
+
+interface Employee { id: string; firstName: string; lastName: string; employeeNo: string; department?: { name: string } | null; position?: { title: string } | null; basicSalary: number; rateType?: 'MONTHLY' | 'DAILY' | 'HOURLY'; hireDate: string }
 interface ResultComponent { key: string; label: string; amount: number; taxable: boolean; note?: string }
 interface FinalPayResponse {
-  employee: { id: string; employeeNo: string; name: string; department: string | null; position: string | null; hireDate: string; monthlySalary: number }
+  employee: { id: string; employeeNo: string; name: string; department: string | null; position: string | null; hireDate: string; rateType?: 'MONTHLY' | 'DAILY' | 'HOURLY'; baseRate?: number; monthlySalary: number }
   snapshot: {
     lastWorkingDay: string; reason: Reason
     basicEarnedYTD: number; taxableIncomeYTD: number; taxWithheldYTD: number; thirteenthPaidYTD: number
@@ -249,7 +255,7 @@ export default function FinalPayPage() {
             <div className="rounded-lg bg-gray-50 text-xs px-3 py-2 flex items-center gap-3 text-gray-600">
               <Receipt className="w-3.5 h-3.5" />
               <span><span className="font-semibold text-gray-800">{selected.lastName}, {selected.firstName}</span> · {selected.employeeNo} · {selected.position?.title ?? '—'}</span>
-              <span className="ml-auto">Monthly: {peso(Number(selected.basicSalary))}</span>
+              <span className="ml-auto">{RATE_LABEL[selected.rateType ?? 'MONTHLY']}: {peso(Number(selected.basicSalary))}</span>
             </div>
           )}
         </CardContent>
@@ -293,8 +299,17 @@ export default function FinalPayPage() {
                   <p className="font-semibold text-base">{format(new Date(data.employee.hireDate), 'MMM d, yyyy')}</p>
                 </div>
                 <div className="bg-gray-50 rounded px-3 py-2">
-                  <p className="text-gray-400">Monthly Salary</p>
+                  <p className="text-gray-400">
+                    {data.employee.rateType && data.employee.rateType !== 'MONTHLY'
+                      ? 'Monthly Equivalent (×26)'
+                      : 'Monthly Salary'}
+                  </p>
                   <p className="font-semibold text-base">{peso(data.employee.monthlySalary)}</p>
+                  {data.employee.rateType && data.employee.rateType !== 'MONTHLY' && data.employee.baseRate != null && (
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      from {peso(data.employee.baseRate)}/{data.employee.rateType === 'DAILY' ? 'day' : 'hr'}
+                    </p>
+                  )}
                 </div>
                 <div className="bg-gray-50 rounded px-3 py-2">
                   <p className="text-gray-400">Daily Rate (÷26)</p>

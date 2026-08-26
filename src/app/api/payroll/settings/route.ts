@@ -17,6 +17,10 @@ const payrollSettingsSchema = z.object({
   defaultPayDelayDays: z.coerce.number().int().min(0).max(60),
   enableOvertime: z.boolean().optional(),
   disableLateDeductions: z.boolean().optional(),
+  disableUndertimeDeductions: z.boolean().optional(),
+  // Scheduled work days per month — divisor for MONTHLY → daily → hourly →
+  // per-minute rates. Bounded to a sane calendar range.
+  workingDaysPerMonth: z.coerce.number().min(1).max(31).optional(),
   enableNightDifferential: z.boolean().optional(),
   nightDifferentialStart: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
   nightDifferentialEnd: z.string().regex(HHMM_RE, 'Use HH:MM 24-hour format').optional(),
@@ -44,6 +48,11 @@ type PayrollCycleConfigRow = {
   defaultPayDelayDays: number
   enableOvertime: boolean
   disableLateDeductions?: boolean
+  // Optional for the same reason as nightDifferentialIncludesBreak below —
+  // added by migration 20260822000000_add_attendance_deduction_settings,
+  // which a given database may not have run yet.
+  disableUndertimeDeductions?: boolean
+  workingDaysPerMonth?: unknown
   enableNightDifferential: boolean
   nightDifferentialStart: string
   nightDifferentialEnd: string
@@ -102,7 +111,9 @@ async function safeReadPayrollCycleConfig(companyId: string) {
             "enableOvertime", "enableNightDifferential",
             "nightDifferentialStart", "nightDifferentialEnd",
             false AS "nightDifferentialIncludesBreak",
-            false AS "disableLateDeductions"
+            false AS "disableLateDeductions",
+            false AS "disableUndertimeDeductions",
+            22 AS "workingDaysPerMonth"
           FROM "payroll_cycle_configs"
           WHERE "companyId" = ${companyId}
           LIMIT 1
@@ -290,6 +301,11 @@ export async function GET() {
       defaultPayDelayDays: config?.defaultPayDelayDays ?? 5,
       enableOvertime: config?.enableOvertime ?? true,
       disableLateDeductions: (config as { disableLateDeductions?: boolean } | null)?.disableLateDeductions ?? false,
+      disableUndertimeDeductions: (config as { disableUndertimeDeductions?: boolean } | null)?.disableUndertimeDeductions ?? false,
+      workingDaysPerMonth: (() => {
+        const raw = Number((config as { workingDaysPerMonth?: unknown } | null)?.workingDaysPerMonth)
+        return Number.isFinite(raw) && raw > 0 ? raw : 22
+      })(),
       enableNightDifferential: config?.enableNightDifferential ?? true,
       nightDifferentialStart: config?.nightDifferentialStart ?? '22:00',
       nightDifferentialEnd: config?.nightDifferentialEnd ?? '06:00',
@@ -379,33 +395,65 @@ export async function PATCH(req: NextRequest) {
     nightDifferentialEnd: ndEnd,
   }
 
+  // Attendance-deduction settings, added by migration
+  // 20260822000000_add_attendance_deduction_settings. Handled with the same
+  // drop-and-retry dance as nightDifferentialIncludesBreak so a database
+  // that hasn't run the migration still saves everything else.
+  const disableUndertimeDeductions = data.disableUndertimeDeductions ?? false
+  const workingDaysPerMonth = data.workingDaysPerMonth ?? 22
+
   const upsertDelegate = delegate
   const upsertCompanyId = ctx.companyId
-  async function doUpsert(includeBreakField: boolean) {
+  async function doUpsert(includeBreakField: boolean, includeAttendanceFields: boolean) {
+    const optional = {
+      ...(includeBreakField ? { nightDifferentialIncludesBreak: ndIncludesBreak } : {}),
+      ...(includeAttendanceFields ? { disableUndertimeDeductions, workingDaysPerMonth } : {}),
+    }
     return upsertDelegate.upsert({
       where: { companyId: upsertCompanyId },
-      create: {
-        companyId: upsertCompanyId,
-        ...baseFields,
-        ...(includeBreakField ? { nightDifferentialIncludesBreak: ndIncludesBreak } : {}),
-      },
-      update: {
-        ...baseFields,
-        ...(includeBreakField ? { nightDifferentialIncludesBreak: ndIncludesBreak } : {}),
-      },
+      create: { companyId: upsertCompanyId, ...baseFields, ...optional },
+      update: { ...baseFields, ...optional },
     })
+  }
+
+  /** True when the error is "this column isn't in the database yet". */
+  function isMissingColumn(e: unknown, ...columns: string[]) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const looksMissing = msg.toLowerCase().includes('does not exist') || msg.includes('P2022')
+    return looksMissing && columns.some(c => msg.includes(c))
   }
 
   let settings
   let breakColumnMissing = false
+  let attendanceColumnsMissing = false
   try {
-    settings = await doUpsert(true)
+    settings = await doUpsert(true, true)
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if (msg.includes('nightDifferentialIncludesBreak') && (msg.toLowerCase().includes('does not exist') || msg.includes('P2022'))) {
+    if (isMissingColumn(e, 'disableUndertimeDeductions', 'workingDaysPerMonth')) {
+      attendanceColumnsMissing = true
+      try {
+        settings = await doUpsert(true, false)
+      } catch (e2: unknown) {
+        if (isMissingColumn(e2, 'nightDifferentialIncludesBreak')) {
+          breakColumnMissing = true
+          settings = await doUpsert(false, false)
+        } else {
+          throw e2
+        }
+      }
+    } else if (isMissingColumn(e, 'nightDifferentialIncludesBreak')) {
       // Migration not applied to this DB yet — retry without the new field.
       breakColumnMissing = true
-      settings = await doUpsert(false)
+      try {
+        settings = await doUpsert(false, true)
+      } catch (e2: unknown) {
+        if (isMissingColumn(e2, 'disableUndertimeDeductions', 'workingDaysPerMonth')) {
+          attendanceColumnsMissing = true
+          settings = await doUpsert(false, false)
+        } else {
+          throw e2
+        }
+      }
     } else {
       throw e
     }
@@ -436,8 +484,17 @@ export async function PATCH(req: NextRequest) {
       persisted: localeSaved,
     },
     ...(recompute ? { recompute } : {}),
-    ...(breakColumnMissing
-      ? { warning: 'nightDifferentialIncludesBreak column not yet applied to DB — toggle was saved but ignored. Run the db-apply migration endpoint.' }
+    ...(breakColumnMissing || attendanceColumnsMissing
+      ? {
+          warning: [
+            breakColumnMissing
+              ? 'nightDifferentialIncludesBreak column not yet applied to DB — toggle was saved but ignored.'
+              : null,
+            attendanceColumnsMissing
+              ? 'disableUndertimeDeductions / workingDaysPerMonth columns not yet applied to DB — those settings were ignored. Apply migration 20260822000000_add_attendance_deduction_settings.'
+              : null,
+          ].filter(Boolean).join(' '),
+        }
       : {}),
   })
 }

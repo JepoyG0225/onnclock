@@ -19,6 +19,9 @@ type PayrollSettings = {
   defaultPayDelayDays: number
   enableOvertime: boolean
   disableLateDeductions: boolean
+  disableUndertimeDeductions: boolean
+  /** Scheduled work days per month — divisor for MONTHLY → daily → hourly → per-minute rates. */
+  workingDaysPerMonth: number
   enableNightDifferential: boolean
   nightDifferentialStart: string  // "HH:MM" 24-hour, default 22:00
   nightDifferentialEnd: string    // "HH:MM" 24-hour, default 06:00
@@ -36,6 +39,8 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   defaultPayDelayDays: 5,
   enableOvertime: true,
   disableLateDeductions: false,
+  disableUndertimeDeductions: false,
+  workingDaysPerMonth: 22,
   enableNightDifferential: true,
   nightDifferentialStart: '22:00',
   nightDifferentialEnd: '06:00',
@@ -82,6 +87,11 @@ export default function PayrollCycleSettingsCard() {
         secondCutoffStartDay: Number(settings.secondCutoffStartDay),
         secondCutoffEndDay: Number(settings.secondCutoffEndDay),
         defaultPayDelayDays: Number(settings.defaultPayDelayDays),
+        // Guard the cleared-input case: the field is required server-side
+        // (min 1), so fall back to the default rather than POSTing 0.
+        workingDaysPerMonth: Number(settings.workingDaysPerMonth) > 0
+          ? Number(settings.workingDaysPerMonth)
+          : DEFAULT_SETTINGS.workingDaysPerMonth,
         timezone: settings.timezone,
         payrollCurrency: settings.payrollCurrency.toUpperCase(),
       }
@@ -200,6 +210,39 @@ export default function PayrollCycleSettingsCard() {
                   <Switch
                     checked={settings.disableLateDeductions}
                     onCheckedChange={v => setSettings(prev => ({ ...prev, disableLateDeductions: v }))}
+                  />
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Disable Undertime Deductions</p>
+                    <p className="text-xs text-gray-500">
+                      When ON, undertime minutes recorded on DTRs are NOT docked from pay.
+                      Independent of the late setting, so you can dock one and not the other.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.disableUndertimeDeductions}
+                    onCheckedChange={v => setSettings(prev => ({ ...prev, disableUndertimeDeductions: v }))}
+                  />
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <p className="text-sm font-medium">Work Days per Month</p>
+                  <p className="text-xs text-gray-500">
+                    Scheduled work days in a month. Used to convert a monthly salary into the
+                    daily, hourly and per-minute rates that late and undertime are charged at
+                    (monthly &divide; work days &divide; hours per day). Common values: 22 or 26.
+                  </p>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    step="0.01"
+                    className="mt-2 w-32"
+                    value={settings.workingDaysPerMonth}
+                    onChange={e => setSettings(prev => ({
+                      ...prev,
+                      workingDaysPerMonth: e.target.value === '' ? 0 : Number(e.target.value),
+                    }))}
                   />
                 </div>
               </div>
