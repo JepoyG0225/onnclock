@@ -1147,10 +1147,18 @@ function AssignmentModal({
   const prefilledTemplate = modal.prefilledScheduleId
     ? schedules.find((s) => s.id === modal.prefilledScheduleId)
     : null
+  const employeeFixedTemplate = variant === 'FIXED'
+    ? schedules.find((s) => s.id === modal.fixedScheduleId)
+    : null
+  const initialTemplate = prefilledTemplate ?? employeeFixedTemplate
   const initialRestDay = existing?.isRestDay ?? modal.prefilledIsRestDay ?? false
   const [isRestDay, setIsRestDay] = useState(variant === 'FIXED' ? false : initialRestDay)
-  const [timeIn, setTimeIn] = useState(existing?.timeIn ?? prefilledTemplate?.timeIn ?? '08:00')
-  const [timeOut, setTimeOut] = useState(existing?.timeOut ?? prefilledTemplate?.timeOut ?? '17:00')
+  // A fixed employee opened from an empty calendar cell previously fell back
+  // to 08:00-17:00 even when their assigned template was a night shift. Those
+  // stale overrides then capped night differential at zero. Seed from the
+  // employee's fixed template before using daytime defaults.
+  const [timeIn, setTimeIn] = useState(existing?.timeIn ?? initialTemplate?.timeIn ?? '08:00')
+  const [timeOut, setTimeOut] = useState(existing?.timeOut ?? initialTemplate?.timeOut ?? '17:00')
   const [scheduleId, setScheduleId] = useState(
     existing?.scheduleId ?? modal.prefilledScheduleId ?? modal.fixedScheduleId ?? '',
   )
@@ -1158,7 +1166,7 @@ function AssignmentModal({
   // Multi-day apply: defaults to just the clicked date. Hidden when editing
   // an existing assignment (one record at a time).
   const [applyToDates, setApplyToDates] = useState<Set<string>>(() => new Set([modal.date]))
-  const fixedSchedule = variant === 'FIXED' ? schedules.find(s => s.id === modal.fixedScheduleId) : null
+  const fixedSchedule = employeeFixedTemplate
 
   const dayLabel = new Date(modal.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { buildOtMapKey, getApprovedOtHoursMap } from '@/lib/overtime-requests'
 import { computePayroll } from '@/lib/payroll/engine'
+import { computeHours, normalizeSingleShiftTimeOut, resolveShiftForDtr } from '@/lib/timesheet/compute'
 import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
@@ -18,16 +19,6 @@ const computePayloadSchema = z.object({
 })
 
 /**
- * Count minutes of overlap with the night-differential window (PHT).
- *
- * The window is configured in Manila local time (e.g. 22:00-06:00 PHT). We
- * MUST compare cursor times in the same TZ — Vercel's Node runtime defaults
- * to UTC, so `cursor.getHours()` returns UTC hours, which would silently
- * mis-count ND for any overnight PHT shift. This function uses the UTC
- * accessors and shifts by +8 hours to get the PHT minute-of-day, so the
- * result is identical regardless of the server's TZ.
- */
-/**
  * Roll timeOut forward by 24h when it lands at or before timeIn — covers
  * overnight shifts where the operator (or a manual DTR edit) stored
  * timeOut on the same calendar day as timeIn. Without this, an
@@ -37,8 +28,7 @@ const computePayloadSchema = z.object({
  * that computes (timeOut - timeIn).
  */
 function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
-  if (timeOut.getTime() > timeIn.getTime()) return timeOut
-  return new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
+  return normalizeSingleShiftTimeOut(timeIn, timeOut)
 }
 
 // Hard ceiling on per-shift night-differential. Matches PH practice of an
@@ -50,30 +40,6 @@ function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
 // credit more than 7 hours of ND should set this via PayrollCycleConfig
 // in a follow-up — for now we apply a flat ceiling.
 const MAX_ND_MINUTES_PER_SHIFT = 7 * 60
-
-function countNightMinutes(params: {
-  timeIn: Date
-  timeOut: Date
-  startMinutes: number
-  endMinutes: number
-}) {
-  let minutes = 0
-  const crossesMidnight = params.startMinutes > params.endMinutes
-  const effectiveTimeOut = normalizeOvernightOut(params.timeIn, params.timeOut)
-  let cursor = new Date(params.timeIn)
-  while (cursor < effectiveTimeOut) {
-    // PHT minute-of-day, regardless of server TZ
-    const utcMin = cursor.getUTCHours() * 60 + cursor.getUTCMinutes()
-    const currentMinutes = (utcMin + 8 * 60) % (24 * 60)
-    const inWindow = crossesMidnight
-      ? currentMinutes >= params.startMinutes || currentMinutes < params.endMinutes
-      : currentMinutes >= params.startMinutes && currentMinutes < params.endMinutes
-    if (inWindow) minutes += 1
-    cursor = new Date(cursor.getTime() + 60_000)
-  }
-  // Cap at 7 paid hours per shift (see MAX_ND_MINUTES_PER_SHIFT note).
-  return Math.min(minutes, MAX_ND_MINUTES_PER_SHIFT)
-}
 
 // ── Schedule-derived ND fallback ────────────────────────────────────────────
 // When an employee has a FIXED schedule (e.g. "Nightshift 23:00–08:00") but
@@ -381,7 +347,7 @@ export async function POST(
   // schedule-derived fallback so they agree on the boundary.
   const nightDiffStartMinutes = parseClockMinutes(payrollConfig?.nightDifferentialStart ?? null) ?? 22 * 60
   const nightDiffEndMinutes = parseClockMinutes(payrollConfig?.nightDifferentialEnd ?? null) ?? 6 * 60
-  const ndIncludesBreak = payrollConfig?.nightDifferentialIncludesBreak ?? true
+  const ndIncludesBreak = payrollConfig?.nightDifferentialIncludesBreak ?? false
   let differentialRules = {
     regularOtRate: 1.25,
     restDayOtRate: 1.69,
@@ -462,7 +428,15 @@ export async function POST(
           breakMinutes: true,
         },
       },
-      loans: { where: { status: 'ACTIVE' } },
+      // A loan must not be charged to a payroll period that ended before the
+      // loan began. Without this boundary, a back-dated/recomputed run can
+      // consume a newly-created cash advance or company loan.
+      loans: {
+        where: {
+          status: 'ACTIVE',
+          startDate: { lte: run.periodEnd },
+        },
+      },
       incomeAssignments: {
         where: { isActive: true, incomeType: { isActive: true } },
         include: { incomeType: true },
@@ -582,7 +556,7 @@ export async function POST(
     // Enhance each DTR record:
     // 1. Auto-detect holiday from company calendar (overrides whatever was stored)
     // 2. Auto-compute OT/regular hours from timeIn/timeOut if missing
-    const enhancedDtr = dtrRecords.map(d => {
+    const enhancedDtr = await Promise.all(dtrRecords.map(async d => {
       const dateKey = new Date(d.date).toISOString().split('T')[0]
       const holiday = holidayMap.get(dateKey)
 
@@ -599,18 +573,36 @@ export async function POST(
           overtimeHours = Math.round((otMinutes / 60) * 100) / 100
         }
 
-        // Night-differential: always recompute from raw timestamps using
-        // the PHT-aware countNightMinutes. Stored DTR values may be stale
-        // (e.g. set before the PHT bug fix or by a manual import that
-        // skipped ND), so the payroll-time recomputation is the source of
-        // truth.
-        const nightMins = countNightMinutes({
-          timeIn: d.timeIn,
-          timeOut: d.timeOut,
-          startMinutes: nightDiffStartMinutes,
-          endMinutes: nightDiffEndMinutes,
+        // Use the exact same schedule, break and duration rules as the
+        // timesheet writer. The old payroll-only counter ignored recorded
+        // breaks and malformed multi-day spans, so payslips could disagree
+        // with the Timesheets tab even when both started from the same DTR.
+        const resolved = await resolveShiftForDtr({
+          employeeId: emp.id,
+          date: d.date,
+          actualTimeIn: d.timeIn,
+          employee: {
+            workScheduleId: emp.workScheduleId,
+            workSchedule: emp.workSchedule
+              ? {
+                  timeIn: emp.workSchedule.timeIn ?? null,
+                  timeOut: emp.workSchedule.timeOut ?? null,
+                  breakMinutes: emp.workSchedule.breakMinutes ?? null,
+                  workHoursPerDay: emp.workSchedule.workHoursPerDay ?? null,
+                }
+              : null,
+          },
+          defaultBreakMinutes: run.company.defaultBreakMinutes ?? 60,
         })
-        nightDiffHours = Math.round((nightMins / 60) * 100) / 100
+        nightDiffHours = computeHours(d.timeIn, d.timeOut, d.breakIn, d.breakOut, {
+          plannedRegularMinutes: resolved.plannedRegularMinutes,
+          allowedBreakMinutes: resolved.allowedBreakMinutes,
+          nightDiffStartMins: nightDiffStartMinutes,
+          nightDiffEndMins: nightDiffEndMinutes,
+          nightDiffIncludesBreak: ndIncludesBreak,
+          scheduledTimeIn: resolved.scheduleTimeIn,
+          scheduledTimeOut: resolved.scheduleTimeOut,
+        }).nightDiffHours
       }
 
       return {
@@ -624,7 +616,7 @@ export async function POST(
         overtimeHours: approvedOtMap.get(buildOtMapKey(emp.id, d.date)) ?? 0,
         nightDiffHours,
       }
-    })
+    }))
 
     const hasDtr = enhancedDtr.length > 0
     // Half-day leave counts as 0.5 worked day (if paid) or 0.5 absent day (if unpaid).
@@ -710,19 +702,11 @@ export async function POST(
       scheduledHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
     }
 
-    // Overtime requires DTR-based pay — NOT `trackTime || hasDtr` like the
-    // other DTR-derived figures below.
-    //
-    // Overtime is entirely a product of clock data. An employee with
-    // trackTime=false is paid on a fixed basis, so their basic pay already
-    // covers the period regardless of hours; paying overtime on top of that
-    // from stray DTR rows pays twice for the same time. Night differential
-    // and late/undertime deliberately keep the looser `|| hasDtr` condition:
-    // those are premiums and deductions that still apply to a fixed-pay
-    // employee when clock data happens to exist.
-    const regularOtHoursRaw = emp.trackTime
-      ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
-      : 0
+    // `enhancedDtr.overtimeHours` contains APPROVED OT-request hours only.
+    // Approval is the payroll eligibility gate; `trackTime` only controls how
+    // basic pay is prorated. Employees whose basic pay is fixed can still have
+    // explicitly approved OT, so do not discard it when trackTime=false.
+    const regularOtHoursRaw = enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
     let nightDiffHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.nightDiffHours, 0)
       : 0

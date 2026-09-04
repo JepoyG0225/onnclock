@@ -8,6 +8,7 @@ import {
   computeHours,
   computeLateAndUndertime,
   getCompanyNightDiffWindow,
+  normalizeSingleShiftTimeOut,
   plannedShiftMinutes,
   resolveShiftForDtr,
 } from '@/lib/timesheet/compute'
@@ -165,13 +166,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No active clock-in record found' }, { status: 409 })
   }
 
+  // A DTR is one shift. If a desktop session remains open for multiple days,
+  // preserve the user's clock-out time-of-day but collapse extra whole days
+  // instead of persisting a multi-day attendance span into payroll.
+  const effectiveClockOut = normalizeSingleShiftTimeOut(existing.timeIn, now)
+  const normalizedStaleShift = effectiveClockOut.getTime() !== now.getTime()
+
   let breakOutTime: Date | null = null
   let effectiveBreakIn: Date | null = null
   let effectiveBreakOut: Date | null = null
-  if (existing.breakIn) {
+  if (existing.breakIn && existing.breakIn >= existing.timeIn && existing.breakIn <= effectiveClockOut) {
     effectiveBreakIn = existing.breakIn
-    effectiveBreakOut = existing.breakOut ?? now
-    breakOutTime = existing.breakOut ?? now
+    const candidateBreakOut = existing.breakOut ?? effectiveClockOut
+    effectiveBreakOut = candidateBreakOut <= effectiveClockOut ? candidateBreakOut : effectiveClockOut
+    breakOutTime = effectiveBreakOut
   }
   // Resolve the employee's scheduled start/end + allowed break BEFORE computing
   // hours so the planned shift duration can be used as the regular-hours cap.
@@ -198,7 +206,7 @@ export async function POST(req: NextRequest) {
 
   const computed = computeHours(
     existing.timeIn,
-    now,
+    effectiveClockOut,
     effectiveBreakIn,
     effectiveBreakOut,
     {
@@ -219,7 +227,7 @@ export async function POST(req: NextRequest) {
 
   const { lateMinutes: baseLateMinutes, undertimeMinutes } = computeLateAndUndertime(
     existing.timeIn,
-    now,
+    effectiveClockOut,
     resolved.scheduleTimeIn,
     resolved.scheduleTimeOut,
   )
@@ -235,7 +243,7 @@ export async function POST(req: NextRequest) {
     const updatedPrimary = await tx.dTRRecord.update({
       where: { id: existing.id },
       data: {
-        timeOut: now,
+        timeOut: effectiveClockOut,
         clockOutLat: lat ?? null,
         clockOutLng: lng ?? null,
         clockOutAccuracy: accuracy ?? null,
@@ -246,6 +254,11 @@ export async function POST(req: NextRequest) {
         nightDiffHours,
         lateMinutes,
         undertimeMinutes,
+        ...(normalizedStaleShift ? {
+          remarks: existing.remarks
+            ? `${existing.remarks}\n[System] Multi-day open shift normalized on clock-out (${now.toISOString()}).`
+            : `[System] Multi-day open shift normalized on clock-out (${now.toISOString()}).`,
+        } : {}),
       },
     })
 

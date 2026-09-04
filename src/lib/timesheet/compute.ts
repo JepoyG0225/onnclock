@@ -22,6 +22,30 @@ import { prisma } from '@/lib/prisma'
 const MAX_SHIFT_MINUTES = 24 * 60
 const DEFAULT_REGULAR_CAP_MINUTES = 8 * 60
 
+/**
+ * Return the first plausible occurrence of a clock-out after clock-in.
+ *
+ * Overnight manual entries commonly store both clock values on the same
+ * calendar date, so an earlier clock-out is advanced one day. Conversely,
+ * stale desktop sessions have occasionally saved a clock-out two or three
+ * days later. A DTR row represents one shift, so collapse those extra whole
+ * days while preserving the entered local clock time.
+ */
+export function normalizeSingleShiftTimeOut(timeIn: Date, timeOut: Date): Date {
+  const dayMs = 24 * 60 * 60 * 1000
+  let normalized = timeOut.getTime() > timeIn.getTime()
+    ? new Date(timeOut)
+    : new Date(timeOut.getTime() + dayMs)
+
+  while (normalized.getTime() - timeIn.getTime() > dayMs) {
+    normalized = new Date(normalized.getTime() - dayMs)
+  }
+  if (normalized.getTime() <= timeIn.getTime()) {
+    normalized = new Date(normalized.getTime() + dayMs)
+  }
+  return normalized
+}
+
 // ─── Time parsing helpers ───────────────────────────────────────────────────
 
 export function parseTimeToMinutes(value: string | null | undefined): number | null {
@@ -171,9 +195,7 @@ export function computeHours(
   // as timeIn (UI date-defaulting / manual edits). Roll timeOut +24h so
   // the duration is positive — otherwise rawTotalMinutes goes negative,
   // gets clamped to 0, and silently zeros out reg/OT/ND for the row.
-  const effectiveTimeOutRaw = timeOut.getTime() > timeIn.getTime()
-    ? timeOut
-    : new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
+  const effectiveTimeOutRaw = normalizeSingleShiftTimeOut(timeIn, timeOut)
   const rawTotalMinutes = differenceInMinutes(effectiveTimeOutRaw, timeIn)
   const totalMinutes = Math.min(Math.max(0, rawTotalMinutes), MAX_SHIFT_MINUTES)
   const effectiveTimeOut = new Date(timeIn.getTime() + totalMinutes * 60_000)
@@ -273,6 +295,13 @@ export function computeHours(
     }
     if (isInNightDiffWindow(cursor, ndStart, ndEnd)) nightDiffMinutes++
     cursor = new Date(cursor.getTime() + 60_000)
+  }
+  // When no usable break punches exist, computeHours already assumes the
+  // configured meal break for regular hours. Apply that same assumption to
+  // ND as well; otherwise a no-break-punch night shift receives a full-window
+  // ND premium even when company policy says meal breaks are excluded.
+  if (!ndIncludesBreak && !(breakIn && breakOut)) {
+    nightDiffMinutes = Math.max(0, nightDiffMinutes - effectiveBreak)
   }
   // Defensive cap — ND should never exceed the total stretch the employee
   // was on premises within the ND window. When break is included, that's
