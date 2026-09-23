@@ -26,6 +26,8 @@ type PayrollSettings = {
   defaultPayDelayDays: number;
   enableOvertime: boolean;
   disableLateDeductions: boolean;
+  disableUndertimeDeductions: boolean;
+  workingDaysPerMonth: number;
   enableNightDifferential: boolean;
   nightDifferentialStart: string; // "HH:MM" 24-hour, default 22:00
   nightDifferentialEnd: string; // "HH:MM" 24-hour, default 06:00
@@ -44,6 +46,8 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   defaultPayDelayDays: 5,
   enableOvertime: true,
   disableLateDeductions: false,
+  disableUndertimeDeductions: false,
+  workingDaysPerMonth: 22,
   enableNightDifferential: true,
   nightDifferentialStart: "22:00",
   nightDifferentialEnd: "06:00",
@@ -337,6 +341,40 @@ export default function PayrollCycleSettingsCard({
                         setSettings((prev) => ({
                           ...prev,
                           disableLateDeductions: v,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+                    <div>
+                      <p className="text-sm font-medium">Disable Undertime Deductions</p>
+                      <p className="text-xs text-gray-500">
+                        When ON, undertime remains visible in attendance but is not docked from pay.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.disableUndertimeDeductions}
+                      onCheckedChange={(v) =>
+                        setSettings((prev) => ({ ...prev, disableUndertimeDeductions: v }))
+                      }
+                    />
+                  </div>
+                  <div className="mt-3 border-t border-gray-100 pt-3">
+                    <Label>Work Days per Month</Label>
+                    <p className="mb-2 text-xs text-gray-500">
+                      Divisor used to convert monthly salary into daily, hourly, and per-minute rates.
+                    </p>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      step="0.01"
+                      className="w-32"
+                      value={settings.workingDaysPerMonth}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          workingDaysPerMonth: Number(e.target.value || 22),
                         }))
                       }
                     />

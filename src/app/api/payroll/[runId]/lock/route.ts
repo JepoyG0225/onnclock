@@ -24,26 +24,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     return NextResponse.json({ error: 'Payroll must be APPROVED before locking' }, { status: 400 })
   }
 
-  // Locking is a STATUS CHANGE ONLY.
-  //
-  // It used to also walk the payslips and draw down loan balances, writing a
-  // PayslipLoanDeduction row per loan. But the compute route already does
-  // exactly that (its Step 3), and it does it recompute-safely — crediting
-  // prior debits back before re-applying. Lock knew nothing about that, so
-  // every locked run debited each loan a SECOND time and left a duplicate
-  // ledger row, while the employee was only ever withheld once (the payslip's
-  // own sssLoanDeduction / pagibigLoan / companyLoan figures).
-  //
-  // That silently under-collected: balances fell by twice what was withheld
-  // and loans flipped to FULLY_PAID early. Compute is now the single owner of
-  // the loan ledger and of loan balances; nothing here touches them.
+  // Payroll compute already creates the per-loan ledger entries and applies
+  // their exact amounts to loan balances. Locking is therefore only a state
+  // transition. Re-applying the aggregate payslip columns here used to debit
+  // loans twice and could even allocate the second debit to a different loan.
   await prisma.payrollRun.update({
     where: { id: runId },
     data: { status: 'LOCKED' },
   })
 
   logAudit(ctx, 'LOCK', 'PayrollRun', runId, {
-    description: 'Locked payroll run',
+    description: `Locked payroll run — computed loan deductions retained`,
   }).catch(() => {})
   return NextResponse.json({ ok: true, status: 'LOCKED' })
 }

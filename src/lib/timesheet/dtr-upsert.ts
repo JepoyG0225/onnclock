@@ -9,6 +9,7 @@ import {
   computeHours,
   computeLateAndUndertime,
   getCompanyNightDiffWindow,
+  normalizeSingleShiftTimeOut,
   resolveShiftForDtr,
 } from '@/lib/timesheet/compute'
 import { HolidayType } from '@prisma/client'
@@ -59,7 +60,10 @@ export async function upsertDtrRecord(companyId: string, data: DtrInput) {
   // Combine date + HH:mm into a +08:00 (PH) DateTime so UTC servers store the
   // correct instant.
   const timeIn  = data.timeIn  ? new Date(`${data.date}T${data.timeIn}:00+08:00`)  : null
-  const timeOut = data.timeOut ? new Date(`${data.date}T${data.timeOut}:00+08:00`) : null
+  const requestedTimeOut = data.timeOut ? new Date(`${data.date}T${data.timeOut}:00+08:00`) : null
+  const timeOut = timeIn && requestedTimeOut
+    ? normalizeSingleShiftTimeOut(timeIn, requestedTimeOut)
+    : requestedTimeOut
   const recordDate = new Date(data.date)
 
   // When both times are present, recompute hours from the planned shift rather

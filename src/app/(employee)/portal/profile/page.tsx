@@ -215,6 +215,8 @@ export default function ProfilePage() {
 
   async function handleBiometricEnroll() {
     setBiometricEnrolling(true)
+    // Set just before the WebAuthn call so the options fetch can't inflate it.
+    let promptShownAt = Date.now()
     try {
       const optRes = await fetch('/api/biometric/register/options', { method: 'POST' })
       if (!optRes.ok) {
@@ -222,6 +224,7 @@ export default function ProfilePage() {
         throw new Error(d.error ?? 'Failed to start fingerprint enrollment')
       }
       const options = await optRes.json()
+      promptShownAt = Date.now()
       const attResp = await startRegistration({ optionsJSON: options })
 
       const verRes = await fetch('/api/biometric/register/verify', {
@@ -235,8 +238,23 @@ export default function ProfilePage() {
       setBiometricEnrolled(true)
       toast.success('Fingerprint enrolled successfully')
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === 'NotAllowedError') {
-        toast.error('Fingerprint authentication was cancelled.')
+      const name = e instanceof Error ? e.name : ''
+      // WebKit uses NotAllowedError both for "the user dismissed the sheet" and
+      // for "this web view isn't allowed to ask at all". Calling every one a
+      // cancellation made a blocked enrolment look like the employee's doing.
+      if (name === 'NotAllowedError') {
+        const elapsed = Date.now() - promptShownAt
+        if (elapsed < 350) {
+          toast.error('This device blocked the fingerprint prompt. Please update the app, or enroll from a browser.')
+        } else {
+          toast.error('Fingerprint enrollment was cancelled.')
+        }
+      } else if (name === 'SecurityError') {
+        toast.error('Fingerprint enrollment is not allowed on this address. Please open the app from onclockph.com.')
+      } else if (name === 'NotSupportedError') {
+        toast.error('This device does not support fingerprint sign-in.')
+      } else if (name === 'InvalidStateError') {
+        toast.error('This device is already enrolled for your account.')
       } else {
         toast.error(e instanceof Error ? e.message : 'Failed to enroll fingerprint')
       }

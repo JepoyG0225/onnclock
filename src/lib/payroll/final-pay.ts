@@ -38,6 +38,12 @@ export type SeparationReason =
 
 export interface FinalPayInput {
   employeeId: string
+  /**
+   * MONTHLY EQUIVALENT salary (₱). For DAILY / HOURLY employees this is NOT
+   * `Employee.basicSalary` — that column holds their day/hour rate. Callers
+   * must normalize with `deriveMonthlyEquivalent()` using
+   * `FINAL_PAY_DAYS_PER_MONTH` as the divisor before passing it here.
+   */
   monthlySalary: number
   hireDate: Date
   lastWorkingDay: Date
@@ -108,7 +114,15 @@ export interface FinalPayResult {
   netFinalPay: number
 }
 
-const DAYS_PER_MONTH = 26   // SC / DOLE convention for daily-rate divisor on monthly employees
+/**
+ * SC / DOLE convention for the monthly ⇄ daily divisor in final pay.
+ *
+ * Exported so callers that must first build a MONTHLY EQUIVALENT for a
+ * DAILY / HOURLY employee use this same figure — otherwise the conversion
+ * up and the conversion back down here disagree and the daily rate drifts.
+ */
+export const FINAL_PAY_DAYS_PER_MONTH = 26
+const DAYS_PER_MONTH = FINAL_PAY_DAYS_PER_MONTH
 
 function asDate(d: Date | string): Date {
   return d instanceof Date ? d : new Date(d)
@@ -264,9 +278,10 @@ export function computeFinalPay(input: FinalPayInput): FinalPayResult {
   const grossPay         = parseFloat(components.reduce((s, c) => s + c.amount, 0).toFixed(2))
   const taxableEarnings  = parseFloat(components.filter(c => c.taxable).reduce((s, c) => s + c.amount, 0).toFixed(2))
 
-  // 13th-month: first ₱90k tax-exempt; excess taxable
+  // 13th-month: first ₱90k tax-exempt; only the excess is taxable. The exempt
+  // remainder needs no variable of its own — it is simply the part of
+  // grossPay that never enters periodTaxable below.
   const thirteenthTaxable = Math.max(0, proratedThirteenth - 90_000)
-  const thirteenthExempt  = thirteenthRemaining - thirteenthTaxable
 
   // Final taxable for the period = taxable earnings + 13th-month excess
   // We then add YTD taxable to look up the annual tax owed, then subtract YTD withholding.
@@ -286,12 +301,11 @@ export function computeFinalPay(input: FinalPayInput): FinalPayResult {
   if ((input.unreturnedAssetsCost ?? 0) > 0) deductionLines.push(input.unreturnedAssetsCost ?? 0)
   const totalDeductions = parseFloat(deductionLines.reduce((s, n) => s + n, 0).toFixed(2))
 
-  const netFinalPay = parseFloat((grossPay - taxStillDue - totalDeductions + thirteenthExempt - thirteenthRemaining).toFixed(2))
-  //
-  // ↑ The exempt 13th portion was included in grossPay (correctly) but should
-  // not contribute to taxableEarnings; the `thirteenthExempt - thirteenthRemaining`
-  // cancels itself out and only the taxable excess gets taxed. We keep gross =
-  // sum of components for clarity in the breakdown UI.
+  // Net is simply gross less tax and deductions. The tax-exempt 13th-month
+  // portion is deliberately left inside grossPay: it IS money the employee
+  // receives, it just never entered `periodTaxable`, so it is already
+  // untaxed by construction. (An earlier version subtracted it here as well,
+  // which would have docked the exempt portion from the payout twice.)
 
   return {
     reason: input.reason,

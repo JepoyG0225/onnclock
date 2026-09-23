@@ -99,6 +99,7 @@ interface Employee {
   department?: { name: string } | null
   position?: { title: string } | null
   basicSalary: number
+  rateType?: 'MONTHLY' | 'DAILY' | 'HOURLY'
   hireDate: string
 }
 
@@ -108,7 +109,7 @@ interface FinalPayResponse {
   employee: {
     id: string; employeeNo: string; name: string
     department: string | null; position: string | null
-    hireDate: string; monthlySalary: number
+    hireDate: string; rateType?: 'MONTHLY' | 'DAILY' | 'HOURLY'; baseRate?: number; monthlySalary: number
   }
   snapshot: {
     lastWorkingDay: string; reason: Reason
@@ -363,15 +364,23 @@ export default function FinalPayPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-400">Monthly</p>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                        {selected.rateType === 'DAILY' ? 'Daily rate' : selected.rateType === 'HOURLY' ? 'Hourly rate' : 'Monthly'}
+                      </p>
                       <p className="text-xs font-semibold tabular-nums text-[var(--brand-ink)]">
                         {peso(Number(selected.basicSalary))}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-400">Daily ÷26</p>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">Monthly equivalent</p>
                       <p className="text-xs font-semibold tabular-nums text-[var(--brand-ink)]">
-                        {peso(Number(selected.basicSalary) / 26)}
+                        {peso(
+                          selected.rateType === 'DAILY'
+                            ? Number(selected.basicSalary) * 22
+                            : selected.rateType === 'HOURLY'
+                              ? Number(selected.basicSalary) * 8 * 22
+                              : Number(selected.basicSalary),
+                        )}
                       </p>
                     </div>
                   </div>

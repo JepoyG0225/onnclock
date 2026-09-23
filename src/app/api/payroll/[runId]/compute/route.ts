@@ -317,6 +317,8 @@ export async function POST(
     nightDifferentialEnd?: string | null
     nightDifferentialIncludesBreak?: boolean | null
     disableLateDeductions?: boolean
+    disableUndertimeDeductions?: boolean
+    workingDaysPerMonth?: { toNumber(): number } | number
     mandatoryDeductionFrequency?: 'SEMI_MONTHLY' | 'MONTHLY'
   } | null = null
   try {
@@ -330,6 +332,8 @@ export async function POST(
         nightDifferentialEnd: true,
         nightDifferentialIncludesBreak: true,
         disableLateDeductions: true,
+        disableUndertimeDeductions: true,
+        workingDaysPerMonth: true,
         mandatoryDeductionFrequency: true,
       },
     })
@@ -338,6 +342,8 @@ export async function POST(
   }
   const overtimeEnabled = payrollConfig?.enableOvertime ?? true
   const disableLateDeductions = payrollConfig?.disableLateDeductions ?? false
+  const disableUndertimeDeductions = payrollConfig?.disableUndertimeDeductions ?? false
+  const workingDaysPerMonth = Number(payrollConfig?.workingDaysPerMonth ?? 22)
   const mandatoryDeductionFrequency = payrollConfig?.mandatoryDeductionFrequency ?? 'SEMI_MONTHLY'
   const nightDifferentialEnabled = payrollConfig?.enableNightDifferential ?? true
   const nightDiffRate = nightDifferentialEnabled
@@ -905,6 +911,9 @@ export async function POST(
         regularHolidayOtRate: differentialRules.regularHolidayOtRate,
         specialHolidayOtRate: differentialRules.specialHolidayOtRate,
         disableLateDeductions,
+        disableUndertimeDeductions,
+        workHoursPerDay: effectiveWorkHoursPerDay,
+        workingDaysPerMonth,
       },
       attendance: {
         daysWorked,

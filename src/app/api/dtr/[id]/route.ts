@@ -6,6 +6,7 @@ import {
   computeHours,
   computeLateAndUndertime,
   getCompanyNightDiffWindow,
+  normalizeSingleShiftTimeOut,
   plannedShiftMinutes,
   resolveShiftForDtr,
 } from '@/lib/timesheet/compute'
@@ -78,7 +79,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Apply patch on top of existing values so a single-field PATCH still
   // recomputes against the correct full picture.
   const newTimeIn = timeIn ? new Date(timeIn) : record.timeIn
-  const newTimeOut = timeOut !== undefined ? (timeOut ? new Date(timeOut) : null) : record.timeOut
+  const requestedTimeOut = timeOut !== undefined ? (timeOut ? new Date(timeOut) : null) : record.timeOut
+  const newTimeOut = newTimeIn && requestedTimeOut
+    ? normalizeSingleShiftTimeOut(newTimeIn, requestedTimeOut)
+    : requestedTimeOut
   const newBreakIn = breakIn !== undefined ? (breakIn ? new Date(breakIn) : null) : record.breakIn
   const newBreakOut = breakOut !== undefined ? (breakOut ? new Date(breakOut) : null) : record.breakOut
 

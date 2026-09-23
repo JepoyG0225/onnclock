@@ -54,13 +54,13 @@ export async function GET(req: NextRequest) {
   for (const ps of payslips) {
     const existing = map.get(ps.employeeId)
     if (existing) {
-      existing.employeeShare += Number(ps.sssEc)          // employee share stored in sssEc field
+      existing.employeeShare += Number(ps.sssEmployee)
       existing.employerShare += Number(ps.sssEmployer)
       existing.ec            += Number(ps.sssEc)
     } else {
       map.set(ps.employeeId, {
         ps,
-        employeeShare: Number(ps.sssEc),
+        employeeShare: Number(ps.sssEmployee),
         employerShare: Number(ps.sssEmployer),
         ec:            Number(ps.sssEc),
       })

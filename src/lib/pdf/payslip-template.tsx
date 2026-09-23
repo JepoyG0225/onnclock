@@ -355,7 +355,7 @@ export function PayslipDocument({ data }: { data: PayslipData }) {
     ['PhilHealth (Employee)', d.philhealthEmployee],
     ['Pag-IBIG (Employee)', d.pagibigEmployee],
     ...(d.withholdingTax  > 0 ? [['Withholding Tax (BIR)', d.withholdingTax]]          : []),
-    ...(d.lateDeduction   > 0 ? [['Late / Undertime', d.lateDeduction + d.undertimeDeduction]] : []),
+    ...(d.lateDeduction + d.undertimeDeduction > 0 ? [['Late / Undertime', d.lateDeduction + d.undertimeDeduction]] : []),
     ...(d.absenceDeduction > 0 ? [['Absences', d.absenceDeduction]]                    : []),
     ...(d.loanDeductions  > 0 ? [['Loan Amortizations', d.loanDeductions]]             : []),
     ...(d.otherDeductions > 0 ? [['Other Deductions', d.otherDeductions]]              : []),
