@@ -9,6 +9,7 @@ import {
   X, Mail, Home, DollarSign, CheckCircle2, UserPlus, ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { absoluteAppUrl, copyTextToClipboard } from '@/lib/clipboard'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -911,10 +912,16 @@ export default function RecruitmentJobDetailPage() {
     setAutoOpenHire(false)
   }
 
-  const shareUrl = useMemo(() => {
-    if (!job?.publicApplyToken || typeof window === 'undefined') return ''
-    return `${window.location.origin}/apply/${job.publicApplyToken}`
-  }, [job?.publicApplyToken])
+  async function copyApplyLink() {
+    try {
+      if (!job?.publicApplyToken) throw new Error('This job post has no public application token.')
+      const url = absoluteAppUrl(`/apply/${job.publicApplyToken}`)
+      await copyTextToClipboard(url)
+      toast.success('Apply link copied')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to copy apply link')
+    }
+  }
 
   useEffect(() => {
     if (!jobId) return
@@ -1044,7 +1051,7 @@ export default function RecruitmentJobDetailPage() {
           )}
         </div>
         <button
-          onClick={() => { navigator.clipboard.writeText(shareUrl); toast.success('Apply link copied') }}
+          onClick={() => void copyApplyLink()}
           className="shrink-0 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5 whitespace-nowrap"
         >
           <Link2 className="w-3.5 h-3.5" /> Copy Apply Link

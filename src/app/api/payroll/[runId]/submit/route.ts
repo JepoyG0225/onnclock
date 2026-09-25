@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/audit'
+import { auditPayrollRun } from '@/lib/payroll/anomalies'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params
@@ -13,6 +14,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
   if (run.status !== 'COMPUTED') {
     return NextResponse.json({ error: 'Payroll must be COMPUTED to submit for approval' }, { status: 400 })
   }
+  const critical = (await auditPayrollRun(runId, ctx.companyId)).filter(item => item.severity === 'critical')
+  if (critical.length) return NextResponse.json({ error: `Resolve ${critical.length} critical payroll check${critical.length === 1 ? '' : 's'} before submission.`, code: 'PAYROLL_ANOMALIES', anomalies: critical }, { status: 422 })
 
   const updated = await prisma.payrollRun.update({
     where: { id: runId },

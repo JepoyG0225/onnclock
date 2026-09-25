@@ -253,6 +253,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
               <th className="text-right px-3 py-2.5 font-semibold">PhilHealth</th>
               <th className="text-right px-3 py-2.5 font-semibold">Pag-IBIG</th>
               <th className="text-right px-3 py-2.5 font-semibold">Tax</th>
+              <th className="text-right px-3 py-2.5 font-semibold text-rose-600">Late/UT</th>
               <th className="text-right px-3 py-2.5 font-semibold">Loans</th>
               <th className="text-right px-3 py-2.5 font-semibold">Net Pay</th>
               <th className="px-3 py-2.5 text-center font-semibold min-w-[80px]">Actions</th>
@@ -265,6 +266,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
               // line above. Picking otherEarnings as the canonical value.
               const otherIncomeTotal = ps.otherEarnings
               const loanTotal        = ps.sssLoanDeduction + ps.pagibigLoan + ps.companyLoan
+              const lateUtTotal      = ps.lateDeduction + ps.undertimeDeduction
               const isOpen           = expanded.has(ps.id)
               return (
                 <Fragment key={ps.id}>
@@ -302,6 +304,9 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
                     <td className="px-3 py-2.5 text-right text-red-500">{peso(ps.philhealthEmployee)}</td>
                     <td className="px-3 py-2.5 text-right text-red-500">{peso(ps.pagibigEmployee)}</td>
                     <td className="px-3 py-2.5 text-right text-red-500">{peso(ps.withholdingTax)}</td>
+                    <td className="px-3 py-2.5 text-right text-rose-600">
+                      {lateUtTotal === 0 ? <span className="text-gray-300">-</span> : peso(lateUtTotal)}
+                    </td>
                     <td className="px-3 py-2.5 text-right text-red-500">
                       {loanTotal === 0 ? <span className="text-gray-300">-</span> : peso(loanTotal)}
                     </td>
@@ -345,7 +350,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
                   </tr>
                   {isOpen && (
                     <tr className="border-b bg-slate-50">
-                      <td colSpan={14} className="px-6 py-4">
+                      <td colSpan={15} className="px-6 py-4">
                         <GrossPayBreakdown
                           ps={ps}
                           peso={peso}
@@ -555,12 +560,6 @@ function PerDayBreakdown({
   // to what the engine actually paid.
   const totalOtHoursDtr = dtrs.reduce((s, d) => s + d.overtimeHours, 0)
   const totalNdHoursDtr = dtrs.reduce((s, d) => s + d.nightDiffHours, 0)
-  // Late / undertime: the engine stores period-level peso deductions
-  // (ps.lateDeduction / ps.undertimeDeduction). Distribute each proportional
-  // to its own per-day minutes so the daily lines sum back to the stored
-  // deduction exactly. These are deductions from NET — not part of gross.
-  const totalLateMinDtr = dtrs.reduce((s, d) => s + (d.lateMinutes || 0), 0)
-  const totalUtMinDtr = dtrs.reduce((s, d) => s + (d.undertimeMinutes || 0), 0)
 
   // Worked-holiday day classification (for premium distribution)
   const workedRegularHolidayDates: string[] = []
@@ -598,9 +597,6 @@ function PerDayBreakdown({
     hours: number
     overtimeHours: number
     nightDiffHours: number
-    lateMinutes: number
-    undertimeMinutes: number
-    lateUtDeduction: number
     workedAmount: number
     overtimeAmount: number
     nightDiffAmount: number
@@ -622,11 +618,6 @@ function PerDayBreakdown({
     const reg = d ? d.regularHours : 0
     const ot = d ? d.overtimeHours : 0
     const nd = d ? d.nightDiffHours : 0
-    const lateMin = d ? (d.lateMinutes || 0) : 0
-    const utMin = d ? (d.undertimeMinutes || 0) : 0
-    const lateDed = totalLateMinDtr > 0 ? round2((lateMin / totalLateMinDtr) * ps.lateDeduction) : 0
-    const utDed = totalUtMinDtr > 0 ? round2((utMin / totalUtMinDtr) * ps.undertimeDeduction) : 0
-    const lateUtDeduction = round2(lateDed + utDed)
     const isAbsent = d?.isAbsent ?? false
     const isLeave = d?.isLeave ?? false
     const isLeavePaid = d?.isLeavePaid ?? false
@@ -694,9 +685,6 @@ function PerDayBreakdown({
       hours: reg,
       overtimeHours: ot,
       nightDiffHours: nd,
-      lateMinutes: lateMin,
-      undertimeMinutes: utMin,
-      lateUtDeduction,
       workedAmount,
       overtimeAmount,
       nightDiffAmount,
@@ -732,9 +720,6 @@ function PerDayBreakdown({
   const grandPremium = round2(rows.reduce((s, r) => s + r.holidayPremium + r.art94Credit, 0))
   const grandOt = round2(rows.reduce((s, r) => s + r.overtimeAmount, 0))
   const grandNd = round2(rows.reduce((s, r) => s + r.nightDiffAmount, 0))
-  const grandLateMin = rows.reduce((s, r) => s + r.lateMinutes, 0)
-  const grandUtMin = rows.reduce((s, r) => s + r.undertimeMinutes, 0)
-  const grandLateUtDed = round2(ps.lateDeduction + ps.undertimeDeduction)
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -754,7 +739,6 @@ function PerDayBreakdown({
             <th className="text-right px-3 py-1.5 font-semibold">Reg hrs</th>
             <th className="text-right px-3 py-1.5 font-semibold">OT</th>
             <th className="text-right px-3 py-1.5 font-semibold">ND</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-rose-500">Late / UT</th>
             <th className="text-right px-3 py-1.5 font-semibold">Amount</th>
           </tr>
         </thead>
@@ -795,18 +779,6 @@ function PerDayBreakdown({
                 <td className="px-3 py-1.5 text-right align-top text-cyan-700">
                   {r.nightDiffHours > 0 ? `${r.nightDiffHours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
                 </td>
-                <td className="px-3 py-1.5 text-right align-top whitespace-nowrap">
-                  {(r.lateMinutes > 0 || r.undertimeMinutes > 0) ? (
-                    <div className="leading-tight">
-                      <p className="font-bold text-rose-600">-{peso(r.lateUtDeduction)}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {r.lateMinutes > 0 ? `${r.lateMinutes}m late` : ''}
-                        {r.lateMinutes > 0 && r.undertimeMinutes > 0 ? ' · ' : ''}
-                        {r.undertimeMinutes > 0 ? `${r.undertimeMinutes}m UT` : ''}
-                      </p>
-                    </div>
-                  ) : <span className="text-slate-300">—</span>}
-                </td>
                 <td className="px-3 py-1.5 text-right align-top font-bold text-slate-800 whitespace-nowrap">
                   {totalForDay > 0 ? peso(totalForDay) : <span className="text-slate-300">—</span>}
                 </td>
@@ -825,18 +797,6 @@ function PerDayBreakdown({
             </td>
             <td className="px-3 py-1.5 text-right font-bold text-cyan-700">
               {grandNd > 0 ? peso(grandNd) : <span className="text-slate-300">—</span>}
-            </td>
-            <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
-              {grandLateUtDed > 0 ? (
-                <div className="leading-tight">
-                  <p className="text-rose-600">-{peso(grandLateUtDed)}</p>
-                  <p className="text-[10px] font-normal text-slate-400">
-                    {grandLateMin > 0 ? `${grandLateMin}m late` : ''}
-                    {grandLateMin > 0 && grandUtMin > 0 ? ' · ' : ''}
-                    {grandUtMin > 0 ? `${grandUtMin}m UT` : ''}
-                  </p>
-                </div>
-              ) : <span className="text-slate-300">—</span>}
             </td>
             <td className="px-3 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">
               {peso(round2(grandWorked + grandOt + grandNd + grandPremium))}

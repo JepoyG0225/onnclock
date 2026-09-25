@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle, ClipboardList, ClipboardEdit, Banknote, MoreHorizontal, X, type LucideProps, ListChecks, Home} from 'lucide-react'
+import { Clock, FileText, CreditCard, User, BarChart3, AlertTriangle, ClipboardList, ClipboardEdit, Banknote, MoreHorizontal, X, type LucideProps, ListChecks, Home, Receipt, HeartPulse, GraduationCap} from 'lucide-react'
 import { CalendarUserIcon } from '@/components/employee/CalendarUserIcon'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
@@ -26,6 +26,7 @@ interface MoreTab {
   icon: IconComponent
   pro?: boolean
   budgetReq?: boolean
+  comingSoon?: boolean
 }
 
 const ALL_MORE_TABS: MoreTab[] = [
@@ -34,6 +35,9 @@ const ALL_MORE_TABS: MoreTab[] = [
   { href: '/portal/time-corrections',    label: 'Time Corrections',    icon: ClipboardEdit                   },
   { href: '/portal/loans',               label: 'Loans & Advances',    icon: Banknote                        },
   { href: '/portal/budget-requisitions', label: 'Budget Requisitions', icon: ClipboardList, budgetReq: true  },
+  { href: '/portal/expenses',            label: 'Expenses',            icon: Receipt,       comingSoon: true },
+  { href: '/portal/benefits',            label: 'My Benefits',         icon: HeartPulse,    comingSoon: true },
+  { href: '/portal/learning',            label: 'My Learning',         icon: GraduationCap, comingSoon: true },
   { href: '/portal/performance',         label: 'Performance',         icon: BarChart3                       },
   { href: '/portal/profile',             label: 'Profile',             icon: User                            },
 ]
@@ -93,7 +97,19 @@ export function PortalBottomNav({
             </div>
             <div className="grid grid-cols-3 gap-3">
               {moreTabs.map(tab => {
+                const comingSoon = tab.comingSoon && process.env.NODE_ENV !== 'development'
                 const isActive = pathname.startsWith(tab.href)
+                if (comingSoon) {
+                  return (
+                    <div key={tab.href} className="relative flex cursor-not-allowed flex-col items-center gap-2 rounded-2xl bg-slate-50 px-2 py-4 opacity-60">
+                      <span className="absolute right-1 top-1 rounded-full bg-sky-100 px-1.5 py-0.5 text-[8px] font-black uppercase text-sky-600">Soon</span>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
+                        <tab.icon className="h-5 w-5 text-slate-400" strokeWidth={1.8} />
+                      </div>
+                      <span className="text-center text-[11px] font-semibold leading-tight text-slate-500">{tab.label}</span>
+                    </div>
+                  )
+                }
                 return (
                   <Link
                     key={tab.href}

@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
 import { format } from 'date-fns'
+import { absoluteAppUrl, copyTextToClipboard } from '@/lib/clipboard'
 
 type Job = {
   id: string
@@ -166,8 +167,6 @@ export function HiringTab() {
   const [tab, setTab] = useState<'ALL' | 'PUBLISHED' | 'DRAFT' | 'CLOSED'>('ALL')
   const [search, setSearch] = useState('')
 
-  const shareOrigin = useMemo(() => (typeof window !== 'undefined' ? window.location.origin : ''), [])
-
   async function loadJobs() {
     setLoading(true)
     try {
@@ -180,6 +179,17 @@ export function HiringTab() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load jobs')
     } finally { setLoading(false) }
+  }
+
+  async function copyApplyLink(publicApplyToken: string) {
+    try {
+      if (!publicApplyToken) throw new Error('This job post has no public application token.')
+      const url = absoluteAppUrl(`/apply/${publicApplyToken}`)
+      await copyTextToClipboard(url)
+      toast.success('Link copied')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to copy link')
+    }
   }
 
   async function loadDepartments() {
@@ -432,7 +442,7 @@ export function HiringTab() {
                       <ChevronRight className="w-3.5 h-3.5 opacity-40" />
                     </Link>
 
-                    <button onClick={() => { navigator.clipboard.writeText(`${shareOrigin}/apply/${job.publicApplyToken}`); toast.success('Link copied') }}
+                    <button onClick={() => void copyApplyLink(job.publicApplyToken)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
                       <Link2 className="w-3.5 h-3.5" /> Copy Link
                     </button>

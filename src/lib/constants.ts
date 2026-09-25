@@ -14,13 +14,18 @@ export interface TaxBracket {
   excessOver: number
 }
 
+// Ranges are (from, to] — "over ₱250,000 but not over ₱400,000" — except the
+// first, which is [0, ₱250,000]. `to` is the operative field: computeAnnualTax
+// takes the first bracket the income does not exceed. `from` is documentation,
+// and is the true lower bound rather than bound-plus-one-peso; writing 250_001
+// there previously implied a gap the lookup then actually fell into.
 export const BIR_ANNUAL_TAX_TABLE_2023: TaxBracket[] = [
   { from: 0,          to: 250_000,    baseTax: 0,          rate: 0,    excessOver: 0 },
-  { from: 250_001,    to: 400_000,    baseTax: 0,          rate: 0.15, excessOver: 250_000 },
-  { from: 400_001,    to: 800_000,    baseTax: 22_500,     rate: 0.20, excessOver: 400_000 },
-  { from: 800_001,    to: 2_000_000,  baseTax: 102_500,    rate: 0.25, excessOver: 800_000 },
-  { from: 2_000_001,  to: 8_000_000,  baseTax: 402_500,    rate: 0.30, excessOver: 2_000_000 },
-  { from: 8_000_001,  to: Infinity,   baseTax: 2_202_500,  rate: 0.35, excessOver: 8_000_000 },
+  { from: 250_000,    to: 400_000,    baseTax: 0,          rate: 0.15, excessOver: 250_000 },
+  { from: 400_000,    to: 800_000,    baseTax: 22_500,     rate: 0.20, excessOver: 400_000 },
+  { from: 800_000,    to: 2_000_000,  baseTax: 102_500,    rate: 0.25, excessOver: 800_000 },
+  { from: 2_000_000,  to: 8_000_000,  baseTax: 402_500,    rate: 0.30, excessOver: 2_000_000 },
+  { from: 8_000_000,  to: Infinity,   baseTax: 2_202_500,  rate: 0.35, excessOver: 8_000_000 },
 ]
 
 // ─────────────────────────────────────────────
@@ -78,6 +83,7 @@ export const PAGIBIG_2024 = {
   EMPLOYEE_HIGH_RATE: 0.02, // 2% for MC > ₱1,500
   EMPLOYER_RATE:      0.02, // 2% always (no tier on the employer side)
   THRESHOLD:          1_500, // EE rate breakpoint
+  MAX_COMPENSATION:   10_000, // Maximum Fund Salary — the ceiling the rates apply to
   MAX_EMPLOYEE:       200,
   MAX_EMPLOYER:       200,
 } as const

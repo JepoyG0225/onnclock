@@ -36,6 +36,7 @@ export interface PayrollInput {
     workingDays: number
     payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
     isFirstCutoff: boolean  // true = 1st–15th, false = 16th–end
+    mandatoryDeductionFrequency?: 'SEMI_MONTHLY' | 'MONTHLY'
     nightDifferentialRate: number
     regularOtRate?: number
     restDayOtRate?: number

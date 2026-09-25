@@ -8,6 +8,7 @@ import {
   Eye, EyeOff, MapPin, Sparkles, Users, Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { copyTextToClipboard } from '@/lib/clipboard'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -141,7 +142,7 @@ export default function JobPostViewPage() {
 
   const copyPublicLink = async () => {
     try {
-      await navigator.clipboard.writeText(publicUrl)
+      await copyTextToClipboard(publicUrl)
       setCopied(true)
       toast.success('Public apply link copied')
       setTimeout(() => setCopied(false), 2000)

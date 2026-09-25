@@ -3,7 +3,6 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { buildOtMapKey, getApprovedOtHoursMap } from '@/lib/overtime-requests'
 import { computePayroll } from '@/lib/payroll/engine'
-import { computeHours, normalizeSingleShiftTimeOut, resolveShiftForDtr } from '@/lib/timesheet/compute'
 import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
@@ -19,6 +18,16 @@ const computePayloadSchema = z.object({
 })
 
 /**
+ * Count minutes of overlap with the night-differential window (PHT).
+ *
+ * The window is configured in Manila local time (e.g. 22:00-06:00 PHT). We
+ * MUST compare cursor times in the same TZ — Vercel's Node runtime defaults
+ * to UTC, so `cursor.getHours()` returns UTC hours, which would silently
+ * mis-count ND for any overnight PHT shift. This function uses the UTC
+ * accessors and shifts by +8 hours to get the PHT minute-of-day, so the
+ * result is identical regardless of the server's TZ.
+ */
+/**
  * Roll timeOut forward by 24h when it lands at or before timeIn — covers
  * overnight shifts where the operator (or a manual DTR edit) stored
  * timeOut on the same calendar day as timeIn. Without this, an
@@ -28,7 +37,8 @@ const computePayloadSchema = z.object({
  * that computes (timeOut - timeIn).
  */
 function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
-  return normalizeSingleShiftTimeOut(timeIn, timeOut)
+  if (timeOut.getTime() > timeIn.getTime()) return timeOut
+  return new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
 }
 
 // Hard ceiling on per-shift night-differential. Matches PH practice of an
@@ -40,6 +50,30 @@ function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
 // credit more than 7 hours of ND should set this via PayrollCycleConfig
 // in a follow-up — for now we apply a flat ceiling.
 const MAX_ND_MINUTES_PER_SHIFT = 7 * 60
+
+function countNightMinutes(params: {
+  timeIn: Date
+  timeOut: Date
+  startMinutes: number
+  endMinutes: number
+}) {
+  let minutes = 0
+  const crossesMidnight = params.startMinutes > params.endMinutes
+  const effectiveTimeOut = normalizeOvernightOut(params.timeIn, params.timeOut)
+  let cursor = new Date(params.timeIn)
+  while (cursor < effectiveTimeOut) {
+    // PHT minute-of-day, regardless of server TZ
+    const utcMin = cursor.getUTCHours() * 60 + cursor.getUTCMinutes()
+    const currentMinutes = (utcMin + 8 * 60) % (24 * 60)
+    const inWindow = crossesMidnight
+      ? currentMinutes >= params.startMinutes || currentMinutes < params.endMinutes
+      : currentMinutes >= params.startMinutes && currentMinutes < params.endMinutes
+    if (inWindow) minutes += 1
+    cursor = new Date(cursor.getTime() + 60_000)
+  }
+  // Cap at 7 paid hours per shift (see MAX_ND_MINUTES_PER_SHIFT note).
+  return Math.min(minutes, MAX_ND_MINUTES_PER_SHIFT)
+}
 
 // ── Schedule-derived ND fallback ────────────────────────────────────────────
 // When an employee has a FIXED schedule (e.g. "Nightshift 23:00–08:00") but
@@ -283,6 +317,9 @@ export async function POST(
     nightDifferentialEnd?: string | null
     nightDifferentialIncludesBreak?: boolean | null
     disableLateDeductions?: boolean
+    disableUndertimeDeductions?: boolean
+    workingDaysPerMonth?: { toNumber(): number } | number
+    mandatoryDeductionFrequency?: 'SEMI_MONTHLY' | 'MONTHLY'
   } | null = null
   try {
     payrollConfig = await prisma.payrollCycleConfig.findUnique({
@@ -295,47 +332,19 @@ export async function POST(
         nightDifferentialEnd: true,
         nightDifferentialIncludesBreak: true,
         disableLateDeductions: true,
+        disableUndertimeDeductions: true,
+        workingDaysPerMonth: true,
+        mandatoryDeductionFrequency: true,
       },
     })
   } catch {
     payrollConfig = null
   }
-  // The two attendance-deduction settings live in a separate best-effort
-  // read. They're deliberately NOT added to the select above: that query's
-  // catch nulls out the ENTIRE config, so a database that hasn't run the
-  // 20260822000000_add_attendance_deduction_settings migration yet would
-  // silently lose every other payroll setting. Reading them on their own
-  // means an un-migrated DB just falls back to the defaults for these two.
-  let attendanceDeductionConfig: {
-    disableUndertimeDeductions: boolean
-    workingDaysPerMonth: number
-  } | null = null
-  try {
-    const rows = await prisma.$queryRaw<Array<{
-      disableUndertimeDeductions: boolean | null
-      workingDaysPerMonth: unknown
-    }>>`
-      SELECT "disableUndertimeDeductions", "workingDaysPerMonth"
-      FROM "payroll_cycle_configs"
-      WHERE "companyId" = ${scopedCompanyId}
-      LIMIT 1
-    `
-    const row = rows?.[0]
-    if (row) {
-      const wdpm = Number(row.workingDaysPerMonth)
-      attendanceDeductionConfig = {
-        disableUndertimeDeductions: row.disableUndertimeDeductions ?? false,
-        workingDaysPerMonth: Number.isFinite(wdpm) && wdpm > 0 ? wdpm : 22,
-      }
-    }
-  } catch {
-    attendanceDeductionConfig = null
-  }
-
   const overtimeEnabled = payrollConfig?.enableOvertime ?? true
   const disableLateDeductions = payrollConfig?.disableLateDeductions ?? false
-  const disableUndertimeDeductions = attendanceDeductionConfig?.disableUndertimeDeductions ?? false
-  const workingDaysPerMonth = attendanceDeductionConfig?.workingDaysPerMonth ?? 22
+  const disableUndertimeDeductions = payrollConfig?.disableUndertimeDeductions ?? false
+  const workingDaysPerMonth = Number(payrollConfig?.workingDaysPerMonth ?? 22)
+  const mandatoryDeductionFrequency = payrollConfig?.mandatoryDeductionFrequency ?? 'SEMI_MONTHLY'
   const nightDifferentialEnabled = payrollConfig?.enableNightDifferential ?? true
   const nightDiffRate = nightDifferentialEnabled
     ? (payrollConfig?.nightDifferentialRate && typeof payrollConfig.nightDifferentialRate === 'object'
@@ -347,7 +356,7 @@ export async function POST(
   // schedule-derived fallback so they agree on the boundary.
   const nightDiffStartMinutes = parseClockMinutes(payrollConfig?.nightDifferentialStart ?? null) ?? 22 * 60
   const nightDiffEndMinutes = parseClockMinutes(payrollConfig?.nightDifferentialEnd ?? null) ?? 6 * 60
-  const ndIncludesBreak = payrollConfig?.nightDifferentialIncludesBreak ?? false
+  const ndIncludesBreak = payrollConfig?.nightDifferentialIncludesBreak ?? true
   let differentialRules = {
     regularOtRate: 1.25,
     restDayOtRate: 1.69,
@@ -428,15 +437,7 @@ export async function POST(
           breakMinutes: true,
         },
       },
-      // A loan must not be charged to a payroll period that ended before the
-      // loan began. Without this boundary, a back-dated/recomputed run can
-      // consume a newly-created cash advance or company loan.
-      loans: {
-        where: {
-          status: 'ACTIVE',
-          startDate: { lte: run.periodEnd },
-        },
-      },
+      loans: { where: { status: 'ACTIVE' } },
       incomeAssignments: {
         where: { isActive: true, incomeType: { isActive: true } },
         include: { incomeType: true },
@@ -459,6 +460,25 @@ export async function POST(
       const list = otherDeductionMap.get(it.employeeId) ?? []
       list.push({ label: it.label, amount: Number(it.amount) })
       otherDeductionMap.set(it.employeeId, list)
+    }
+    // Active employee-paid benefit premiums are monthly amounts. Split them
+    // across the run frequency and include them in the same itemized deduction
+    // bucket used by recurring employee deductions.
+    const benefitDivisor = run.payFrequency === 'MONTHLY' ? 1 : run.payFrequency === 'SEMI_MONTHLY' ? 2 : run.payFrequency === 'WEEKLY' ? 4 : 22
+    const enrollments = await prisma.employeeBenefitEnrollment.findMany({
+      where: {
+        employeeId: { in: employees.map(e => e.id) }, status: 'ACTIVE',
+        effectiveDate: { lte: run.periodEnd }, OR: [{ endDate: null }, { endDate: { gte: run.periodStart } }],
+      },
+      include: { plan: { select: { name: true, employeeShare: true, isActive: true } } },
+    })
+    for (const enrollment of enrollments) {
+      if (!enrollment.plan.isActive) continue
+      const monthly = Number(enrollment.employeeShare ?? enrollment.plan.employeeShare)
+      if (monthly <= 0) continue
+      const list = otherDeductionMap.get(enrollment.employeeId) ?? []
+      list.push({ label: `Benefit: ${enrollment.plan.name}`, amount: Math.round(monthly / benefitDivisor * 100) / 100 })
+      otherDeductionMap.set(enrollment.employeeId, list)
     }
   } catch (err) {
     console.error('[payroll compute] other deductions unavailable (run migration)', err)
@@ -556,7 +576,7 @@ export async function POST(
     // Enhance each DTR record:
     // 1. Auto-detect holiday from company calendar (overrides whatever was stored)
     // 2. Auto-compute OT/regular hours from timeIn/timeOut if missing
-    const enhancedDtr = await Promise.all(dtrRecords.map(async d => {
+    const enhancedDtr = dtrRecords.map(d => {
       const dateKey = new Date(d.date).toISOString().split('T')[0]
       const holiday = holidayMap.get(dateKey)
 
@@ -573,36 +593,18 @@ export async function POST(
           overtimeHours = Math.round((otMinutes / 60) * 100) / 100
         }
 
-        // Use the exact same schedule, break and duration rules as the
-        // timesheet writer. The old payroll-only counter ignored recorded
-        // breaks and malformed multi-day spans, so payslips could disagree
-        // with the Timesheets tab even when both started from the same DTR.
-        const resolved = await resolveShiftForDtr({
-          employeeId: emp.id,
-          date: d.date,
-          actualTimeIn: d.timeIn,
-          employee: {
-            workScheduleId: emp.workScheduleId,
-            workSchedule: emp.workSchedule
-              ? {
-                  timeIn: emp.workSchedule.timeIn ?? null,
-                  timeOut: emp.workSchedule.timeOut ?? null,
-                  breakMinutes: emp.workSchedule.breakMinutes ?? null,
-                  workHoursPerDay: emp.workSchedule.workHoursPerDay ?? null,
-                }
-              : null,
-          },
-          defaultBreakMinutes: run.company.defaultBreakMinutes ?? 60,
+        // Night-differential: always recompute from raw timestamps using
+        // the PHT-aware countNightMinutes. Stored DTR values may be stale
+        // (e.g. set before the PHT bug fix or by a manual import that
+        // skipped ND), so the payroll-time recomputation is the source of
+        // truth.
+        const nightMins = countNightMinutes({
+          timeIn: d.timeIn,
+          timeOut: d.timeOut,
+          startMinutes: nightDiffStartMinutes,
+          endMinutes: nightDiffEndMinutes,
         })
-        nightDiffHours = computeHours(d.timeIn, d.timeOut, d.breakIn, d.breakOut, {
-          plannedRegularMinutes: resolved.plannedRegularMinutes,
-          allowedBreakMinutes: resolved.allowedBreakMinutes,
-          nightDiffStartMins: nightDiffStartMinutes,
-          nightDiffEndMins: nightDiffEndMinutes,
-          nightDiffIncludesBreak: ndIncludesBreak,
-          scheduledTimeIn: resolved.scheduleTimeIn,
-          scheduledTimeOut: resolved.scheduleTimeOut,
-        }).nightDiffHours
+        nightDiffHours = Math.round((nightMins / 60) * 100) / 100
       }
 
       return {
@@ -616,7 +618,7 @@ export async function POST(
         overtimeHours: approvedOtMap.get(buildOtMapKey(emp.id, d.date)) ?? 0,
         nightDiffHours,
       }
-    }))
+    })
 
     const hasDtr = enhancedDtr.length > 0
     // Half-day leave counts as 0.5 worked day (if paid) or 0.5 absent day (if unpaid).
@@ -679,34 +681,19 @@ export async function POST(
       regularHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
     }
 
-    // ── Scheduled regular hours (basis for BASIC PAY) ─────────────────
-    // Same day set as regularHoursTotal above, but each paid day is
-    // credited its FULL scheduled length regardless of when the employee
-    // actually clocked in or out. This keeps the payslip's Basic Pay line
-    // showing the gross entitlement; tardiness and early-outs are charged
-    // once, in the separate late / undertime deduction column.
-    let scheduledHoursTotal = 0
-    if (hasDtr) {
-      for (const d of enhancedDtr) {
-        if (d.isAbsent) continue
-        if (d.isLeave && !d.isLeavePaid) continue
-        if (d.isLeave && d.isLeavePaid) {
-          const halfDay = (d as { isHalfDay?: boolean }).isHalfDay ?? false
-          scheduledHoursTotal += halfDay ? workHoursPerDayForCap / 2 : workHoursPerDayForCap
-          continue
-        }
-        scheduledHoursTotal += workHoursPerDayForCap
-      }
-      scheduledHoursTotal = Math.round(scheduledHoursTotal * 100) / 100
-    } else {
-      scheduledHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
-    }
-
-    // `enhancedDtr.overtimeHours` contains APPROVED OT-request hours only.
-    // Approval is the payroll eligibility gate; `trackTime` only controls how
-    // basic pay is prorated. Employees whose basic pay is fixed can still have
-    // explicitly approved OT, so do not discard it when trackTime=false.
-    const regularOtHoursRaw = enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
+    // Overtime requires DTR-based pay — NOT `trackTime || hasDtr` like the
+    // other DTR-derived figures below.
+    //
+    // Overtime is entirely a product of clock data. An employee with
+    // trackTime=false is paid on a fixed basis, so their basic pay already
+    // covers the period regardless of hours; paying overtime on top of that
+    // from stray DTR rows pays twice for the same time. Night differential
+    // and late/undertime deliberately keep the looser `|| hasDtr` condition:
+    // those are premiums and deductions that still apply to a fixed-pay
+    // employee when clock data happens to exist.
+    const regularOtHoursRaw = emp.trackTime
+      ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
+      : 0
     let nightDiffHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.nightDiffHours, 0)
       : 0
@@ -917,6 +904,7 @@ export async function POST(
         workingDays,
         payFrequency: run.payFrequency,
         isFirstCutoff: firstCutoff,
+        mandatoryDeductionFrequency,
         nightDifferentialRate: nightDiffRate,
         regularOtRate: differentialRules.regularOtRate,
         restDayOtRate: differentialRules.restDayOtRate,
@@ -924,15 +912,12 @@ export async function POST(
         specialHolidayOtRate: differentialRules.specialHolidayOtRate,
         disableLateDeductions,
         disableUndertimeDeductions,
-        // Rate basis: both divisors come from company setup, so late /
-        // undertime minutes are priced the same way for every rate type.
-        workHoursPerDay: workHoursPerDayForCap,
+        workHoursPerDay: effectiveWorkHoursPerDay,
         workingDaysPerMonth,
       },
       attendance: {
         daysWorked,
         regularHours:          regularHoursTotal,
-        scheduledHours:        scheduledHoursTotal,
         regularOtHours,
         restDayOtHours:        0,
         regularHolidayOtHours: 0,
@@ -1180,9 +1165,8 @@ export async function POST(
         + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance
         + merged.otherEarnings
       ).toFixed(2))
-      // sssEc excluded: Employees' Compensation is employer-borne.
       const totalDeductionsManual = parseFloat((
-        merged.sssEmployee + merged.philhealthEmployee + merged.pagibigEmployee
+        merged.sssEmployee + merged.sssEc + merged.philhealthEmployee + merged.pagibigEmployee
         + merged.withholdingTax + merged.sssLoanDeduction + merged.pagibigLoan + merged.companyLoan
         + merged.lateDeduction + merged.undertimeDeduction + merged.absenceDeduction
         + merged.otherDeductions
