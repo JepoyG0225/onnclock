@@ -7,10 +7,12 @@
  * page is now only the record.
  */
 import { AttendanceHistory } from '@/components/employee/AttendanceHistory'
+import { ScheduleSelector } from '@/components/employee/ScheduleSelector'
 
 export default function MyAttendancePage() {
   return (
     <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-2xl mx-auto">
+      <ScheduleSelector />
       <AttendanceHistory />
     </div>
   )

@@ -379,6 +379,7 @@ model Company {
   // 0 is treated as disabled regardless of the enabled flag.
   autoClockoutEnabled           Boolean    @default(false)
   autoClockoutMinutes           Int        @default(10)
+  employeeScheduleSelectionEnabled Boolean @default(false)
   geofenceLat                   Float?
   geofenceLng                   Float?
   geofenceRadiusMeters          Int?
@@ -635,6 +636,7 @@ model Employee {
   hourlyRate     Decimal?     @db.Decimal(8, 2)
   payFrequency   PayFrequency @default(SEMI_MONTHLY)
   workScheduleId String?
+  canSelectOwnSchedule Boolean @default(false)
 
   bankName      String?
   bankAccountNo String?
