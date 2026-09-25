@@ -20,7 +20,7 @@ export default function SchedulesPage() {
       basePath="/schedules"
       tabs={[
         { id: 'shifts',   label: 'Work Schedules', icon: Calendar,     render: () => <ShiftsTab /> },
-        { id: 'self-service', label: 'Employee Access', icon: CalendarClock, render: () => <SelfSchedulingTab /> },
+        { id: 'self-service', label: 'Self-Schedule', icon: CalendarClock, render: () => <SelfSchedulingTab /> },
         { id: 'holidays', label: 'Holidays',       icon: CalendarDays, render: () => <HolidaysTab /> },
       ]}
     />

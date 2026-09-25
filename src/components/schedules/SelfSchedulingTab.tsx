@@ -107,7 +107,17 @@ export function SelfSchedulingTab() {
               <span className="block text-sm font-bold text-slate-900">Enable employee self-scheduling</span>
               <span className="mt-1 block text-xs text-slate-500">Only selected employees will see the schedule chooser in Portal → Clock.</span>
             </span>
-            <input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} className="mt-1 h-4 w-4" />
+            <span className="relative mt-0.5 inline-flex shrink-0 items-center">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={event => setEnabled(event.target.checked)}
+                className="peer sr-only"
+                aria-label="Enable employee self-scheduling"
+              />
+              <span className="h-6 w-11 rounded-full bg-slate-300 transition-colors peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2" />
+              <span className="pointer-events-none absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+            </span>
           </label>
 
           <div className={enabled ? '' : 'pointer-events-none opacity-50'}>
