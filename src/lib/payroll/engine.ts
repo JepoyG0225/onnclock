@@ -58,10 +58,9 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // `regularHours` so legacy runs keep their previous behavior.
   const basicPay = computeBasicPay(
     employee.basicSalary,
+    effectiveDailyRate,
     employee.rateType,
     attendance.daysWorked,
-    period.workingDays,
-    period.payFrequency,
     attendance.regularHours,
     attendance.scheduledHours,
     rateBasis.workHoursPerDay,
@@ -398,10 +397,9 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
 function computeBasicPay(
   basicSalary: number,
+  dailyRate: number,
   rateType: string,
   daysWorked: number,
-  workingDaysInPeriod: number,
-  payFrequency: string,
   regularHours: number,
   scheduledHours: number | undefined,
   workHoursPerDay: number,
@@ -439,18 +437,8 @@ function computeBasicPay(
     return parseFloat((basicSalary * hours).toFixed(2))
   }
 
-  // Monthly rate: pro-rate the monthly salary down to this pay period's share.
-  //   MONTHLY → full month, SEMI → half, WEEKLY → quarter, DAILY → 1/22.
-  const divisor = payFrequency === 'SEMI_MONTHLY' ? 2
-    : payFrequency === 'WEEKLY' ? 4
-    : payFrequency === 'DAILY' ? 22
-    : 1
-  const periodSalary = basicSalary / divisor
-
-  if (daysWorked >= workingDaysInPeriod) return parseFloat(periodSalary.toFixed(2))
-
-  // Pro-rate down to days actually worked — same "worked days × daily rate"
-  // basis the DAILY branch uses.
-  const dailyRate = periodSalary / workingDaysInPeriod
+  // Keep the payslip basis explicit for monthly employees too: Basic Pay is
+  // exactly worked days x the configured/derived daily rate. Attendance
+  // minute penalties remain separate deductions and never reduce this line.
   return parseFloat((dailyRate * daysWorked).toFixed(2))
 }
