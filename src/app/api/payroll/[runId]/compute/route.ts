@@ -743,6 +743,13 @@ export async function POST(
     const undertimeMinutes = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + (d.undertimeMinutes ?? 0), 0)
       : 0
+    // Credit the full scheduled value of each worked day in Basic Pay.
+    // `regularHoursTotal` is actual clocked time and may already exclude
+    // late/undertime minutes; using it here would deduct those minutes once
+    // from Basic Pay and again in the explicit deduction lines below.
+    const scheduledHoursTotal = parseFloat(
+      (daysWorked * workHoursPerDayForCap).toFixed(2),
+    )
     // Unpaid half-day leave counts as 0.5 absent day
     const dtrAbsent = enhancedDtr.reduce((sum, d) => {
       if (d.isAbsent) return sum + 1
@@ -918,6 +925,7 @@ export async function POST(
       attendance: {
         daysWorked,
         regularHours:          regularHoursTotal,
+        scheduledHours:        scheduledHoursTotal,
         regularOtHours,
         restDayOtHours:        0,
         regularHolidayOtHours: 0,
