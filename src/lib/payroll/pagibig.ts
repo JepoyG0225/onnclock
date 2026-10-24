@@ -17,7 +17,9 @@ export function computePagIBIG(monthlySalary: number): {
   employerShare: number
   total: number
 } {
-  const cappedComp = Math.min(monthlySalary, 10_000) // policy salary ceiling
+  // Ceiling lives in the constants block with the rates it belongs to — when
+  // HDMF next moves the Maximum Fund Salary, it moves in one place.
+  const cappedComp = Math.min(monthlySalary, PAGIBIG_2024.MAX_COMPENSATION)
   const eeRate = cappedComp <= PAGIBIG_2024.THRESHOLD
     ? PAGIBIG_2024.EMPLOYEE_LOW_RATE   // 1% for low-MC tier
     : PAGIBIG_2024.EMPLOYEE_HIGH_RATE  // 2% for the rest

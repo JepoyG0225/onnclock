@@ -1,8 +1,23 @@
 import { SSS_2025 } from '../constants'
 
 export interface SSSBracket {
-  minSalary: number
-  maxSalary: number
+  /** Inclusive lower bound of the compensation range. */
+  salaryFrom: number
+  /**
+   * EXCLUSIVE upper bound — `Infinity` on the top bracket.
+   *
+   * Exclusive on purpose. The previous version used an inclusive bound of
+   * `msc + 249.99`, with the next bracket starting at `msc + 250.01`, which
+   * left a one-centavo hole at every ₱500 boundary: ₱5,250.00, ₱5,750.00,
+   * ₱6,250.00 and so on — 60 such values between ₱0 and ₱40,000. A salary
+   * landing exactly on one matched no bracket, and the `?? last` fallback
+   * then charged it the TOP bracket. An employee earning ₱5,250.00 was
+   * deducted ₱1,750.00 instead of ₱275.00.
+   *
+   * Half-open ranges make the table contiguous by construction and match
+   * how SSS publishes it ("₱5,250 to ₱5,749.99 → MSC ₱5,500").
+   */
+  salaryToExclusive: number
   msc: number
   employeeShare: number
   employerShare: number
@@ -12,50 +27,35 @@ export interface SSSBracket {
 
 let cachedTable: SSSBracket[] | null = null
 
+function makeBracket(msc: number, salaryFrom: number, salaryToExclusive: number): SSSBracket {
+  const ec = msc < SSS_2025.EC_THRESHOLD_MSC ? SSS_2025.EC_LOW : SSS_2025.EC_HIGH
+  return {
+    salaryFrom,
+    salaryToExclusive,
+    msc,
+    employeeShare: round2(msc * SSS_2025.EMPLOYEE_RATE),
+    employerShare: round2(msc * SSS_2025.EMPLOYER_RATE),
+    ec,
+    total: round2(msc * (SSS_2025.EMPLOYEE_RATE + SSS_2025.EMPLOYER_RATE) + ec),
+  }
+}
+
 export function buildSSSTable(): SSSBracket[] {
   if (cachedTable) return cachedTable
 
-  const table: SSSBracket[] = []
+  const { MIN_MSC, MAX_MSC, MSC_STEP } = SSS_2025
+  const half = MSC_STEP / 2
 
-  // Below ₱4,250 → MSC ₱4,000
-  const firstMsc = SSS_2025.MIN_MSC
-  table.push({
-    minSalary: 0,
-    maxSalary: firstMsc + 249.99,
-    msc: firstMsc,
-    employeeShare: parseFloat((firstMsc * SSS_2025.EMPLOYEE_RATE).toFixed(2)),
-    employerShare: parseFloat((firstMsc * SSS_2025.EMPLOYER_RATE).toFixed(2)),
-    ec: SSS_2025.EC_LOW,
-    total: parseFloat((firstMsc * (SSS_2025.EMPLOYEE_RATE + SSS_2025.EMPLOYER_RATE) + SSS_2025.EC_LOW).toFixed(2)),
-  })
+  // [0, 5,250) → MSC ₱5,000
+  const table: SSSBracket[] = [makeBracket(MIN_MSC, 0, MIN_MSC + half)]
 
-  // ₱4,250 to ₱29,749.99 → MSC steps of ₱500
-  for (let msc = firstMsc + SSS_2025.MSC_STEP; msc < SSS_2025.MAX_MSC; msc += SSS_2025.MSC_STEP) {
-    const minSalary = msc - (SSS_2025.MSC_STEP / 2 - 0.01)
-    const maxSalary = msc + (SSS_2025.MSC_STEP / 2 - 0.01)
-    const ec = msc < SSS_2025.EC_THRESHOLD_MSC ? SSS_2025.EC_LOW : SSS_2025.EC_HIGH
-    table.push({
-      minSalary,
-      maxSalary,
-      msc,
-      employeeShare: parseFloat((msc * SSS_2025.EMPLOYEE_RATE).toFixed(2)),
-      employerShare: parseFloat((msc * SSS_2025.EMPLOYER_RATE).toFixed(2)),
-      ec,
-      total: parseFloat((msc * (SSS_2025.EMPLOYEE_RATE + SSS_2025.EMPLOYER_RATE) + ec).toFixed(2)),
-    })
+  // [msc − 250, msc + 250) → that MSC, in ₱500 steps up to ₱34,500
+  for (let msc = MIN_MSC + MSC_STEP; msc < MAX_MSC; msc += MSC_STEP) {
+    table.push(makeBracket(msc, msc - half, msc + half))
   }
 
-  // ₱29,750 and above → MSC ₱30,000
-  const maxMsc = SSS_2025.MAX_MSC
-  table.push({
-    minSalary: SSS_2025.MAX_MSC - (SSS_2025.MSC_STEP / 2 - 0.01),
-    maxSalary: Infinity,
-    msc: maxMsc,
-    employeeShare: parseFloat((maxMsc * SSS_2025.EMPLOYEE_RATE).toFixed(2)),
-    employerShare: parseFloat((maxMsc * SSS_2025.EMPLOYER_RATE).toFixed(2)),
-    ec: SSS_2025.EC_HIGH,
-    total: parseFloat((maxMsc * (SSS_2025.EMPLOYEE_RATE + SSS_2025.EMPLOYER_RATE) + SSS_2025.EC_HIGH).toFixed(2)),
-  })
+  // [34,750, ∞) → MSC ₱35,000
+  table.push(makeBracket(MAX_MSC, MAX_MSC - half, Infinity))
 
   cachedTable = table
   return table
@@ -69,8 +69,12 @@ export function computeSSS(monthlySalary: number): {
   total: number
 } {
   const table = buildSSSTable()
-  const bracket = table.find(b => monthlySalary >= b.minSalary && monthlySalary <= b.maxSalary)
-    ?? table[table.length - 1]
+  // Ranges are contiguous, so the only inputs that can miss are NaN or a
+  // negative salary. Those fall to the MINIMUM bracket — the old fallback
+  // was the maximum, which turned bad input into a maximal deduction.
+  const bracket = monthlySalary > 0
+    ? table.find(b => monthlySalary >= b.salaryFrom && monthlySalary < b.salaryToExclusive) ?? table[0]
+    : table[0]
 
   return {
     msc: bracket.msc,

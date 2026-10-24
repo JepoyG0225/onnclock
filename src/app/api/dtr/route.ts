@@ -87,14 +87,28 @@ export async function GET(req: NextRequest) {
     isOvertimeEnabledForCompany(companyId),
   ])
 
-  const normalized = records.map(({ _count, ...record }) => ({
-    ...record,
-    overtimeHours: approvedOtMap.get(buildOtMapKey(record.employeeId, record.date)) ?? 0,
-    unreportedOvertimeHours: !companyOvertimeEnabled && !record.employee.overtimePayOverride
-      ? rawOvertimeHours(record)
-      : 0,
-    screenCaptureCount: _count.screenCaptures,
-  }))
+  const normalized = records.map(({ _count, ...record }) => {
+    const otEnabled = companyOvertimeEnabled || record.employee.overtimePayOverride
+    const approvedOt = approvedOtMap.get(buildOtMapKey(record.employeeId, record.date)) ?? 0
+    const rawOt = rawOvertimeHours(record)
+    return {
+      ...record,
+      // `overtimeHours` stays APPROVED-only — payroll pays approved OT, and
+      // the employee portal reads this field, so it must not promise hours
+      // nobody has signed off on.
+      overtimeHours: approvedOt,
+      // OT that's on the clock data but not yet approved. Surfaced separately
+      // so the timesheet column can show hours as they're worked instead of
+      // sitting blank until an approver acts — without inflating the paid
+      // figure above. Approved hours are subtracted so a partially-approved
+      // day doesn't double-count.
+      pendingOvertimeHours: otEnabled
+        ? Math.round(Math.max(0, rawOt - approvedOt) * 100) / 100
+        : 0,
+      unreportedOvertimeHours: !otEnabled ? rawOt : 0,
+      screenCaptureCount: _count.screenCaptures,
+    }
+  })
 
   return NextResponse.json({ records: normalized, total, page, limit })
 }

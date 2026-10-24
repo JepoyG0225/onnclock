@@ -36,6 +36,8 @@ import {
   FolderKanban,
   ClipboardCheck,
   AlarmClock,
+  HeartPulse,
+  GraduationCap,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -134,6 +136,8 @@ const NAV_ITEMS: NavItem[] = [
       { label: '13th Month Pay', href: '/thirteenth-month', icon: Gift },
       { label: 'Loans & Cash Advance', href: '/loans',      icon: CreditCard },
       { label: 'Budget Requisitions', href: '/budget-requisitions', icon: Receipt },
+      { label: 'Expense Claims', href: '/expenses', icon: Receipt, comingSoon: true },
+      { label: 'Benefits & HMO', href: '/benefits', icon: HeartPulse, comingSoon: true },
       { label: 'Final Pay',      href: '/final-pay',        icon: Receipt,    releasedAt: '2026-05-13T00:00:00+08:00' },
       { label: 'Disbursement',   href: '/disbursement',     icon: Send,       releasedAt: '2026-05-29T00:00:00+08:00' },
     ],
@@ -145,6 +149,7 @@ const NAV_ITEMS: NavItem[] = [
     releasedAt: '2026-08-09T00:00:00+08:00',
     children: [
       { label: 'Tasks',         href: '/tasks',         icon: ClipboardCheck, releasedAt: '2026-08-09T00:00:00+08:00' },
+      { label: 'Learning & Certifications', href: '/learning', icon: GraduationCap, comingSoon: true },
       { label: 'Announcements', href: '/announcements', icon: Megaphone },
       { label: 'Assets & Equipment', href: '/assets', icon: Briefcase, releasedAt: '2026-05-13T00:00:00+08:00' },
     ],
@@ -296,6 +301,12 @@ export function AppSidebar({
       if (children) {
         children = children.map(child => {
           if (child.label === 'Recruitment' && isLocal) {
+            return { ...child, comingSoon: undefined }
+          }
+          if (
+            isLocal &&
+            ['Expense Claims', 'Benefits & HMO', 'Learning & Certifications'].includes(child.label)
+          ) {
             return { ...child, comingSoon: undefined }
           }
           if (child.label === 'Disbursement') {

@@ -3,10 +3,14 @@ import { BIR_ANNUAL_TAX_TABLE_2023 } from '../constants'
 export function computeAnnualTax(annualTaxableIncome: number): number {
   if (annualTaxableIncome <= 0) return 0
 
-  const bracket = BIR_ANNUAL_TAX_TABLE_2023.find(
-    b => annualTaxableIncome >= b.from && annualTaxableIncome <= b.to
-  )
-  if (!bracket) return 0
+  // The table is ordered ascending, so the first bracket whose ceiling the
+  // income does not exceed is the right one. Matching on `>= from && <= to`
+  // instead left a gap between each bracket's `to` and the next bracket's
+  // `from` (₱250,000.01–₱250,000.99, ₱400,000.01–₱400,000.99, and so on):
+  // income landing there matched nothing and returned ZERO tax. At
+  // ₱400,000.50 that was ₱0 withheld instead of ₱22,500.10.
+  const bracket = BIR_ANNUAL_TAX_TABLE_2023.find(b => annualTaxableIncome <= b.to)
+    ?? BIR_ANNUAL_TAX_TABLE_2023[BIR_ANNUAL_TAX_TABLE_2023.length - 1]
 
   const tax = bracket.baseTax + (annualTaxableIncome - bracket.excessOver) * bracket.rate
   return Math.max(0, parseFloat(tax.toFixed(2)))

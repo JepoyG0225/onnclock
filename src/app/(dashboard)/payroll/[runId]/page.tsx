@@ -17,6 +17,8 @@ import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollActivityLog from '@/components/payroll/PayrollActivityLog'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 import { ProcessPayrollButton } from '@/components/payroll/ProcessPayrollButton'
+import { PayrollAnomalyPanel } from '@/components/payroll/PayrollAnomalyPanel'
+import { findPayrollAnomalies } from '@/lib/payroll/anomalies'
 
 export default async function PayrollRunPage({
   params,
@@ -157,12 +159,47 @@ export default async function PayrollRunPage({
           // changes depending on whether the employee is paid by
           // hour / day / month.
           rateType: true,
+          trackTime: true,
+          disableLateDeduction: true,
+          sssEnabled: true,
+          philhealthEnabled: true,
+          pagibigEnabled: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
         },
       },
     },
     orderBy: { employee: { lastName: 'asc' } },
+  })
+  const [previousRun, payrollConfig] = await Promise.all([
+    prisma.payrollRun.findFirst({
+      where: { companyId, periodStart: { lt: run.periodStart }, status: { not: 'CANCELLED' } },
+      orderBy: { periodStart: 'desc' },
+      select: { payslips: { select: { employeeId: true, grossPay: true, netPay: true } } },
+    }),
+    prisma.payrollCycleConfig.findUnique({ where: { companyId }, select: { disableLateDeductions: true } }),
+  ])
+  const lateMinutesByEmployee = new Map<string, number>()
+  const dtrCountByEmployee = new Map<string, number>()
+  for (const row of dtrRows) {
+    lateMinutesByEmployee.set(row.employeeId, (lateMinutesByEmployee.get(row.employeeId) ?? 0) + (row.lateMinutes ?? 0))
+    dtrCountByEmployee.set(row.employeeId, (dtrCountByEmployee.get(row.employeeId) ?? 0) + 1)
+  }
+  const anomalies = findPayrollAnomalies({
+    current: payslips.map(item => ({
+      employeeId: item.employeeId,
+      employeeName: `${item.employee.firstName} ${item.employee.lastName}`,
+      grossPay: Number(item.grossPay), netPay: Number(item.netPay), basicPay: Number(item.basicSalary),
+      lateDeduction: Number(item.lateDeduction), sssEmployee: Number(item.sssEmployee),
+      philhealthEmployee: Number(item.philhealthEmployee), pagibigEmployee: Number(item.pagibigEmployee),
+      withholdingTax: Number(item.withholdingTax), trackTime: item.employee.trackTime,
+      rateType: item.employee.rateType,
+      disableLateDeduction: item.employee.disableLateDeduction, sssEnabled: item.employee.sssEnabled,
+      philhealthEnabled: item.employee.philhealthEnabled, pagibigEnabled: item.employee.pagibigEnabled,
+    })),
+    previous: previousRun?.payslips.map(item => ({ employeeId: item.employeeId, grossPay: Number(item.grossPay), netPay: Number(item.netPay) })) ?? [],
+    lateMinutesByEmployee, dtrCountByEmployee,
+    companyLateDeductionsDisabled: payrollConfig?.disableLateDeductions ?? false,
   })
   const STATUS_LABELS: Record<string, string> = {
     DRAFT: 'Draft',
@@ -286,6 +323,7 @@ export default async function PayrollRunPage({
       )}
 
       {!isInputsStage && <>
+      <PayrollAnomalyPanel anomalies={anomalies} />
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="bg-white">

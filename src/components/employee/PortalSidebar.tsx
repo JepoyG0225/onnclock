@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from 'react'
 import { signOut } from 'next-auth/react'
 import {
   Clock, FileText, CreditCard, User, BarChart3,
-  Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList, ClipboardEdit, Banknote, ListChecks, Home} from 'lucide-react'
+  Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList, ClipboardEdit, Banknote, ListChecks, Home, Receipt, HeartPulse, GraduationCap} from 'lucide-react'
 import { CalendarUserIcon } from '@/components/employee/CalendarUserIcon'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +20,9 @@ const ALL_NAV_TABS = [
   { href: '/portal/payslips',            label: 'Payslips',     icon: CreditCard,      exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/loans',               label: 'Loans & CA',   icon: Banknote,        exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/budget-requisitions', label: 'Budget Req.',  icon: ClipboardList,   exact: false, pro: false, budgetReq: true,  tasks: false },
+  { href: '/portal/expenses',            label: 'Expenses',     icon: Receipt,         exact: false, pro: false, budgetReq: false, tasks: false, comingSoon: true },
+  { href: '/portal/benefits',            label: 'My Benefits',  icon: HeartPulse,      exact: false, pro: false, budgetReq: false, tasks: false, comingSoon: true },
+  { href: '/portal/learning',            label: 'My Learning',  icon: GraduationCap,   exact: false, pro: false, budgetReq: false, tasks: false, comingSoon: true },
   { href: '/portal/performance',         label: 'Performance',  icon: BarChart3,       exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/profile',             label: 'Profile',      icon: User,            exact: false, pro: false, budgetReq: false, tasks: false },
 ]
@@ -145,7 +148,17 @@ export function PortalSidebar({
       {/* ── Navigation ── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5 sidebar-scroll-minimal">
         {NAV_TABS.map(tab => {
+          const comingSoon = tab.comingSoon && process.env.NODE_ENV !== 'development'
           const isActive = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
+          if (comingSoon) {
+            return (
+              <div key={tab.href} className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400">
+                <tab.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                {tab.label}
+                <span className="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-sky-600">Soon</span>
+              </div>
+            )
+          }
           return (
             <Link
               key={tab.href}
