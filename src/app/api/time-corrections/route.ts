@@ -134,15 +134,23 @@ export async function GET(req: NextRequest) {
     await ctxHasPermission(ctx, 'corrections:approve')
   const companyId = resolveCompanyIdForRequest(ctx, req) ?? ctx.companyId
   const status = searchParams.get('status') ?? undefined
-  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
+  const requestedPage = Number(searchParams.get('page') ?? '1')
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
   const limit = 50
 
   if (canReviewCorrections) {
-    const where = {
+    const q = (searchParams.get('q') ?? '').trim().slice(0, 120)
+    const date = searchParams.get('date') ?? ''
+    const baseWhere = {
       companyId,
+      ...(q ? { employee: { OR: ['firstName', 'lastName', 'employeeNo'].map(key => ({ [key]: { contains: q, mode: 'insensitive' as const } })) } } : {}),
+      ...(/^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date)) ? { date: new Date(`${date}T00:00:00.000Z`) } : {}),
+    }
+    const where = {
+      ...baseWhere,
       ...(status ? { status: status as 'PENDING' | 'APPROVED' | 'REJECTED' } : {}),
     }
-    const [corrections, total] = await Promise.all([
+    const [corrections, total, counts] = await Promise.all([
       prisma.timeEntryCorrection.findMany({
         where,
         include: {
@@ -159,6 +167,7 @@ export async function GET(req: NextRequest) {
         take: limit,
       }),
       prisma.timeEntryCorrection.count({ where }),
+      prisma.timeEntryCorrection.groupBy({ by: ['status'], where: baseWhere, _count: { _all: true } }),
     ])
     const workflowByDepartment = new Map<string, ReturnType<typeof resolveWorkflow>>()
     const correctionsWithAuthorization = await Promise.all(corrections.map(async correction => {
@@ -208,7 +217,7 @@ export async function GET(req: NextRequest) {
             : `No approver configured for level ${currentLevel + 1}`,
       }
     }))
-    return NextResponse.json({ corrections: correctionsWithAuthorization, total, page, limit })
+    return NextResponse.json({ corrections: correctionsWithAuthorization, total, page, limit, counts: Object.fromEntries(counts.map(c => [c.status, c._count._all])) })
   }
 
   // Employee: own requests only
