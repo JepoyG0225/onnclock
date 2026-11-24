@@ -239,7 +239,8 @@ export default function BudgetRequisitionsPage() {
         </div>
         <Button
           onClick={() => { setShowForm(true); setFormErr(''); setFormFiles([]) }}
-          className="gap-1.5 shrink-0"
+          aria-label="New budget requisition"
+          className="ml-auto gap-1.5 shrink-0"
           size="sm"
           style={{ background: 'var(--brand-highlight)', color: '#fff' }}
         >
@@ -249,15 +250,15 @@ export default function BudgetRequisitionsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+      <div className="grid grid-cols-2 min-[360px]:grid-cols-4 gap-1 rounded-xl border border-slate-200 bg-white p-1">
         {TABS.map(t => (
           <button data-app-tab data-active={tab === t}
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              'px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 -mb-px transition-colors',
+              'min-w-0 px-1 py-2.5 text-[11px] font-semibold rounded-lg transition-colors',
               tab === t
-                ? 'border-orange-500 text-orange-600'
+                ? 'bg-[#ff5900] text-white'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             )}
           >

@@ -98,7 +98,7 @@ function ProgressRing({ done, total, isDone }: { done: number; total: number; is
           strokeDashoffset={c - (c * pct) / 100}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-[var(--brand-primary)]">
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-[var(--brand-primary)]">
         {pct}%
       </span>
     </div>
@@ -242,7 +242,7 @@ export default function PortalTasksPage() {
 
       {/* Header */}
       <header>
-        <h1 className="text-[22px] lg:text-2xl font-black tracking-tight" style={{ color: NAVY }}>
+        <h1 className="text-[22px] lg:text-2xl font-semibold tracking-tight" style={{ color: NAVY }}>
           My Tasks
         </h1>
         <p className="text-[13px] text-slate-400 font-semibold mt-0.5">
@@ -265,7 +265,7 @@ export default function PortalTasksPage() {
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <p className="text-[12px] font-black text-slate-700">
+          <p className="text-[12px] font-semibold text-slate-700">
             {weekStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
           </p>
           <button
@@ -304,13 +304,13 @@ export default function PortalTasksPage() {
                 }
               >
                 <span className={cn(
-                  'text-[10px] font-bold',
+                  'text-[10px] font-medium',
                   isToday || isSelected ? 'text-white/80' : 'text-slate-400',
                 )}>
                   {d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 3)}
                 </span>
                 <span className={cn(
-                  'text-[15px] font-black tabular-nums',
+                  'text-[15px] font-semibold tabular-nums',
                   isToday || isSelected ? 'text-white' : 'text-slate-800',
                 )}>
                   {d.getDate()}
@@ -347,7 +347,7 @@ export default function PortalTasksPage() {
               type="button"
               onClick={() => setFilter(f.id)}
               className={cn(
-                'min-w-0 truncate text-[11px] font-black px-2 py-2 rounded-xl border transition-colors sm:text-[12px]',
+                'min-w-0 truncate text-[11px] font-semibold px-2 py-2 rounded-xl border transition-colors sm:text-[12px]',
                 active ? 'border-transparent text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
               )}
               style={active && status ? { background: status.color } : undefined}
@@ -360,7 +360,7 @@ export default function PortalTasksPage() {
           <button
             type="button"
             onClick={() => setSelectedDay(null)}
-            className="col-span-3 justify-self-end text-[11px] font-bold text-slate-400 hover:text-slate-700"
+            className="col-span-3 justify-self-end text-[11px] font-medium text-slate-400 hover:text-slate-700"
           >
             Clear day
           </button>
@@ -374,10 +374,10 @@ export default function PortalTasksPage() {
       {!loading && error && (
         <div className="rounded-3xl bg-white border border-slate-200 p-6 text-center">
           <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
-          <p className="text-sm font-bold text-slate-800">{error}</p>
+          <p className="text-sm font-medium text-slate-800">{error}</p>
           <button
             onClick={load}
-            className="mt-4 text-xs font-black px-4 py-2 rounded-lg text-white"
+            className="mt-4 text-xs font-semibold px-4 py-2 rounded-lg text-white"
             style={{ background: NAVY }}
           >
             Try again
@@ -392,7 +392,7 @@ export default function PortalTasksPage() {
               ? <ListChecks className="w-7 h-7 text-emerald-500" />
               : <CheckCircle2 className="w-7 h-7 text-emerald-500" />}
           </div>
-          <p className="text-base font-black text-slate-900">
+          <p className="text-base font-semibold text-slate-900">
             {tasks.length === 0
               ? 'No tasks assigned'
               : selectedDay !== null
@@ -462,7 +462,7 @@ export default function PortalTasksPage() {
 
                   <div className="min-w-0 flex-1">
                     <p className={cn(
-                      'text-[15px] font-bold leading-snug tracking-[-0.01em]',
+                      'text-[15px] font-medium leading-snug tracking-[-0.01em]',
                       isDone ? 'text-slate-400 line-through' : 'text-slate-900',
                     )}>
                       {task.title}
@@ -476,13 +476,13 @@ export default function PortalTasksPage() {
                     {/* Meta on one quiet line — status as a dot rather than a
                         third pill, so the row doesn't compete with the title. */}
                     <div className="flex items-center gap-2.5 flex-wrap mt-2.5">
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: task.status.color }} />
                         {task.status.name}
                       </span>
                       {task.dueDate && (
                         <span className={cn(
-                          'text-[11px] font-bold',
+                          'text-[11px] font-medium',
                           overdue ? 'text-red-600' : 'text-slate-400',
                         )}>
                           {overdue ? 'Overdue · ' : 'Due '}
@@ -490,12 +490,12 @@ export default function PortalTasksPage() {
                         </span>
                       )}
                       {task.checklistTotal > 0 && (
-                        <span className="text-[11px] font-bold text-slate-400">
+                        <span className="text-[11px] font-medium text-slate-400">
                           {task.checklistDone}/{task.checklistTotal}
                         </span>
                       )}
                       {task.commentCount > 0 && (
-                        <span className="text-[11px] font-bold text-slate-400 inline-flex items-center gap-1">
+                        <span className="text-[11px] font-medium text-slate-400 inline-flex items-center gap-1">
                           <MessageSquare className="w-3 h-3" />
                           {task.commentCount}
                         </span>
@@ -514,7 +514,7 @@ export default function PortalTasksPage() {
                     disabled={saving}
                     onClick={event => { event.stopPropagation(); void setStatus(task, progressStatus.id) }}
                     onKeyDown={event => event.stopPropagation()}
-                    className="mt-3 ml-[34px] text-[11px] font-black inline-flex items-center gap-0.5 px-2.5 py-1 rounded-full disabled:opacity-40"
+                    className="mt-3 ml-[34px] text-[11px] font-semibold inline-flex items-center gap-0.5 px-2.5 py-1 rounded-full disabled:opacity-40"
                     style={{ color: TEAL, background: 'rgba(27,106,110,0.08)' }}
                   >
                     Start working
