@@ -8,7 +8,7 @@ import { CreditCard, Download, Loader2, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCurrency } from '@/hooks/useCurrency'
 
-const NAVY = '#000000'
+const NAVY = '#162d54'
 const ORANGE = 'var(--brand-highlight)'
 
 interface Payslip {
@@ -142,7 +142,7 @@ export default function PayslipsPage() {
     ]
 
     return (
-      <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-2xl mx-auto space-y-4">
+      <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto space-y-4">
         <button
           onClick={() => setSelected(null)}
           className="inline-flex items-center gap-1 text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors"
@@ -153,8 +153,8 @@ export default function PayslipsPage() {
 
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 pt-5 pb-4">
-            <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Payslip</p>
-            <h1 className="text-[19px] font-black mt-0.5" style={{ color: NAVY }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Payslip</p>
+            <h1 className="text-[19px] font-semibold mt-0.5" style={{ color: NAVY }}>
               {selected.payrollRun.periodLabel}
             </h1>
             <p className="text-[12px] font-semibold text-slate-400 mt-1">
@@ -170,11 +170,11 @@ export default function PayslipsPage() {
           >
             <div>
               <p className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Net pay</p>
-              <p className="text-[30px] font-black text-white leading-none mt-1 tabular-nums">
+              <p className="text-[30px] font-semibold text-white leading-none mt-1 tabular-nums">
                 {peso(selected.netPay)}
               </p>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-white/15 text-white/90">
+            <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full bg-white/15 text-white/90">
               Released
             </span>
           </div>
@@ -182,17 +182,17 @@ export default function PayslipsPage() {
           <div className="grid grid-cols-2 gap-3 px-5 mt-3">
             <div className="rounded-xl bg-slate-50 px-3 py-2.5">
               <p className="text-[10px] font-bold text-slate-400">Gross pay</p>
-              <p className="text-[15px] font-black text-slate-900 tabular-nums">{peso(selected.grossPay)}</p>
+              <p className="text-[15px] font-semibold text-slate-900 tabular-nums">{peso(selected.grossPay)}</p>
             </div>
             <div className="rounded-xl bg-slate-50 px-3 py-2.5">
               <p className="text-[10px] font-bold text-slate-400">Deductions</p>
-              <p className="text-[15px] font-black text-red-600 tabular-nums">{peso(selected.totalDeductions)}</p>
+              <p className="text-[15px] font-semibold text-red-600 tabular-nums">{peso(selected.totalDeductions)}</p>
             </div>
           </div>
 
           <div className="px-5 py-5 space-y-5">
             <section>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">Earnings</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Earnings</p>
               <div className="rounded-xl border border-slate-100 divide-y divide-slate-100">
                 {earningRows.map(([label, amount], i) => (
                   <div key={i} className="flex items-center justify-between px-3 py-2.5">
@@ -201,8 +201,8 @@ export default function PayslipsPage() {
                   </div>
                 ))}
                 <div className="flex items-center justify-between px-3 py-2.5 bg-slate-50">
-                  <span className="text-[13px] font-black text-slate-700">Gross</span>
-                  <span className="text-[14px] font-black tabular-nums" style={{ color: NAVY }}>
+                  <span className="text-[13px] font-semibold text-slate-700">Gross</span>
+                  <span className="text-[14px] font-semibold tabular-nums" style={{ color: NAVY }}>
                     {peso(selected.grossPay)}
                   </span>
                 </div>
@@ -210,7 +210,7 @@ export default function PayslipsPage() {
             </section>
 
             <section>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">Deductions</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Deductions</p>
               <div className="rounded-xl border border-slate-100 divide-y divide-slate-100">
                 {deductionRows.length === 0 && (
                   <div className="px-3 py-2.5 text-[13px] text-slate-400">No deductions this period</div>
@@ -222,8 +222,8 @@ export default function PayslipsPage() {
                   </div>
                 ))}
                 <div className="flex items-center justify-between px-3 py-2.5 bg-slate-50">
-                  <span className="text-[13px] font-black text-slate-700">Total</span>
-                  <span className="text-[14px] font-black text-red-600 tabular-nums">
+                  <span className="text-[13px] font-semibold text-slate-700">Total</span>
+                  <span className="text-[14px] font-semibold text-red-600 tabular-nums">
                     {peso(selected.totalDeductions)}
                   </span>
                 </div>
@@ -233,8 +233,8 @@ export default function PayslipsPage() {
             <button
               onClick={() => downloadPayslip(selected.id, selected.payrollRun.periodLabel)}
               disabled={downloadingId === selected.id}
-              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-[14px] font-black text-white disabled:opacity-60 active:scale-[0.98] transition-transform"
-              style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(11,111,251,0.20)' }}
+              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-[14px] font-semibold text-white disabled:opacity-60 active:scale-[0.98] transition-transform"
+              style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(255,89,0,0.16)' }}
             >
               {downloadingId === selected.id ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Preparing PDF…</>
@@ -252,9 +252,9 @@ export default function PayslipsPage() {
   const latest = payslips[0]
 
   return (
-    <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-2xl mx-auto space-y-4">
+    <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto space-y-4">
       <header>
-        <h1 className="text-[22px] lg:text-2xl font-black tracking-tight" style={{ color: NAVY }}>
+        <h1 className="text-[22px] lg:text-2xl font-semibold tracking-tight" style={{ color: NAVY }}>
           My Payslips
         </h1>
         <p className="text-[13px] text-slate-400 font-semibold mt-0.5">
@@ -272,7 +272,7 @@ export default function PayslipsPage() {
           style={{ background: 'linear-gradient(135deg, #000000, #000000)' }}
         >
           <p className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Latest net pay</p>
-          <p className="text-[28px] font-black text-white leading-none mt-1 tabular-nums">
+          <p className="text-[28px] font-semibold text-white leading-none mt-1 tabular-nums">
             {peso(latest.netPay)}
           </p>
           <p className="text-[11px] font-semibold text-white/45 mt-1.5">
@@ -286,7 +286,7 @@ export default function PayslipsPage() {
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
             <CreditCard className="w-7 h-7 text-emerald-500" />
           </div>
-          <p className="text-base font-black text-slate-900">No payslips yet</p>
+          <p className="text-base font-semibold text-slate-900">No payslips yet</p>
           <p className="text-sm text-slate-500 mt-1.5 max-w-xs mx-auto">
             Your payslips appear here once a payroll run covering you is approved.
           </p>
@@ -313,7 +313,7 @@ export default function PayslipsPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-[10px] font-bold text-slate-400">Net pay</p>
-                    <p className="text-[18px] font-black leading-none tabular-nums" style={{ color: NAVY }}>
+                    <p className="text-[18px] font-semibold leading-none tabular-nums" style={{ color: NAVY }}>
                       {peso(ps.netPay)}
                     </p>
                   </div>
@@ -328,7 +328,7 @@ export default function PayslipsPage() {
               <div className="flex items-center border-t border-slate-100">
                 <button
                   onClick={() => setSelected(ps)}
-                  className="flex-1 py-2.5 text-[12px] font-black text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="flex-1 py-2.5 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   View details
                 </button>
@@ -336,7 +336,7 @@ export default function PayslipsPage() {
                 <button
                   onClick={() => downloadPayslip(ps.id, ps.payrollRun.periodLabel)}
                   disabled={downloadingId === ps.id}
-                  className="flex items-center justify-center gap-1.5 flex-1 py-2.5 text-[12px] font-black hover:bg-slate-50 disabled:opacity-60 transition-colors"
+                  className="flex items-center justify-center gap-1.5 flex-1 py-2.5 text-[12px] font-semibold hover:bg-slate-50 disabled:opacity-60 transition-colors"
                   style={{ color: ORANGE }}
                 >
                   {downloadingId === ps.id

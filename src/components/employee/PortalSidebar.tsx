@@ -73,7 +73,7 @@ export function PortalSidebar({
     <aside
       className="hidden lg:flex fixed left-0 top-0 h-screen w-60 flex-col z-30 select-none"
       style={{
-        background: '#f7faff',
+        background: '#ffffff',
         borderRight: '1px solid #dfe7f1',
       }}
     >
@@ -120,7 +120,7 @@ export function PortalSidebar({
                   ? 'text-white'
                   : 'text-slate-600 hover:text-[var(--brand-primary)] hover:bg-blue-50'
               )}
-              style={isActive ? { background: 'var(--brand-primary)', boxShadow: '0 4px 12px rgba(11,111,251,.18)' } : undefined}
+              style={isActive ? { background: 'var(--brand-highlight)', boxShadow: '0 3px 10px rgba(255,89,0,.16)' } : undefined}
             >
               <tab.icon
                 className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-slate-400')}

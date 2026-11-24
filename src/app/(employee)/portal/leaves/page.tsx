@@ -32,7 +32,7 @@ interface LeaveRequest {
   leaveType: { name: string; code: string }
 }
 
-const NAVY = '#000000'
+const NAVY = '#162d54'
 const ORANGE = 'var(--brand-highlight)'
 
 /** Status colours: `bar` drives the card's left stripe, bg/fg the chip. */
@@ -90,12 +90,12 @@ export default function LeavesPage() {
   const pendingCount = requests.filter(r => r.status === 'PENDING').length
 
   return (
-    <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-2xl mx-auto space-y-4">
+    <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto space-y-4">
 
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[22px] lg:text-2xl font-black tracking-tight" style={{ color: NAVY }}>
+          <h1 className="text-[22px] lg:text-2xl font-semibold tracking-tight" style={{ color: NAVY }}>
             My Leaves
           </h1>
           <p className="text-[13px] text-slate-400 font-semibold mt-0.5">
@@ -106,8 +106,8 @@ export default function LeavesPage() {
         </div>
         <Link
           href="/portal/leaves/new"
-          className="inline-flex items-center gap-1.5 text-white px-4 py-2.5 rounded-2xl text-[13px] font-black shrink-0 active:scale-[0.98] transition-transform"
-          style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(11,111,251,0.20)' }}
+          className="inline-flex items-center gap-1.5 text-white px-4 py-2.5 rounded-2xl text-[13px] font-semibold shrink-0 active:scale-[0.98] transition-transform"
+          style={{ background: ORANGE, boxShadow: '0 8px 20px rgba(255,89,0,0.16)' }}
         >
           <Plus className="w-4 h-4" strokeWidth={2.6} />
           File leave
@@ -124,7 +124,7 @@ export default function LeavesPage() {
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`text-[12px] font-black px-3.5 py-1.5 rounded-full border transition-colors ${
+            className={`text-[12px] font-semibold px-3.5 py-1.5 rounded-full border transition-colors ${
               tab === t.id ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200'
             }`}
             style={tab === t.id ? { background: '#ff5900' } : undefined}
@@ -132,7 +132,7 @@ export default function LeavesPage() {
             {t.label}
             {t.id === 'requests' && pendingCount > 0 && (
               <span
-                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none ${
+                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${
                   tab === t.id ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'
                 }`}
               >
@@ -150,13 +150,13 @@ export default function LeavesPage() {
             <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
               <CalendarDays className="w-7 h-7 text-slate-300" />
             </div>
-            <p className="text-base font-black text-slate-900">No leave types yet</p>
+            <p className="text-base font-semibold text-slate-900">No leave types yet</p>
             <p className="text-sm text-slate-500 mt-1.5 max-w-xs mx-auto">
               Your admin hasn’t set up leave types for your company.
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {balances.map(lb => {
               const entitled = Math.max(0, safeNumber(lb.entitled))
               const used = Math.max(0, safeNumber(lb.used))
@@ -177,7 +177,7 @@ export default function LeavesPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                           {lb.leaveType.code}
                         </span>
                         {!lb.leaveType.isWithPay && (
@@ -189,7 +189,7 @@ export default function LeavesPage() {
                       <p className="text-[14px] font-bold text-slate-900 truncate">{lb.leaveType.name}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-2xl font-black leading-none tabular-nums" style={{ color: low ? '#b45309' : NAVY }}>
+                      <p className="text-2xl font-semibold leading-none tabular-nums" style={{ color: low ? '#b45309' : NAVY }}>
                         {remaining.toFixed(1)}
                       </p>
                       <p className="text-[10px] font-bold text-slate-400 mt-0.5">days left</p>
@@ -224,13 +224,13 @@ export default function LeavesPage() {
             <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-4">
               <FileText className="w-7 h-7 text-violet-500" />
             </div>
-            <p className="text-base font-black text-slate-900">No leave requests yet</p>
+            <p className="text-base font-semibold text-slate-900">No leave requests yet</p>
             <p className="text-sm text-slate-500 mt-1.5 max-w-xs mx-auto">
               When you file leave it will appear here with its approval status.
             </p>
             <Link
               href="/portal/leaves/new"
-              className="inline-flex items-center gap-1.5 mt-5 text-white px-4 py-2.5 rounded-2xl text-[13px] font-black"
+              className="inline-flex items-center gap-1.5 mt-5 text-white px-4 py-2.5 rounded-2xl text-[13px] font-semibold"
               style={{ background: ORANGE }}
             >
               <Plus className="w-4 h-4" strokeWidth={2.6} />
@@ -260,7 +260,7 @@ export default function LeavesPage() {
                       </p>
                     </div>
                     <span
-                      className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full shrink-0"
+                      className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full shrink-0"
                       style={{ background: tone.bg, color: tone.fg }}
                     >
                       {req.status}

@@ -137,7 +137,7 @@ export default async function EmployeePortalLayout({
       {/* Page content
           Mobile:  pt-14 (header height) + pb for bottom dock
           Desktop: pl-60 (sidebar width), no top/bottom offset needed */}
-      <main className="lg:pl-60 pt-14 lg:pt-0 min-h-screen pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0">
+      <main className="lg:pl-60 pt-14 lg:pt-0 min-h-screen pb-[calc(100px+env(safe-area-inset-bottom))] lg:pb-0">
         {children}
       </main>
 

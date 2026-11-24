@@ -119,7 +119,7 @@ export function PortalBottomNav({
                     href={tab.href}
                     className="flex flex-col items-center gap-2 py-4 px-2 rounded-2xl transition-all duration-150"
                     style={isActive
-                      ? { background: 'var(--brand-primary)' }
+                      ? { background: 'var(--brand-highlight)' }
                       : { background: '#f8fafc' }}
                   >
                     <div
@@ -172,20 +172,21 @@ export function PortalBottomNav({
                 aria-label={tab.label}
                 aria-current={isActive ? 'page' : undefined}
                 title={tab.label}
-                className="flex items-center justify-center flex-1 py-1.5 rounded-2xl transition-all duration-200 min-w-0"
+                className="flex flex-col items-center justify-center gap-1 flex-1 py-1 rounded-2xl transition-all duration-200 min-w-0"
               >
                 <div
                   className={cn(
                     'flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-200',
                     isActive ? 'scale-105' : 'scale-100'
                   )}
-                  style={isActive ? { background: 'var(--brand-primary)' } : undefined}
+                  style={isActive ? { background: 'var(--brand-highlight)' } : undefined}
                 >
                   <tab.icon
                     className={cn('w-5 h-5 transition-colors', isActive ? 'text-white' : 'text-slate-400')}
                     strokeWidth={isActive ? 2.4 : 1.9}
                   />
                 </div>
+                <span className={cn('text-[10px] font-semibold leading-none', isActive ? 'text-[#c74300]' : 'text-slate-500')}>{tab.label}</span>
               </Link>
             )
           })}
@@ -196,20 +197,21 @@ export function PortalBottomNav({
             aria-label="More"
             aria-expanded={showMore}
             title="More"
-            className="flex items-center justify-center flex-1 py-1.5 rounded-2xl transition-all duration-200 min-w-0"
+            className="flex flex-col items-center justify-center gap-1 flex-1 py-1 rounded-2xl transition-all duration-200 min-w-0"
           >
             <div
               className={cn(
                 'flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-200',
                 (showMore || moreActive) ? 'scale-105' : 'scale-100'
               )}
-              style={showMore || moreActive ? { background: 'var(--brand-primary)' } : undefined}
+              style={showMore || moreActive ? { background: 'var(--brand-highlight)' } : undefined}
             >
               <MoreHorizontal
                 className={cn('w-5 h-5 transition-colors', (showMore || moreActive) ? 'text-white' : 'text-slate-400')}
                 strokeWidth={(showMore || moreActive) ? 2.4 : 1.9}
               />
             </div>
+            <span className={cn('text-[10px] font-semibold leading-none', showMore || moreActive ? 'text-[#c74300]' : 'text-slate-500')}>More</span>
           </button>
         </div>
       </nav>

@@ -1,3 +1,4 @@
+import { KpiCard } from '@/components/ui/kpi-card'
 import { TodaySchedule } from '@/components/employee/TodaySchedule'
 /**
  * Portal home.
@@ -159,20 +160,20 @@ export default async function PortalHomePage() {
     : '--'
 
   return (
-    <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-3xl mx-auto space-y-4">
+    <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-6xl mx-auto space-y-5">
 
       {/* Greeting and attendance status */}
       <header className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-slate-400 leading-tight">{greeting()}</p>
-          <h1 className="text-[22px] font-black tracking-tight leading-tight truncate" style={{ color: '#0054d7' }}>
+          <h1 className="text-[22px] font-semibold tracking-tight leading-tight truncate" style={{ color: '#0054d7' }}>
             {firstName}
           </h1>
         </div>
         {/* Status chip with the live clock tucked underneath it, top-right. */}
         <div className="shrink-0 flex flex-col items-end gap-1.5">
           <span
-            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-full"
+            className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1.5 rounded-full"
             style={{ background: statusTone.bg, color: statusTone.fg }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusTone.dot }} />
@@ -183,10 +184,10 @@ export default async function PortalHomePage() {
       </header>
 
       {/* Attendance — hero punch control */}
-      <section className="rounded-3xl bg-white border border-slate-200 shadow-sm p-5">
+      <section className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4 sm:p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-black tracking-wide" style={{ color: 'var(--brand-primary)' }}>Attendance</h2>
-          <Link href="/portal/clock" className="text-[11px] font-bold text-slate-400 hover:text-slate-700 transition-colors">
+          <h2 className="text-base font-semibold tracking-tight" style={{ color: 'var(--brand-primary)' }}>Attendance</h2>
+          <Link href="/portal/clock" className="text-xs font-semibold text-[#c74300] hover:underline">
             History
           </Link>
         </div>
@@ -207,80 +208,25 @@ export default async function PortalHomePage() {
           ].map(stat => (
             <div key={stat.label} className="rounded-2xl bg-slate-50 border border-slate-100 px-2.5 py-3 text-center">
               <stat.icon className="w-3.5 h-3.5 mx-auto mb-1.5" style={{ color: stat.tint }} />
-              <p className="text-[15px] font-black text-slate-900 tabular-nums leading-none">{stat.value}</p>
+              <p className="text-[15px] font-semibold text-slate-900 tabular-nums leading-none">{stat.value}</p>
               <p className="text-[10px] font-bold text-slate-400 mt-1">{stat.label}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* At a glance.
-
-          Each card is a single row — icon and label left, count right — rather
-          than a stack, which roughly halves the card height. */}
-      <section className="grid grid-cols-2 gap-3">
-        {tasksEnabled && (
-          <Link href="/portal/tasks" className="rounded-2xl bg-white border border-slate-200 shadow-sm px-3.5 py-3 active:scale-[0.99] transition-transform">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                <ListChecks className="w-4 h-4 text-blue-600" />
-              </div>
-              <p className="text-[11px] font-bold text-slate-400 leading-tight flex-1 min-w-0">
-                Open task{openTasks === 1 ? '' : 's'}
-              </p>
-              <p className="text-xl font-black text-slate-900 leading-none tabular-nums">{openTasks}</p>
-            </div>
-            {overdueTasks > 0 && (
-              <p className="text-[10px] font-black text-red-600 mt-1.5 inline-flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                {overdueTasks} overdue
-              </p>
-            )}
-          </Link>
-        )}
-
-        <Link href="/portal/leaves" className="rounded-2xl bg-white border border-slate-200 shadow-sm px-3.5 py-3 active:scale-[0.99] transition-transform">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-              <FileText className="w-4 h-4 text-violet-600" />
-            </div>
-            <p className="text-[11px] font-bold text-slate-400 leading-tight flex-1 min-w-0">
-              Pending leave{pendingLeaves === 1 ? '' : 's'}
-            </p>
-            <p className="text-xl font-black text-slate-900 leading-none tabular-nums">{pendingLeaves}</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/portal/payslips"
-          className={`rounded-2xl bg-white border border-slate-200 shadow-sm px-3.5 py-3 active:scale-[0.99] transition-transform ${tasksEnabled ? 'col-span-2' : ''}`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold text-slate-400">Latest payslip</p>
-                <p className="text-[15px] font-black text-slate-900 leading-tight mt-0.5">
-                  {payslip?.payrollRun?.payDate
-                    ? new Intl.DateTimeFormat('en-US', { timeZone: MANILA_TIME_ZONE, month: 'short', day: 'numeric', year: 'numeric' })
-                        .format(payslip.payrollRun.payDate)
-                    : 'None yet'}
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" />
-          </div>
-        </Link>
+      <section aria-label="Your overview" className={`grid grid-cols-2 gap-3 ${tasksEnabled ? 'lg:grid-cols-3' : ''}`}>
+        {tasksEnabled && <Link href="/portal/tasks" className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><KpiCard label="Open tasks" value={openTasks} icon={<ListChecks />} tone="primary" hint={overdueTasks > 0 ? `${overdueTasks} overdue` : 'View your assigned tasks'} className="h-full hover:border-orange-300" /></Link>}
+        <Link href="/portal/leaves" className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><KpiCard label="Pending leave" value={pendingLeaves} icon={<FileText />} tone="accent" hint="Track requests and leave credits" className="h-full hover:border-orange-300" /></Link>
+        <Link href="/portal/payslips" className={`rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${tasksEnabled ? 'col-span-2 lg:col-span-1' : ''}`}><KpiCard label="Latest payslip" value={payslip?.payrollRun?.payDate ? new Intl.DateTimeFormat('en-US', { timeZone: MANILA_TIME_ZONE, month: 'short', day: 'numeric', year: 'numeric' }).format(payslip.payrollRun.payDate) : 'None yet'} icon={<CreditCard />} tone="success" hint="View your earnings and deductions" className="h-full hover:border-orange-300" /></Link>
       </section>
 
       {/* More actions */}
       <section>
-        <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2.5 px-1">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 px-1">
           More actions
         </h2>
-        <div className="rounded-3xl bg-white border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { href: '/portal/leaves/new',       label: 'Request leave',        icon: CalendarUserIcon, tint: 'text-violet-600 bg-violet-50' },
             { href: '/portal/time-corrections', label: 'Fix a time entry',     icon: ClipboardEdit, tint: 'text-amber-600 bg-amber-50' },
@@ -290,7 +236,7 @@ export default async function PortalHomePage() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors"
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-orange-300 active:bg-orange-50 transition-colors"
             >
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.tint}`}>
                 <item.icon className="w-4 h-4" />

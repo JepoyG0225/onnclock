@@ -1,4 +1,5 @@
 'use client'
+import { KpiCard } from '@/components/ui/kpi-card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 
 
@@ -106,7 +107,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           plus two arrow buttons left barely 150px for the title and the
           correction link, which wrapped badly at 375px. */}
       <div>
-        <h2 className="text-[19px] font-black" style={{ color: '#0369a1' }}>Attendance history</h2>
+        <h2 className="text-[19px] font-semibold" style={{ color: '#0369a1' }}>Attendance history</h2>
         <p className="text-slate-400 text-[13px] font-semibold mt-0.5">Your daily time records</p>
       </div>
 
@@ -120,7 +121,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-[14px] font-black text-slate-800">
+        <span className="text-[14px] font-semibold text-slate-800">
           {format(currentMonth, 'MMMM yyyy')}
         </span>
         <button
@@ -144,12 +145,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           { label: 'Total Hours', value: `${totals.hours.toFixed(1)}h`, color: '' },
           { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-primary' },
         ].map(s => (
-          <div key={s.label} className="bg-gradient-to-br from-blue-50/60 to-emerald-50/40 border border-blue-100 rounded-xl p-3 text-center">
-            <p className={`text-lg sm:text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#0369a1' } : undefined}>
-              {s.value}
-            </p>
-            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">{s.label}</p>
-          </div>
+          <KpiCard key={s.label} label={s.label} value={s.value} tone={s.label === 'Days Late' ? 'accent' : 'primary'} />
         ))}
       </div>
 
@@ -162,7 +158,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
             <Calendar className="w-7 h-7 text-slate-300" />
           </div>
-          <p className="text-base font-black text-slate-900">No records this month</p>
+          <p className="text-base font-semibold text-slate-900">No records this month</p>
           <p className="text-sm text-slate-500 mt-1.5">Try another month using the arrows above.</p>
         </div>
       ) : (
@@ -173,7 +169,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
             return (
               <div key={record.id} className="rounded-2xl bg-gradient-to-r from-blue-50/40 via-white to-emerald-50/30 border border-blue-100 shadow-sm px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[13px] font-black text-slate-900">
+                  <p className="text-[13px] font-semibold text-slate-900">
                     {format(new Date(record.date), 'EEE, MMM d')}
                   </p>
                   {statusBadge(record)}
@@ -201,7 +197,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                   </div>
                   <div className="ml-auto text-right">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hours</p>
-                    <p className="text-[13px] font-black tabular-nums" style={{ color: '#0369a1' }}>
+                    <p className="text-[13px] font-semibold tabular-nums" style={{ color: '#0369a1' }}>
                       {record.regularHours ? `${record.regularHours}h` : '--'}
                     </p>
                   </div>
@@ -210,13 +206,13 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                 {(late > 0 || ot > 0 || record.source !== 'MANUAL') && (
                   <div className="flex items-center gap-2 flex-wrap mt-2.5">
                     {late > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
                         <Clock className="w-3 h-3" />
                         {late}m late
                       </span>
                     )}
                     {ot > 0 && (
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
                         +{ot}h OT
                       </span>
                     )}
@@ -235,7 +231,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           this list, so the fix sits right after it. */}
       <Link
         href="/portal/time-corrections"
-        className="flex items-center justify-center gap-1.5 w-full py-3 rounded-2xl bg-blue-50/60 border border-blue-100 text-[12px] font-black text-blue-700 active:bg-blue-100 transition-colors"
+        className="flex items-center justify-center gap-1.5 w-full py-3 rounded-2xl bg-blue-50/60 border border-blue-100 text-[12px] font-semibold text-blue-700 active:bg-blue-100 transition-colors"
       >
         <ClipboardEdit className="w-3.5 h-3.5" />
         Request a time correction
