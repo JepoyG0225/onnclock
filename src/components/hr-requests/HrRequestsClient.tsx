@@ -1,8 +1,9 @@
 "use client"
+import { KpiCard } from '@/components/ui/kpi-card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 
 import { useCallback,useEffect,useRef,useState } from 'react'
-import { Plus,RefreshCw,Download,MessageSquare,Paperclip } from 'lucide-react'
+import { Plus,RefreshCw,Download,MessageSquare,Paperclip,Inbox,Clock,UserRound,CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,7 +35,12 @@ export default function HrRequestsClient({portal=false}:{portal?:boolean}) {
  async function download(file:Detail['attachments'][number]){if(!detail)return;setBusy(true);try{const response=await fetch(`/api/hr-requests/${detail.id}/files/${file.id}`);if(!response.ok){await json(response);return}const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.download=file.fileName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(e){toast.error(e instanceof Error?e.message:'Could not download file.')}finally{setBusy(false)}}
  return <div className="space-y-5">
  <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">{portal?'My HR Requests':'HR Helpdesk & Document Requests'}</h1><p className="mt-1 text-sm text-slate-500">Request documents, ask HR questions, and track replies in one place.</p></div><div className="flex gap-2"><Button variant="outline" disabled={loading} onClick={()=>void load()} aria-label="Refresh requests"><RefreshCw className="h-4 w-4"/></Button>{canSubmit&&<Button onClick={()=>{key.current=crypto.randomUUID();setSubject('');setDescription('');setNeededBy('');setCategory(requestCategories[0]);setCreating(true)}}><Plus className="mr-2 h-4 w-4"/>New request</Button>}</div></div>
- <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[['Open',counts.OPEN??0],['In progress',counts.IN_PROGRESS??0],['Awaiting employee',counts.WAITING_EMPLOYEE??0],['Resolved',(counts.RESOLVED??0)+(counts.CLOSED??0)]].map(([name,n])=><div key={name} className="rounded-xl border bg-white p-4"><p className="text-xs text-slate-500">{name}</p><strong className="text-2xl">{n}</strong></div>)}</div>
+ <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+   <KpiCard label="Open" value={loading || error ? '...' : counts.OPEN ?? 0} icon={<Inbox />} tone="accent" />
+   <KpiCard label="In progress" value={loading || error ? '...' : counts.IN_PROGRESS ?? 0} icon={<Clock />} tone="primary" />
+   <KpiCard label="Awaiting employee" value={loading || error ? '...' : counts.WAITING_EMPLOYEE ?? 0} icon={<UserRound />} tone="info" />
+   <KpiCard label="Resolved" value={loading || error ? '...' : (counts.RESOLVED ?? 0) + (counts.CLOSED ?? 0)} icon={<CheckCircle2 />} tone="success" />
+ </div>
  <div className="grid gap-3 sm:grid-cols-3"><Input aria-label="Search HR requests" placeholder="Search subject or employee" value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/><select aria-label="Request status" className={select} value={status} onChange={e=>{setStatus(e.target.value);setPage(1)}}><option value="">All statuses</option>{requestStatuses.map(s=><option key={s} value={s}>{label(s)}</option>)}</select>{!portal&&canManage&&<select aria-label="Request scope" className={select} value={scope} onChange={e=>{setScope(e.target.value);setPage(1)}}><option value="all">Company requests</option><option value="mine">My requests</option></select>}</div>
  {error&&<p role="alert" className="text-sm text-red-600">{error}</p>}
  {loading?<AppSpinner size="md" message="Loading requests..." className="py-8" />:<div className="space-y-3">{rows.length?rows.map(r=><button key={r.id} disabled={opening} onClick={()=>void open(r.id)} className="block w-full rounded-xl border bg-white p-4 text-left hover:border-blue-400"><div className="flex flex-wrap justify-between gap-2"><strong>{r.subject}</strong><span className="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">{label(r.status)}</span></div><p className="mt-1 text-sm text-slate-500">{r.category} | {r.employee.firstName} {r.employee.lastName} ({r.employee.employeeNo})</p><div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500"><span>{date(r.createdAt)}</span>{r.priority==='HIGH'&&<span className="font-semibold text-amber-700">High priority</span>}{r.neededBy&&<span className={r.neededBy.slice(0,10)<today()&&!['RESOLVED','CLOSED','CANCELLED'].includes(r.status)?'font-semibold text-red-600':''}>Due {r.neededBy.slice(0,10)}</span>}</div></button>):<p className="rounded-xl border bg-white p-8 text-center text-slate-500">No requests found.</p>}</div>}
