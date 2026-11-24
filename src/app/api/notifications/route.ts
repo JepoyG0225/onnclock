@@ -1,3 +1,4 @@
+import { notificationVisibility } from '@/lib/notifications-audience'
 /**
  * GET /api/notifications?limit=20&unreadOnly=1
  *
@@ -18,15 +19,16 @@ export async function GET(req: NextRequest) {
   const unreadOnly = sp.get('unreadOnly') === '1'
 
   try {
-    const [items, unreadCount] = await Promise.all([
-      prisma.notification.findMany({
-        where: { userId: ctx.userId, ...(unreadOnly ? { isRead: false } : {}) },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-      }),
-      prisma.notification.count({ where: { userId: ctx.userId, isRead: false } }),
-    ])
-    return NextResponse.json({ items, unreadCount })
+    const visible = await notificationVisibility(ctx)
+    const rows = await prisma.notification.findMany({
+      where: { companyId: ctx.companyId, userId: ctx.userId },
+      orderBy: { createdAt: 'desc' },
+    })
+    const checks = await Promise.all(rows.map(visible))
+    const allowed = rows.filter((_, index) => checks[index])
+    const unreadCount = allowed.filter(row => !row.isRead).length
+    const items = allowed.filter(row => !unreadOnly || !row.isRead).slice(0, Math.max(1, limit))
+    return NextResponse.json({ items, unreadCount }, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (err) {
     // Table missing (older deploy) — degrade gracefully.
     console.error('[notifications] list failed', err)

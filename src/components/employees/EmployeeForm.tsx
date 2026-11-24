@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -61,7 +63,10 @@ const employeeSchema = z.object({
   bankBic: z.string().optional(),
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
+  disableNightDifferential: z.boolean().default(false),
   disableHolidayPay: z.boolean().default(false),
+  disableEarlyInOt: z.boolean().default(false),
+  disableBeyondScheduleOt: z.boolean().default(false),
   disableLateDeduction: z.boolean().default(false),
   disableUndertimeDeduction: z.boolean().default(false),
   trackTime: z.boolean().default(false),
@@ -196,6 +201,18 @@ export function EmployeeForm({ departments: initialDepartments, positions: initi
   }, [isCreate])
 
   const [activeTab, setActiveTab] = useState(tabs[0]?.value ?? 'personal')
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab')
+    if (requested && tabs.some(tab => tab.value === requested)) setActiveTab(requested)
+  }, [tabs])
+  useEffect(() => {
+    if (activeTab !== 'compensation') return
+    const target = window.location.hash.slice(1)
+    if (!['basic-pay', 'additional-earnings', 'deductions'].includes(target)) return
+    const frame = requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ block: 'start' }))
+    return () => cancelAnimationFrame(frame)
+  }, [activeTab])
+
 const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
 
   // Leave allocations state
@@ -378,7 +395,10 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       payFrequency: 'SEMI_MONTHLY',
       isExemptFromTax: false,
       isMinimumWageEarner: false,
+      disableNightDifferential: false,
       disableHolidayPay: false,
+      disableEarlyInOt: false,
+      disableBeyondScheduleOt: false,
       disableLateDeduction: false,
       disableUndertimeDeduction: false,
       trackTime: false,
@@ -875,7 +895,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
         </TabsContent>
 
         {/* COMPENSATION */}
-        <TabsContent value="compensation">
+        <TabsContent id="basic-pay" value="compensation">
           <Card className="mb-4">
             <CardHeader><CardTitle className="text-base">Compensation & Pay</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -933,91 +953,44 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </Field>
               <Field label="Bank BIC / SWIFT Code">
                 <Input {...register('bankBic')} placeholder="e.g. BNORPHMMXXX (for BDO)" />
-                <p className="text-[11px] text-gray-400 mt-0.5">Required for payroll disbursement. BDO: BNORPHMMXXX · BPI: BOPIPHMMXXX · GCash: GCSHPHM2XXX · Maya: PAEYPHM2XXX</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Bank identification reference. BDO: BNORPHMMXXX · BPI: BOPIPHMMXXX · GCash: GCSHPHM2XXX · Maya: PAEYPHM2XXX</p>
               </Field>
-              {/* Toggles — single row of 4 on md+ (2-col on small screens) */}
-              <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium">Minimum Wage Earner</p>
-                    <p className="text-xs text-gray-500">Exempt from income tax</p>
-                  </div>
-                  <Switch
-                    checked={watch('isMinimumWageEarner')}
-                    onCheckedChange={v => setValue('isMinimumWageEarner', v)}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium">Tax Exempt</p>
-                    <p className="text-xs text-gray-500">No withholding tax deduction</p>
-                  </div>
-                  <Switch
-                    checked={watch('isExemptFromTax')}
-                    onCheckedChange={v => setValue('isExemptFromTax', v)}
-                  />
-                </div>
-                <div
-                  className="flex items-center justify-between p-3 rounded-lg border-2"
-                  style={{
-                    background: watch('trackTime') ? 'rgba(184, 225, 0,0.06)' : '#f7f7f7',
-                    borderColor: watch('trackTime') ? 'rgba(184, 225, 0,0.3)' : 'transparent',
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-medium">Track Time (DTR-Based Pay)</p>
-                    <p className="text-xs text-gray-500">Payroll computed from daily attendance records</p>
-                  </div>
-                  <Switch
-                    checked={watch('trackTime')}
-                    onCheckedChange={v => setValue('trackTime', v)}
-                  />
-                </div>
-                <div
-                  className="flex items-center justify-between p-3 rounded-lg border-2"
-                  style={{
-                    background: watch('disableHolidayPay') ? 'rgba(239,68,68,0.06)' : '#f7f7f7',
-                    borderColor: watch('disableHolidayPay') ? 'rgba(239,68,68,0.3)' : 'transparent',
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-medium">Disable Holiday Pay</p>
-                    <p className="text-xs text-gray-500">
-                      Override company calendar — no holiday premiums or
-                      Art. 94 non-work pay for this employee
-                    </p>
-                  </div>
-                  <Switch
-                    checked={watch('disableHolidayPay')}
-                    onCheckedChange={v => setValue('disableHolidayPay', v)}
-                  />
-                </div>
-                <div
-                  className="flex items-center justify-between p-3 rounded-lg border-2"
-                  style={{
-                    background: watch('disableLateDeduction') ? 'rgba(239,68,68,0.06)' : '#f7f7f7',
-                    borderColor: watch('disableLateDeduction') ? 'rgba(239,68,68,0.3)' : 'transparent',
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-medium">Disable Late Deduction</p>
-                    <p className="text-xs text-gray-500">
-                      Skip pay docking for late minutes + overbreak.
-                      Undertime is always non-deductible — only late
-                      and overbreaks affect pay (handled via this toggle).
-                    </p>
-                  </div>
-                  <Switch
-                    checked={watch('disableLateDeduction')}
-                    onCheckedChange={v => setValue('disableLateDeduction', v)}
-                  />
-                </div>
+              <div className="md:col-span-3 space-y-5 border-t border-slate-100 pt-5">
+                {([
+                  { title: 'Attendance & pay', description: "Control how attendance affects this employee's pay.", items: [
+                    { field: 'trackTime', label: 'Track Time (DTR-Based Pay)', desc: 'Compute payroll using attendance records.' },
+                    { field: 'disableNightDifferential', label: 'Disable Night Differential Pay', desc: 'Exclude night differential pay for this employee. Recorded night hours remain available for attendance tracking.' },
+                    { field: 'disableHolidayPay', label: 'Disable Holiday Pay', desc: 'Exclude holiday premiums and unworked holiday credits.' },
+                    { field: 'disableLateDeduction', label: 'Disable Late Deduction', desc: 'Skip deductions for late arrivals and overbreaks.' },
+                    { field: 'disableUndertimeDeduction', label: 'Disable Undertime Deduction', desc: 'Skip deductions for leaving before the scheduled end.' },
+                  ] },
+                  { title: 'Overtime pay', description: 'Exclude selected categories from approved OT pay. A scheduled shift is required to calculate eligible hours.', items: [
+                    { field: 'disableEarlyInOt', label: 'Disable Early Ins OT', desc: 'Exclude pre-shift work and extra time from ending a break early.' },
+                    { field: 'disableBeyondScheduleOt', label: 'Disable OT Pay Beyond Schedule Hours', desc: 'Exclude overtime worked after the scheduled shift ends.' },
+                  ] },
+                  { title: 'Tax treatment', description: "Set the employee's tax classification.", items: [
+                    { field: 'isMinimumWageEarner', label: 'Minimum Wage Earner', desc: 'Apply minimum wage earner tax treatment.' },
+                    { field: 'isExemptFromTax', label: 'Tax Exempt', desc: 'Exclude withholding tax deductions.' },
+                  ] },
+                ] as const).map(group => (
+                  <section key={group.title} className="space-y-3">
+                    <div><h3 className="text-sm font-semibold text-slate-900">{group.title}</h3><p className="mt-1 text-xs leading-relaxed text-slate-500">{group.description}</p></div>
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      {group.items.map(({ field, label, desc }) => (
+                        <div key={field} className={`flex items-start justify-between gap-4 rounded-xl border p-4 transition-colors ${watch(field) ? 'border-blue-200 bg-blue-50/60' : 'border-slate-200 bg-white'}`}>
+                          <div className="min-w-0"><Label htmlFor={`comp-${field}`} className="cursor-pointer text-sm font-medium leading-5 text-slate-900">{label}</Label><p id={`comp-${field}-description`} className="mt-1 text-xs leading-5 text-slate-500">{desc}</p></div>
+                          <Switch id={`comp-${field}`} aria-describedby={`comp-${field}-description`} className="mt-0.5 shrink-0" checked={watch(field)} onCheckedChange={v => setValue(field, v, { shouldDirty: true })} />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
             </CardContent>
           </Card>
 
           {/* Mandatory Deductions */}
-          <Card>
+          <Card id="deductions" className="scroll-mt-24">
             <CardHeader>
               <CardTitle className="text-base">Mandatory Deductions</CardTitle>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -1031,14 +1004,14 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                 { field: 'pagibigEnabled', label: 'Pag-IBIG / HDMF', desc: 'Home Development Mutual Fund contribution' },
                 { field: 'withholdingTaxEnabled', label: 'Withholding Tax', desc: 'BIR income tax withholding' },
               ] as const).map(({ field, label, desc }) => (
-                <div key={field} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={field} className={`flex items-start justify-between gap-4 rounded-xl border p-4 transition-colors ${watch(field) ? 'border-blue-200 bg-blue-50/60' : 'border-slate-200 bg-white'}`}>
                   <div>
-                    <p className="text-sm font-medium">{label}</p>
-                    <p className="text-xs text-gray-500">{desc}</p>
+                    <Label htmlFor={`comp-${field}`} className="cursor-pointer text-sm font-medium text-slate-900">{label}</Label>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{desc}</p>
                   </div>
-                  <Switch
+                  <Switch id={`comp-${field}`} className="mt-0.5 shrink-0"
                     checked={watch(field)}
-                    onCheckedChange={v => setValue(field, v)}
+                    onCheckedChange={v => setValue(field, v, { shouldDirty: true })}
                   />
                 </div>
               ))}
@@ -1046,7 +1019,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
           </Card>
 
           {employeeId ? (
-            <Card className="mt-4">
+            <Card id="additional-earnings" className="mt-4 scroll-mt-24">
               <CardHeader>
                 <CardTitle className="text-base">Employee Other Income Setup</CardTitle>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -1055,7 +1028,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </CardHeader>
               <CardContent className="space-y-2">
                 {incomeAssignmentsLoading ? (
-                  <p className="text-sm text-gray-400">Loading employee income setup...</p>
+                  <AppSpinner size="md" message="Loading employee income setup..." className="py-8" />
                 ) : companyIncomeTypes.length === 0 ? (
                   <p className="text-sm text-gray-400">Create an income type first.</p>
                 ) : (
@@ -1125,7 +1098,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
             </CardHeader>
             <CardContent className="space-y-2">
               {otherDeductionsLoading ? (
-                <p className="text-sm text-gray-400">Loading other deductions…</p>
+                <AppSpinner size="md" message="Loading other deductions…" className="py-8" />
               ) : (
                 <>
                   {otherDeductions.length === 0 && (
@@ -1227,11 +1200,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               </div>
             </CardHeader>
             <CardContent>
-              {leavesLoading ? (
-                <div className="space-y-3 py-2">
-                  {[1,2,3,4].map(i => <div key={i} className="h-14 rounded-xl animate-pulse bg-gray-100" />)}
-                </div>
-              ) : leaveTypes.length === 0 ? (
+              {leavesLoading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : leaveTypes.length === 0 ? (
                 <p className="text-sm text-gray-400 py-4 text-center">No leave types configured. Add leave types in Leave Types settings first.</p>
               ) : (
                 <div className="space-y-2">
@@ -1239,7 +1208,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                     const alloc = leaveAllocations[lt.id] ?? { enabled: false, entitled: lt.daysEntitled }
                     return (
                       <div key={lt.id} className="flex items-center gap-4 p-3 rounded-xl border transition-colors"
-                        style={{ background: alloc.enabled ? 'rgba(184, 225, 0,0.04)' : '#f7f7f7', borderColor: alloc.enabled ? 'rgba(184, 225, 0,0.25)' : '#d4d4d4' }}>
+                        style={{ background: alloc.enabled ? 'rgba(255, 89, 0,0.04)' : '#f7f7f7', borderColor: alloc.enabled ? 'rgba(255, 89, 0,0.25)' : '#d4d4d4' }}>
                         <input
                           type="checkbox"
                           className="w-4 h-4 accent-orange-500"
@@ -1250,7 +1219,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(14,166,240,0.1)', color: '#0ea6f0' }}>{lt.code}</span>
                             <span className="text-sm font-medium text-gray-800">{lt.name}</span>
-                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(184, 225, 0,0.1)', color: 'var(--brand-highlight)' }}>Dole-Mandated</span>}
+                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(255, 89, 0,0.1)', color: 'var(--brand-highlight)' }}>Dole-Mandated</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">

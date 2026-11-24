@@ -102,8 +102,8 @@ export function RecruitmentDashboardTab() {
               {followUps.length === 0 ? <EmptyLine text="No active follow-ups" /> : followUps.map((candidate, index) => (
                 <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="flex items-center gap-2.5 rounded-xl bg-[#f4f8ff] p-2 transition hover:bg-[#eaf2ff]">
                   <Avatar candidate={candidate} />
-                  <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#12345b]">{candidate.firstName} {candidate.lastName}</p><p className="truncate text-[10px] text-slate-400">{candidate.jobPost.title}</p></div>
-                  <strong className="text-sm text-[#1d4ed8]">{Math.max(46, 72 - index * 8)}%</strong><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#dbeafe] text-[9px] font-bold text-[#1d4ed8]">{index + 1}</span>
+                  <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#162d54]">{candidate.firstName} {candidate.lastName}</p><p className="truncate text-[10px] text-slate-400">{candidate.jobPost.title}</p></div>
+                  <strong className="text-sm text-[#0044ad]">{Math.max(46, 72 - index * 8)}%</strong><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#dbeafe] text-[9px] font-bold text-[#0044ad]">{index + 1}</span>
                 </Link>
               ))}
             </div>
@@ -111,12 +111,12 @@ export function RecruitmentDashboardTab() {
 
           <DashboardCard title="Upcoming interviews" icon={Video} action={<MoreHorizontal className="h-4 w-4 text-slate-400" />} className="min-h-[318px]">
             <div className="mb-4 grid grid-cols-7 gap-1 text-center text-[9px] text-slate-400">
-              {['M 15', 'T 16', 'W 17', 'T 18', 'F 19', 'S 20', 'S 21'].map((day, index) => <span key={day} className={index === 2 ? 'rounded-lg bg-[#2563eb] py-2 font-bold text-white shadow-sm shadow-blue-200' : 'py-2'}>{day}</span>)}
+              {['M 15', 'T 16', 'W 17', 'T 18', 'F 19', 'S 20', 'S 21'].map((day, index) => <span key={day} className={index === 2 ? 'rounded-lg bg-[#0054d7] py-2 font-bold text-white shadow-sm shadow-blue-200' : 'py-2'}>{day}</span>)}
             </div>
             <div className="space-y-2">
               {interviewQueue.length === 0 ? <EmptyLine text="No candidates awaiting interviews" /> : interviewQueue.slice(0, 4).map(candidate => (
-                <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="block rounded-r-xl border-l-4 border-[#2563eb] bg-[#f4f8ff] px-3 py-3 hover:bg-[#eaf2ff]">
-                  <div className="flex items-center justify-between gap-2"><p className="truncate text-xs font-bold text-[#12345b]">Meet with {candidate.firstName} {candidate.lastName}</p><Video className="h-3.5 w-3.5 text-[#2563eb]" /></div>
+                <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="block rounded-r-xl border-l-4 border-[#0054d7] bg-[#f4f8ff] px-3 py-3 hover:bg-[#eaf2ff]">
+                  <div className="flex items-center justify-between gap-2"><p className="truncate text-xs font-bold text-[#162d54]">Meet with {candidate.firstName} {candidate.lastName}</p><Video className="h-3.5 w-3.5 text-[#0054d7]" /></div>
                   <p className="mt-1 text-[10px] text-slate-400">{ageInDays(candidate.lastStageUpdatedAt) || 1} day waiting · {candidate.jobPost.title}</p>
                 </Link>
               ))}
@@ -134,12 +134,12 @@ export function RecruitmentDashboardTab() {
 
           <DashboardCard title="Recruitment progress" icon={TrendingUp} action={<span className="text-[10px] font-semibold text-slate-400">{candidates.length} total applications</span>} className="min-h-[284px]">
             <div className="grid grid-cols-3 gap-3 border-b border-slate-100 pb-4 sm:grid-cols-6">
-              {pipelineStages.slice(0, 6).map(stage => <div key={stage.id}><p className="truncate text-[10px] text-slate-400">{stage.name}</p><p className="mt-1 text-lg font-black text-[#1d4ed8]">{stageCounts.get(stage.id) ?? 0}</p></div>)}
+              {pipelineStages.slice(0, 6).map(stage => <div key={stage.id}><p className="truncate text-[10px] text-slate-400">{stage.name}</p><p className="mt-1 text-lg font-black text-[#0044ad]">{stageCounts.get(stage.id) ?? 0}</p></div>)}
             </div>
             <div className="mt-5 flex h-40 items-end gap-1 overflow-hidden rounded-xl bg-gradient-to-b from-white to-[#eff6ff] px-3 pt-4">
-              {pipelineStages.slice(0, 6).map((stage, index) => <div key={stage.id} className="relative flex-1 rounded-t-md border border-[#bfdbfe] bg-[#dbeafe]" style={{ height: `${Math.max(24, 95 - index * 12)}%` }}><div className="absolute inset-x-0 top-0 h-1 rounded-full bg-[#2563eb]" /></div>)}
+              {pipelineStages.slice(0, 6).map((stage, index) => <div key={stage.id} className="relative flex-1 rounded-t-md border border-[#bfdbfe] bg-[#dbeafe]" style={{ height: `${Math.max(24, 95 - index * 12)}%` }}><div className="absolute inset-x-0 top-0 h-1 rounded-full bg-[#0054d7]" /></div>)}
             </div>
-            <div className="mt-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-xs text-[#34516f]"><Sparkles className="mr-2 inline h-3.5 w-3.5 text-[#2563eb]" />Hiring conversion is <strong className="text-[#1d4ed8]">{candidates.length ? Math.round((hired / candidates.length) * 100) : 0}%</strong>, with <strong className="text-[#1d4ed8]">{offerCount}</strong> active offers.</div>
+            <div className="mt-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-xs text-[#34516f]"><Sparkles className="mr-2 inline h-3.5 w-3.5 text-[#0054d7]" />Hiring conversion is <strong className="text-[#0044ad]">{candidates.length ? Math.round((hired / candidates.length) * 100) : 0}%</strong>, with <strong className="text-[#0044ad]">{offerCount}</strong> active offers.</div>
           </DashboardCard>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -169,15 +169,15 @@ export function RecruitmentDashboardTab() {
 }
 
 function MetricCard({ label, value, icon: Icon }: { label: string; value: number; icon: React.ComponentType<{ className?: string }> }) {
-  return <div className="min-w-0 p-4"><div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eaf2ff] text-[#2563eb]"><Icon className="h-3.5 w-3.5" /></span><p className="truncate text-[10px] font-semibold text-[#526d8a]">{label}</p></div><div className="mt-2 flex items-end gap-2"><p className="text-xl font-black text-[#1d4ed8]">{value}</p><span className="mb-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-bold text-emerald-600">+3%</span></div></div>
+  return <div className="min-w-0 p-4"><div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eaf2ff] text-[#0054d7]"><Icon className="h-3.5 w-3.5" /></span><p className="truncate text-[10px] font-semibold text-[#526d8a]">{label}</p></div><div className="mt-2 flex items-end gap-2"><p className="text-xl font-black text-[#0044ad]">{value}</p><span className="mb-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-bold text-emerald-600">+3%</span></div></div>
 }
 
 function DashboardCard({ title, icon: Icon, label, action, className = '', children }: { title: string; icon: React.ComponentType<{ className?: string }>; label?: string; action?: React.ReactNode; className?: string; children: React.ReactNode }) {
-  return <section className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{label && <span className="mb-3 inline-flex items-center gap-1 rounded-full bg-[#eaf2ff] px-2 py-1 text-[9px] font-bold text-[#1d4ed8]"><Sparkles className="h-3 w-3" />{label}</span>}<header className="mb-3 flex items-start gap-2"><Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2563eb]" /><h2 className="text-sm font-black leading-tight text-[#12345b]">{title}</h2><div className="ml-auto">{action}</div></header>{children}</section>
+  return <section className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{label && <span className="mb-3 inline-flex items-center gap-1 rounded-full bg-[#eaf2ff] px-2 py-1 text-[9px] font-bold text-[#0044ad]"><Sparkles className="h-3 w-3" />{label}</span>}<header className="mb-3 flex items-start gap-2"><Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#0054d7]" /><h2 className="text-sm font-black leading-tight text-[#162d54]">{title}</h2><div className="ml-auto">{action}</div></header>{children}</section>
 }
 
 function Avatar({ candidate }: { candidate: Candidate }) {
-  return <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] text-[10px] font-black text-[#1d4ed8]">{initials(candidate)}</div>
+  return <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] text-[10px] font-black text-[#0044ad]">{initials(candidate)}</div>
 }
 
 function EmptyLine({ text }: { text: string }) {

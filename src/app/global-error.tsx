@@ -36,7 +36,7 @@ export default function GlobalError({
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#fee2e2', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <span style={{ fontSize: 26, color: '#dc2626' }} aria-hidden>!</span>
               </div>
-              <h1 style={{ fontSize: 18, fontWeight: 900, color: '#000000', margin: 0 }}>Something went wrong</h1>
+              <h1 style={{ fontSize: 18, fontWeight: 900, color: 'var(--brand-primary)', margin: 0 }}>Something went wrong</h1>
               <p style={{ fontSize: 14, color: '#343434', marginTop: 12, lineHeight: 1.5 }}>
                 We couldn&apos;t load this page. This is usually a temporary
                 issue — try refreshing in a moment.
@@ -50,7 +50,7 @@ export default function GlobalError({
             <div style={{ padding: '16px 24px', background: '#f7f7f7', borderTop: '1px solid #d4d4d4', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 onClick={() => reset()}
-                style={{ padding: '10px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#fff', background: '#000000', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                style={{ padding: '10px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#fff', background: 'var(--brand-primary)', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
                 Try again
               </button>

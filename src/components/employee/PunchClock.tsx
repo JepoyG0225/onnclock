@@ -1,12 +1,15 @@
 'use client'
 
+import { geofenceStatus as evaluateGeofence, type EffectiveGeofence } from '@/lib/attendance/location-policy'
+
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Image from 'next/image'
+import { SelfieCamera } from './SelfieCamera'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { format, differenceInSeconds } from 'date-fns'
 import { MapPin, Clock, AlertCircle, Loader2, RefreshCw, Calendar, Coffee, Monitor, CalendarDays, Fingerprint} from 'lucide-react'
 import { toast } from 'sonner'
 import { FaceEnrollDialog } from '@/components/employee/FaceEnrollDialog'
+import { ActivityLogPopup } from '@/components/attendance/ActivityLog'
 import { FaceVerifyDialog } from '@/components/employee/FaceVerifyDialog'
 import dynamic from 'next/dynamic'
 
@@ -35,6 +38,7 @@ interface TodayRecord {
   clockOutLat: number | null
   clockOutLng: number | null
   clockOutAddress: string | null
+  restDayApproval?: string | null
   isHoliday: boolean
   holidayType: string | null
 }
@@ -103,13 +107,8 @@ export function PunchClock() {
   const biometricOptionsRef = useRef<{ options: unknown; fetchedAt: number } | null>(null)
   // True while the biometric sheet is open, so background work doesn't race it.
   const biometricInFlightRef = useRef(false)
-  const [geofence, setGeofence] = useState<{
-    enabled: boolean
-    lat: number | null
-    lng: number | null
-    radiusMeters: number | null
-    configured: boolean
-  } | null>(null)
+  const [geofence, setGeofence] = useState<EffectiveGeofence | null>(null)
+  const [holidayPayEligible, setHolidayPayEligible] = useState(false)
   const [selfieRequired, setSelfieRequired] = useState(false)
   const [faceRequired, setFaceRequired] = useState(false)
   const [faceEnrolled, setFaceEnrolled] = useState(false)
@@ -120,7 +119,7 @@ export function PunchClock() {
    * rather than the caller having to re-click.
    */
   const [pendingFaceAction, setPendingFaceAction] = useState<null | (() => void)>(null)
-  const [selfiePhoto, setSelfiePhoto] = useState<string | null>(null)
+  const [selfieCapture, setSelfieCapture] = useState<((photo: string) => void) | null>(null)
   const [screenCaptureFeature, setScreenCaptureFeature] = useState<ScreenCaptureFeature | null>(null)
   const [screenCaptureBlocked, setScreenCaptureBlocked] = useState(false)
   const [screenCaptureUnavailable, setScreenCaptureUnavailable] = useState(false)
@@ -161,6 +160,7 @@ export function PunchClock() {
       const res = await fetch('/api/attendance/today')
       const data = await res.json()
       setRecord(data.record)
+      setHolidayPayEligible(data.employee?.disableHolidayPay === false)
       setScheduleReady(data.scheduleReady !== false)
       setScheduleMessage(typeof data.scheduleMessage === 'string' ? data.scheduleMessage : null)
       if (typeof data.breakMinutes === 'number') setBreakMinutes(data.breakMinutes)
@@ -477,15 +477,7 @@ export function PunchClock() {
   // Returns true if inside geofence (or geofence not enforced)
   function checkGeofence(pos: GeoPosition): boolean {
     if (!geofence?.enabled || !geofence.configured) return true
-    const toRad = (d: number) => (d * Math.PI) / 180
-    const R = 6371000
-    const dLat = toRad(pos.lat - geofence.lat!)
-    const dLng = toRad(pos.lng - geofence.lng!)
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(geofence.lat!)) * Math.cos(toRad(pos.lat)) * Math.sin(dLng / 2) ** 2
-    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return dist <= geofence.radiusMeters!
+    return evaluateGeofence(geofence, pos.lat, pos.lng)?.inside ?? false
   }
 
   // Fetch a challenge ahead of time and park it. Safe to call repeatedly —
@@ -599,7 +591,7 @@ export function PunchClock() {
     }
   }
 
-  const executeClockIn = async (pos: GeoPosition | null) => {
+  const executeClockIn = async (pos: GeoPosition | null, capturedPhoto?: string) => {
     setActionLoading(true)
     try {
       const res = await fetch('/api/attendance/clock-in', {
@@ -607,7 +599,7 @@ export function PunchClock() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(pos ? { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy, address: pos.address } : {}),
-          photo: selfieRequired ? (selfiePhoto ?? undefined) : undefined,
+          photo: selfieRequired ? (capturedPhoto ?? undefined) : undefined,
         }),
       })
       const data = await res.json()
@@ -620,7 +612,6 @@ export function PunchClock() {
       }
       if (data.geofenceWarning) toast.warning(data.geofenceWarning)
       toast.success('Clocked in successfully!')
-      setSelfiePhoto(null)
       await loadRecord()
 
       // Refresh location in the background after clock-in so the live map
@@ -640,17 +631,13 @@ export function PunchClock() {
     }
   }
 
-  const executeClockOut = async (pos: GeoPosition | null) => {
+  const executeClockOut = async (pos: GeoPosition | null, photo?: string) => {
     setActionLoading(true)
     try {
       const res = await fetch('/api/attendance/clock-out', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          pos
-            ? { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy, address: pos.address }
-            : {}
-        ),
+        body: JSON.stringify({ ...(pos ? { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy, address: pos.address } : {}), photo }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -698,17 +685,17 @@ export function PunchClock() {
     const cachedFresh = geoPos && (Date.now() - geoPos.capturedAt) <= MAX_CACHED_AGE_MS
     let pos: GeoPosition | null = cachedFresh ? geoPos : null
 
-    if (geofence?.enabled && geofence.configured) {
+    if (geofence?.requireLocation) {
       if (!pos) {
         // Geofence requires a valid position — wait for one if none cached
         pos = await ensureLocation({ maxAgeMs: MAX_CACHED_AGE_MS })
       }
       if (!pos) {
-        toast.error('Location is required because geo-fencing is enabled. Please allow location access and try again.')
+        toast.error('Location is required for this schedule. Please allow location access and try again.')
         return
       }
       if (!checkGeofence(pos)) {
-        toast.error('You are outside the allowed clock-in area. Please move closer to the office.')
+        toast.error('You are outside the allowed clock-in area. Please move to an approved location for your schedule.')
         return
       }
     }
@@ -719,48 +706,24 @@ export function PunchClock() {
     }
     // Face gate. Enrolment is offered inline rather than sending the employee
     // off to another screen mid-punch.
-    if (faceRequired && !faceEnrolled) {
+    if (faceRequired && !selfieRequired && !faceEnrolled) {
       toast.error('Set up face verification before clocking in.')
       setShowFaceEnroll(true)
       return
     }
-    if (faceRequired) {
+    if (faceRequired && !selfieRequired) {
       setPendingFaceAction(() => () => { void executeClockIn(pos) })
-      return
-    }
-    if (selfieRequired && !selfiePhoto) {
-      toast.error('Please capture a selfie before clocking in.')
       return
     }
     if (biometricRequired) {
       const ok = await authenticateBiometric()
       if (!ok) return
     }
+    if (selfieRequired) {
+      setSelfieCapture(() => (photo: string) => { setSelfieCapture(null); void executeClockIn(pos, photo) })
+      return
+    }
     await executeClockIn(pos)
-  }
-
-  const handleSelfieFile = async (file?: File | null) => {
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file')
-      return
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('Image must be 8MB or less')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const value = typeof reader.result === 'string' ? reader.result : null
-      if (!value) {
-        toast.error('Failed to read selfie photo')
-        return
-      }
-      setSelfiePhoto(value)
-      toast.success('Selfie captured')
-    }
-    reader.onerror = () => toast.error('Failed to read selfie photo')
-    reader.readAsDataURL(file)
   }
 
   const handleClockOut = async () => {
@@ -773,16 +736,16 @@ export function PunchClock() {
     const cachedFresh = geoPos && (Date.now() - geoPos.capturedAt) <= MAX_CACHED_AGE_MS
     let pos: GeoPosition | null = cachedFresh ? geoPos : null
 
-    if (geofence?.enabled && geofence.configured) {
+    if (geofence?.requireLocation) {
       if (!pos) {
         pos = await ensureLocation({ maxAgeMs: MAX_CACHED_AGE_MS })
       }
       if (!pos) {
-        toast.error('Location is required because geo-fencing is enabled. Please allow location access and try again.')
+        toast.error('Location is required for this schedule. Please allow location access and try again.')
         return
       }
       if (!checkGeofence(pos)) {
-        toast.error('You are outside the allowed clock-out area. Please move closer to the office.')
+        toast.error('You are outside the allowed clock-out area. Please move to an approved location for your schedule.')
         return
       }
     }
@@ -794,13 +757,26 @@ export function PunchClock() {
       const ok = await authenticateBiometric()
       if (!ok) return
     }
+    if (selfieRequired) {
+      setSelfieCapture(() => (photo: string) => { setSelfieCapture(null); void executeClockOut(pos, photo) })
+      return
+    }
     await executeClockOut(pos)
   }
 
-  const handleBreakStart = async () => {
+  const handleBreakStart = () => {
+    if (selfieRequired) setSelfieCapture(() => (photo: string) => { setSelfieCapture(null); void executeBreakStart(photo) })
+    else void executeBreakStart()
+  }
+  const handleBreakEnd = () => {
+    if (selfieRequired) setSelfieCapture(() => (photo: string) => { setSelfieCapture(null); void executeBreakEnd(photo) })
+    else void executeBreakEnd()
+  }
+
+  const executeBreakStart = async (photo?: string) => {
     setActionLoading(true)
     try {
-      const res = await fetch('/api/attendance/break-start', { method: 'POST' })
+      const res = await fetch('/api/attendance/break-start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to start break')
       toast.success('Break started')
@@ -812,10 +788,10 @@ export function PunchClock() {
     }
   }
 
-  const handleBreakEnd = async () => {
+  const executeBreakEnd = async (photo?: string) => {
     setActionLoading(true)
     try {
-      const res = await fetch('/api/attendance/break-end', { method: 'POST' })
+      const res = await fetch('/api/attendance/break-end', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo }) })
       const data = await res.json()
       if (!res.ok) {
         const msg = String(data?.error ?? 'Failed to end break')
@@ -840,6 +816,15 @@ export function PunchClock() {
     }
   }
 
+  useEffect(() => {
+    let active = true
+    const refresh = () => fetch('/api/attendance/geofence', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null).then(data => { if (active && data) setGeofence(data) }).catch(() => {})
+    void refresh()
+    const timer = window.setInterval(refresh, 30000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [record?.timeIn, record?.timeOut])
+
   const isClockedIn = !!record?.timeIn && !record?.timeOut
   const isOnBreak = !!record?.breakIn && !record?.breakOut
 
@@ -847,21 +832,11 @@ export function PunchClock() {
   const geofenceStatus = (() => {
     if (!geofence?.enabled || !geofence.configured) return null
     if (!geoPos) return null
-    const toRad = (d: number) => (d * Math.PI) / 180
-    const R = 6371000
-    const dLat = toRad(geoPos.lat - geofence.lat!)
-    const dLng = toRad(geoPos.lng - geofence.lng!)
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(geofence.lat!)) * Math.cos(toRad(geoPos.lat)) * Math.sin(dLng / 2) ** 2
-    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    const inside = dist <= geofence.radiusMeters!
-    return { dist: Math.round(dist), inside, radius: geofence.radiusMeters! }
+    return evaluateGeofence(geofence, geoPos.lat, geoPos.lng)
   })()
 
   const geofenceActionBlocked =
     !!geofence?.enabled &&
-    !!geofence?.configured &&
     (!geoPos || !geofenceStatus || !geofenceStatus.inside)
 
   useEffect(() => {
@@ -1028,7 +1003,7 @@ export function PunchClock() {
               screenCaptureBlocked ? 'text-red-500'
               : screenCaptureUnavailable ? 'text-amber-500'
               : isClockedIn && lastCapturedAt ? 'text-green-600'
-              : 'text-[#000000]'
+              : 'text-[var(--brand-primary)]'
             }`} />
             <div className="flex-1 min-w-0">
               <p className={`font-semibold ${
@@ -1063,55 +1038,14 @@ export function PunchClock() {
         </div>
       )}
 
-      {selfieRequired && !isClockedIn && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-700">Selfie required for this schedule</p>
-            <p className="text-xs text-slate-500">Capture a selfie before clocking in.</p>
-          </div>
-          {selfiePhoto ? (
-            <div className="space-y-2">
-              <Image
-                src={selfiePhoto}
-                alt="Selfie preview"
-                width={112}
-                height={112}
-                className="w-28 h-28 rounded-xl object-cover border border-slate-200"
-                unoptimized
-              />
-              <button
-                type="button"
-                onClick={() => setSelfiePhoto(null)}
-                className="text-xs font-semibold text-rose-600"
-              >
-                Remove photo
-              </button>
-            </div>
-          ) : null}
-          <label
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
-            style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
-          >
-            Capture Selfie
-            <input
-              type="file"
-              accept="image/*"
-              capture="user"
-              className="hidden"
-              onChange={(e) => handleSelfieFile(e.target.files?.[0])}
-            />
-          </label>
-        </div>
-      )}
-
       {/* Geofence status badge — only shown when inside the zone */}
       {geofence?.enabled && geofence.configured && geoPos && geofenceStatus?.inside && (
         <div
           className="rounded-2xl px-4 py-2.5 text-xs font-semibold flex items-center gap-2"
-          style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
+          style={{ background: 'rgba(46,65,86,0.12)', color: 'var(--brand-primary)' }}
         >
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#0055d4' }} />
-          {`Inside allowed zone (${geofenceStatus.dist}m from office)`}
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#0054d7' }} />
+          {`Inside allowed zone (${geofenceStatus.dist}m from approved location)`}
         </div>
       )}
 
@@ -1127,7 +1061,7 @@ export function PunchClock() {
           <div>
             <p className="text-sm font-bold text-red-700">You&apos;re not within the allowable area</p>
             <p className="text-xs text-red-500 mt-0.5 leading-relaxed">
-              Clock in/out is restricted to within <span className="font-semibold">{geofenceStatus.radius}m</span> of the office.
+              Clock in/out is restricted to within <span className="font-semibold">{geofenceStatus.radius}m</span> of an approved location.
               You are currently <span className="font-semibold">{geofenceStatus.dist}m</span> away. Please move closer to proceed.
             </p>
           </div>
@@ -1152,6 +1086,8 @@ export function PunchClock() {
         </div>
       )}
 
+      {record?.restDayApproval && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800">Rest-day shift: {record.restDayApproval.toLowerCase()}. Your actual attendance remains recorded.</p>}
+      {scheduleMessage?.includes('HR must approve') && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800">{scheduleMessage}</p>}
       {/* The red "no schedule / rest day" banner that used to sit here is gone —
           the same information now arrives as a dialog when the employee actually
           taps Clock In, rather than as a permanent block of warning text above a
@@ -1183,9 +1119,9 @@ export function PunchClock() {
         {loading && !record ? (
           <div
             className="w-36 h-36 sm:w-40 sm:h-40 rounded-full text-sm font-bold flex flex-col items-center justify-center gap-2"
-            style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
+            style={{ background: 'rgba(46,65,86,0.12)', color: 'var(--brand-primary)' }}
           >
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#000000' }} />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--brand-primary)' }} />
             Loading...
           </div>
         ) : clockStep === 0 ? (
@@ -1196,12 +1132,12 @@ export function PunchClock() {
                the employee gets an explanation dialog instead of a dead
                control with no way to find out why. */
             disabled={actionLoading || loading || geofenceActionBlocked || screenCaptureBlocked || desktopRequired}
-            /* Matches the punch control on the home screen: orange gradient,
+            /* Matches the punch control on the home screen: solid orange,
                fingerprint mark, soft glow. */
             className={`w-[132px] h-[132px] rounded-full text-white text-[11px] font-black tracking-[0.15em] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${pulse === 'in' ? 'clock-pulse' : ''}`}
             style={{
-              background: 'linear-gradient(145deg, var(--brand-primary), var(--brand-highlight))',
-              boxShadow: '0 14px 34px rgba(11,111,251,0.24)',
+              background: '#ff5900',
+              boxShadow: '0 14px 34px rgba(255,89,0,0.20)',
             }}
           >
             {/* No 'No Schedule' state here any more — the button reads as a
@@ -1253,7 +1189,7 @@ export function PunchClock() {
             disabled={actionLoading || loading}
             className="w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white text-sm font-bold flex flex-col items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: isOverBreak ? '#ef4444' : '#16a34a',
+              background: isOverBreak ? '#ef4444' : '#c74300',
               boxShadow: isOverBreak
                 ? '0 0 0 10px rgba(239,68,68,0.2), 0 10px 24px rgba(0,0,0,0.18)'
                 : '0 0 0 10px rgba(22,163,74,0.15), 0 10px 24px rgba(0,0,0,0.18)',
@@ -1290,19 +1226,23 @@ export function PunchClock() {
         <div className="flex items-center justify-center gap-2">
           <span
             className="w-1.5 h-1.5 rounded-full"
-            style={{ background: isOnBreak ? '#f59e0b' : '#10b981' }}
+            style={{ background: isOnBreak ? '#f59e0b' : '#c74300' }}
           />
           <span className="text-xs font-bold text-slate-500">
             {isOnBreak ? 'On break' : 'Running'}
           </span>
-          <span className="text-sm font-black tabular-nums" style={{ color: '#000000' }}>
+          <span className="text-sm font-black tabular-nums" style={{ color: 'var(--brand-primary)' }}>
             {elapsedLabel}
           </span>
         </div>
       )}
 
+      {selfieCapture && <SelfieCamera onClose={() => setSelfieCapture(null)} onCapture={selfieCapture} />}
+      {faceRequired && !faceEnrolled && <div className="text-center"><button type="button" className="text-sm font-semibold text-blue-600 underline" onClick={() => setShowFaceEnroll(true)}>Register face for attendance / office kiosk</button></div>}
+      <ActivityLogPopup />
+
       {/* Status / Holiday */}
-      {record?.isHoliday && (
+      {holidayPayEligible && record?.isHoliday && (
         <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: 'rgba(245,158,11,0.15)' }}>
           <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
           <p className="text-amber-700 text-xs font-semibold">
@@ -1323,8 +1263,8 @@ export function PunchClock() {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" style={{ color: '#000000' }} />
-              <p className="text-sm font-bold" style={{ color: '#000000' }}>Current Location</p>
+              <MapPin className="w-4 h-4" style={{ color: 'var(--brand-primary)' }} />
+              <p className="text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>Current Location</p>
             </div>
             <button
               onClick={requestLocation}
@@ -1332,7 +1272,7 @@ export function PunchClock() {
               aria-label="Refresh location"
               title="Refresh location"
               className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors disabled:opacity-50"
-              style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
+              style={{ background: 'rgba(46,65,86,0.12)', color: 'var(--brand-primary)' }}
             >
               <RefreshCw className={`w-4 h-4 ${geoLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -1373,7 +1313,7 @@ export function PunchClock() {
                       type="button"
                       onClick={() => setShowMap(v => !v)}
                       className="inline-flex items-center gap-1 text-[11px] font-black"
-                      style={{ color: '#000000' }}
+                      style={{ color: 'var(--brand-primary)' }}
                       aria-expanded={showMap}
                     >
                       <MapPin className="w-3 h-3" />
@@ -1460,10 +1400,10 @@ export function PunchClock() {
                 style={{ background: isRestDayMessage ? '#eff6ff' : '#f7f7f7' }}
               >
                 {isRestDayMessage
-                  ? <CalendarDays className="w-7 h-7" style={{ color: '#2563eb' }} />
+                  ? <CalendarDays className="w-7 h-7" style={{ color: '#0054d7' }} />
                   : <AlertCircle className="w-7 h-7" style={{ color: '#343434' }} />}
               </div>
-              <h2 id="schedule-dialog-title" className="text-lg font-black" style={{ color: '#000000' }}>
+              <h2 id="schedule-dialog-title" className="text-lg font-black" style={{ color: 'var(--brand-primary)' }}>
                 {isRestDayMessage ? 'Today is your rest day' : 'No schedule set'}
               </h2>
               <p className="text-sm text-slate-500 mt-2 leading-relaxed">

@@ -1,16 +1,6 @@
 /**
- * Access control for Task Management.
- *
- * With projects gone there is no per-container membership to resolve — access
- * is decided by the company-level permission pair:
- *
- *   tasks:read    — open the module, see the company's tasks
- *   tasks:manage  — administer statuses and labels, edit anyone's task,
- *                   log time on someone else's behalf, delete tasks
- *
- * Everyone with `tasks:read` may create tasks and edit the ones they're
- * assigned to or created. That keeps the module usable by rank-and-file staff
- * without handing them administrative control.
+ * Task permissions: read views records; write creates tasks and updates assigned
+ * or authored work; manage administers the module. Role names do not grant edits.
  */
 import { prisma } from '@/lib/prisma'
 import type { AuthContext } from '@/lib/api-auth'
@@ -28,7 +18,8 @@ export interface TaskActor {
   /** Set for DEPARTMENT_HEAD. */
   managedDepartmentId: string | null
   isCompanyAdmin: boolean
-  /** Holds tasks:manage (or is an admin role). */
+  /** Holds tasks:manage. */
+  canWrite?: boolean
   canManage: boolean
 }
 
@@ -36,6 +27,7 @@ export async function resolveTaskActor(
   ctx: AuthContext,
   companyId: string,
   hasManagePermission: boolean,
+  hasWritePermission = false,
 ): Promise<TaskActor> {
   const isCompanyAdmin =
     (TASK_ADMIN_ROLES as readonly string[]).includes(ctx.role) || ctx.actorRole === 'SUPER_ADMIN'
@@ -58,7 +50,8 @@ export async function resolveTaskActor(
     employeeId,
     managedDepartmentId: ctx.managedDepartmentId ?? null,
     isCompanyAdmin,
-    canManage: isCompanyAdmin || hasManagePermission,
+    canManage: hasManagePermission,
+    canWrite: hasManagePermission || hasWritePermission,
   }
 }
 
@@ -74,6 +67,7 @@ export function canEditTask(
   task: { createdByUserId: string | null; assignees: Array<{ employeeId: string }> },
 ): boolean {
   if (actor.canManage) return true
+  if (!actor.canWrite && actor.role !== 'EMPLOYEE') return false
   if (task.createdByUserId && task.createdByUserId === actor.userId) return true
   if (actor.employeeId && task.assignees.some(a => a.employeeId === actor.employeeId)) return true
   return false

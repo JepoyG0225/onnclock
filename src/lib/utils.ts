@@ -1,3 +1,4 @@
+import { STATUS_BADGE_COLORS, statusColorClass, normalizeStatus } from './status-colors'
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { format, parseISO } from "date-fns"
@@ -132,27 +133,8 @@ export function getPeriodString(date: Date): string {
   return format(date, 'yyyy-MM')
 }
 
-export const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: 'bg-[var(--brand-highlight)] text-black',
-  INACTIVE: 'bg-gray-200 text-[#343434]',
-  PENDING: 'bg-black text-[var(--brand-highlight)]',
-  APPROVED: 'status-approved ring-1 ring-inset',
-  REJECTED: 'bg-black text-white',
-  CANCELLED: 'bg-gray-200 text-[#343434]',
-  DRAFT: 'bg-gray-200 text-[#343434]',
-  COMPUTED: 'bg-[#343434] text-white',
-  FOR_APPROVAL: 'bg-[var(--brand-primary)] text-white',
-  LOCKED: 'bg-[#343434] text-white',
-  PROBATIONARY: 'bg-[#fff4d6] text-[#8a5a00] ring-1 ring-inset ring-[#f5d98c]',
-  REGULAR: 'bg-[#e8f8f0] text-[#087a55] ring-1 ring-inset ring-[#bcebd5]',
-  PART_TIME: 'bg-[#eef4ff] text-[#315ea8] ring-1 ring-inset ring-[#cfddf5]',
-  CONTRACTUAL: 'bg-[#f3efff] text-[#6d4bb3] ring-1 ring-inset ring-[#ddd2f7]',
-  PROJECT_BASED: 'bg-[#e8f7fa] text-[#147286] ring-1 ring-inset ring-[#c4e8ef]',
-  RESIGNED: 'bg-[#f1f5f9] text-[#64748b] ring-1 ring-inset ring-[#dbe3ec]',
-  TERMINATED: 'bg-[#fdecef] text-[#c52b48] ring-1 ring-inset ring-[#f7c8d1]',
-  RETIRED: 'bg-[#f3f4f6] text-[#596273] ring-1 ring-inset ring-[#dfe3e8]',
-}
+export const STATUS_COLORS: Record<string, string> = Object.fromEntries(Object.keys(STATUS_BADGE_COLORS).map(status => [status, statusColorClass(status)]))
 
 export function getStatusColor(status: string): string {
-  return STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'
+  return STATUS_COLORS[normalizeStatus(status)] ?? 'status-neutral'
 }

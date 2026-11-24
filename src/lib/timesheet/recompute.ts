@@ -70,7 +70,7 @@ export async function recomputeCompanyDtrHours(
       employee: {
         select: {
           workScheduleId: true,
-          workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
+          workSchedule: { select: { timezone: true, timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
         },
       },
     },
@@ -88,6 +88,7 @@ export async function recomputeCompanyDtrHours(
         workScheduleId: d.employee.workScheduleId,
         workSchedule: d.employee.workSchedule
           ? {
+              timezone: d.employee.workSchedule.timezone,
               timeIn: d.employee.workSchedule.timeIn ?? null,
               timeOut: d.employee.workSchedule.timeOut ?? null,
               breakMinutes: d.employee.workSchedule.breakMinutes ?? null,
@@ -106,15 +107,14 @@ export async function recomputeCompanyDtrHours(
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
       nightDiffIncludesBreak: ndWindow.includesBreak,
-      scheduledTimeIn: resolved.scheduleTimeIn,
+      scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     })
     const lateUt = computeLateAndUndertime(
       d.timeIn,
       d.timeOut,
       resolved.scheduleTimeIn,
-      resolved.scheduleTimeOut,
-    )
+      resolved.scheduleTimeOut, resolved)
 
     const oldReg = Number(d.regularHours ?? 0)
     const oldOt  = Number(d.overtimeHours ?? 0)

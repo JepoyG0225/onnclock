@@ -6,6 +6,8 @@ export interface PayrollRunRow {
   firstName: string
   department: string
   position: string
+  bankAccountNo?: string | null
+  bankName?: string | null
   basicPay: number
   allowances: number
   /** Per-income-type amounts keyed by typeName */
@@ -79,7 +81,7 @@ export function generatePayrollRunExcel(
     [`Generated: ${new Date().toLocaleDateString('en-PH')}`],
     [],
     [
-      'Emp No.', 'Last Name', 'First Name', 'Department', 'Position',
+      'Emp No.', 'Last Name', 'First Name', 'Department', 'Position', 'Bank Account Number', 'Bank Name',
       'Basic Pay', 'Allowances',
       ...incomeTypeNames,
       'Regular OT', 'Rest Day OT', 'Holiday OT', 'Holiday Pay', 'Night Differential', 'Gross Pay',
@@ -96,7 +98,7 @@ export function generatePayrollRunExcel(
     rows.reduce((s, r) => s + (r[key] as number), 0)
 
   const bodyData = rows.map(r => [
-    r.employeeNo, r.lastName, r.firstName, r.department, r.position,
+    r.employeeNo, r.lastName, r.firstName, r.department, r.position, r.bankAccountNo ?? '', r.bankName ?? '',
     r.basicPay, r.allowances,
     ...incomeTypeNames.map(name => r.incomeItems?.[name] ?? 0),
     r.regularOt, r.restDayOt, r.holidayOt, r.holidayPay, r.nightDiff, r.grossPay,
@@ -115,7 +117,7 @@ export function generatePayrollRunExcel(
   )
 
   const totalRow = [
-    '', '', '', '', 'TOTAL',
+    '', '', '', '', 'TOTAL', '', '',
     totals('basicPay'), totals('allowances'),
     ...incomeTypeTotals,
     totals('regularOt'), totals('restDayOt'), totals('holidayOt'), totals('holidayPay'), totals('nightDiff'), totals('grossPay'),
@@ -126,10 +128,10 @@ export function generatePayrollRunExcel(
     totals('sssEmployer'), totals('sssEc'), totals('philhealthEmployer'), totals('pagibigEmployer'), totals('totalEmployerCost'),
   ]
 
-  const colCount = 30 + incomeTypeNames.length + deductionTypeNames.length
+  const colCount = summaryHeader[4].length
   const ws1Data = [...summaryHeader, ...bodyData, [], totalRow]
   const ws1 = XLSX.utils.aoa_to_sheet(ws1Data)
-  ws1['!cols'] = Array(colCount).fill({ wch: 14 })
+  ws1['!cols'] = Array.from({ length: colCount }, (_, i) => ({ wch: i === 5 || i === 6 ? 24 : 14 }))
   ws1['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } },
     { s: { r: 1, c: 0 }, e: { r: 1, c: colCount - 1 } },

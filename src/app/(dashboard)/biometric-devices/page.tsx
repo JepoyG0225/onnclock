@@ -132,7 +132,7 @@ export default function BiometricDevicesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Biometric Terminals</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Biometric Terminals</h1>
           <p className="text-slate-500 text-sm mt-1">Fingerprint clock-in/out kiosks for your workplace.</p>
         </div>
         <Card>
@@ -158,7 +158,7 @@ export default function BiometricDevicesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Biometric Terminals</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Biometric Terminals</h1>
           <p className="text-slate-500 text-sm mt-1">
             Manage Raspberry-Pi-based fingerprint clock-in/out kiosks. Generate a 6-digit pair code, type it on the kiosk once, and the device is permanently bonded to your company.
           </p>

@@ -186,7 +186,7 @@ export function NexaChat() {
                   }`}
                   style={
                     m.role === 'user'
-                      ? { background: '#000000' }
+                      ? { background: 'var(--brand-primary)' }
                       : { background: '#f7f7f7', border: '1px solid #d4d4d4' }
                   }
                 >

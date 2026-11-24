@@ -1,3 +1,4 @@
+import { CompanySetupJourney } from '@/components/onboarding/CompanySetupJourney'
 import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
@@ -21,6 +22,7 @@ import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 import { ROLE_PERMISSIONS } from '@/lib/auth/permissions'
 import { canAccessPath, findFirstAccessiblePath } from '@/lib/auth/page-access'
 import { PermissionsProvider } from '@/components/auth/PermissionsProvider'
+import ProductUpdatesPopup from '@/components/layout/ProductUpdatesPopup'
 
 export default async function DashboardLayout({
   children,
@@ -140,8 +142,6 @@ export default async function DashboardLayout({
   }
   if (session.user.role === 'SUPER_ADMIN') hrisProEnabled = true
 
-  // Disbursement is unlocked for all Pro (and trial) subscribers.
-  const disbursementEnabled = hrisProEnabled
 
   // ── Role-permission enforcement ────────────────────────────────────
   // Load the effective Permission[] for this user × company (honors the
@@ -185,6 +185,7 @@ export default async function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gray-50">
+        {!impersonating && session.user.role !== 'SUPER_ADMIN' && <ProductUpdatesPopup userId={session.user.id} />}
         {impersonating && (
           <ImpersonationBanner companyName={impersonating.companyName} />
         )}
@@ -198,7 +199,6 @@ export default async function DashboardLayout({
           initialTrialEndsAt={trialEndsAt}
           isLocal={process.env.NODE_ENV === 'development'}
           hrisProEnabled={hrisProEnabled}
-          disbursementEnabled={disbursementEnabled}
           permissions={permissions}
         />
         <AppHeader
@@ -210,6 +210,7 @@ export default async function DashboardLayout({
             status={subStatus}
             trialEndsAt={trialEndsAt}
             bypassGate={session.user.role === 'SUPER_ADMIN'}
+            canManageBilling={canAccessPath('/settings/billing', permissions)}
             unbilledSeats={unbilledSeats}
           >
             <PermissionsProvider permissions={permissions}>
@@ -217,12 +218,13 @@ export default async function DashboardLayout({
             </PermissionsProvider>
           </SubscriptionGate>
         </MainContent>
-        <AdminVirtualTour
+        {companyId && permissions.includes('settings:read') && effectiveRole !== 'EMPLOYEE' && <CompanySetupJourney companyId={companyId} />}
+        {!permissions.includes('settings:read') && <AdminVirtualTour
           userId={session.user.id}
           role={effectiveRole}
           actorRole={session.user.role}
           permissions={permissions}
-        />
+        />}
         {/*
           Per-page tours. This component documents itself as "mounted once in
           the dashboard layout" but never actually was, so page tours had
@@ -234,7 +236,7 @@ export default async function DashboardLayout({
           userId={session.user.id}
           role={effectiveRole}
           actorRole={session.user.role}
-          enabled
+          enabled={!permissions.includes('settings:read')}
         />
       </div>
     </SidebarProvider>

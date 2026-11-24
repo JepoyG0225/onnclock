@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format, parseISO, isWeekend } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -36,21 +36,14 @@ interface LeaveBalance {
   balance: number
 }
 
-function workingDays(start: string, end: string) {
-  const s = parseISO(start)
-  const e = parseISO(end)
-  let count = 0
-  for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-    if (!isWeekend(d)) count++
-  }
-  return count
-}
-
 export default function NewLeavePage() {
   const router = useRouter()
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [balances, setBalances] = useState<LeaveBalance[]>([])
   const [loading, setLoading] = useState(false)
+  const [days,setDays]=useState(0)
+  const [durationLoading,setDurationLoading]=useState(true)
+  const [durationError,setDurationError]=useState('')
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -76,51 +69,34 @@ export default function NewLeavePage() {
     if (!isSameDay && isHalfDay) setValue('isHalfDay', false)
   }, [isSameDay, isHalfDay, setValue])
 
-  const days = isHalfDay ? 0.5 : (startDate && endDate ? workingDays(startDate, endDate) : 0)
+  useEffect(()=>{
+    let active=true;setDurationLoading(true);setDays(0);setDurationError('')
+    const params=new URLSearchParams({duration:'true',startDate:startDate||'',endDate:endDate||'',isHalfDay:String(isHalfDay)})
+    fetch('/api/leaves?'+params,{cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error||'Unable to calculate leave days.');if(active){setDays(data.totalDays);if(!data.totalDays)setDurationError('No scheduled working days in this date range. Choose a workday or contact HR.')}}).catch(e=>{if(active)setDurationError(e.message)}).finally(()=>{if(active)setDurationLoading(false)})
+    return()=>{active=false}
+  },[startDate,endDate,isHalfDay])
   const selectedBalance = balances.find(b => b.leaveTypeId === leaveTypeId)
 
-  function addWorkingDays(start: string, daysToAdd: number) {
-    let d = parseISO(start)
-    let added = 0
-    while (added < daysToAdd) {
-      d.setDate(d.getDate() + 1)
-      if (!isWeekend(d)) added++
-    }
-    return d
-  }
-
-  const maxDays = selectedBalance ? Math.max(0, Number(selectedBalance.balance) || 0) : null
-  const maxEndDate = startDate && maxDays !== null && maxDays >= 1
-    ? format(addWorkingDays(startDate, Math.max(0, Math.floor(maxDays) - 1)), 'yyyy-MM-dd')
-    : undefined
-
-  useEffect(() => {
-    if (!startDate || maxDays === null || maxDays <= 0) return
-    if (!endDate || isHalfDay) return
-    const maxDate = maxEndDate ? parseISO(maxEndDate) : null
-    if (maxDate && parseISO(endDate) > maxDate && maxEndDate) {
-      setValue('endDate', maxEndDate)
-    }
-  }, [startDate, endDate, maxDays, maxEndDate, isHalfDay, setValue])
-
+  const maxDays=selectedBalance?Math.max(0,Number(selectedBalance.balance)||0):null
+  const leaveYear=startDate?.slice(0,4)||String(new Date().getFullYear())
   useEffect(() => {
     async function load() {
       const [typesRes, balRes] = await Promise.all([
         fetch('/api/leaves/types'),
-        fetch('/api/leaves?own=true&limit=1'),
+        fetch('/api/leaves?own=true&limit=1&year='+leaveYear),
       ])
       const typesData = await typesRes.json()
       const balData = await balRes.json()
       setLeaveTypes(typesData.types ?? [])
-      setBalances((balData.balances ?? []).map((b: { leaveTypeId: string; balance?: number; entitled?: number; used?: number; pending?: number; carriedOver?: number }) => {
+      setBalances((balData.balances ?? []).map((b: { leaveTypeId: string; balance?: number; entitled?: number; used?: number; pending?: number; carriedOver?: number; encashed?: number }) => {
         const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
-        const computed = n(b.entitled) + n(b.carriedOver) - n(b.used) - n(b.pending)
+        const computed = n(b.entitled) + n(b.carriedOver) - n(b.used) - n(b.pending) - n(b.encashed)
         const balance = Number.isFinite(Number(b.balance)) ? Number(b.balance) : computed
         return { leaveTypeId: b.leaveTypeId, balance }
       }))
     }
-    load()
-  }, [])
+    load().catch(()=>toast.error('Unable to load leave types and balances. Please refresh.'))
+  }, [leaveYear])
 
   const onSubmit = async (data: FormData) => {
     setLoading(true)
@@ -131,7 +107,7 @@ export default function NewLeavePage() {
         endDate:       data.isHalfDay ? data.startDate : data.endDate, // half-day: same day
         isHalfDay:     data.isHalfDay ?? false,
         halfDayPeriod: data.isHalfDay ? data.halfDayPeriod : undefined,
-        totalDays:     days,
+
         reason:        data.reason,
       }
       const res = await fetch('/api/leaves', {
@@ -162,13 +138,14 @@ export default function NewLeavePage() {
         </div>
       </div>
 
+      {durationLoading?<p role="status" className="mb-3 text-sm text-slate-500">Checking scheduled leave days...</p>:durationError?<p role="alert" className="mb-3 text-sm text-red-600">{durationError}</p>:null}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Leave Type */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Type</label>
           <select
             {...register('leaveTypeId')}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
           >
             <option value="">Select leave type...</option>
             {leaveTypes.map(lt => (
@@ -206,7 +183,7 @@ export default function NewLeavePage() {
               value={isHalfDay ? startDate : endDate}
               onChange={(v) => setValue('endDate', v)}
               min={startDate}
-              max={maxEndDate}
+
               disabled={isHalfDay}
               className={`w-full ${isHalfDay ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
@@ -239,8 +216,8 @@ export default function NewLeavePage() {
                     onClick={() => setValue('halfDayPeriod', period)}
                     className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
                       halfDayPeriod === period
-                        ? 'bg-[#000000] text-white border-[#000000]'
-                        : 'bg-white text-gray-600 border-gray-300 hover:border-[#000000]'
+                        ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-[var(--brand-primary)]'
                     }`}
                   >
                     {period} — {period === 'AM' ? 'Morning' : 'Afternoon'}
@@ -253,7 +230,7 @@ export default function NewLeavePage() {
 
         {/* Days Preview */}
         {days > 0 && (
-          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: '#000000' }}>
+          <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: 'var(--brand-primary)' }}>
             <strong>{days} working day{days !== 1 ? 's' : ''}</strong>
             {isHalfDay
               ? ` — ${halfDayPeriod === 'AM' ? 'Morning' : 'Afternoon'} half of ${format(parseISO(startDate), 'MMM d, yyyy')}`
@@ -272,7 +249,7 @@ export default function NewLeavePage() {
             {...register('reason')}
             rows={3}
             placeholder="Please state your reason for filing this leave..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#000000] resize-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] resize-none"
           />
           {errors.reason && <p className="text-red-500 text-xs mt-1">{errors.reason.message}</p>}
         </div>
@@ -286,8 +263,8 @@ export default function NewLeavePage() {
           </Link>
           <button
             type="submit"
-            disabled={loading || (selectedBalance !== undefined && selectedBalance.balance < days)}
-            className="flex-1 py-2.5 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={{ background: '#0055d4' }}
+            disabled={loading || durationLoading || !!durationError || days <= 0 || (selectedBalance !== undefined && selectedBalance.balance < days)}
+            className="flex-1 py-2.5 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={{ background: '#0054d7' }}
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Submit Request

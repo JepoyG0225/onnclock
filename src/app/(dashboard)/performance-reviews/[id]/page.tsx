@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -307,7 +308,7 @@ export default function ReviewDetailPage() {
         <CardContent className="p-5">
           <div className="flex items-start gap-4 flex-wrap">
             {/* Avatar */}
-            <div className="w-14 h-14 rounded-2xl bg-[#000000] flex items-center justify-center text-white font-black text-xl shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-[var(--brand-primary)] flex items-center justify-center text-white font-black text-xl shrink-0">
               {review.employee.firstName[0]}{review.employee.lastName[0]}
             </div>
             <div className="flex-1 min-w-0">
@@ -315,7 +316,7 @@ export default function ReviewDetailPage() {
                 <h1 className="text-xl font-bold text-slate-900">
                   {review.employee.firstName} {review.employee.lastName}
                 </h1>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${statusMeta.bg} ${statusMeta.color}`}>
+                <span data-status={review.status} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${statusMeta.bg} ${statusMeta.color}`}>
                   <StatusIcon className="w-3 h-3" />
                   {statusMeta.label}
                 </span>
@@ -354,21 +355,21 @@ export default function ReviewDetailPage() {
             <div className="flex items-center gap-2 flex-wrap shrink-0">
               {/* HR/Manager transitions */}
               {canEditHR && review.status === 'DRAFT' && (
-                <Button size="sm" onClick={() => transition('IN_REVIEW')} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-white">
+                <PermissionGate permission="performance:manage"><Button size="sm" onClick={() => transition('IN_REVIEW')} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-white">
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Clock3 className="w-3.5 h-3.5 mr-1.5" />}
                   Start Review
-                </Button>
+                </Button></PermissionGate>
               )}
               {canEditHR && review.status === 'IN_REVIEW' && (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => save()} disabled={saving}>
+                  <PermissionGate permission="performance:manage"><Button size="sm" variant="outline" onClick={() => save()} disabled={saving}>
                     {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
                     Save Draft
-                  </Button>
-                  <Button size="sm" onClick={() => transition('COMPLETED')} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  </Button></PermissionGate>
+                  <PermissionGate permission="performance:manage"><Button size="sm" onClick={() => transition('COMPLETED')} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                     Complete Review
-                  </Button>
+                  </Button></PermissionGate>
                 </>
               )}
               {review.status === 'COMPLETED' && !canAck && (
@@ -410,12 +411,12 @@ export default function ReviewDetailPage() {
         {TABS.map(tab => {
           const Icon = tab.icon
           return (
-            <button
+            <button data-app-tab data-active={activeTab === tab.key}
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
                 activeTab === tab.key
-                  ? 'border-[#000000] text-[#000000]'
+                  ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -439,7 +440,7 @@ export default function ReviewDetailPage() {
                   onChange={e => setStrengths(e.target.value)}
                   rows={5}
                   placeholder="Describe what the employee does well..."
-                  className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#000000]/30"
+                  className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                 />
               ) : (
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{review.strengths || <span className="text-slate-400 italic">Not yet filled in</span>}</p>
@@ -457,7 +458,7 @@ export default function ReviewDetailPage() {
                   onChange={e => setImprovementAreas(e.target.value)}
                   rows={5}
                   placeholder="Describe areas where the employee can improve..."
-                  className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#000000]/30"
+                  className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                 />
               ) : (
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{review.improvementAreas || <span className="text-slate-400 italic">Not yet filled in</span>}</p>
@@ -472,7 +473,7 @@ export default function ReviewDetailPage() {
               <CardContent>
                 <div className="flex items-center gap-4 flex-wrap mb-4">
                   <div className="text-center">
-                    <p className="text-4xl font-black text-[#000000]">{avgScore.toFixed(1)}</p>
+                    <p className="text-4xl font-black text-[var(--brand-primary)]">{avgScore.toFixed(1)}</p>
                     <p className="text-xs text-slate-500">out of 5</p>
                   </div>
                   <div className="flex-1">
@@ -495,7 +496,7 @@ export default function ReviewDetailPage() {
                         <p className="text-xs text-slate-600 w-40 shrink-0">{c.label}</p>
                         <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
                           <div
-                            className="h-2 rounded-full bg-[#000000] transition-all"
+                            className="h-2 rounded-full bg-[var(--brand-primary)] transition-all"
                             style={{ width: score > 0 ? `${(score / 5) * 100}%` : '0%' }}
                           />
                         </div>
@@ -526,10 +527,10 @@ export default function ReviewDetailPage() {
 
           {canEditHR && ['IN_REVIEW'].includes(review.status) && (
             <div className="sm:col-span-2 flex justify-end gap-3">
-              <Button onClick={() => save()} disabled={saving} className="bg-[#000000] hover:bg-[#000000]/90 text-white">
+              <PermissionGate permission="performance:manage"><Button onClick={() => save()} disabled={saving} className="bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 Save Overview
-              </Button>
+              </Button></PermissionGate>
             </div>
           )}
         </div>
@@ -548,10 +549,10 @@ export default function ReviewDetailPage() {
                 <p className="text-xs text-slate-500 mt-0.5">Rate each competency from 1 (Needs Improvement) to 5 (Outstanding)</p>
               </div>
               {canEditHR && review.status !== 'ACKNOWLEDGED' && (
-                <Button onClick={() => save()} disabled={saving} size="sm" className="bg-[#000000] hover:bg-[#000000]/90 text-white shrink-0">
+                <PermissionGate permission="performance:manage"><Button onClick={() => save()} disabled={saving} size="sm" className="bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white shrink-0">
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
                   Save Scores
-                </Button>
+                </Button></PermissionGate>
               )}
             </div>
           </CardHeader>
@@ -640,7 +641,7 @@ export default function ReviewDetailPage() {
                       }
                     }}
                     placeholder="e.g. Leadership, Attendance, Punctuality…"
-                    className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]/30"
+                    className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                   />
                   <Button
                     size="sm"
@@ -665,9 +666,9 @@ export default function ReviewDetailPage() {
 
             {/* ── Average ── */}
             {avgScore !== null && (
-              <div className="flex items-center justify-between bg-[#000000]/5 rounded-xl px-4 py-3 border border-[#000000]/10">
+              <div className="flex items-center justify-between bg-[var(--brand-primary)]/5 rounded-xl px-4 py-3 border border-[var(--brand-primary)]/10">
                 <div>
-                  <span className="text-sm font-bold text-[#000000]">Average Score</span>
+                  <span className="text-sm font-bold text-[var(--brand-primary)]">Average Score</span>
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     Across {Object.values(scores).filter(v => v > 0).length} rated competenc{Object.values(scores).filter(v => v > 0).length === 1 ? 'y' : 'ies'}
                   </p>
@@ -678,7 +679,7 @@ export default function ReviewDetailPage() {
                       <Star key={i} className={`w-4 h-4 ${i <= Math.round(avgScore) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
                     ))}
                   </div>
-                  <span className="text-base font-black text-[#000000]">{avgScore.toFixed(1)}</span>
+                  <span className="text-base font-black text-[var(--brand-primary)]">{avgScore.toFixed(1)}</span>
                 </div>
               </div>
             )}
@@ -706,15 +707,15 @@ export default function ReviewDetailPage() {
                   onChange={e => setNewGoalTitle(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addGoal()}
                   placeholder="Add a goal or objective..."
-                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]/30"
+                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                 />
                 <input
                   type="date"
                   value={newGoalDate}
                   onChange={e => setNewGoalDate(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]/30"
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                 />
-                <Button size="sm" onClick={addGoal} disabled={!newGoalTitle.trim()} className="bg-[#000000] hover:bg-[#000000]/90 text-white">
+                <Button size="sm" onClick={addGoal} disabled={!newGoalTitle.trim()} className="bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white">
                   <Plus className="w-4 h-4 mr-1" /> Add
                 </Button>
               </div>
@@ -771,10 +772,10 @@ export default function ReviewDetailPage() {
 
             {canEditHR && review.status !== 'ACKNOWLEDGED' && goals.length > 0 && (
               <div className="flex justify-end">
-                <Button onClick={() => save()} disabled={saving} className="bg-[#000000] hover:bg-[#000000]/90 text-white">
+                <PermissionGate permission="performance:manage"><Button onClick={() => save()} disabled={saving} className="bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   Save Goals
-                </Button>
+                </Button></PermissionGate>
               </div>
             )}
           </CardContent>
@@ -795,14 +796,14 @@ export default function ReviewDetailPage() {
                     onChange={e => setManagerComment(e.target.value)}
                     rows={5}
                     placeholder="Provide an overall summary and recommendations..."
-                    className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#000000]/30"
+                    className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                   />
                   {review.status === 'IN_REVIEW' && (
                     <div className="flex justify-end mt-3">
-                      <Button size="sm" onClick={() => save()} disabled={saving} className="bg-[#000000] hover:bg-[#000000]/90 text-white">
+                      <PermissionGate permission="performance:manage"><Button size="sm" onClick={() => save()} disabled={saving} className="bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white">
                         {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
                         Save
-                      </Button>
+                      </Button></PermissionGate>
                     </div>
                   )}
                 </>
@@ -826,13 +827,13 @@ export default function ReviewDetailPage() {
                     onChange={e => setEmployeeComment(e.target.value)}
                     rows={5}
                     placeholder="Describe your achievements, challenges, and areas you'd like to develop..."
-                    className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#000000]/30"
+                    className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                   />
                   <div className="flex justify-end mt-3">
-                    <Button size="sm" onClick={saveEmployeeComment} disabled={saving} className="bg-[#000000] hover:bg-[#000000]/90 text-white">
+                    <PermissionGate permission="performance:manage"><Button size="sm" onClick={saveEmployeeComment} disabled={saving} className="bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white">
                       {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
                       Save Self-Evaluation
-                    </Button>
+                    </Button></PermissionGate>
                   </div>
                 </>
               ) : (

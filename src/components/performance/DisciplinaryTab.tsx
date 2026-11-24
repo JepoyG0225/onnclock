@@ -1,4 +1,6 @@
 'use client'
+import { getStatusColor } from '@/lib/utils'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -276,7 +278,7 @@ function IssueDialog({ open, onClose, onCreated }: IssueDialogProps) {
             <Button
               type="submit"
               disabled={saving}
-              style={{ background: '#000000' }}
+              style={{ background: 'var(--brand-primary)' }}
             >
               {saving ? 'Issuing...' : 'Issue Action'}
             </Button>
@@ -401,7 +403,7 @@ function DetailRow({ record, isHR, onClose, onUpdate }: DetailRowProps) {
           {/* Actions */}
           {isHR && record.status !== 'CLOSED' && (
             <div className="mt-4 pt-4 border-t flex justify-end">
-              <Button
+              <PermissionGate permission="disciplinary:manage"><Button
                 size="sm"
                 variant="outline"
                 onClick={markClosed}
@@ -409,7 +411,7 @@ function DetailRow({ record, isHR, onClose, onUpdate }: DetailRowProps) {
                 className="text-green-700 border-green-300 hover:bg-green-50"
               >
                 {saving ? 'Closing...' : 'Mark as Closed'}
-              </Button>
+              </Button></PermissionGate>
             </div>
           )}
         </div>
@@ -486,13 +488,13 @@ export function DisciplinaryTab() {
           <p className="text-gray-500 mt-1">{filtered.length} record{filtered.length !== 1 ? 's' : ''}</p>
         </div>
         {isHR && (
-          <Button
+          <PermissionGate permission="disciplinary:manage"><Button
             onClick={() => setShowIssue(true)}
-            style={{ background: '#000000' }}
+            style={{ background: 'var(--brand-primary)' }}
           >
             <Plus className="mr-2 w-4 h-4" />
             Issue Disciplinary Action
-          </Button>
+          </Button></PermissionGate>
         )}
       </div>
 
@@ -506,7 +508,7 @@ export function DisciplinaryTab() {
               size="sm"
               variant={statusTab === tab.value ? 'default' : 'outline'}
               onClick={() => { setStatusTab(tab.value); setExpandedId(null) }}
-              style={statusTab === tab.value ? { background: '#000000' } : {}}
+              style={statusTab === tab.value ? { background: 'var(--brand-primary)' } : {}}
             >
               {tab.label}
             </Button>
@@ -586,7 +588,7 @@ export function DisciplinaryTab() {
                         </td>
                         <td className="p-4 text-gray-600">{fmt(record.dateOfIncident)}</td>
                         <td className="p-4">
-                          <Badge className={`text-xs border-0 ${STATUS_COLORS[record.status]}`}>
+                          <Badge className={`text-xs border-0 ${getStatusColor(record.status)}`}>
                             {record.status}
                           </Badge>
                         </td>

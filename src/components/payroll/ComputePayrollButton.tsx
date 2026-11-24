@@ -1,4 +1,5 @@
 'use client'
+import { usePermissions } from '@/components/auth/PermissionsProvider'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
@@ -34,7 +35,7 @@ export function ComputePayrollButton({
    * "Recompute" and whether a confirmation prompt fires before re-running
    * an already-computed payslip set.
    */
-  status?: 'DRAFT' | 'COMPUTED' | 'FOR_APPROVAL' | 'APPROVED' | 'LOCKED' | 'CANCELLED'
+  status?: 'DRAFT' | 'COMPUTED' | 'FOR_APPROVAL' | 'APPROVED' | 'LOCKED' | 'DISBURSED' | 'CANCELLED'
 }) {
   const [computing, setComputing] = useState(false)
   const [loadingRequirements, setLoadingRequirements] = useState(false)
@@ -44,6 +45,7 @@ export function ComputePayrollButton({
   const [entryValues, setEntryValues] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
   const autoStarted = useRef(false)
+  const permissions = usePermissions()
   const router = useRouter()
 
   // "Recompute" framing whenever payslips already exist (i.e. the run has
@@ -90,7 +92,7 @@ export function ComputePayrollButton({
       const result = await res.json()
       toast.success(
         isRecompute
-          ? `Payroll recomputed for ${result.employeeCount} employees`
+          ? `Payroll recomputed: ${result.changedEmployees ?? 0} employees changed. Net pay change: ${Number(result.netPayChange ?? 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}. Manual adjustments preserved.`
           : `Payroll computed for ${result.employeeCount} employees!`
       )
       setShowDialog(false)
@@ -150,7 +152,7 @@ export function ComputePayrollButton({
   }
 
   useEffect(() => {
-    if (!autoStart || autoStarted.current) return
+    if (!permissions.includes('payroll:write') || !autoStart || autoStarted.current) return
     autoStarted.current = true
     void proceedCompute()
     // This is intentionally keyed to the navigation flag only. The ref keeps
@@ -158,6 +160,7 @@ export function ComputePayrollButton({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart])
 
+  if (!permissions.includes('payroll:write')) return null
   return (
     <>
       <Button
@@ -178,7 +181,7 @@ export function ComputePayrollButton({
       <ConfirmDialog
         open={showRecomputeConfirm}
         title="Recompute Payroll?"
-        description={`All payslips will be regenerated from current DTR / loan / income data. The run status will reset to COMPUTED, so it must be resubmitted for approval afterward.`}
+        description={`Payslips will be recalculated using current attendance, loans and income. Saved manual overrides and labeled adjustments are preserved. The run status will reset to COMPUTED, so it must be resubmitted for approval afterward.`}
         confirmLabel="Recompute"
         variant="warning"
         onConfirm={() => { void proceedCompute() }}

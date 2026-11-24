@@ -8,6 +8,7 @@ const schema = z.object({
   code: z.string().min(1).max(10),
   daysEntitled: z.number().min(0),
   isWithPay: z.boolean().default(true),
+  isPaidOut: z.boolean().default(false),
   isMandatory: z.boolean().default(false),
   carryOver: z.boolean().default(false),
   maxCarryOver: z.number().optional().nullable(),
@@ -25,13 +26,14 @@ export async function GET(req: NextRequest) {
     orderBy: { name: 'asc' },
   })
 
-  return NextResponse.json({ types })
+  return NextResponse.json({ types }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
+  if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(ctx.role)) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   const body = await req.json()
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
@@ -47,12 +49,13 @@ export async function PATCH(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
+  if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'].includes(ctx.role)) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   const body = await req.json()
   const { id, ...rest } = body
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  const parsed = schema.partial().safeParse(rest)
+  const parsed = schema.partial().extend({ isActive: z.boolean().optional() }).safeParse(rest)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   const type = await prisma.leaveType.updateMany({

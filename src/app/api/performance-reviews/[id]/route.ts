@@ -1,3 +1,5 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
+import { serializeReview } from '@/lib/performance/serialize'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
@@ -72,7 +74,7 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ review })
+  return NextResponse.json({ review: serializeReview(review) })
 }
 
 // ─── PATCH /api/performance-reviews/[id] ───────────────────────────────────────
@@ -105,7 +107,7 @@ export async function PATCH(
   const isHR       = HR_ROLES.includes(ctx.role)
   const isReviewer = emp?.id === review.reviewerId
   const isReviewee = emp?.id === review.employeeId
-  const canManage  = isHR || isReviewer
+  const canManage  = (isHR || isReviewer) && await ctxHasPermission(ctx, 'performance:manage')
 
   // Already acknowledged — no edits allowed
   if (review.status === 'ACKNOWLEDGED') {
@@ -118,6 +120,8 @@ export async function PATCH(
   }
 
   const data = body.data
+  if (Object.keys(data).some(key => key !== 'employeeComment') && !canManage) return NextResponse.json({ error: 'Review management permission is required.' }, { status: 403 })
+  if (data.employeeComment !== undefined && !isReviewee) return NextResponse.json({ error: 'You may only submit your own self-evaluation.' }, { status: 403 })
   const updateData: Record<string, unknown> = {}
 
   // Manager-only fields
@@ -172,5 +176,5 @@ export async function PATCH(
     },
   })
 
-  return NextResponse.json({ review: updated })
+  return NextResponse.json({ review: serializeReview(updated) })
 }

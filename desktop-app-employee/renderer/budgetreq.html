@@ -10,7 +10,7 @@
 
 :root{
   --navy:#0d1b2a;--navy-mid:#1a2d42;--navy-light:#2e4a6a;
-  --orange:#fa5e01;--orange-dim:#c44d00;--orange-bg:#fff3eb;
+  --orange:#0b6ffb;--orange-dim:#075bd4;--orange-bg:#eff6ff;
   --amber:#f59e0b;--amber-bg:#fffbeb;--amber-border:#fde68a;
   --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
   --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
@@ -68,7 +68,7 @@ body{display:flex;flex-direction:column;overflow:hidden;}
   padding:14px 16px;cursor:pointer;display:flex;align-items:flex-start;gap:10px;
   transition:background .1s;
 }
-.rc-summary:hover{background:rgba(250,94,1,.03);}
+.rc-summary:hover{background:rgba(11,111,251,.03);}
 .rc-icon{width:34px;height:34px;border-radius:8px;background:var(--orange-bg);
   display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
 .rc-body{flex:1;min-width:0;}
@@ -162,7 +162,7 @@ input.inp,textarea.inp{
   background:var(--surface);outline:none;margin-bottom:12px;
 }
 textarea.inp{resize:vertical;min-height:64px;}
-input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(250,94,1,.12);}
+input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(11,111,251,.12);}
 
 /* Items table */
 .items-section{margin-bottom:12px;}
@@ -174,7 +174,7 @@ input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3
 .item-row{display:grid;grid-template-columns:1fr 70px 60px 90px 32px;gap:6px;
   align-items:center;margin-bottom:6px;}
 .item-row input{margin:0;padding:8px 10px;font-size:12px;}
-.item-row input:focus{border-color:var(--orange);box-shadow:0 0 0 2px rgba(250,94,1,.10);}
+.item-row input:focus{border-color:var(--orange);box-shadow:0 0 0 2px rgba(11,111,251,.10);}
 .remove-item-btn{background:none;border:1.5px solid var(--red-border);border-radius:6px;
   cursor:pointer;color:var(--red);width:30px;height:36px;display:flex;align-items:center;
   justify-content:center;font-size:14px;transition:background .12s;}
@@ -213,6 +213,7 @@ input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3
 .btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);flex:1;}
 .btn-ghost:hover:not(:disabled){background:var(--bg);}
 </style>
+  <link rel="stylesheet" href="portal-theme.css" />
 </head>
 <body>
 <!-- Header -->

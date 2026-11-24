@@ -115,6 +115,9 @@ export default function PortalTasksPage() {
   const [filter, setFilter] = useState<Filter>('todo')
   const [savingId, setSavingId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  useEffect(() => {
+    setSelectedTaskId(new URLSearchParams(window.location.search).get('task'))
+  }, [])
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
   /** null = no day selected, i.e. show every task rather than one day. */
   const [selectedDay, setSelectedDay] = useState<number | null>(null)

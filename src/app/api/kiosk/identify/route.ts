@@ -1,3 +1,4 @@
+import { faceBetaAvailable } from '@/lib/face/availability'
 /**
  * Kiosk face identification — 1:N.
  *
@@ -61,6 +62,7 @@ function cosineSimilarity(a: number[], b: number[]) {
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth(undefined, req)
   if (error) return error
+  if (!(await faceBetaAvailable(ctx.companyId))) return NextResponse.json({ error: 'Facial recognition is not available for this company.' }, { status: 403 })
 
   // The kiosk runs on an admin login. dtr:write is the same permission the
   // punch routes will require for an on-behalf-of punch, so the two agree.

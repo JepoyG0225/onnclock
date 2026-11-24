@@ -1,3 +1,5 @@
+import { leaveDatesSchema, countLeaveDays } from '@/lib/leaves/duration'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -17,7 +19,7 @@ const createLeaveSchema = z.object({
   leaveTypeId: z.string(),
   startDate: z.string(),
   endDate: z.string(),
-  totalDays: z.number().positive().optional(),
+  totalDays: z.unknown().optional(), // Legacy clients may send 0; the server calculates the actual duration.
   isHalfDay: z.boolean().optional(),
   halfDayPeriod: z.enum(['AM', 'PM']).optional().nullable(),
   reason: z.string().optional().nullable(),
@@ -29,12 +31,21 @@ export async function GET(req: NextRequest) {
   if (error) return error
 
   const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
   const employeeId = employee?.id ?? null
 
   const { searchParams } = new URL(req.url)
+  if(searchParams.get('duration')==='true'){
+    if(!employeeId)return NextResponse.json({error:'No active employee profile found.'},{status:400})
+    const dates=leaveDatesSchema.safeParse({startDate:searchParams.get('startDate'),endDate:searchParams.get('endDate'),isHalfDay:searchParams.get('isHalfDay')==='true'})
+    if(!dates.success)return NextResponse.json({error:dates.error.issues[0].message},{status:422})
+    const totalDays=await leaveDuration(ctx.companyId,employeeId,dates.data.startDate,dates.data.endDate,!!dates.data.isHalfDay)
+    return NextResponse.json({totalDays},{headers:{'Cache-Control':'private, no-store'}})
+  }
+  const requestedYear=Number(searchParams.get('year')??new Date().getFullYear())
+  if(!Number.isInteger(requestedYear)||requestedYear<2000||requestedYear>2100)return NextResponse.json({error:'Choose a valid leave year.'},{status:422})
   const status  = searchParams.get('status') || undefined
   const ownOnly = searchParams.get('own') === 'true'
   const page    = parseInt(searchParams.get('page') || '1')
@@ -80,10 +91,10 @@ export async function GET(req: NextRequest) {
   // For employee self-service: include balances
   if (ownOnly && employeeId) {
     const balances = await prisma.leaveBalance.findMany({
-      where: { employeeId, year: new Date().getFullYear() },
+      where: { employeeId, year: requestedYear, leaveType: { companyId: ctx.companyId, isActive: true } },
       include: { leaveType: { select: { name: true, code: true, isWithPay: true } } },
     })
-    return NextResponse.json({ leaves, balances, total, page, limit })
+    return NextResponse.json({ leaves, balances, total, page, limit }, { headers: { 'Cache-Control': 'private, no-store' } })
   }
 
   return NextResponse.json({ leaves, requests: leaves, total, page, limit })
@@ -94,7 +105,7 @@ export async function POST(req: NextRequest) {
   if (error) return error
 
   const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
   const employeeId = employee?.id ?? null
@@ -102,47 +113,38 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const parsed = createLeaveSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
+    return NextResponse.json({ error: parsed.error.issues.map(issue=>`${issue.path.join('.')}: ${issue.message}`).join('; '), details: parsed.error.flatten() }, { status: 422 })
   }
 
   const { leaveTypeId, startDate, endDate, reason, employeeId: targetEmployeeId, isHalfDay, halfDayPeriod } = parsed.data
   const finalEmployeeId = targetEmployeeId || employeeId
-
-  // Half-day: always 0.5 days, start === end
-  // Full day(s): count working days between start and end
-  let totalDays = parsed.data.totalDays
-  if (!totalDays) {
-    if (isHalfDay) {
-      totalDays = 0.5
-    } else {
-      const start = new Date(startDate)
-      const end   = new Date(endDate)
-      let days = 0
-      const cur = new Date(start)
-      while (cur <= end) {
-        const dow = cur.getDay()
-        if (dow !== 0 && dow !== 6) days++
-        cur.setDate(cur.getDate() + 1)
-      }
-      totalDays = Math.max(1, days)
-    }
+  if (targetEmployeeId && targetEmployeeId !== employeeId) {
+    if (ctx.role === 'EMPLOYEE' || !await ctxHasPermission(ctx, 'leaves:write')) return NextResponse.json({ error: 'You may only submit leave for yourself.' }, { status: 403 })
+    const target = await prisma.employee.findFirst({ where: { id: targetEmployeeId, companyId: ctx.companyId, isActive: true }, select: { id: true } })
+    if (!target) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 })
   }
 
-  if (!finalEmployeeId) {
-    return NextResponse.json({ error: 'No employee found for this user' }, { status: 400 })
-  }
+  if (!finalEmployeeId) return NextResponse.json({ error: 'No active employee profile found for this user.' }, { status: 400 })
+  const dates=leaveDatesSchema.safeParse({startDate,endDate,isHalfDay})
+  if(!dates.success)return NextResponse.json({error:dates.error.issues[0].message},{status:422})
+  const year=Number(startDate.slice(0,4))
+  const totalDays=await leaveDuration(ctx.companyId,finalEmployeeId,startDate,endDate,!!isHalfDay)
+  if(totalDays<=0)return NextResponse.json({error:'No scheduled working days in this date range. Choose a workday or ask HR to correct your schedule.'},{status:422})
+
+  const activeType = await prisma.leaveType.findFirst({ where: { id: leaveTypeId, companyId: ctx.companyId, isActive: true }, select: { id: true } })
+  if (!activeType) return NextResponse.json({ error: 'This leave type is no longer available. Refresh and choose an active leave type.' }, { status: 400 })
 
   // Check leave balance
   const balance = await prisma.leaveBalance.findFirst({
     where: {
       employeeId: finalEmployeeId,
       leaveTypeId,
-      year: new Date().getFullYear(),
+      year,
     },
   })
 
   const available = balance
-    ? balance.entitled.toNumber() + balance.carriedOver.toNumber() - balance.used.toNumber() - balance.pending.toNumber()
+    ? balance.entitled.toNumber() + balance.carriedOver.toNumber() - balance.used.toNumber() - balance.pending.toNumber() - balance.encashed.toNumber()
     : 0
 
   if (available < totalDays) {
@@ -152,6 +154,10 @@ export async function POST(req: NextRequest) {
   }
 
   const leaveRequest = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "leave_balances" WHERE "id" = ${balance!.id} FOR UPDATE`
+    const current = await tx.leaveBalance.findUniqueOrThrow({ where: { id: balance!.id } })
+    const remaining = Number(current.entitled) + Number(current.carriedOver) - Number(current.used) - Number(current.pending) - Number(current.encashed)
+    if (remaining < totalDays!) return null
     const req = await tx.leaveRequest.create({
       data: {
         employeeId: finalEmployeeId,
@@ -168,12 +174,14 @@ export async function POST(req: NextRequest) {
 
     // Update pending balance
     await tx.leaveBalance.updateMany({
-      where: { employeeId: finalEmployeeId, leaveTypeId, year: new Date().getFullYear() },
+      where: { employeeId: finalEmployeeId, leaveTypeId, year },
       data: { pending: { increment: totalDays }, updatedAt: new Date() },
     })
 
     return req
   })
+
+  if (!leaveRequest) return NextResponse.json({ error: 'Leave balance changed. Please refresh and try again.' }, { status: 409 })
 
   // Best-effort: route the new request through its workflow to ping the first
   // approver and fire any on-submit NOTIFY steps. Never blocks the response.
@@ -207,7 +215,7 @@ export async function POST(req: NextRequest) {
         companyId: ctx.companyId,
         requesterEmployeeId: finalEmployeeId,
         requesterDepartmentId,
-        link: '/leaves',
+        link: `/leaves?requestId=${leaveRequest.id}`,
         vars: { requestType: 'Leave', requesterName, leaveType: lt?.name ?? 'Leave' },
       }
       await dispatchNotifySteps(notifyStepsOnSubmit(plan), notifyCtx)
@@ -224,7 +232,7 @@ export async function POST(req: NextRequest) {
             type: 'GENERIC',
             title: 'Leave request awaiting your approval',
             body: `${requesterName} · ${lt?.name ?? 'Leave'}`,
-            link: '/leaves',
+            link: `/leaves?requestId=${leaveRequest.id}`,
           })
         }
       }
@@ -240,4 +248,13 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ leaveRequest }, { status: 201 })
+}
+
+async function leaveDuration(companyId:string,employeeId:string,startDate:string,endDate:string,isHalfDay:boolean){
+ const start=new Date(startDate+'T00:00:00Z'),end=new Date(endDate+'T00:00:00Z')
+ const [employee,assignments]=await Promise.all([
+  prisma.employee.findFirst({where:{id:employeeId,companyId,isActive:true},include:{workSchedule:true}}),
+  prisma.employeeShiftAssignment.findMany({where:{employeeId,companyId,date:{gte:start,lte:end}},include:{schedule:true}}),
+ ])
+ return countLeaveDays(startDate,endDate,isHalfDay,assignments,employee?.workSchedule??null)
 }

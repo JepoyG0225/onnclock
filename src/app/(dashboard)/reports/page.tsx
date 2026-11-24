@@ -6,7 +6,7 @@ import { FileText, Download, Building, Receipt } from 'lucide-react'
 const REPORTS = [
   {
     category: 'SSS',
-    color: 'bg-[#000000]',
+    color: 'bg-[var(--brand-primary)]',
     reports: [
       {
         title: 'SSS R3 — Contribution Collection List',

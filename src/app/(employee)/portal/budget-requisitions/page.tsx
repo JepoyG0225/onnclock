@@ -251,7 +251,7 @@ export default function BudgetRequisitionsPage() {
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => (
-          <button
+          <button data-app-tab data-active={tab === t}
             key={t}
             onClick={() => setTab(t)}
             className={cn(
@@ -302,7 +302,7 @@ export default function BudgetRequisitionsPage() {
                     Filed {fmtDate(req.createdAt)}
                     {req.neededBy && <span> · Needed by {fmtDate(req.neededBy)}</span>}
                   </p>
-                  <p className="text-base font-bold mt-1" style={{ color: '#000000' }}>
+                  <p className="text-base font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
                     {fmtPeso(req.totalAmount)}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -354,7 +354,7 @@ export default function BudgetRequisitionsPage() {
                       <tfoot>
                         <tr className="border-t border-gray-200 bg-gray-50">
                           <td colSpan={3} className="px-3 py-2 text-right text-xs font-bold text-gray-600 uppercase tracking-wide">Total</td>
-                          <td className="px-3 py-2 text-right text-sm font-bold" style={{ color: '#000000' }}>{fmtPeso(req.totalAmount)}</td>
+                          <td className="px-3 py-2 text-right text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>{fmtPeso(req.totalAmount)}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -377,7 +377,7 @@ export default function BudgetRequisitionsPage() {
                     ))}
                     <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                       <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Total</span>
-                      <span className="text-sm font-bold" style={{ color: '#000000' }}>{fmtPeso(req.totalAmount)}</span>
+                      <span className="text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>{fmtPeso(req.totalAmount)}</span>
                     </div>
                   </div>
 
@@ -573,7 +573,7 @@ export default function BudgetRequisitionsPage() {
                   </div>
                 ))}
 
-                <div className="text-right text-sm font-bold mt-2 pt-2 border-t border-gray-100" style={{ color: '#000000' }}>
+                <div className="text-right text-sm font-bold mt-2 pt-2 border-t border-gray-100" style={{ color: 'var(--brand-primary)' }}>
                   Total: {fmtPeso(grandTotal)}
                 </div>
               </div>

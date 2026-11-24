@@ -458,11 +458,11 @@ export default function BillingPage() {
       {(isOnTrial || isExpired) && (
         <div className={`rounded-2xl px-5 py-4 flex items-start gap-4 border ${isExpired ? 'bg-red-50 border-red-200' : 'bg-[#dce5f7] border-[#AAB7B7]'}`}>
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'bg-red-100' : 'bg-[#c4d9ff]'}`}>
-            {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-[#000000]" />}
+            {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-[var(--brand-primary)]" />}
           </div>
           <div className="flex-1">
             <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-primary'}`}>
-              {isExpired ? 'Your free trial has ended' : `${data.daysLeft} day${data.daysLeft === 1 ? '' : 's'} left in your free trial`}
+              {isExpired ? (sub.plan === 'TRIAL' ? 'Your free trial has ended' : 'Your subscription has expired - not renewed') : `${data.daysLeft} day${data.daysLeft === 1 ? '' : 's'} left in your free trial`}
             </p>
             <p className={`text-xs mt-0.5 ${isExpired ? 'text-red-600' : 'text-slate-600'}`}>
               Subscribe now to keep payroll and attendance features running.
@@ -641,7 +641,7 @@ export default function BillingPage() {
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
-              <CreditCard className="w-5 h-5" style={{ color: '#000000' }} />
+              <CreditCard className="w-5 h-5" style={{ color: 'var(--brand-primary)' }} />
             </div>
             <div>
               <p className="font-bold text-slate-800">Current Plan</p>
@@ -653,7 +653,7 @@ export default function BillingPage() {
             </div>
           </div>
           <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isOnTrial ? 'bg-[#c4d9ff] text-primary' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
-            {isOnTrial ? 'Free Trial' : isActive ? 'Active' : 'Expired'}
+            {isOnTrial ? 'Free Trial' : isActive ? 'Active' : sub.status === 'CANCELLED' ? 'Cancelled' : sub.status === 'PAST_DUE' ? 'Past due' : 'Expired'}
           </span>
         </div>
         <div className="px-6 py-5 grid grid-cols-2 sm:grid-cols-4 gap-6">
@@ -674,7 +674,7 @@ export default function BillingPage() {
           </div>
           <div>
             <p className="text-xs text-slate-400 font-medium mb-1">Est. Monthly Cost</p>
-            <p className="text-xl font-black" style={{ color: '#000000' }}>{fmt(data.estimatedMonthly)}</p>
+            <p className="text-xl font-black" style={{ color: 'var(--brand-primary)' }}>{fmt(data.estimatedMonthly)}</p>
           </div>
         </div>
       </div>
@@ -691,7 +691,7 @@ export default function BillingPage() {
               key={price}
               type="button"
               onClick={() => setSelectedPricePerSeat(price)}
-              className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === price ? 'border-[#000000] bg-[#dce5f7]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
+              className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === price ? 'border-[var(--brand-primary)] bg-[#dce5f7]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
             >
               <p className="font-black text-slate-900 text-lg">{label}</p>
               <p className="text-xs text-slate-500 mt-1">{desc}</p>
@@ -910,7 +910,7 @@ export default function BillingPage() {
               <>
                 <div className="px-6 pt-6 pb-4 text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3" style={{ background: 'rgba(46,65,86,.1)' }}>
-                    <QrCode className="w-6 h-6" style={{ color: '#000000' }} />
+                    <QrCode className="w-6 h-6" style={{ color: 'var(--brand-primary)' }} />
                   </div>
                   <h2 className="text-lg font-black text-slate-900">Scan to Pay</h2>
                   <p className="text-xs text-slate-500 mt-1">Use GCash, Maya, or any QR Ph-enabled bank app</p>

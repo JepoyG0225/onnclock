@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('onclock', {
   // Attendance — location is optional { lat, lng, accuracy, address }
   clockIn: (location) => ipcRenderer.invoke('attendance:clockIn', location),
   clockOut: (location) => ipcRenderer.invoke('attendance:clockOut', location),
+  getSchedule: () => ipcRenderer.invoke('attendance:getSchedule'),
   getStatus: () => ipcRenderer.invoke('attendance:getStatus'),
   getAttendanceLogs: (limit = 7) => ipcRenderer.invoke('attendance:getLogs', limit),
   getLatestCapture: () => ipcRenderer.invoke('attendance:getLatestCapture'),

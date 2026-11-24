@@ -1,3 +1,4 @@
+import { serializeReview } from '@/lib/performance/serialize'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -46,5 +47,5 @@ export async function POST(
     },
   })
 
-  return NextResponse.json({ review: updated })
+  return NextResponse.json({ review: serializeReview(updated) })
 }

@@ -6,6 +6,7 @@ type NewFeatureBadgeProps = {
 }
 
 const BADGE_DURATION_DAYS = 7
+export const BENEFITS_EXPENSES_RELEASED_AT = '2026-10-21T00:00:00+08:00'
 
 export function isFeatureNew(releasedAt: string) {
   const releaseTime = new Date(releasedAt).getTime()
@@ -17,7 +18,7 @@ export function isFeatureNew(releasedAt: string) {
 export default function NewFeatureBadge({ releasedAt, className = '' }: NewFeatureBadgeProps) {
   if (!isFeatureNew(releasedAt)) return null
   return (
-    <span className={`rounded-full border border-[var(--brand-highlight)] bg-[var(--brand-highlight)] px-2.5 py-1 text-[10px] font-black tracking-wide text-black ${className}`}>
+    <span className={`rounded-full border border-[var(--brand-highlight)] bg-[var(--brand-highlight)] px-2.5 py-1 text-[10px] font-black tracking-wide text-primary ${className}`}>
       NEW
     </span>
   )

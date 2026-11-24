@@ -1,3 +1,4 @@
+import { serializeReview } from '@/lib/performance/serialize'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
   })
   const statusCounts = Object.fromEntries(counts.map(c => [c.status, c._count.status]))
 
-  return NextResponse.json({ reviews, total, page, limit, statusCounts })
+  return NextResponse.json({ reviews: reviews.map(serializeReview), total, page, limit, statusCounts })
 }
 
 // ─── POST /api/performance-reviews ─────────────────────────────────────────────
@@ -139,5 +140,5 @@ export async function POST(req: NextRequest) {
     })
   )
 
-  return NextResponse.json({ created: created.length, reviews: created }, { status: 201 })
+  return NextResponse.json({ created: created.length, reviews: created.map(serializeReview) }, { status: 201 })
 }

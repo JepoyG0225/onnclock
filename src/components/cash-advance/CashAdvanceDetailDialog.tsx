@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState } from 'react'
 import { Wallet, Calendar, FileText, User, TrendingDown } from 'lucide-react'
@@ -14,6 +15,7 @@ export interface CashAdvanceDetailDialogProps {
     amountRequested: number
     reason: string
     repaymentMonths: number
+    repaymentCutoffs?: number | null
     status: string
     rejectionReason: string | null
     approvedAt: string | null
@@ -50,7 +52,8 @@ function peso(n: number): string {
 }
 
 export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onActionDone }: CashAdvanceDetailDialogProps) {
-  const [acting, setActing] = useState<'approve' | 'reject' | null>(null)
+  const [acting, setActing] = useState<'approve' | 'reject' | 'terms' | null>(null)
+  const [term, setTerm] = useState('')
   const [rejectMode, setRejectMode] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
 
@@ -66,6 +69,22 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
   const monthlyAmort = amount / Math.max(1, request.repaymentMonths)
   const semiMonthlyBasic = monthlySalary / 2
   const amortPct = semiMonthlyBasic > 0 ? (monthlyAmort / semiMonthlyBasic) * 100 : 0
+
+  async function updateTerms() {
+    setActing('terms')
+    try {
+      const res = await fetch(`/api/cash-advance/${request.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'UPDATE_TERMS', repaymentMonths: Number(term) }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Unable to update repayment')
+      toast.success('Repayment term updated')
+      onActionDone?.()
+      onClose()
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Unable to update repayment') }
+    finally { setActing(null) }
+  }
 
   async function doApprove() {
     setActing('approve')
@@ -126,14 +145,27 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
             icon={<Wallet className="h-4 w-4" />}
             label="Amount Requested"
             value={<span className="text-base font-bold">{peso(amount)}</span>}
-            hint={`Repayable over ${request.repaymentMonths} month${request.repaymentMonths === 1 ? '' : 's'}`}
+            hint={request.repaymentCutoffs ? `Repayable over ${request.repaymentCutoffs} cutoff(s)` : `Repayable over ${request.repaymentMonths} month${request.repaymentMonths === 1 ? '' : 's'}`}
           />
           <DetailRow
             icon={<TrendingDown className="h-4 w-4" />}
-            label="Monthly Deduction"
-            value={peso(monthlyAmort)}
-            hint={`${amortPct.toFixed(1)}% of semi-monthly basic`}
+            label={request.repaymentCutoffs ? 'Deduction per cutoff' : 'Monthly Deduction'}
+            value={peso(request.repaymentCutoffs ? amount / request.repaymentCutoffs : Number(request.loan?.monthlyAmortization ?? monthlyAmort))}
+            hint={request.repaymentCutoffs ? 'Final deduction is capped at the remaining balance' : `${amortPct.toFixed(1)}% of semi-monthly basic`}
           />
+          {isHR && ['PENDING', 'APPROVED'].includes(request.status) && request.loan?.status !== 'FULLY_PAID' && (
+            <div className="sm:col-span-2 border rounded-lg p-3 space-y-2">
+              <label className="text-sm font-medium" htmlFor="repayment-term">Change repayment duration</label>
+              <div className="flex gap-2">
+                <select id="repayment-term" value={term} onChange={e => setTerm(e.target.value)} className="border rounded p-2 text-sm">
+                  <option value="">Select months</option>
+                  {[1, 2, 3, 4, 5, 6].map(m => <option key={m} value={m}>{m} month{m === 1 ? '' : 's'}</option>)}
+                </select>
+                <PermissionGate permission="cashadvance:approve"><Button type="button" disabled={!!acting || !term} onClick={() => void updateTerms()}>Update term</Button></PermissionGate>
+              </div>
+              <p className="text-xs text-gray-500">For approved advances, the new term spreads the remaining balance.</p>
+            </div>
+          )}
           <DetailRow
             icon={<User className="h-4 w-4" />}
             label="Filed By"
@@ -193,7 +225,7 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
               <>
                 {!rejectMode ? (
                   <>
-                    <Button
+                    <PermissionGate permission="cashadvance:approve"><Button
                       size="sm"
                       variant="outline"
                       onClick={() => setRejectMode(true)}
@@ -201,24 +233,24 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
                       className="border-rose-200 text-rose-600 hover:bg-rose-50"
                     >
                       Reject
-                    </Button>
-                    <Button
+                    </Button></PermissionGate>
+                    <PermissionGate permission="cashadvance:approve"><Button
                       size="sm"
                       onClick={doApprove}
                       disabled={!!acting}
                       variant="success" className=""
                     >
                       {acting === 'approve' ? 'Approving…' : 'Approve'}
-                    </Button>
+                    </Button></PermissionGate>
                   </>
                 ) : (
                   <>
                     <Button size="sm" variant="outline" onClick={() => { setRejectMode(false); setRejectReason('') }} disabled={!!acting}>
                       Cancel reject
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={doReject} disabled={!!acting}>
+                    <PermissionGate permission="cashadvance:approve"><Button size="sm" variant="destructive" onClick={doReject} disabled={!!acting}>
                       {acting === 'reject' ? 'Rejecting…' : 'Confirm reject'}
-                    </Button>
+                    </Button></PermissionGate>
                   </>
                 )}
               </>

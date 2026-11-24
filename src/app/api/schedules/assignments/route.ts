@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
             timeOut: true,
             isRestDay: true,
             notes: true,
-            schedule: { select: { id: true, name: true, timeIn: true, timeOut: true } },
+            schedule: { select: { timezone: true, id: true, name: true, timeIn: true, timeOut: true } },
           },
         })
       } else {
@@ -226,6 +226,9 @@ export async function POST(req: NextRequest) {
     })
     if (!emp) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
+    if (scheduleId && !await prisma.workSchedule.findFirst({ where: { id: scheduleId, companyId: ctx.companyId, isActive: true } })) {
+      return NextResponse.json({ error: 'Schedule not found' }, { status: 400 })
+    }
     if (mode === 'FIXED' && !isRestDay && !scheduleId) {
       return NextResponse.json(
         { error: 'Fixed schedule assignment requires a schedule template.' },
@@ -251,22 +254,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Keep fixed/flexible membership mutually exclusive.
-    if (mode === 'FIXED') {
-      if (!isRestDay && scheduleId) {
-        await prisma.employee.update({
-          where: { id: employeeId },
-          data: { workScheduleId: scheduleId },
-        })
-      }
-    } else if (mode === 'FLEXIBLE') {
-      if (emp.workScheduleId) {
-        await prisma.employee.update({
-          where: { id: employeeId },
-          data: { workScheduleId: null },
-        })
-      }
-    }
+    // A dated assignment overrides only that date; profile defaults are edited separately.
 
     // ── Persist the assignment ──────────────────────────────────────────
     // Strategy:

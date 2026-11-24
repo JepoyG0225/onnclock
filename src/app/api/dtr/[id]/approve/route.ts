@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
   }
 
+  if(!await ctxHasPermission({...ctx,companyId},'dtr:approve'))return NextResponse.json({error:'Attendance approval permission required.'},{status:403})
   const body = await req.json()
   const action = body.action as 'APPROVED' | 'REJECTED'
   const approveOvertime = !!body.approveOvertime
@@ -25,14 +27,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const record = await prisma.dTRRecord.findFirst({
     where: { id, employee: { companyId } },
+    include:{employee:{select:{trackTime:true}}},
   })
   if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 })
 
+  if(!['APPROVED','REJECTED'].includes(action))return NextResponse.json({error:'Invalid action.'},{status:422})
+  if(!record.employee.trackTime||!record.timeIn||!record.timeOut)return NextResponse.json({error:'Only completed sessions for employees tracking DTR require approval.'},{status:409})
   const updated = await prisma.dTRRecord.update({
-    where: { id },
+    where: { id, timeIn:{not:null},timeOut:{not:null},employee:{trackTime:true} },
     data: action === 'APPROVED'
-      ? { approvedBy: ctx.userId }
-      : { approvedBy: null, remarks: record.remarks ?? 'REJECTED' },
+      ? { approvedBy: ctx.userId, remarks:record.remarks==='REJECTED'?null:record.remarks }
+      : { approvedBy: null, remarks: 'REJECTED' },
   })
 
   // Optionally approve the linked auto-OT request, but only if OT pay is
@@ -44,6 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       otApproved = await approveAutoOtByIds({
         companyId,
         ids: overtimeRequestIds,
+        employeeId:record.employeeId,dateFrom:record.date,dateTo:record.date,
         approvedById: ctx.userId,
       })
     } else if (approveOvertime && Number(record.overtimeHours ?? 0) > 0) {

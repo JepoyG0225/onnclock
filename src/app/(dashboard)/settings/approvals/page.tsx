@@ -44,8 +44,8 @@ const WORKFLOW_META: Record<ApprovalType, { title: string; subtitle: string; ico
     steps: [
       { label: 'Draft', desc: 'Payroll run created', color: '#777777' },
       { label: 'For Approval', desc: 'Submitted by payroll team', color: '#f59e0b' },
-      { label: 'Approved', desc: 'Multi-level approval finished', color: '#10b981' },
-      { label: 'Locked', desc: 'Ready for release', color: '#8b5cf6' },
+      { label: 'Approved', desc: 'Multi-level approval finished', color: '#c74300' },
+      { label: 'Locked', desc: 'Ready for release', color: '#476891' },
     ],
   },
   LEAVE: {
@@ -55,7 +55,7 @@ const WORKFLOW_META: Record<ApprovalType, { title: string; subtitle: string; ico
     steps: [
       { label: 'Filed', desc: 'Employee submits request', color: '#777777' },
       { label: 'Pending', desc: 'Awaiting approvers', color: '#f59e0b' },
-      { label: 'Approved/Rejected', desc: 'Final action by approvers', color: '#10b981' },
+      { label: 'Approved/Rejected', desc: 'Final action by approvers', color: '#c74300' },
     ],
   },
   OVERTIME: {
@@ -65,7 +65,7 @@ const WORKFLOW_META: Record<ApprovalType, { title: string; subtitle: string; ico
     steps: [
       { label: 'Submitted', desc: 'Employee files overtime', color: '#777777' },
       { label: 'Review', desc: 'Approvers validate reason/hours', color: '#f59e0b' },
-      { label: 'Approved', desc: 'Included in payroll run', color: '#10b981' },
+      { label: 'Approved', desc: 'Included in payroll run', color: '#c74300' },
     ],
   },
   TIME_CORRECTION: {
@@ -75,7 +75,7 @@ const WORKFLOW_META: Record<ApprovalType, { title: string; subtitle: string; ico
     steps: [
       { label: 'Requested', desc: 'Employee files correction', color: '#777777' },
       { label: 'Verification', desc: 'Approvers review records', color: '#f59e0b' },
-      { label: 'Applied', desc: 'Approved changes reflected in DTR', color: '#10b981' },
+      { label: 'Applied', desc: 'Approved changes reflected in DTR', color: '#c74300' },
     ],
   },
   ATTENDANCE_REVIEW: {
@@ -85,7 +85,7 @@ const WORKFLOW_META: Record<ApprovalType, { title: string; subtitle: string; ico
     steps: [
       { label: 'Submitted', desc: 'Week sent for review', color: '#777777' },
       { label: 'Approval', desc: 'Approvers validate attendance', color: '#f59e0b' },
-      { label: 'Finalized', desc: 'Ready for payroll', color: '#10b981' },
+      { label: 'Finalized', desc: 'Ready for payroll', color: '#c74300' },
     ],
   },
 }
@@ -373,7 +373,7 @@ export default function ApprovalWorkflowsPage() {
       <CollapsibleCard
         open={expanded.has(`legacy:${type}`)}
         onToggle={() => toggle(`legacy:${type}`)}
-        icon={<Icon className="w-4 h-4 text-[#000000]" />}
+        icon={<Icon className="w-4 h-4 text-[var(--brand-primary)]" />}
         title={meta.title}
         subtitle={meta.subtitle}
         count={`${count} approver${count !== 1 ? 's' : ''} configured`}
@@ -424,7 +424,7 @@ export default function ApprovalWorkflowsPage() {
           </div>
           <Link
             href="/settings/workflows"
-            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#000000] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--brand-primary)] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary"
           >
             <Workflow className="h-4 w-4" />
             Workflow Builder
@@ -466,10 +466,10 @@ export default function ApprovalWorkflowsPage() {
             key={wf.id}
             open={expanded.has(`builder:${wf.id}`)}
             onToggle={() => toggle(`builder:${wf.id}`)}
-            icon={<Workflow className="w-4 h-4 text-[#000000]" />}
+            icon={<Workflow className="w-4 h-4 text-[var(--brand-primary)]" />}
             title={
               <span className="inline-flex items-center gap-2">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#dce5f7] text-[#000000]">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#dce5f7] text-[var(--brand-primary)]">
                   {BUILDER_TYPE_LABELS[wf.type] ?? wf.type}
                 </span>
                 {dept}
@@ -524,7 +524,7 @@ export default function ApprovalWorkflowsPage() {
       <Card>
         <CardContent className="p-4 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-[#dce5f7]">
-            <Users className="w-5 h-5 text-[#000000]" />
+            <Users className="w-5 h-5 text-[var(--brand-primary)]" />
           </div>
           <p className="text-sm text-gray-600">
             Approvals are processed in order — the <strong>1st Approver</strong> must approve before the 2nd, and so on.

@@ -1,3 +1,4 @@
+import { TodaySchedule } from '@/components/employee/TodaySchedule'
 /**
  * Portal home.
  *
@@ -112,7 +113,7 @@ export default async function PortalHomePage() {
             // PAID status on PayrollRun; a payslip becomes visible once APPROVED.
             where: {
               employeeId: employee.id,
-              payrollRun: { companyId, status: { in: ['APPROVED', 'LOCKED'] } },
+              payrollRun: { companyId, status: { in: ['APPROVED', 'LOCKED', 'DISBURSED'] } },
             },
             orderBy: { createdAt: 'desc' },
             select: { payrollRun: { select: { payDate: true } } },
@@ -145,8 +146,8 @@ export default async function PortalHomePage() {
     : 'Not clocked in'
 
   const statusTone = onBreak ? { bg: '#fffbeb', fg: '#b45309', dot: '#f59e0b' }
-    : clockedIn ? { bg: '#ecfdf5', fg: '#047857', dot: '#10b981' }
-    : clockedOut ? { bg: '#eff6ff', fg: '#1d4ed8', dot: '#3b82f6' }
+    : clockedIn ? { bg: '#ecfdf5', fg: '#047857', dot: '#c74300' }
+    : clockedOut ? { bg: '#eff6ff', fg: '#0044ad', dot: '#0054d7' }
     : { bg: '#eeeeee', fg: '#343434', dot: '#777777' }
 
   // Worked hours so far — closed shift uses out-in; an open shift counts to now.
@@ -157,37 +158,15 @@ export default async function PortalHomePage() {
     ? `${Math.floor(workedMs / 3600000)}h ${Math.floor((workedMs % 3600000) / 60000)}m`
     : '--'
 
-  const initials = employee
-    ? `${employee.firstName[0] ?? ''}${employee.lastName[0] ?? ''}`.toUpperCase()
-    : (session.user.name?.[0]?.toUpperCase() ?? 'E')
-
-
-
   return (
     <div className="px-4 py-5 lg:px-8 lg:py-8 max-w-3xl mx-auto space-y-4">
 
-      {/* Greeting + avatar */}
+      {/* Greeting and attendance status */}
       <header className="flex items-center gap-3">
-        <Link href="/portal/profile" className="shrink-0">
-          {employee?.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={employee.photoUrl}
-              alt=""
-              className="w-12 h-12 rounded-2xl object-cover ring-2 ring-white shadow-sm"
-            />
-          ) : (
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#343434] text-sm font-black text-[var(--brand-highlight)] shadow-sm ring-1 ring-black/10"
-            >
-              {initials}
-            </div>
-          )}
-        </Link>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-slate-400 leading-tight">{greeting()}</p>
-          <h1 className="text-[22px] font-black tracking-tight leading-tight truncate" style={{ color: '#000000' }}>
-            Hi {firstName}
+          <h1 className="text-[22px] font-black tracking-tight leading-tight truncate" style={{ color: '#0054d7' }}>
+            {firstName}
           </h1>
         </div>
         {/* Status chip with the live clock tucked underneath it, top-right. */}
@@ -206,7 +185,7 @@ export default async function PortalHomePage() {
       {/* Attendance — hero punch control */}
       <section className="rounded-3xl bg-white border border-slate-200 shadow-sm p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-black tracking-wide" style={{ color: '#000000' }}>Attendance</h2>
+          <h2 className="text-[13px] font-black tracking-wide" style={{ color: 'var(--brand-primary)' }}>Attendance</h2>
           <Link href="/portal/clock" className="text-[11px] font-bold text-slate-400 hover:text-slate-700 transition-colors">
             History
           </Link>
@@ -216,6 +195,7 @@ export default async function PortalHomePage() {
             /portal/clock renders, so GPS, geofence, biometric verification,
             selfie capture and break handling all behave identically here — and
             cannot drift, because there is only one implementation. */}
+        <TodaySchedule />
         <PunchClock />
 
         {/* In / Out / Worked */}
@@ -223,7 +203,7 @@ export default async function PortalHomePage() {
           {[
             { label: 'Check In',    value: fmtTime(dtr?.timeIn ?? null),  icon: LogIn,  tint: '#059669' },
             { label: 'Check Out',   value: fmtTime(dtr?.timeOut ?? null), icon: LogOut, tint: '#dc2626' },
-            { label: 'Working Hrs', value: workedLabel,                   icon: Timer,  tint: '#2563eb' },
+            { label: 'Working Hrs', value: workedLabel,                   icon: Timer,  tint: '#0054d7' },
           ].map(stat => (
             <div key={stat.label} className="rounded-2xl bg-slate-50 border border-slate-100 px-2.5 py-3 text-center">
               <stat.icon className="w-3.5 h-3.5 mx-auto mb-1.5" style={{ color: stat.tint }} />

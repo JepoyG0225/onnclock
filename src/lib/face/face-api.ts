@@ -76,3 +76,23 @@ export const FACE_MESH_PATHS: Array<{ from: number; to: number; closed: boolean 
 
 /** Total landmark count, i.e. how many dots the mesh animates in. */
 export const LANDMARK_COUNT = 68
+
+let warmupPromise: Promise<void> | null = null
+
+/** Compile inference kernels while the paired terminal is idle; no camera or biometric data. */
+export function warmFaceApi(): Promise<void> {
+  if (warmupPromise) return warmupPromise
+  warmupPromise = (async () => {
+    const api = await loadFaceApi()
+    const frame = document.createElement('canvas')
+    frame.width = 640
+    frame.height = 480
+    await api.detectAllFaces(frame, new api.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.35 }))
+    const crop = document.createElement('canvas')
+    crop.width = 150
+    crop.height = 150
+    await api.nets.faceLandmark68Net.detectLandmarks(crop)
+    await api.nets.faceRecognitionNet.computeFaceDescriptor(crop)
+  })().catch(error => { warmupPromise = null; throw error })
+  return warmupPromise
+}

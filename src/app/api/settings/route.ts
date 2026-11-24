@@ -1,3 +1,4 @@
+import { faceBetaAvailable } from '@/lib/face/availability'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -35,6 +36,7 @@ const companySchema = z.object({
   faceRecognitionRequired: z.boolean().optional(),
   screenCaptureEnabled: z.boolean().optional(),
   screenCaptureFrequencyMinutes: z.number().int().min(1).max(60).optional(),
+  shiftEndClockoutEnabled: z.boolean().optional(),
   autoClockoutEnabled: z.boolean().optional(),
   autoClockoutMinutes: z.number().int().min(1).max(240).optional(),
   geofenceEnabled: z.boolean().optional(),
@@ -160,8 +162,11 @@ export async function GET() {
   const derivedPortalUrl = baseDomain ? `https://${baseDomain}/portal` : null
   const defaultBreakMinutes = await readCompanyDefaultBreakMinutes(ctx.companyId)
 
+  const faceAvailable = await faceBetaAvailable(ctx.companyId)
   return NextResponse.json({
     ...company,
+    faceBetaAvailable: faceAvailable,
+    faceRecognitionRequired: faceAvailable && company.faceRecognitionRequired,
     defaultBreakMinutes,
     tinNo: company.tin ?? null,
     sssNo: company.sssRegistrationNo ?? null,
@@ -189,6 +194,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json()
     const parsed = companySchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    if (parsed.data.faceRecognitionRequired === true && !(await faceBetaAvailable(ctx.companyId))) return NextResponse.json({ error: 'Facial recognition is not available for this company.' }, { status: 403 })
     const hasField = (field: keyof z.infer<typeof companySchema>) =>
       Object.prototype.hasOwnProperty.call(parsed.data, field)
     const requestedDefaultBreakMinutes = hasField('defaultBreakMinutes')
@@ -265,6 +271,11 @@ export async function PATCH(req: NextRequest) {
     }
     if (companyFieldSupported('screenCaptureFrequencyMinutes') && hasField('screenCaptureFrequencyMinutes')) {
       companyUpdateData.screenCaptureFrequencyMinutes = parsed.data.screenCaptureFrequencyMinutes
+    }
+    if(hasField('shiftEndClockoutEnabled')){
+      const prior=await prisma.company.findUniqueOrThrow({where:{id:ctx.companyId},select:{shiftEndClockoutEnabled:true}})
+      companyUpdateData.shiftEndClockoutEnabled=parsed.data.shiftEndClockoutEnabled
+      if(parsed.data.shiftEndClockoutEnabled&&!prior.shiftEndClockoutEnabled)companyUpdateData.shiftEndClockoutEnabledAt=new Date()
     }
     if (companyFieldSupported('autoClockoutEnabled') && hasField('autoClockoutEnabled')) {
       companyUpdateData.autoClockoutEnabled = parsed.data.autoClockoutEnabled

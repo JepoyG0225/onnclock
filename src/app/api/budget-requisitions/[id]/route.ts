@@ -41,7 +41,7 @@ export async function GET(
   const { id } = await params
 
   const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
 
@@ -78,7 +78,7 @@ export async function PATCH(
   const gate = await checkBudgetReqAccess(ctx)
   if (gate) return gate
 
-  const isHR = ['COMPANY_ADMIN', 'HR_MANAGER', 'SUPER_ADMIN'].includes(ctx.role ?? '')
+  const isHR = await ctxHasPermission(ctx, 'budget:approve')
 
   // Only HR/admin can approve or reject; employees can only cancel their own
   const body = await req.json()
@@ -88,11 +88,12 @@ export async function PATCH(
   }
 
   const { status, reviewNote } = parsed.data
+  if (status !== 'CANCELLED' && !await ctxHasPermission(ctx, 'budget:approve')) return NextResponse.json({ error: 'View-only access. Approval permission is required.' }, { status: 403 })
   const { id } = await params
 
   // Fetch the requisition
   const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
 
@@ -169,7 +170,7 @@ export async function PATCH(
         plan: decision.plan,
         nextLevel: decision.nextLevel,
         isFinal: false,
-        ctx: { companyId: ctx.companyId!, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/budget-requisitions', vars: { requestType: 'Budget Requisition', requesterName } },
+        ctx: { companyId: ctx.companyId!, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: `/budget-requisitions?requestId=${existing.id}`, vars: { requestType: 'Budget Requisition', requesterName } },
         nextApproverTitle: 'Budget requisition awaiting your approval',
         nextApproverBody: `${requesterName} · ₱${Number(existing.totalAmount).toLocaleString()}`,
       })
@@ -196,7 +197,7 @@ export async function PATCH(
       plan: decision.plan,
       nextLevel: decision.nextLevel,
       isFinal: true,
-      ctx: { companyId: ctx.companyId!, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/budget-requisitions', vars: { requestType: 'Budget Requisition', requesterName } },
+      ctx: { companyId: ctx.companyId!, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: `/budget-requisitions?requestId=${existing.id}`, vars: { requestType: 'Budget Requisition', requesterName } },
       nextApproverTitle: '', nextApproverBody: '',
     })
   }

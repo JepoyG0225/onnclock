@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -203,7 +205,7 @@ export function CashAdvanceTab() {
               >
                 1 cutoff
               </button>
-              {[1, 2, 3].map(m => (
+              {[1, 2, 3, 4, 5, 6].map(m => (
                 <button
                   type="button"
                   key={m}
@@ -269,9 +271,7 @@ export function CashAdvanceTab() {
       {/* History */}
       <div className="space-y-2">
         <h2 className="text-sm font-semibold text-gray-700">Requests</h2>
-        {loading ? (
-          <div className="text-sm text-gray-400 py-6 text-center">Loading…</div>
-        ) : requests.length === 0 ? (
+        {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : requests.length === 0 ? (
           <div className="text-sm text-gray-400 py-8 text-center border rounded-lg bg-white">
             <FileTextIcon /> You haven&apos;t filed any cash advance requests yet.
           </div>

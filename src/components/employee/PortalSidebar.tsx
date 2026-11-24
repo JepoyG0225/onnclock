@@ -1,15 +1,17 @@
 'use client'
 
+import { usePortalNotifications } from './usePortalNotifications'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { signOut } from 'next-auth/react'
 import {
   Clock, FileText, CreditCard, User, BarChart3,
-  Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList, ClipboardEdit, Banknote, ListChecks, Home} from 'lucide-react'
+  Bell, LogOut, ChevronDown, AlertTriangle, X, ClipboardList, ClipboardEdit, Banknote, ListChecks, Home, Receipt, HeartPulse, GraduationCap} from 'lucide-react'
 import { CalendarUserIcon } from '@/components/employee/CalendarUserIcon'
 import { cn } from '@/lib/utils'
+import NewFeatureBadge, { BENEFITS_EXPENSES_RELEASED_AT } from '@/components/ui/NewFeatureBadge'
 
 const ALL_NAV_TABS = [
   { href: '/portal',                     label: 'Home',         icon: Home,           exact: true,  pro: false, budgetReq: false, tasks: false },
@@ -20,18 +22,14 @@ const ALL_NAV_TABS = [
   { href: '/portal/payslips',            label: 'Payslips',     icon: CreditCard,      exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/loans',               label: 'Loans & CA',   icon: Banknote,        exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/budget-requisitions', label: 'Budget Req.',  icon: ClipboardList,   exact: false, pro: false, budgetReq: true,  tasks: false },
+  { href: '/portal/hr-documents', label: 'HR Documents & Data', icon: FileText, exact: false, pro: false, budgetReq: false, tasks: false },
+  { href: '/portal/hr-requests', label: 'HR Requests', icon: Receipt, exact: false, pro: false, budgetReq: false, tasks: false },
+  { href: '/portal/expenses',            label: 'Expenses',     icon: Receipt,         exact: false, pro: true, budgetReq: false, tasks: false },
+  { href: '/portal/benefits',            label: 'My Benefits',  icon: HeartPulse,      exact: false, pro: true, budgetReq: false, tasks: false },
+  { href: '/portal/learning',            label: 'My Learning',  icon: GraduationCap,   exact: false, pro: true, budgetReq: false, tasks: false },
   { href: '/portal/performance',         label: 'Performance',  icon: BarChart3,       exact: false, pro: false, budgetReq: false, tasks: false },
   { href: '/portal/profile',             label: 'Profile',      icon: User,            exact: false, pro: false, budgetReq: false, tasks: false },
 ]
-
-const DISMISSED_KEY = 'portal_dismissed_notifs'
-
-function getDismissed(): string[] {
-  try { return JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]') } catch { return [] }
-}
-function setDismissed(ids: string[]) {
-  localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids))
-}
 
 interface PortalSidebarProps {
   companyName?: string
@@ -42,15 +40,6 @@ interface PortalSidebarProps {
   showDisciplinary?: boolean
   showBudgetReq?: boolean
   showTasks?: boolean
-}
-
-type NotifItem = {
-  id: string
-  type: string
-  status: string
-  title: string
-  createdAt: string
-  href?: string
 }
 
 export function PortalSidebar({
@@ -67,45 +56,10 @@ export function PortalSidebar({
   const NAV_TABS = ALL_NAV_TABS.filter(t =>
     (!t.pro || showDisciplinary) && (!t.budgetReq || showBudgetReq) && (!t.tasks || showTasks)
   )
-  const [allNotifs, setAllNotifs] = useState<NotifItem[]>([])
-  const [dismissed, setDismissedState] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return []
-    return getDismissed()
-  })
+  const { items: notifs, busy, error, markAsRead, markAllAsRead: handleClearAll } = usePortalNotifications()
   const [showNotif, setShowNotif] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
-
-  const notifs = allNotifs.filter(n => !dismissed.includes(n.id))
-
-  function handleClearAll() {
-    const ids = [...dismissed, ...allNotifs.map(n => n.id)]
-    setDismissed(ids)
-    setDismissedState(ids)
-  }
-
-  function markAsRead(id: string) {
-    if (dismissed.includes(id)) return
-    const ids = [...dismissed, id]
-    setDismissed(ids)
-    setDismissedState(ids)
-  }
-
-  // Poll notifications
-  useEffect(() => {
-    let active = true
-    async function load() {
-      try {
-        const res = await fetch('/api/notifications/portal?limit=20')
-        if (!res.ok) return
-        const data = await res.json()
-        if (active) setAllNotifs(data.items ?? [])
-      } catch { /* ignore */ }
-    }
-    load()
-    const id = window.setInterval(load, 30_000)
-    return () => { active = false; window.clearInterval(id) }
-  }, [])
 
   async function handleSignOut() {
     const target = '/portal/login'
@@ -145,7 +99,17 @@ export function PortalSidebar({
       {/* ── Navigation ── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5 sidebar-scroll-minimal">
         {NAV_TABS.map(tab => {
+          const comingSoon = 'comingSoon' in tab && tab.comingSoon && process.env.NODE_ENV !== 'development'
           const isActive = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
+          if (comingSoon) {
+            return (
+              <div key={tab.href} className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400">
+                <tab.icon className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                {tab.label}
+                <span className="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-sky-600">Soon</span>
+              </div>
+            )
+          }
           return (
             <Link
               key={tab.href}
@@ -163,6 +127,7 @@ export function PortalSidebar({
                 strokeWidth={isActive ? 2.5 : 1.8}
               />
               {tab.label}
+              {['/portal/expenses', '/portal/benefits'].includes(tab.href) && <NewFeatureBadge releasedAt={BENEFITS_EXPENSES_RELEASED_AT} className="ml-auto shrink-0" />}
             </Link>
           )
         })}
@@ -202,13 +167,15 @@ export function PortalSidebar({
                   {notifs.length > 0 && (
                     <button
                       onClick={handleClearAll}
+                      disabled={busy}
                       className="text-[11px] font-semibold text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
                     >
                       <X className="w-3 h-3" />
-                      Clear all
+                      {busy ? 'Marking...' : 'Mark all as read'}
                     </button>
                   )}
                 </div>
+                {error && <p role="alert" className="px-4 py-2 text-xs text-red-600">{error}</p>}
                 {notifs.length === 0 ? (
                   <div className="px-4 py-6 text-center">
                     <Bell className="w-6 h-6 text-gray-200 mx-auto mb-2" />
@@ -233,7 +200,7 @@ export function PortalSidebar({
                                 ? { background: '#fee2e2', color: '#b91c1c' }
                                 : {
                                     background: item.status === 'APPROVED' ? '#dcfce7' : '#fee2e2',
-                                    color: item.status === 'APPROVED' ? '#15803d' : '#dc2626',
+                                    color: item.status === 'APPROVED' ? '#9a3412' : '#dc2626',
                                   }
                               }
                             >

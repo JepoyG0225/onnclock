@@ -1,8 +1,10 @@
+import { scheduleTimezoneSchema } from '@/lib/attendance/timezone'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { logAudit } from '@/lib/audit'
 import { validateShiftTimes } from '@/lib/timesheet/validate-shift'
+import { locationPolicySchema } from '@/lib/attendance/location-policy'
 import { z } from 'zod'
 
 const weekPatternSchema = z.object({
@@ -11,9 +13,11 @@ const weekPatternSchema = z.object({
 })
 
 const scheduleSchema = z.object({
+  timezone: scheduleTimezoneSchema,
   name: z.string().min(2),
   scheduleType: z.enum(['FIXED', 'FLEXITIME', 'SHIFTING', 'COMPRESSED']),
   requireSelfieOnClockIn: z.boolean().optional(),
+  attendanceLocation: locationPolicySchema.optional(),
   timeIn: z.string().optional().nullable(),
   timeOut: z.string().optional().nullable(),
   workDays: z.array(z.number().int().min(0).max(6)).min(1),
@@ -146,6 +150,8 @@ export async function POST(req: NextRequest) {
     const scheduleData: Parameters<typeof prisma.workSchedule.create>[0]['data'] = {
       companyId: ctx.companyId,
       name: data.name,
+      timezone: data.timezone,
+      attendanceLocation: data.attendanceLocation,
       scheduleType: data.scheduleType,
       workDays: primaryWorkDays,
       timeIn: data.timeIn ?? null,

@@ -54,7 +54,7 @@ export function AddEmployeeButton({ atSeatCap, activeCount, paidSeats }: Props) 
               </div>
 
               <div>
-                <h2 className="text-lg font-bold" style={{ color: '#000000' }}>
+                <h2 className="text-lg font-bold" style={{ color: 'var(--brand-primary)' }}>
                   Seat Limit Reached
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">

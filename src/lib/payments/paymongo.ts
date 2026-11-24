@@ -186,7 +186,7 @@ export async function createQrPhPayment({
  */
 export async function getPaymentIntentStatus(
   paymentIntentId: string,
-): Promise<{ status: string; paymentIntentId: string }> {
+): Promise<{ status: string; paymentIntentId: string; amount: number; currency: string }> {
   const res = await pmFetch<PmResponse<PmPaymentIntentData>>(
     'GET',
     `/payment_intents/${paymentIntentId}`,
@@ -194,6 +194,8 @@ export async function getPaymentIntentStatus(
   return {
     paymentIntentId,
     status: res.data.attributes.status,
+    amount: res.data.attributes.amount,
+    currency: res.data.attributes.currency,
   }
 }
 
@@ -302,7 +304,8 @@ export interface SingleTransferResult {
 }
 
 export async function getSingleTransfer(transferId: string): Promise<SingleTransferResult> {
-  const res = await pmFetch<Record<string, unknown>>('GET', `/transfers/${transferId}`, undefined, PM_BASE_V2)
+  const response = await pmFetch<Record<string, unknown>>('GET', `/transfers/${transferId}`, undefined, PM_BASE_V2)
+  const res = (response.data ?? response) as Record<string, unknown>
   return {
     id: (res.id as string) ?? '',
     status: (res.status as string) ?? 'pending',

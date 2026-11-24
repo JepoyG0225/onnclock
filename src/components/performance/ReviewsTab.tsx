@@ -1,20 +1,24 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
+import { getStatusColor } from '@/lib/utils'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
   BarChart3, Plus, Search, Loader2, ChevronRight,
-  Users, CalendarRange, Star, AlertTriangle,
+  Star,
   CheckCircle2, Clock3, CircleDot, Eye, ClipboardList, X,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { CompetencyManager } from '@/components/performance/CompetencyManager'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { KpiCard, type KpiTone } from '@/components/ui/kpi-card'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +57,7 @@ function StatusBadge({ status }: { status: ReviewStatus }) {
   const meta = STATUS_META[status]
   const Icon = meta.icon
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${meta.color}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(status)}`}>
       <Icon className="w-3 h-3" />
       {meta.label}
     </span>
@@ -229,9 +233,7 @@ function CreateCycleModal({
                 className="pl-8 text-sm"
               />
             </div>
-            {loading ? (
-              <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
-            ) : (
+            {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : (
               <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
                 {filtered.length === 0 ? (
                   <p className="text-center text-sm text-slate-400 py-6">No employees found</p>
@@ -325,7 +327,7 @@ export function ReviewsTab() {
   const totalPages = Math.ceil(total / LIMIT)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
@@ -336,44 +338,51 @@ export function ReviewsTab() {
           <p className="text-gray-500 text-sm mt-1">Manage review cycles, scorecards, and employee feedback</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button
+          <PermissionGate permission="performance:manage"><Button
             variant="outline"
             onClick={() => setShowCompetencies(true)}
           >
             <ClipboardList className="w-4 h-4 mr-2" /> Manage Competencies
-          </Button>
-          <Button
+          </Button></PermissionGate>
+          <PermissionGate permission="performance:manage"><Button
             onClick={() => setShowCreate(true)}
             className="bg-primary hover:bg-primary/90 text-white"
           >
             <Plus className="w-4 h-4 mr-2" /> New Review Cycle
-          </Button>
+          </Button></PermissionGate>
         </div>
       </div>
 
-      {/* Status summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Shared dashboard cards; native buttons retain keyboard access. */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {[
-          { key: 'DRAFT',        label: 'Draft',         color: 'text-slate-600',   bg: 'bg-slate-50',   icon: CircleDot    },
-          { key: 'IN_REVIEW',    label: 'In Review',     color: 'text-amber-600',   bg: 'bg-amber-50',   icon: Clock3       },
-          { key: 'COMPLETED',    label: 'Completed',     color: 'text-blue-600',    bg: 'bg-blue-50',    icon: CheckCircle2 },
-          { key: 'ACKNOWLEDGED', label: 'Acknowledged',  color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
-        ].map(({ key, label, color, bg, icon: Icon }) => (
+          { key: 'DRAFT', label: 'Draft', hint: 'Ready to prepare', tone: 'neutral', icon: CircleDot },
+          { key: 'IN_REVIEW', label: 'In review', hint: 'Awaiting evaluation', tone: 'primary', icon: Clock3 },
+          { key: 'COMPLETED', label: 'Completed', hint: 'Evaluation finished', tone: 'info', icon: CheckCircle2 },
+          { key: 'ACKNOWLEDGED', label: 'Acknowledged', hint: 'Confirmed by employee', tone: 'success', icon: CheckCircle2 },
+        ].map(({ key, label, hint, tone, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => { setActiveStatus(key); setPage(1) }}
-            className={`${bg} rounded-xl p-4 text-left border-2 transition-all ${activeStatus === key ? 'border-primary' : 'border-transparent hover:border-slate-200'}`}
+            type="button"
+            aria-pressed={activeStatus === key}
+            aria-label={`Filter ${label} reviews`}
+            onClick={() => { setActiveStatus(activeStatus === key ? '' : key); setPage(1) }}
+            className="min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            <Icon className={`w-5 h-5 ${color} mb-2`} />
-            <p className="text-2xl font-black text-slate-900">{statusCounts[key] ?? 0}</p>
-            <p className={`text-xs font-semibold ${color}`}>{label}</p>
+            <KpiCard label={label} value={loading ? '—' : (statusCounts[key] ?? 0)} hint={hint}
+              tone={tone as KpiTone} icon={<Icon />}
+              className={`h-full transition-colors hover:border-primary/40 [&>div]:min-h-[116px] [&>div>div>div:first-child]:pr-8 sm:[&>div>div>div:first-child]:pr-16 [&_svg]:!h-14 [&_svg]:!w-14 ${activeStatus === key ? 'border-primary ring-1 ring-primary/20' : ''}`} />
           </button>
         ))}
       </div>
 
       {/* Table card */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="gap-0 overflow-hidden border-slate-200/80 py-0 shadow-sm">
+        <CardHeader className="border-b border-slate-100 p-4 sm:p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-900">Review directory</h2>
+            <span className="text-xs text-slate-500" aria-live="polite">{loading ? 'Loading...' : `${total} review${total === 1 ? '' : 's'}`}</span>
+          </div>
           <div className="flex items-center gap-3 flex-wrap">
             {/* Status tabs */}
             <div className="flex items-center gap-1 flex-wrap flex-1">
@@ -381,7 +390,8 @@ export function ReviewsTab() {
                 <button
                   key={tab.key}
                   onClick={() => { setActiveStatus(tab.key); setPage(1) }}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  aria-pressed={activeStatus === tab.key}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
                     activeStatus === tab.key
                       ? 'bg-primary text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -398,7 +408,8 @@ export function ReviewsTab() {
             <div className="relative w-full sm:w-60">
               <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
               <Input
-                placeholder="Search employee, cycle..."
+                aria-label="Search reviews on this page"
+                placeholder="Search this page..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-8 text-sm h-9"
@@ -407,15 +418,12 @@ export function ReviewsTab() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-            </div>
-          ) : displayed.length === 0 ? (
+          {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : displayed.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400">
               <BarChart3 className="w-10 h-10 mb-3 opacity-30" />
               <p className="text-sm font-medium">No reviews found</p>
-              <p className="text-xs mt-1">Create a new review cycle to get started</p>
+              <p className="mt-1 px-4 text-center text-xs">{search || activeStatus ? 'Try another search or clear the filters.' : 'Create a review cycle to start evaluating your team.'}</p>
+              {(search || activeStatus) && <Button variant="outline" size="sm" className="mt-4" onClick={() => { setSearch(''); setActiveStatus(''); setPage(1) }}>Clear filters</Button>}
             </div>
           ) : (
             <>
@@ -461,7 +469,7 @@ export function ReviewsTab() {
                           <StatusBadge status={review.status} />
                         </td>
                         <td className="px-4 py-3.5">
-                          <Eye className="w-4 h-4 text-slate-300" />
+                          <button type="button" aria-label={`Open review for ${review.employee.firstName} ${review.employee.lastName}`} className="rounded-md p-2 text-primary hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-primary"><Eye className="w-4 h-4" /></button>
                         </td>
                       </tr>
                     ))}
@@ -522,13 +530,13 @@ export function ReviewsTab() {
           <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-xl max-h-[85vh] overflow-auto">
             <div className="flex items-start justify-between gap-3 p-5 border-b sticky top-0 bg-white">
               <div className="flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-[#000000]" />
+                <ClipboardList className="w-5 h-5 text-[var(--brand-primary)]" />
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Scorecard Competencies</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Create, edit, reorder, or remove the competencies used in every scorecard</p>
                 </div>
               </div>
-              <button onClick={() => setShowCompetencies(false)} className="text-slate-400 hover:text-slate-700 p-1"><X className="w-5 h-5" /></button>
+              <PermissionGate permission="performance:manage"><button onClick={() => setShowCompetencies(false)} className="text-slate-400 hover:text-slate-700 p-1"><X className="w-5 h-5" /></button></PermissionGate>
             </div>
             <div className="p-5">
               <CompetencyManager />

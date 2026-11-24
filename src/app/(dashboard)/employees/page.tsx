@@ -1,3 +1,5 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
+import { EmployeeSearchForm } from '@/components/employees/EmployeeSearchForm'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -45,9 +47,9 @@ export default async function EmployeesPage({
     ...(status && status !== 'INACTIVE' && { employmentStatus: status as EmploymentStatus }),
     ...(search && {
       OR: [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { employeeNo: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' as const } },
+        { lastName: { contains: search, mode: 'insensitive' as const } },
+        { employeeNo: { contains: search, mode: 'insensitive' as const } },
       ],
     }),
   }
@@ -81,7 +83,7 @@ export default async function EmployeesPage({
   // whole form and getting bounced by the API's 402. SUPER_ADMIN
   // bypasses (same logic as the API).
   const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
-  const atSeatCap = !isSuperAdmin && seat.enforceCap && seat.activeCount >= seat.paidSeats
+  const atSeatCap = !isSuperAdmin && seat.enforceCap && seat.activeCount >= seat.paidSeats && !seat.canRestoreSeat
 
   return (
     <div className="space-y-6">
@@ -90,12 +92,12 @@ export default async function EmployeesPage({
         subtitle={`${total} total ${total === 1 ? 'employee' : 'employees'}`}
         actions={
           <>
-            <EmployeeImportButton />
-            <AddEmployeeButton
+            <PermissionGate permission="employees:write"><EmployeeImportButton /></PermissionGate>
+            <PermissionGate permission="employees:write"><AddEmployeeButton
               atSeatCap={atSeatCap}
               activeCount={seat.activeCount}
               paidSeats={seat.paidSeats}
-            />
+            /></PermissionGate>
           </>
         }
       />
@@ -103,21 +105,22 @@ export default async function EmployeesPage({
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <form className="flex flex-wrap gap-3" data-tour="employee-filters">
+          <EmployeeSearchForm>
             <div className="flex-1 min-w-48 relative" data-tour="employee-search">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 name="search"
+                aria-label="Search employees by name or employee number"
                 placeholder="Search by name or employee no..."
                 defaultValue={search}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
               />
             </div>
             <select
               name="department"
               defaultValue={departmentId}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
             >
               <option value="">All Departments</option>
               {departments.map(d => (
@@ -127,7 +130,7 @@ export default async function EmployeesPage({
             <select
               name="status"
               defaultValue={status}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#000000]"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
             >
               <option value="">All Status</option>
               <option value="PROBATIONARY">Probationary</option>
@@ -138,7 +141,7 @@ export default async function EmployeesPage({
               <option value="INACTIVE">Inactive (Deactivated)</option>
             </select>
             <Button type="submit" variant="outline" size="sm">Filter</Button>
-          </form>
+          </EmployeeSearchForm>
         </CardContent>
       </Card>
 
@@ -151,9 +154,9 @@ export default async function EmployeesPage({
               title="No employees found"
               description="Add your first employee to start tracking time and processing payroll."
               action={
-                <Link href="/employees/new">
+                <PermissionGate permission="employees:write"><Link href="/employees/new">
                   <Button size="sm" variant="accent">Add your first employee</Button>
-                </Link>
+                </Link></PermissionGate>
               }
             />
           ) : (
@@ -210,12 +213,12 @@ export default async function EmployeesPage({
                       <td className="p-4 text-gray-600 hidden lg:table-cell">{formatDate(emp.hireDate)}</td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2" data-tour="employee-actions">
-                          <Link href={`/employees/${emp.id}/edit`} aria-label={`Edit ${emp.firstName} ${emp.lastName}`} title="Edit employee">
+                          <PermissionGate permission="employees:write"><Link href={`/employees/${emp.id}/edit`} aria-label={`Edit ${emp.firstName} ${emp.lastName}`} title="Edit employee">
                             <Button variant="outline" size="icon-sm">
                               <Pencil className="h-4 w-4" />
                             </Button>
-                          </Link>
-                          <EmployeeDeleteButton employeeId={emp.id} />
+                          </Link></PermissionGate>
+                          <PermissionGate permission="employees:delete"><EmployeeDeleteButton employeeId={emp.id} isActive={emp.isActive} employeeName={`${emp.firstName} ${emp.lastName} (${emp.employeeNo})`} /></PermissionGate>
                         </div>
                       </td>
                     </ClickableEmployeeRow>

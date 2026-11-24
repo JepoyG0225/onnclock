@@ -69,9 +69,9 @@ function RecruitmentSettingsDrawer({ onClose }: { onClose: () => void }) {
       </header>
       <div className="space-y-3 overflow-y-auto p-5">
         {items.map(item => <Link key={item.title} href={item.href} onClick={onClose} className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#bfdbfe] hover:bg-[#f4f8ff] hover:shadow-sm">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#eff6ff] text-[#2563eb] transition group-hover:bg-[#dbeafe]"><item.icon className="h-5 w-5" /></span>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#eff6ff] text-[#0054d7] transition group-hover:bg-[#dbeafe]"><item.icon className="h-5 w-5" /></span>
           <span className="min-w-0 flex-1"><span className="block text-sm font-black text-slate-900">{item.title}</span><span className="mt-0.5 block text-xs leading-relaxed text-slate-500">{item.description}</span></span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#2563eb]" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#0054d7]" />
         </Link>)}
       </div>
     </aside>

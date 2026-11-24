@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   if (gate) return gate
 
   const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
   if (!employee) {
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   if (gate) return gate
 
   const employee = await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true, companyId: true },
   })
   if (!employee) {

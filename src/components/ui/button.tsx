@@ -9,12 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Default = navy. Use for the standard "primary action" on a page
-        // (Save, Submit, Open, etc.). Reach for `accent` instead only
-        // when the action is the SINGLE most important CTA on the screen
-        // and needs to dominate (e.g. File Leave, Run Payroll, the New
-        // Request CTA on the portal home).
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Orange is the shared primary action color across pages and dialogs.
+        default: "bg-accent text-white hover:bg-accent/90 focus-visible:ring-accent/40",
         accent:
           "bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent/40",
         destructive:

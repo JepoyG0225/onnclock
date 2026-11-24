@@ -1,4 +1,6 @@
 'use client'
+import { KpiCard } from '@/components/ui/kpi-card'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -69,11 +71,12 @@ export function PositionsTab() {
           <h1 className="text-2xl font-bold text-gray-900">Positions</h1>
           <p className="text-gray-500 text-sm mt-1">Job positions and pay grade assignments</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <PermissionGate permission="departments:write"><Button onClick={() => setShowForm(!showForm)}>
           <Plus className="w-4 h-4 mr-2" />Add Position
-        </Button>
+        </Button></PermissionGate>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3"><KpiCard icon={<Briefcase/>} label="Positions" value={loading?'...':positions.length}/><KpiCard icon={<Users/>} label="Assigned employees" tone="accent" value={loading?'...':positions.reduce((sum,p)=>sum+p._count.employees,0)}/><KpiCard icon={<Briefcase/>} label="Unfilled positions" value={loading?'...':positions.filter(p=>!p._count.employees).length}/></div>
       {showForm && (
         <Card className="border-[#AAB7B7]">
           <CardHeader><CardTitle className="text-base">New Position</CardTitle></CardHeader>
@@ -101,7 +104,7 @@ export function PositionsTab() {
             </div>
             <div className="flex gap-2">
               <Button onClick={add}>Create Position</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <PermissionGate permission="departments:write"><Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button></PermissionGate>
             </div>
           </CardContent>
         </Card>

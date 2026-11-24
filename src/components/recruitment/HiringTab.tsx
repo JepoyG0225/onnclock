@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -10,6 +12,7 @@ import {
 import { toast } from 'sonner'
 import NewFeatureBadge from '@/components/ui/NewFeatureBadge'
 import { format } from 'date-fns'
+import { absoluteAppUrl, copyTextToClipboard } from '@/lib/clipboard'
 
 type Job = {
   id: string
@@ -77,7 +80,7 @@ function JobFormFields({
   setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>
   departments: Department[]
 }) {
-  const field = 'w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]/20 placeholder:text-slate-400'
+  const field = 'w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]/20 placeholder:text-slate-400'
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -166,8 +169,6 @@ export function HiringTab() {
   const [tab, setTab] = useState<'ALL' | 'PUBLISHED' | 'DRAFT' | 'CLOSED'>('ALL')
   const [search, setSearch] = useState('')
 
-  const shareOrigin = useMemo(() => (typeof window !== 'undefined' ? window.location.origin : ''), [])
-
   async function loadJobs() {
     setLoading(true)
     try {
@@ -180,6 +181,17 @@ export function HiringTab() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load jobs')
     } finally { setLoading(false) }
+  }
+
+  async function copyApplyLink(publicApplyToken: string) {
+    try {
+      if (!publicApplyToken) throw new Error('This job post has no public application token.')
+      const url = absoluteAppUrl(`/apply/${publicApplyToken}`)
+      await copyTextToClipboard(url)
+      toast.success('Link copied')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to copy link')
+    }
   }
 
   async function loadDepartments() {
@@ -320,7 +332,7 @@ export function HiringTab() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button onClick={() => setDrawerOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#000000] shadow-sm">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[var(--brand-primary)] shadow-sm">
             <Plus className="w-4 h-4" /> Post a Job
           </button>
         </div>
@@ -330,7 +342,7 @@ export function HiringTab() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
           {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button data-app-tab data-active={tab === t.key} key={t.key} onClick={() => setTab(t.key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
               {t.label}
               <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${tab === t.key ? 'bg-slate-100 text-slate-600' : 'bg-slate-200 text-slate-500'}`}>
@@ -343,16 +355,12 @@ export function HiringTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search job title or department..."
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#000000]" />
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[var(--brand-primary)]" />
         </div>
       </div>
 
       {/* Job Cards */}
-      {loading ? (
-        <div className="space-y-3">
-          {[1,2,3].map(i => <div key={i} className="h-32 bg-slate-100 rounded-2xl animate-pulse" />)}
-        </div>
-      ) : filteredJobs.length === 0 ? (
+      {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : filteredJobs.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 py-14 text-center">
           <Briefcase className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-sm font-semibold text-slate-500">{jobs.length === 0 ? 'No job posts yet. Click "Post a Job" to get started.' : 'No jobs match your filter.'}</p>
@@ -432,7 +440,7 @@ export function HiringTab() {
                       <ChevronRight className="w-3.5 h-3.5 opacity-40" />
                     </Link>
 
-                    <button onClick={() => { navigator.clipboard.writeText(`${shareOrigin}/apply/${job.publicApplyToken}`); toast.success('Link copied') }}
+                    <button onClick={() => void copyApplyLink(job.publicApplyToken)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
                       <Link2 className="w-3.5 h-3.5" /> Copy Link
                     </button>
@@ -499,7 +507,7 @@ export function HiringTab() {
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Posting Status</label>
                 <select value={form.visibility} onChange={e => setForm(p => ({ ...p, visibility: e.target.value as 'DRAFT' | 'PUBLISHED' }))}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[#000000]">
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[var(--brand-primary)]">
                   <option value="DRAFT">Save as Draft</option>
                   <option value="PUBLISHED">Publish Now</option>
                 </select>
@@ -509,7 +517,7 @@ export function HiringTab() {
                 Cancel
               </button>
               <button onClick={createJob} disabled={saving}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[#000000] disabled:opacity-60 flex items-center gap-2 mt-5">
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[var(--brand-primary)] disabled:opacity-60 flex items-center gap-2 mt-5">
                 {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><Plus className="w-4 h-4" /> Create Job</>}
               </button>
             </div>
@@ -538,7 +546,7 @@ export function HiringTab() {
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Posting Status</label>
                 <select value={editForm.visibility} onChange={e => setEditForm(p => ({ ...p, visibility: e.target.value as 'DRAFT' | 'PUBLISHED' }))}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[#000000]">
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white w-full focus:outline-none focus:border-[var(--brand-primary)]">
                   <option value="DRAFT">Draft</option>
                   <option value="PUBLISHED">Published</option>
                 </select>

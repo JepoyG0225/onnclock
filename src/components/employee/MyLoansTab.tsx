@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 /**
  * My Loans — the employee's own loans, and a form to request a new one.
@@ -53,7 +55,7 @@ const TYPE_LABEL: Record<string, string> =
   Object.fromEntries(LOAN_TYPES.map(t => [t.value, t.label]))
 
 /**
- * Repayment terms, in months. Longer than cash advance's 1-3 because SSS and
+ * Repayment terms, in months. Longer than cash advance's 1-6 because SSS and
  * Pag-IBIG loans are normally amortised over years. Labelled in years past the
  * 12-month mark — "24 months" is harder to read than "2 years".
  */
@@ -77,7 +79,7 @@ const REPAYMENT_TERMS = [
 
 const STATUS_TONE: Record<LoanStatus, { bar: string; bg: string; fg: string; label: string }> = {
   PENDING:    { bar: '#f59e0b', bg: '#fffbeb', fg: '#b45309', label: 'Pending approval' },
-  ACTIVE:     { bar: '#10b981', bg: '#ecfdf5', fg: '#047857', label: 'Active' },
+  ACTIVE:     { bar: '#c74300', bg: '#ecfdf5', fg: '#047857', label: 'Active' },
   FULLY_PAID: { bar: '#777777', bg: '#f7f7f7', fg: '#343434', label: 'Fully paid' },
   CANCELLED:  { bar: '#ef4444', bg: '#fef2f2', fg: '#b91c1c', label: 'Cancelled' },
 }
@@ -303,11 +305,7 @@ export function MyLoansTab() {
         </form>
       )}
 
-      {loading ? (
-        <div className="space-y-2.5">
-          {[1, 2].map(i => <div key={i} className="h-24 bg-white/70 rounded-2xl animate-pulse" />)}
-        </div>
-      ) : loans.length === 0 ? (
+      {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : loans.length === 0 ? (
         <div className="rounded-2xl bg-white border border-slate-200 p-10 text-center">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
             <CreditCard className="w-7 h-7 text-emerald-500" />

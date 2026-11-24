@@ -14,7 +14,7 @@ export async function GET() {
   const payslips = await prisma.payslip.findMany({
     where: {
       employeeId: employee.id,
-      payrollRun: { status: { in: ['APPROVED', 'LOCKED'] } },
+      payrollRun: { status: { in: ['APPROVED', 'LOCKED', 'DISBURSED'] } },
     },
     include: {
       payrollRun: {

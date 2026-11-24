@@ -1,4 +1,7 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
@@ -117,17 +120,13 @@ export function EmployeePortalAccess({
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             {biometricStatus?.enrolled
-              ? <Fingerprint className="w-4 h-4 text-[#000000]" />
+              ? <Fingerprint className="w-4 h-4 text-[var(--brand-primary)]" />
               : <Fingerprint className="w-4 h-4 text-gray-400" />}
             Fingerprint Authentication
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {biometricLoading ? (
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading status...
-            </div>
-          ) : biometricStatus?.enrolled ? (
+          {biometricLoading ? <AppSpinner size="md" message="Loading status..." className="py-10" /> : biometricStatus?.enrolled ? (
             <div className="flex items-start gap-4">
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium text-primary">Fingerprint enrolled</p>
@@ -136,7 +135,7 @@ export function EmployeePortalAccess({
                 </p>
                 <div className="pt-2">
                   {editable && (
-                    <Button
+                    <PermissionGate permission="employees:write"><Button
                       variant="outline"
                       size="sm"
                       onClick={resetBiometric}
@@ -146,7 +145,7 @@ export function EmployeePortalAccess({
                       {biometricResetting
                         ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Resetting...</>
                         : <><Trash2 className="w-3 h-3 mr-1" />Reset Credential</>}
-                    </Button>
+                    </Button></PermissionGate>
                   )}
                 </div>
               </div>
@@ -207,9 +206,9 @@ export function EmployeePortalAccess({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={save} disabled={!editable || saving || !loginEmail}>
+            <PermissionGate permission="employees:write"><Button onClick={save} disabled={!editable || saving || !loginEmail}>
               {saving ? 'Saving...' : hasUser ? 'Update Password' : 'Create Portal Access'}
-            </Button>
+            </Button></PermissionGate>
           </div>
         </CardContent>
       </Card>

@@ -1,10 +1,16 @@
 'use client'
+import { ScheduleTimezoneField } from './ScheduleTimezoneField'
+import { PermissionGate } from '@/components/auth/PermissionGate'
+
+import { LocationPolicyFields } from './LocationPolicyFields'
+import type { LocationPolicy } from '@/lib/attendance/location-policy'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ChevronLeft,
@@ -34,7 +40,7 @@ const SCHEDULE_TYPE_LABELS: Record<string, string> = {
 }
 
 const CARD_COLORS = [
-  { bg: '#eff6ff', border: '#60a5fa', text: '#1d4ed8' },
+  { bg: '#eff6ff', border: '#60a5fa', text: '#0044ad' },
   { bg: '#ecfeff', border: '#22d3ee', text: '#0e7490' },
   { bg: '#eef2ff', border: '#818cf8', text: '#4338ca' },
   { bg: '#f0f9ff', border: '#38bdf8', text: '#0369a1' },
@@ -45,6 +51,8 @@ const CARD_COLORS = [
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface WorkSchedule {
+  timezone?: string
+  attendanceLocation?: LocationPolicy | null
   id: string
   name: string
   scheduleType: string
@@ -94,12 +102,14 @@ interface ShiftAssignment {
   timeOut: string | null
   isRestDay: boolean
   notes: string | null
-  schedule: { id: string; name: string; timeIn: string | null; timeOut: string | null } | null
+  schedule: { timezone?: string; id: string; name: string; timeIn: string | null; timeOut: string | null } | null
 }
 
 type ScheduleMode = 'FIXED' | 'FLEXIBLE'
 
 type ScheduleForm = {
+  timezone?: string
+  attendanceLocation?: LocationPolicy | null
   name: string
   scheduleType: string
   requireSelfieOnClockIn: boolean
@@ -113,6 +123,7 @@ type ScheduleForm = {
 }
 
 const DEFAULT_FORM: ScheduleForm = {
+  timezone: 'Asia/Manila',
   name: '',
   scheduleType: 'FIXED',
   requireSelfieOnClockIn: false,
@@ -254,6 +265,8 @@ interface ModalState {
 // â”€â”€â”€ Shift template mini-modal (used in Flexible mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ShiftTemplateForm {
+  timezone?: string
+  attendanceLocation?: LocationPolicy | null
   name: string
   timeIn: string
   timeOut: string
@@ -284,6 +297,8 @@ function ShiftTemplateModal({
 }) {
   const fallbackBreakMinutes = Math.max(0, Number(defaultBreakMinutes ?? 60))
   const [form, setForm] = useState<ShiftTemplateForm>({
+    timezone: initial?.timezone ?? 'Asia/Manila',
+    attendanceLocation: initial?.attendanceLocation ?? { mode: 'COMPANY', locations: [] },
     name: initial?.name ?? '',
     timeIn: initial?.timeIn ?? '08:00',
     timeOut: initial?.timeOut ?? '17:00',
@@ -300,7 +315,9 @@ function ShiftTemplateModal({
 
   useEffect(() => {
     setForm({
-      name: initial?.name ?? '',
+      timezone: initial?.timezone ?? 'Asia/Manila',
+    attendanceLocation: initial?.attendanceLocation ?? { mode: 'COMPANY', locations: [] },
+    name: initial?.name ?? '',
       timeIn: initial?.timeIn ?? '08:00',
       timeOut: initial?.timeOut ?? '17:00',
       workHoursPerDay: Number(initial?.workHoursPerDay ?? 8),
@@ -323,6 +340,8 @@ function ShiftTemplateModal({
       const effectiveWorkDays = [0, 1, 2, 3, 4, 5, 6]
       const payload = {
         name: form.name.trim(),
+        attendanceLocation: form.attendanceLocation,
+        timezone: form.timezone,
         scheduleType: variant === 'FLEXIBLE' ? 'FLEXITIME' : 'FIXED',
         timeIn: form.timeIn,
         timeOut: form.timeOut,
@@ -359,7 +378,7 @@ function ShiftTemplateModal({
   return (
     <div className="fixed inset-0 z-[9995] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <div className="relative z-10 w-full max-w-sm md:max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between" style={{ background: '#0d1b2a' }}>
           <div>
@@ -372,7 +391,7 @@ function ShiftTemplateModal({
         </div>
 
         {/* Body */}
-        <div className="px-5 py-4 space-y-4">
+        <div className="max-h-[70dvh] overflow-y-auto px-5 py-4 space-y-4">
           {/* Shift label */}
           <div>
             <label className="text-xs font-semibold text-gray-600 block mb-1">Shift Label *</label>
@@ -384,6 +403,7 @@ function ShiftTemplateModal({
             />
           </div>
 
+          <ScheduleTimezoneField value={form.timezone} onChange={timezone=>setForm(p=>({...p,timezone}))}/>
           {/* Time range */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -508,9 +528,10 @@ function ShiftTemplateModal({
           </div>
 
           {/* Live preview */}
+          <LocationPolicyFields value={form.attendanceLocation} onChange={attendanceLocation => setForm(p => ({ ...p, attendanceLocation }))} />
           {form.timeIn && form.timeOut && (
-            <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#eff6ff', borderColor: 'var(--brand-primary)', color: '#1d4ed8' }}>
-              <p className="font-bold">{fmt12(form.timeIn)} - {fmt12(form.timeOut)}</p>
+            <div className="rounded-xl border-2 px-4 py-2.5 text-sm" style={{ background: '#eff6ff', borderColor: 'var(--brand-primary)', color: '#0044ad' }}>
+              <p className="font-bold">{fmt12(form.timeIn)} - {fmt12(form.timeOut)} <span className="text-xs font-normal">{form.timezone??'Asia/Manila'}</span></p>
               <p className="text-[11px] opacity-70 mt-0.5">{form.timeIn} - {form.timeOut}{form.breakMinutes ? ` - ${form.breakMinutes}m break` : ''}</p>
             </div>
           )}
@@ -520,17 +541,17 @@ function ShiftTemplateModal({
         <div className="px-5 pb-5 flex items-center justify-between gap-3">
           <div>
             {initial && !confirmDelete && (
-              <button
+              <PermissionGate permission="dtr:write"><button
                 onClick={() => setConfirmDelete(true)}
                 className="text-xs font-semibold text-red-400 hover:text-red-600 flex items-center gap-1"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
+              </button></PermissionGate>
             )}
             {initial && confirmDelete && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-red-600 font-semibold">Sure?</span>
-                <button onClick={handleDelete} disabled={deleting} className="text-xs font-bold text-red-600 hover:underline">{deleting ? 'Deleting...' : 'Yes, delete'}</button>
+                <PermissionGate permission="dtr:write"><button onClick={handleDelete} disabled={deleting} className="text-xs font-bold text-red-600 hover:underline">{deleting ? 'Deleting...' : 'Yes, delete'}</button></PermissionGate>
                 <button onClick={() => setConfirmDelete(false)} className="text-xs text-gray-500 hover:underline">No</button>
               </div>
             )}
@@ -539,14 +560,14 @@ function ShiftTemplateModal({
             <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50">
               Cancel
             </button>
-            <button
+            <PermissionGate permission="dtr:write"><button
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-bold text-white"
               style={{ background: 'var(--brand-highlight)' }}
             >
               {saving ? 'Saving...' : initial ? 'Update' : 'Add Shift'}
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -763,30 +784,25 @@ function FlexibleScheduleTab({
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Work Hours</p>
             <p className="text-[11px] text-gray-400 mt-0.5">Drag a card to an employee cell to assign</p>
           </div>
-          <button
+          <PermissionGate permission="dtr:write"><button
             onClick={() => setShiftModal({ mode: 'create' })}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-black"
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-primary"
             style={{ background: 'var(--brand-highlight)' }}
           >
             <Plus className="w-3.5 h-3.5" /> Add Work Hours
-          </button>
+          </button></PermissionGate>
         </div>
 
-        {loadingSchedules ? (
-          <div className="flex flex-col items-center justify-center py-8 gap-2 text-gray-400">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <p className="text-sm">Loading work hours...</p>
-          </div>
-        ) : templateSchedules.length === 0 ? (
+        {loadingSchedules ? <AppSpinner size="md" message="Loading work hours..." className="py-10" /> : templateSchedules.length === 0 ? (
           <div className="flex flex-col items-center py-6 gap-2 text-gray-400">
             <Clock className="w-8 h-8 opacity-30" />
             <p className="text-sm">No work hours defined yet.</p>
-            <button
+            <PermissionGate permission="dtr:write"><button
               onClick={() => setShiftModal({ mode: 'create' })}
               className="mt-1 text-xs font-semibold underline text-accent"
             >
               Add your first shift -&gt;
-            </button>
+            </button></PermissionGate>
           </div>
         ) : (
           <div className="flex flex-wrap gap-3">
@@ -815,7 +831,7 @@ function FlexibleScheduleTab({
                     style={{ background: col.bg, borderColor: col.border, color: col.text }}
                   >
                     <p className="font-bold text-sm leading-tight">
-                      {s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)}` : s.name}
+                      {s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)} (${s.timezone??'Asia/Manila'})` : s.name}
                     </p>
                     {s.breakEnabled && s.breakMinutes > 0 && (
                       <p className="text-[10px] opacity-50 mt-0.5">{s.breakMinutes}m break</p>
@@ -824,12 +840,12 @@ function FlexibleScheduleTab({
                       <p className="text-[10px] opacity-50 mt-0.5">No break</p>
                     )}
                   </div>
-                  <button
+                  <PermissionGate permission="dtr:write"><button
                     onClick={() => setShiftModal({ mode: 'edit', schedule: s })}
                     className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1"
                   >
                     <Pencil className="w-3 h-3" /> Edit Work Hours
-                  </button>
+                  </button></PermissionGate>
                 </div>
               )
             })}
@@ -975,7 +991,7 @@ function FlexibleScheduleTab({
                                   ) : (
                                     <>
                                       <p className="text-[10px] font-bold leading-tight" style={{ color: col?.text ?? '#000000' }}>
-                                        {fmt12(asgn.timeIn)} - {fmt12(asgn.timeOut)}
+                                        {fmt12(asgn.timeIn)} - {fmt12(asgn.timeOut)} <span className="block text-[9px]">{asgn.schedule?.timezone??'Asia/Manila'}</span>
                                       </p>
                                       {asgn.id.startsWith('temp-') && (
                                         <p className="text-[9px] opacity-60 mt-0.5" style={{ color: col?.text ?? '#000000' }}>Saving...</p>
@@ -984,7 +1000,7 @@ function FlexibleScheduleTab({
                                   )}
                                   {/* Per-shift delete button — sits inside the card so it can't be clipped */}
                                   {!asgn.id.startsWith('temp-') && (
-                                    <button
+                                    <PermissionGate permission="dtr:write"><button
                                       type="button"
                                       aria-label="Remove shift"
                                       title="Remove shift"
@@ -992,7 +1008,7 @@ function FlexibleScheduleTab({
                                       onClick={(e) => { e.stopPropagation(); deleteAssignment(asgn.id) }}
                                     >
                                       <X className="w-3 h-3" strokeWidth={3} />
-                                    </button>
+                                    </button></PermissionGate>
                                   )}
                                 </div>
                               )
@@ -1271,7 +1287,7 @@ function AssignmentModal({
                           style={{ borderColor: isSelected ? 'var(--brand-highlight)' : col.border, background: col.bg, color: col.text }}
                         >
                           <p className="text-center font-bold text-xs leading-tight">
-                            {fmt12(s.timeIn ?? null)} - {fmt12(s.timeOut ?? null)}
+                            {s.name}<br />{fmt12(s.timeIn ?? null)} - {fmt12(s.timeOut ?? null)}<br />{s.timezone??'Asia/Manila'}
                           </p>
                         </button>
                       )
@@ -1388,14 +1404,14 @@ function AssignmentModal({
             <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50">
               Cancel
             </button>
-            <button
+            <PermissionGate permission="dtr:write"><button
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-bold text-white"
               style={{ background: 'var(--brand-highlight)' }}
             >
               {saving ? 'Saving...' : 'Save Schedule'}
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -1415,6 +1431,9 @@ export function ShiftsTab() {
   const [companyBreakHours, setCompanyBreakHours] = useState(1)
   const [companyBreakMins, setCompanyBreakMins] = useState(0)
   const [savingCompanyBreak, setSavingCompanyBreak] = useState(false)
+  const [breakSetupOpen, setBreakSetupOpen] = useState(false)
+  const [draftBreakHours, setDraftBreakHours] = useState(1)
+  const [draftBreakMins, setDraftBreakMins] = useState(0)
 
   const loadSchedules = useCallback(async () => {
     setLoadingSchedules(true)
@@ -1448,7 +1467,7 @@ export function ShiftsTab() {
   }, [schedules])
 
   async function applyCompanyBreakSetup() {
-    const nextBreakMinutes = combineBreakMinutes(companyBreakHours, companyBreakMins)
+    const nextBreakMinutes = combineBreakMinutes(draftBreakHours, draftBreakMins)
     setSavingCompanyBreak(true)
     try {
       const settingsRes = await fetch('/api/settings', {
@@ -1473,6 +1492,7 @@ export function ShiftsTab() {
         toast.warning(`Break setup saved, but ${failed} schedule${failed > 1 ? 's' : ''} failed to update.`)
       } else {
         toast.success('Company break setup applied to all schedules')
+        setBreakSetupOpen(false)
       }
       await loadSchedules()
     } catch {
@@ -1505,55 +1525,33 @@ export function ShiftsTab() {
       </div>
 
       {/* â”€â”€ Mode toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Company Break Setup</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-xs text-gray-500">
-            Set your company standard break duration in hours and minutes. This updates all work-hour templates and overbreak tardy tracking.
-          </p>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-[120px]">
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Hours</label>
-              <select
-                value={companyBreakHours}
-                onChange={e => setCompanyBreakHours(Number(e.target.value))}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              >
-                {Array.from({ length: 13 }, (_, h) => h).map(h => (
-                  <option key={h} value={h}>{h}h</option>
-                ))}
+      <Dialog open={breakSetupOpen} onOpenChange={open=>{if(!savingCompanyBreak)setBreakSetupOpen(open)}}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Company Break Setup</DialogTitle>
+            <DialogDescription>Set your company standard break duration. Saving updates all work-hour templates and overbreak tardy tracking.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            <label className="text-xs font-semibold text-gray-600">Hours
+              <select disabled={savingCompanyBreak} value={draftBreakHours} onChange={e=>setDraftBreakHours(Number(e.target.value))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm">
+                {Array.from({length:13},(_,h)=><option key={h} value={h}>{h}h</option>)}
               </select>
-            </div>
-            <div className="w-[140px]">
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Minutes</label>
-              <select
-                value={companyBreakMins}
-                onChange={e => setCompanyBreakMins(Number(e.target.value))}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              >
-                {Array.from({ length: 60 }, (_, m) => m).map(m => (
-                  <option key={m} value={m}>{m}m</option>
-                ))}
+            </label>
+            <label className="text-xs font-semibold text-gray-600">Minutes
+              <select disabled={savingCompanyBreak} value={draftBreakMins} onChange={e=>setDraftBreakMins(Number(e.target.value))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm">
+                {Array.from({length:60},(_,m)=><option key={m} value={m}>{m}m</option>)}
               </select>
-            </div>
-            <Button
-              type="button"
-              disabled={savingCompanyBreak}
-              onClick={applyCompanyBreakSetup}
-              className="text-white min-w-[180px] w-auto px-5"
-              style={{ background: 'var(--brand-highlight)' }}
-            >
-              {savingCompanyBreak ? 'Saving...' : 'Save Break Setup'}
-            </Button>
+            </label>
           </div>
-          <p className="text-[11px] text-gray-500">
-            Current setup: {combineBreakMinutes(companyBreakHours, companyBreakMins)} minute{combineBreakMinutes(companyBreakHours, companyBreakMins) === 1 ? '' : 's'}.
-          </p>
-        </CardContent>
-      </Card>
+          <p className="text-xs text-gray-500">Current setup: {combineBreakMinutes(companyBreakHours,companyBreakMins)} minutes.</p>
+          <div className="mt-5 flex justify-center gap-3">
+            <Button type="button" variant="outline" disabled={savingCompanyBreak} onClick={()=>setBreakSetupOpen(false)}>Cancel</Button>
+            <Button type="button" disabled={savingCompanyBreak} onClick={applyCompanyBreakSetup} className="text-white" style={{background:'var(--brand-highlight)'}}>{savingCompanyBreak?'Saving...':'Save Break Setup'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
+      <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 w-fit">
         <button
           onClick={() => setMode('FIXED')}
@@ -1578,10 +1576,14 @@ export function ShiftsTab() {
           Flexible Schedules
         </button>
       </div>
+      <Button type="button" variant="outline" className="w-fit" onClick={()=>{setDraftBreakHours(companyBreakHours);setDraftBreakMins(companyBreakMins);setBreakSetupOpen(true)}}>
+        <Coffee className="mr-2 h-4 w-4"/>Company Break Setup
+      </Button>
+      </div>
 
       {/* â”€â”€ Mode hint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {mode === 'FIXED' && (
-        <div className="flex items-start gap-3 rounded-xl border border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10 px-4 py-3 text-sm text-black">
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10 px-4 py-3 text-sm text-primary">
           <Clock className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Fixed mode</strong> - Assign work hours and weekly day offs per employee.
@@ -1590,7 +1592,7 @@ export function ShiftsTab() {
         </div>
       )}
       {mode === 'FLEXIBLE' && (
-        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[#000000]/30 px-4 py-3 text-sm text-primary">
+        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[var(--brand-primary)]/30 px-4 py-3 text-sm text-primary">
           <LayoutGrid className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Flexible mode</strong> - Assign specific shifts per employee per day.
@@ -1796,7 +1798,7 @@ function FixedScheduleTabInner({
         <div className="flex flex-wrap gap-2">
           {DAYS.map((label, idx) => (
             <button key={label} type="button" onClick={() => onToggle(idx)}
-              className={`px-2.5 py-1 rounded-full text-xs border transition ${workDays.includes(idx) ? 'bg-[#000000] text-white border-[#000000]' : 'bg-white text-gray-600 border-gray-300 hover:border-accent'}`}>
+              className={`px-2.5 py-1 rounded-full text-xs border transition ${workDays.includes(idx) ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]' : 'bg-white text-gray-600 border-gray-300 hover:border-accent'}`}>
               {label}
             </button>
           ))}
@@ -1828,13 +1830,15 @@ function FixedScheduleTabInner({
             </div>
           </label>
         </div>
+        <div className="col-span-full"><ScheduleTimezoneField value={f.timezone} onChange={timezone=>onChange({timezone})}/></div>
+        <div className="col-span-full"><LocationPolicyFields value={f.attendanceLocation} onChange={attendanceLocation => onChange({ attendanceLocation })} /></div>
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time In</label><input type="time" value={f.timeIn} onChange={e => onChange({ timeIn: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Time Out</label><input type="time" value={f.timeOut} onChange={e => onChange({ timeOut: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div><label className="text-xs font-semibold text-gray-600 block mb-1">Hours / Day</label><input type="number" min={1} max={24} step={0.5} value={f.workHoursPerDay} onChange={e => onChange({ workHoursPerDay: Math.max(1, Number(e.target.value) || 8) })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-gray-600">Break</label>
-            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[#000000]' : 'bg-slate-300'}`}>
+            <button type="button" onClick={() => onChange({ breakEnabled: !f.breakEnabled })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${f.breakEnabled ? 'bg-[var(--brand-primary)]' : 'bg-slate-300'}`}>
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${f.breakEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
             </button>
           </div>
@@ -1925,7 +1929,7 @@ function FixedScheduleTabInner({
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="text-sm font-bold" style={{ color: col.text }}>{s.name}</p>
-                            <p className="text-xs text-gray-500">{SCHEDULE_TYPE_LABELS[s.scheduleType] ?? s.scheduleType}</p>
+                            <p className="text-xs text-gray-500">{SCHEDULE_TYPE_LABELS[s.scheduleType] ?? s.scheduleType} ? {s.timezone??'Asia/Manila'}</p>
                           </div>
                           <Badge className="text-[10px]">{s._count?.employees ?? 0} assigned</Badge>
                         </div>
@@ -1939,6 +1943,8 @@ function FixedScheduleTabInner({
                             setEditForm({
                               name: s.name,
                               scheduleType: s.scheduleType,
+                              timezone: s.timezone ?? 'Asia/Manila',
+                              attendanceLocation: s.attendanceLocation ?? { mode: 'COMPANY', locations: [] },
                               requireSelfieOnClockIn: !!s.requireSelfieOnClockIn,
                               timeIn: s.timeIn ?? '',
                               timeOut: s.timeOut ?? '',
@@ -2048,7 +2054,7 @@ function FixedScheduleTabInner({
 
       {(showForm || externalShowForm) && (
         <Card className="border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10">
-          <CardHeader><CardTitle className="text-sm text-black">New Work Hours</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm text-primary">New Work Hours</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={addSchedule} className="space-y-4">
               <FormFields f={form} onChange={patch => setForm(prev => ({ ...prev, ...patch }))} onToggleDay={d => toggleDay(d, false)} />

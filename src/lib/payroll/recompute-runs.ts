@@ -29,7 +29,10 @@ export const PAYROLL_AFFECTING_FIELDS = [
   'payFrequency',
   'isExemptFromTax',
   'isMinimumWageEarner',
+  'disableNightDifferential',
   'disableHolidayPay',
+  'disableEarlyInOt',
+  'disableBeyondScheduleOt',
   'disableLateDeduction',
   'disableUndertimeDeduction',
   'trackTime',
@@ -81,7 +84,7 @@ export async function recomputeRunsForEmployee(
 
   const runs = await prisma.payrollRun.findMany({
     where: {
-      companyId,
+      companyId, runType: 'REGULAR',
       status: { in: ['DRAFT', 'COMPUTED', 'FOR_APPROVAL'] },
       payslips: { some: { employeeId } },
     },

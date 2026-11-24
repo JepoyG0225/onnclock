@@ -3,6 +3,7 @@
  * PATCH  /api/tasks/[id] — update fields, assignees and labels
  * DELETE /api/tasks/[id]
  */
+import { sendTaskReminders } from '@/lib/tasks/reminders'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -223,6 +224,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  await sendTaskReminders(companyId, id).catch(err => console.error('[task-reminders]', err))
   const task = await prisma.task.findUnique({ where: { id }, include: TASK_LIST_INCLUDE })
   return NextResponse.json({ task: task ? shapeTask(task) : null, submittedForReview })
 }

@@ -1,10 +1,11 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 /**
  * Cash Advance request — individual operations.
  *
  * GET    /api/cash-advance/[id]   Fetch one
  * PATCH  /api/cash-advance/[id]   HR approves or rejects
  *   Body: { action: 'APPROVE' | 'REJECT' | 'UPDATE_TERMS',
- *           rejectionReason?: string, repaymentMonths?: 1..3 }
+ *           rejectionReason?: string, repaymentMonths?: 1..6 }
  *   On APPROVE we create the matching EmployeeLoan (type CASH_ADVANCE) so the
  *   existing payroll loan-deduction logic handles the repayment automatically.
  * DELETE /api/cash-advance/[id]   Employee cancels their own pending request
@@ -18,6 +19,7 @@ import { getPeriodDivisor } from '@/lib/payroll/cutoffs'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
+import { monthlyRepayment } from '@/lib/payroll/loan-repayment'
 import { z } from 'zod'
 
 const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN']
@@ -26,8 +28,8 @@ const trailOf = (v: unknown) => (Array.isArray(v) ? v : [])
 
 const patchSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT', 'UPDATE_TERMS']),
-  /** UPDATE_TERMS only: new repayment length, 1-3 months. */
-  repaymentMonths: z.number().int().min(1).max(3).optional(),
+  /** UPDATE_TERMS only: new repayment length, 1-6 months. */
+  repaymentMonths: z.number().int().min(1).max(6).optional(),
   /** UPDATE_TERMS only: repay in N cutoffs instead. Takes precedence. */
   repaymentCutoffs: z.number().int().min(1).max(6).optional(),
   rejectionReason: z.string().max(500).optional().nullable(),
@@ -67,6 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
   const { action, rejectionReason, repaymentMonths, repaymentCutoffs } = parsed.data
+  if (!await ctxHasPermission(ctx, 'cashadvance:approve')) return NextResponse.json({ error: 'View-only access. Approval permission is required.' }, { status: 403 })
 
 
 
@@ -92,6 +95,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // amount: re-spreading the full principal over the new term would re-charge
   // what has already been deducted.
   if (action === 'UPDATE_TERMS') {
+    if (!HR_ROLES.includes(ctx.role)) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     if (!repaymentMonths && !repaymentCutoffs) {
       return NextResponse.json(
         { error: 'repaymentMonths or repaymentCutoffs is required' }, { status: 400 },
@@ -115,8 +119,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           // Recomputed from the REMAINING balance, so shortening the term never
           // re-charges what has already been deducted.
           const newAmort = repaymentCutoffs
-            ? parseFloat(((remaining * (await getPeriodDivisor(ctx.companyId))) / repaymentCutoffs).toFixed(2))
-            : parseFloat((remaining / (repaymentMonths ?? 1)).toFixed(2))
+            ? monthlyRepayment(remaining, 1, repaymentCutoffs, await getPeriodDivisor(ctx.companyId))
+            : monthlyRepayment(remaining, repaymentMonths ?? 1)
           await tx.employeeLoan.update({
             where: { id: existing.linkedLoanId },
             data: { monthlyAmortization: newAmort },
@@ -208,7 +212,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         plan: decision.plan,
         nextLevel: decision.nextLevel,
         isFinal: false,
-        ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/cash-advance', vars: { requestType: 'Cash Advance', requesterName } },
+        ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: `/cash-advance?requestId=${existing.id}`, vars: { requestType: 'Cash Advance', requesterName } },
         nextApproverTitle: 'Cash advance awaiting your approval',
         nextApproverBody: `${requesterName} · ₱${Number(existing.amountRequested).toLocaleString()}`,
       })
@@ -231,14 +235,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (existing.repaymentCutoffs && existing.repaymentCutoffs > 0) {
     const divisor = await getPeriodDivisor(ctx.companyId)
     const cutoffs = existing.repaymentCutoffs
-    monthlyAmortization = parseFloat(((amount * divisor) / cutoffs).toFixed(2))
+    monthlyAmortization = monthlyRepayment(amount, 1, cutoffs, divisor)
     // Per-cutoff is the figure that lands on a payslip, so quote that rather
     // than the stored monthly number, which is deliberately inflated here.
     const perCutoff = parseFloat((amount / cutoffs).toFixed(2))
     termLabel = `₱${perCutoff.toLocaleString()} per cutoff over ${cutoffs} cutoff${cutoffs > 1 ? 's' : ''}`
   } else {
-    const months = Math.max(1, Math.min(3, existing.repaymentMonths))
-    monthlyAmortization = parseFloat((amount / months).toFixed(2))
+    const months = Math.max(1, Math.min(6, existing.repaymentMonths))
+    monthlyAmortization = monthlyRepayment(amount, months)
     termLabel = `₱${monthlyAmortization.toLocaleString()}/month over ${months} month${months > 1 ? 's' : ''}`
   }
 
@@ -290,7 +294,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       plan: decision.plan,
       nextLevel: decision.nextLevel,
       isFinal: true,
-      ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/cash-advance', vars: { requestType: 'Cash Advance', requesterName } },
+      ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: `/cash-advance?requestId=${existing.id}`, vars: { requestType: 'Cash Advance', requesterName } },
       nextApproverTitle: '', nextApproverBody: '',
     })
   }
@@ -317,7 +321,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Only pending requests can be cancelled' }, { status: 400 })
   }
 
-  const isHR = HR_ROLES.includes(ctx.role)
+  const isHR = await ctxHasPermission(ctx, 'cashadvance:approve')
   const isOwner = existing.employee.userId === ctx.userId
   if (!isHR && !isOwner) {
     return NextResponse.json({ error: 'Not allowed' }, { status: 403 })

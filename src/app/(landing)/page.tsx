@@ -16,7 +16,7 @@ import { LandingNav } from './landing-nav'
 const features = [
   {
     icon: Fingerprint,
-    color: '#000000',
+    color: 'var(--brand-primary)',
     bg: 'rgba(3,43,99,0.10)',
     title: 'Biometric Clock-In / Out',
     desc: 'Eliminate buddy punching with WebAuthn biometric authentication — fingerprint or Face ID, on any device, no hardware needed.',
@@ -32,7 +32,7 @@ const features = [
   },
   {
     icon: Map,
-    color: '#7c3aed',
+    color: '#162d54',
     bg: 'rgba(124,58,237,0.10)',
     title: 'Live Attendance Map',
     desc: "Watch your team's real-time locations on an interactive map. See who's clocked in, where they are, and their selfie — at a glance.",
@@ -96,7 +96,7 @@ const features = [
   },
   {
     icon: Receipt,
-    color: '#4f46e5',
+    color: '#0054d7',
     bg: 'rgba(79,70,229,0.10)',
     title: 'Tax Annualization',
     desc: 'Year-end tax annualization computed automatically. Generates BIR Form 2316 for every employee — ready for signature.',
@@ -117,14 +117,6 @@ const features = [
     title: 'Cash Advance',
     desc: 'Employees request cash advances from the portal. Approved amounts auto-deducted on the next payroll run.',
     badge: 'Portal Filing',
-  },
-  {
-    icon: Send,
-    color: '#1d4ed8',
-    bg: 'rgba(29,78,216,0.10)',
-    title: 'Payroll Disbursement',
-    desc: 'Send net pay directly to employee bank accounts via InstaPay or PesoNet — right from the platform, no bank visit needed.',
-    badge: 'InstaPay / PesoNet',
   },
   {
     icon: UserPlus,
@@ -160,7 +152,7 @@ const features = [
   },
   {
     icon: BarChart3,
-    color: '#7c3aed',
+    color: '#162d54',
     bg: 'rgba(124,58,237,0.10)',
     title: 'Analytics & Dashboards',
     desc: 'Headcount trends, late/absent patterns, payroll cost breakdowns, and workforce insights — visual and exportable.',
@@ -192,7 +184,7 @@ const features = [
   },
   {
     icon: Smartphone,
-    color: '#000000',
+    color: 'var(--brand-primary)',
     bg: 'rgba(3,43,99,0.10)',
     title: 'Employee Self-Service Portal',
     desc: 'Employees view payslips, file leaves, check balances, submit requests, and clock in — all from their phone browser, no app install.',
@@ -228,7 +220,7 @@ const testimonials = [
     role: 'HR Manager',
     company: 'BPO Solutions Manila',
     avatar: 'MS',
-    color: '#000000',
+    color: 'var(--brand-primary)',
     text: 'We used to spend 3 days every cut-off manually computing timesheets. Onclock cut that to 20 minutes. The fingerprint feature alone eliminated all our buddy-punching disputes.',
     rating: 5,
   },
@@ -237,7 +229,7 @@ const testimonials = [
     role: 'Business Owner',
     company: 'Cruz Construction Corp.',
     avatar: 'RC',
-    color: '#000000',
+    color: 'var(--brand-primary)',
     text: 'Geofencing is a game-changer for us. Our workers are on multiple sites and we can actually see who is where, in real time. No more "I forgot to time in" excuses.',
     rating: 5,
   },
@@ -246,7 +238,7 @@ const testimonials = [
     role: 'Finance Officer',
     company: 'Reyes Trading Inc.',
     avatar: 'AR',
-    color: '#7c3aed',
+    color: '#162d54',
     text: "BIR filing used to stress me out every quarter. Now I just click 'Generate Alphalist' and it's done. Completely accurate, properly formatted, ready to upload.",
     rating: 5,
   },
@@ -269,8 +261,8 @@ export default function LandingPage() {
       {/* ── HERO ─────────────────────────────────────────────────────── */}
       <section className="relative pt-24 pb-0 overflow-hidden" style={{ background: 'linear-gradient(160deg, #f0fafa 0%, #e8f5f5 40%, #f8fcfc 100%)' }}>
         {/* decorative blobs */}
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: '#0055d4' }} />
-        <div className="absolute top-1/2 -left-32 w-72 h-72 rounded-full opacity-10 blur-3xl" style={{ background: '#000000' }} />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: '#0054d7' }} />
+        <div className="absolute top-1/2 -left-32 w-72 h-72 rounded-full opacity-10 blur-3xl" style={{ background: 'var(--brand-primary)' }} />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
@@ -278,14 +270,14 @@ export default function LandingPage() {
             <div className="flex-1 text-center lg:text-left pt-8 lg:pt-16 pb-8">
               {/* pill badge */}
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-6 border"
-                style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(170,183,183,0.45)', color: '#000000' }}>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#000000] animate-pulse" />
+                style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(170,183,183,0.45)', color: 'var(--brand-primary)' }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)] animate-pulse" />
                 Built exclusively for Philippine businesses
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight text-slate-900 mb-6">
                 Payroll and Attendance
-                <span className="block" style={{ color: '#000000' }}>Management</span>
+                <span className="block" style={{ color: 'var(--brand-primary)' }}>Management</span>
                 <span className="block text-slate-700">Made Easy</span>
               </h1>
 
@@ -326,7 +318,7 @@ export default function LandingPage() {
                   {/* Glow */}
                   <div className="absolute inset-0 rounded-[2.5rem] blur-2xl opacity-30 scale-110" style={{ background: 'linear-gradient(135deg, #000000, #000000)' }} />
                   {/* Phone shell */}
-                  <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-800" style={{ background: '#000000' }}>
+                  <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-800" style={{ background: 'var(--brand-primary)' }}>
                     {/* Status bar */}
                     <div className="flex items-center justify-between px-6 pt-4 pb-2">
                       <span className="text-white text-[10px] font-bold">9:41</span>
@@ -345,7 +337,7 @@ export default function LandingPage() {
                       </div>
                       {/* Clock display */}
                       <div className="text-center py-5">
-                        <p className="text-3xl font-black tabular-nums" style={{ color: '#000000' }}>09:00:00</p>
+                        <p className="text-3xl font-black tabular-nums" style={{ color: 'var(--brand-primary)' }}>09:00:00</p>
                         <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Mon, Mar 31 2025</p>
                       </div>
                       {/* Enrolled badge */}
@@ -357,13 +349,13 @@ export default function LandingPage() {
                       {/* Geofence badge */}
                       <div className="mx-4 mb-5 rounded-xl px-3 py-2 flex items-center gap-2"
                         style={{ background: 'rgba(46,65,86,0.12)' }}>
-                        <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#000000' }} />
-                        <span className="text-[10px] font-semibold" style={{ color: '#000000' }}>Inside allowed zone (45m from office)</span>
+                        <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--brand-primary)' }} />
+                        <span className="text-[10px] font-semibold" style={{ color: 'var(--brand-primary)' }}>Inside allowed zone (45m from office)</span>
                       </div>
                       {/* Clock In button */}
                       <div className="flex justify-center mb-5">
                         <div className="w-28 h-28 rounded-full flex flex-col items-center justify-center gap-1.5 shadow-lg"
-                          style={{ background: '#000000', boxShadow: '0 0 0 8px rgba(34,127,132,0.15)' }}>
+                          style={{ background: 'var(--brand-primary)', boxShadow: '0 0 0 8px rgba(34,127,132,0.15)' }}>
                           <Clock className="w-6 h-6 text-white" />
                           <span className="text-white text-xs font-bold">Clock In</span>
                         </div>
@@ -387,7 +379,7 @@ export default function LandingPage() {
                 {/* Floating cards */}
                 <div className="absolute -left-8 top-16 bg-white rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3 border border-slate-100 hidden sm:flex">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
-                    <FileText className="w-4 h-4" style={{ color: '#000000' }} />
+                    <FileText className="w-4 h-4" style={{ color: 'var(--brand-primary)' }} />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-800">File Leave & View Payslip</p>
@@ -431,7 +423,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((s, i) => (
               <div key={i} className="text-center p-6 rounded-2xl border border-slate-100 hover:border-[#AAB7B7] hover:shadow-md transition-all">
-                <p className="text-2xl font-black mb-1" style={{ color: '#000000' }}>{s.value}</p>
+                <p className="text-2xl font-black mb-1" style={{ color: 'var(--brand-primary)' }}>{s.value}</p>
                 <p className="text-sm font-bold text-slate-700 mb-0.5">{s.label}</p>
                 <p className="text-xs text-slate-400">{s.sub}</p>
               </div>
@@ -445,7 +437,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-4 border"
-              style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: '#000000' }}>
+              style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: 'var(--brand-primary)' }}>
               <Zap className="w-3 h-3" /> Everything you need
             </div>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4">
@@ -487,7 +479,7 @@ export default function LandingPage() {
                   <div className="text-center mb-6">
                     <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
                       style={{ background: 'linear-gradient(135deg, rgba(34,127,132,0.15), rgba(11,74,59,0.15))' }}>
-                      <Fingerprint className="w-10 h-10" style={{ color: '#000000' }} />
+                      <Fingerprint className="w-10 h-10" style={{ color: 'var(--brand-primary)' }} />
                     </div>
                     <p className="font-black text-slate-900 text-lg">Verifying identity…</p>
                     <p className="text-sm text-slate-400 mt-1">Touch your fingerprint sensor</p>
@@ -506,7 +498,7 @@ export default function LandingPage() {
                       Location verified (38m from office)
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-[#000000] border-t-transparent animate-spin flex-shrink-0" />
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-[var(--brand-primary)] border-t-transparent animate-spin flex-shrink-0" />
                       Logging attendance…
                     </div>
                   </div>
@@ -531,7 +523,7 @@ export default function LandingPage() {
             {/* Copy */}
             <div className="flex-1 lg:max-w-lg">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold mb-5 border"
-                style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: '#000000' }}>
+                style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: 'var(--brand-primary)' }}>
                 <Shield className="w-3 h-3" /> Zero buddy punching
               </div>
               <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mb-5">
@@ -548,7 +540,7 @@ export default function LandingPage() {
                   'Admin can reset or re-enroll any employee from the portal',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm text-slate-600">
-                    <CheckCircle className="w-4 h-4 text-[#000000] flex-shrink-0 mt-0.5" />
+                    <CheckCircle className="w-4 h-4 text-[var(--brand-primary)] flex-shrink-0 mt-0.5" />
                     {item}
                   </li>
                 ))}
@@ -588,15 +580,15 @@ export default function LandingPage() {
                       {/* Office pin */}
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center border-2 border-white"
-                          style={{ background: '#0055d4' }}>
+                          style={{ background: '#0054d7' }}>
                           <MapPin className="w-4 h-4 text-white" />
                         </div>
                       </div>
                       {/* Employee dots inside */}
                       {[
-                        { top: '25%', left: '35%', name: 'J', color: '#10b981' },
-                        { top: '55%', left: '60%', name: 'M', color: '#10b981' },
-                        { top: '35%', left: '65%', name: 'R', color: '#10b981' },
+                        { top: '25%', left: '35%', name: 'J', color: '#c74300' },
+                        { top: '55%', left: '60%', name: 'M', color: '#c74300' },
+                        { top: '35%', left: '65%', name: 'R', color: '#c74300' },
                       ].map((e) => (
                         <div key={e.name} className="absolute w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow border-2 border-white"
                           style={{ background: e.color, top: e.top, left: e.left }}>
@@ -626,7 +618,7 @@ export default function LandingPage() {
             {/* Copy */}
             <div className="flex-1 lg:max-w-lg">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold mb-5 border"
-                style={{ background: 'rgba(11,74,59,0.08)', borderColor: 'rgba(11,74,59,0.20)', color: '#000000' }}>
+                style={{ background: 'rgba(11,74,59,0.08)', borderColor: 'rgba(11,74,59,0.20)', color: 'var(--brand-primary)' }}>
                 <MapPin className="w-3 h-3" /> GPS Geofencing
               </div>
               <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mb-5">
@@ -658,7 +650,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-4 border"
-              style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: '#000000' }}>
+              style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: 'var(--brand-primary)' }}>
               <Globe className="w-3 h-3" /> Philippine Statutory Compliance
             </div>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4">
@@ -737,7 +729,7 @@ export default function LandingPage() {
                   </div>
                   <div className="flex justify-between items-center pt-3 border-t border-slate-200">
                     <span className="text-xs font-bold text-slate-700">Net Pay</span>
-                    <span className="text-base font-black" style={{ color: '#000000' }}>₱14,837.50</span>
+                    <span className="text-base font-black" style={{ color: 'var(--brand-primary)' }}>₱14,837.50</span>
                   </div>
                 </div>
               </div>
@@ -779,7 +771,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-4 border"
-              style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: '#000000' }}>
+              style={{ background: 'rgba(46,65,86,0.12)', borderColor: 'rgba(34,127,132,0.2)', color: 'var(--brand-primary)' }}>
               <Star className="w-3 h-3" /> Trusted by PH businesses
             </div>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900">What HR Managers Are Saying</h2>

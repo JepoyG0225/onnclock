@@ -1,3 +1,6 @@
+import { mutationPermissions } from '@/lib/auth/mutation-permissions'
+import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
+import { verifyDesktopToken } from '@/lib/desktop-token'
 import { auth } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 
@@ -14,7 +17,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-export default auth((req) => {
+export default auth(async (req) => {
   const host = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').toLowerCase()
   const configuredPublicHost = (process.env.PORTAL_BASE_DOMAIN || '').toLowerCase()
   const publicHost =
@@ -53,8 +56,11 @@ export default auth((req) => {
     logicalPath.startsWith('/_next') ||
     logicalPath.startsWith('/favicon') ||
     logicalPath.startsWith('/face-api/') ||
+    logicalPath.startsWith('/audio/kiosk/') ||
     logicalPath === '/manifest.webmanifest' ||
-    logicalPath === '/sw.js'
+    logicalPath === '/sw.js' ||
+    logicalPath === '/portal-offline.html' ||
+    logicalPath === '/portal-offline.js'
 
   const isLoggedIn = !!req.auth?.user
   const role = req.auth?.user?.role
@@ -70,7 +76,7 @@ export default auth((req) => {
   const isEmployee = effectiveRole === 'EMPLOYEE'
   const hasPortalSession = req.cookies.get('portal_session')?.value === '1'
 
-  const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/portal/login', '/admin/login', '/download', '/api/auth', '/api/companies', '/quotation', '/api/quotation', '/apply', '/api/public', '/desktop', '/api/desktop-app/download']
+  const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/portal/login', '/admin/login', '/download', '/api/auth', '/api/companies', '/quotation', '/api/quotation', '/apply', '/api/public', '/desktop', '/office-kiosk', '/api/desktop-app/download']
   const isPublic = logicalPath === '/' || publicPaths.some((p) => logicalPath.startsWith(p))
   const isPortal = logicalPath.startsWith('/portal')
 
@@ -85,6 +91,24 @@ export default auth((req) => {
     const isAuthApi = logicalPath.startsWith('/api/auth')
     if (isPreviewMode && isWrite && !isStopPreview && !isAuthApi) {
       return NextResponse.json({ error: 'Preview mode is read-only' }, { status: 403 })
+    }
+    const required = mutationPermissions(logicalPath, method)
+    if (required) {
+      const bearer = req.headers.get('authorization')
+      const desktop = bearer?.startsWith('Bearer ') ? verifyDesktopToken(bearer.slice(7)) : null
+      const actor = desktop ?? req.auth?.user
+      // Invalid bearer tokens must not inherit a cookie session's privileges.
+      if (bearer?.startsWith('Bearer ') && !desktop) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      if (actor.role !== 'SUPER_ADMIN') {
+        try {
+          const userId = desktop ? desktop.userId : req.auth!.user.id
+          const permissions = await getEffectivePermissions(actor.role, actor.companyId, userId)
+          if (!required.some(permission => permissions.includes(permission))) return NextResponse.json({ error: 'View-only access. You do not have permission to perform this action.' }, { status: 403 })
+        } catch {
+          return NextResponse.json({ error: 'Unable to verify permissions. Please try again.' }, { status: 503 })
+        }
+      }
     }
     return NextResponse.next()
   }
@@ -103,9 +127,9 @@ export default auth((req) => {
     return NextResponse.redirect(buildRedirectUrl('/portal'))
   }
 
-  if (isLoggedIn && logicalPath.startsWith('/settings/') && effectiveRole !== 'COMPANY_ADMIN') {
-    return NextResponse.redirect(buildRedirectUrl('/settings'))
-  }
+  // Settings access is enforced by the dashboard's effective-permission
+  // guard. Role-only redirects here conflict with custom roles and the
+  // universally accessible /settings/profile fallback.
 
   if (isLoggedIn && logicalPath.startsWith('/admin') && logicalPath !== '/admin/login' && effectiveRole !== 'SUPER_ADMIN') {
     return NextResponse.redirect(buildRedirectUrl('/dashboard'))

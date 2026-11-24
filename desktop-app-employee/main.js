@@ -63,6 +63,49 @@ let updateInfo = {
   notes: null,
 }
 let updateDownloadInProgress = false
+let automaticUpdates = null
+let updateIdleTimer = null
+let updateInstallGate = false
+let attendanceMutationInFlight = 0
+
+function startAutomaticUpdates() {
+  if (process.platform !== 'win32' || !app.isPackaged) return
+  const { autoUpdater } = require('electron-updater')
+  const { createAutomaticUpdates } = require('./automatic-updates')
+  automaticUpdates = createAutomaticUpdates({
+    updater: autoUpdater,
+    log,
+    onState(state) {
+      if (state.error && updateInstallGate) { updateInstallGate = false; isQuitting = false }
+      updateInfo = { ...updateInfo, ...state, downloadUrlWindows: `${DEFAULT_SERVER_URL}/api/desktop-app/download/employee/windows` }
+      updateDownloadInProgress = state.state === 'downloading'
+      broadcastStatus()
+      rebuildTrayMenu()
+    },
+    onProgress(progress) {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:download-progress', progress)
+    },
+    async canInstall() {
+      if (isClockedIn || isOnBreak || attendanceMutationInFlight || updateInstallGate) return false
+      updateInstallGate = true
+      const token = getToken()
+      try {
+        if (token) {
+          const result = await syncClockStateFromServer('before-update')
+          if (!result.ok || getToken() !== token || isClockedIn || isOnBreak) return false
+        }
+        return !attendanceMutationInFlight && !isClockedIn && !isOnBreak
+      } finally { updateInstallGate = false }
+    },
+    install(run) {
+      updateInstallGate = true
+      isQuitting = true
+      run()
+    },
+  })
+  updateIdleTimer = setInterval(() => { void automaticUpdates.tryInstall() }, 60000)
+}
+
 
 const CLOCK_STATE_SYNC_INTERVAL_MS = 30 * 1000
 const BREAK_WARNING_INTERVAL_MS = 15 * 1000
@@ -140,6 +183,14 @@ function log(msg) {
 
 /** Perform an authenticated JSON request to the server */
 async function apiRequest(method, path, body) {
+  const attendanceWrite = method !== 'GET' && path.startsWith('/api/attendance/')
+  if (attendanceWrite && updateInstallGate) return { ok: false, status: 409, data: { error: 'Desktop update is preparing. Please try again shortly.' } }
+  if (attendanceWrite) attendanceMutationInFlight++
+  try { return await performApiRequest(method, path, body) }
+  finally { if (attendanceWrite) attendanceMutationInFlight-- }
+}
+
+async function performApiRequest(method, path, body) {
   return new Promise((resolve, reject) => {
     const url = `${getServerUrl()}${path}`
     const token = getToken()
@@ -152,7 +203,7 @@ async function apiRequest(method, path, body) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        'User-Agent': `OnClock-Desktop/${app.getVersion()} (Windows)`,
+        'User-Agent': `OnClock-Desktop/${app.getVersion()} (${process.platform})`,
       },
     })
 
@@ -275,8 +326,9 @@ function compareSemver(a, b) {
 }
 
 async function checkForAppUpdates(source = 'manual') {
+  if (automaticUpdates) return automaticUpdates.check()
   try {
-    const res = await apiRequest('GET', '/api/desktop-app/version', null)
+    const res = await apiRequest('GET', `/api/desktop-app/version?platform=${process.platform === 'darwin' ? 'mac' : 'windows'}`, null)
     const currentVersion = app.getVersion()
     const latestVersion = String(res.data?.latestVersion ?? '').trim()
     const hasUpdate = Boolean(res.ok && latestVersion && compareSemver(latestVersion, currentVersion) > 0)
@@ -1028,6 +1080,10 @@ ipcMain.handle('app:checkForUpdates', () => checkForAppUpdates('manual'))
 
 // ── Auto-download update installer ──────────────────────────────────────────
 ipcMain.handle('app:downloadUpdate', async () => {
+  if (automaticUpdates) {
+    const result = await automaticUpdates.check()
+    return { ...result, automatic: true }
+  }
   if (updateDownloadInProgress) return { ok: false, error: 'Download already in progress.' }
   if (!updateInfo.updateAvailable) return { ok: false, error: 'No update available.' }
 
@@ -1140,6 +1196,7 @@ ipcMain.handle('attendance:clockOut', async (_e, location) => {
   broadcastStatus()
   return result
 })
+ipcMain.handle('attendance:getSchedule', () => apiRequest('GET', '/api/employees/me/schedule', null))
 ipcMain.handle('attendance:getStatus', () => getStatusPayload())
 ipcMain.handle('attendance:getLogs', async (_e, limit = 7) =>
   apiRequest('GET', `/api/attendance/logs?limit=${encodeURIComponent(Number(limit) || 7)}`, null)
@@ -1233,7 +1290,7 @@ ipcMain.handle('payroll:downloadPayslipPdf', async (_e, payslipId) => {
       headers: {
         Accept: 'application/pdf',
         Authorization: `Bearer ${token}`,
-        'User-Agent': `OnClock-Desktop/${app.getVersion()} (Windows)`,
+        'User-Agent': `OnClock-Desktop/${app.getVersion()} (${process.platform})`,
       },
     })
 
@@ -1408,6 +1465,7 @@ app.whenReady().then(() => {
   })
 
   createTray()
+  startAutomaticUpdates()
   startUpdateCheckLoop()
 
   // If not logged in, show login window
@@ -1431,6 +1489,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  if (updateIdleTimer) clearInterval(updateIdleTimer)
   isQuitting = true
   stopCaptureLoop()
   stopLocationPingLoop()

@@ -64,7 +64,8 @@ function Tabs({ hrisProEnabled }: { hrisProEnabled: boolean }) {
               key={tab.id}
               type="button"
               onClick={() => select(tab.id)}
-              aria-current={active === tab.id ? 'page' : undefined}
+              data-app-tab
+            aria-current={active === tab.id ? 'page' : undefined}
               data-tour-tab={tab.id}
               className={cn(
                 'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition',

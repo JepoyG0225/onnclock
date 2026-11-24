@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 
 /**
  * Registers the portal service worker and keeps it fresh.
@@ -16,6 +17,7 @@ import { useEffect } from 'react'
  *     build without manually refreshing
  */
 export function PortalPwaRegister() {
+  const pathname = usePathname()
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
@@ -65,5 +67,8 @@ export function PortalPwaRegister() {
     }
   }, [])
 
-  return null
+  // This component mounts globally, but the attendance link belongs only in the employee portal.
+  if (pathname !== '/portal' && !pathname?.startsWith('/portal/')) return null
+
+  return <a href="/portal-offline.html" className="block bg-blue-50 px-4 py-2 text-center text-xs font-medium text-blue-800">Offline attendance: set up or unlock this device</a>
 }

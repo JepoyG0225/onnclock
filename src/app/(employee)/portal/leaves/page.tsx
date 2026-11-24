@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -12,6 +14,7 @@ interface LeaveBalance {
   used: number
   pending: number
   balance: number
+  encashed: number
   carriedOver: number
   leaveType: { name: string; code: string; isWithPay: boolean }
 }
@@ -35,7 +38,7 @@ const ORANGE = 'var(--brand-highlight)'
 /** Status colours: `bar` drives the card's left stripe, bg/fg the chip. */
 const STATUS_TONE: Record<string, { bar: string; bg: string; fg: string }> = {
   PENDING:   { bar: '#f59e0b', bg: '#fffbeb', fg: '#b45309' },
-  APPROVED:  { bar: '#10b981', bg: '#ecfdf5', fg: '#047857' },
+  APPROVED:  { bar: '#c74300', bg: '#ecfdf5', fg: '#047857' },
   REJECTED:  { bar: '#ef4444', bg: '#fef2f2', fg: '#b91c1c' },
   CANCELLED: { bar: '#d4d4d4', bg: '#f7f7f7', fg: '#666666' },
 }
@@ -81,7 +84,7 @@ export default function LeavesPage() {
     const carried  = Math.max(0, safeNumber(b.carriedOver))
     const used     = Math.max(0, safeNumber(b.used))
     const pend     = Math.max(0, safeNumber(b.pending))
-    const fallback = entitled + carried - used - pend
+    const fallback = entitled + carried - used - pend - safeNumber(b.encashed)
     return s + Math.max(0, Number.isFinite(Number(b.balance)) ? Number(b.balance) : fallback)
   }, 0)
   const pendingCount = requests.filter(r => r.status === 'PENDING').length
@@ -117,14 +120,14 @@ export default function LeavesPage() {
           { id: 'balances', label: 'Balances' },
           { id: 'requests', label: 'Requests' },
         ] as const).map(t => (
-          <button
+          <button data-app-tab data-active={tab === t.id}
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={`text-[12px] font-black px-3.5 py-1.5 rounded-full border transition-colors ${
               tab === t.id ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200'
             }`}
-            style={tab === t.id ? { background: NAVY } : undefined}
+            style={tab === t.id ? { background: '#ff5900' } : undefined}
           >
             {t.label}
             {t.id === 'requests' && pendingCount > 0 && (
@@ -142,11 +145,7 @@ export default function LeavesPage() {
 
       {/* ── Balances ─────────────────────────────────────────────────────── */}
       <div style={{ display: tab === 'balances' ? 'block' : 'none' }}>
-        {loading ? (
-          <div className="space-y-2.5">
-            {[1, 2, 3].map(i => <div key={i} className="h-20 bg-white/70 rounded-2xl animate-pulse" />)}
-          </div>
-        ) : balances.length === 0 ? (
+        {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : balances.length === 0 ? (
           <div className="rounded-2xl bg-white border border-slate-200 p-10 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
               <CalendarDays className="w-7 h-7 text-slate-300" />
@@ -163,7 +162,7 @@ export default function LeavesPage() {
               const used = Math.max(0, safeNumber(lb.used))
               const pending = Math.max(0, safeNumber(lb.pending))
               const carried = Math.max(0, safeNumber(lb.carriedOver))
-              const computedRemaining = entitled + carried - used - pending
+              const computedRemaining = entitled + carried - used - pending - safeNumber(lb.encashed)
               const remaining = Math.max(0, Number.isFinite(Number(lb.balance)) ? Number(lb.balance) : computedRemaining)
               const total = entitled + carried
               const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0
@@ -220,11 +219,7 @@ export default function LeavesPage() {
 
       {/* ── Requests ─────────────────────────────────────────────────────── */}
       <div style={{ display: tab === 'requests' ? 'block' : 'none' }}>
-        {loading ? (
-          <div className="space-y-2.5">
-            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-white/70 rounded-2xl animate-pulse" />)}
-          </div>
-        ) : requests.length === 0 ? (
+        {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : requests.length === 0 ? (
           <div className="rounded-2xl bg-white border border-slate-200 p-10 text-center">
             <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-4">
               <FileText className="w-7 h-7 text-violet-500" />

@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -49,20 +50,20 @@ export function BudgetReqActionButtons({ id, title, amount, canAct, disabledReas
   return (
     <>
       <div className="flex items-center gap-1.5">
-        <Button
+        <PermissionGate permission="budget:approve"><Button
           size="sm"
           onClick={() => setShowApproveModal(true)}
           disabled={loading !== null || !canAct}
           title={!canAct ? disabledReason : undefined}
           className="gap-1 text-xs h-7 px-2.5"
-          style={{ background: '#16a34a', color: '#fff' }}
+          style={{ background: '#c74300', color: '#fff' }}
         >
           {loading === 'approve'
             ? <Loader2 className="w-3 h-3 animate-spin" />
             : <CheckCircle className="w-3 h-3" />}
           Approve
-        </Button>
-        <Button
+        </Button></PermissionGate>
+        <PermissionGate permission="budget:approve"><Button
           size="sm"
           variant="outline"
           onClick={() => setShowRejectModal(true)}
@@ -74,7 +75,7 @@ export function BudgetReqActionButtons({ id, title, amount, canAct, disabledReas
             ? <Loader2 className="w-3 h-3 animate-spin" />
             : <XCircle className="w-3 h-3" />}
           Reject
-        </Button>
+        </Button></PermissionGate>
       </div>
 
       {/* ── Approve modal ── */}
@@ -98,16 +99,16 @@ export function BudgetReqActionButtons({ id, title, amount, canAct, disabledReas
               />
             </div>
             <div className="flex gap-3">
-              <Button
+              <PermissionGate permission="budget:approve"><Button
                 variant="outline"
                 className="flex-1 text-sm"
                 onClick={() => { setShowApproveModal(false); setApproveNote('') }}
               >
                 Cancel
-              </Button>
-              <Button
+              </Button></PermissionGate>
+              <PermissionGate permission="budget:approve"><Button
                 className="flex-1 gap-1.5 text-sm"
-                style={{ background: '#16a34a', color: '#fff' }}
+                style={{ background: '#c74300', color: '#fff' }}
                 disabled={loading === 'approve'}
                 onClick={async () => {
                   if (await doAction('APPROVED', approveNote)) {
@@ -118,7 +119,7 @@ export function BudgetReqActionButtons({ id, title, amount, canAct, disabledReas
               >
                 {loading === 'approve' && <Loader2 className="w-4 h-4 animate-spin" />}
                 Confirm Approve
-              </Button>
+              </Button></PermissionGate>
             </div>
           </div>
         </div>
@@ -145,14 +146,14 @@ export function BudgetReqActionButtons({ id, title, amount, canAct, disabledReas
               />
             </div>
             <div className="flex gap-3">
-              <Button
+              <PermissionGate permission="budget:approve"><Button
                 variant="outline"
                 className="flex-1 text-sm"
                 onClick={() => { setShowRejectModal(false); setReviewNote('') }}
               >
                 Cancel
-              </Button>
-              <Button
+              </Button></PermissionGate>
+              <PermissionGate permission="budget:approve"><Button
                 className="flex-1 gap-1.5 text-sm"
                 style={{ background: '#dc2626', color: '#fff' }}
                 disabled={loading === 'reject'}
@@ -165,7 +166,7 @@ export function BudgetReqActionButtons({ id, title, amount, canAct, disabledReas
               >
                 {loading === 'reject' && <Loader2 className="w-4 h-4 animate-spin" />}
                 Confirm Reject
-              </Button>
+              </Button></PermissionGate>
             </div>
           </div>
         </div>

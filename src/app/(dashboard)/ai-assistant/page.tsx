@@ -95,7 +95,7 @@ export default function AiAssistantPage() {
     <div className="space-y-4 max-w-3xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: '#000000' }}>
+          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--brand-primary)' }}>
             <Sparkles className="w-6 h-6" style={{ color: 'var(--brand-highlight)' }} />
             Nexa
           </h1>
@@ -119,7 +119,7 @@ export default function AiAssistantPage() {
         >
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-12">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'rgba(184, 225, 0,0.12)' }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'rgba(255, 89, 0,0.12)' }}>
                 <Bot className="w-7 h-7" style={{ color: 'var(--brand-highlight)' }} />
               </div>
               <h2 className="text-base font-semibold text-gray-800">Hi, I&apos;m Nexa! 👋</h2>
@@ -141,7 +141,7 @@ export default function AiAssistantPage() {
             messages.map((m, i) => (
               <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(184, 225, 0,0.12)' }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(255, 89, 0,0.12)' }}>
                     <Bot className="w-4 h-4" style={{ color: 'var(--brand-highlight)' }} />
                   </div>
                 )}
@@ -151,7 +151,7 @@ export default function AiAssistantPage() {
                       ? 'text-white'
                       : 'bg-gray-100 text-gray-800'
                   }`}
-                  style={m.role === 'user' ? { background: '#0055d4' } : undefined}
+                  style={m.role === 'user' ? { background: '#0054d7' } : undefined}
                 >
                   {m.content}
                 </div>
@@ -165,7 +165,7 @@ export default function AiAssistantPage() {
           )}
           {sending && (
             <div className="flex gap-3 justify-start">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(184, 225, 0,0.12)' }}>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(255, 89, 0,0.12)' }}>
                 <Bot className="w-4 h-4" style={{ color: 'var(--brand-highlight)' }} />
               </div>
               <div className="bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2">

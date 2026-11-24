@@ -1,4 +1,8 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
+import { KpiCard } from '@/components/ui/kpi-card'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Users, Plus, Pencil, Trash2, Search, Building2, ChevronDown, ChevronUp } from 'lucide-react'
@@ -25,13 +29,13 @@ interface Department {
 }
 
 const COLORS = [
-  { hex: 'var(--brand-highlight)', iconBg: 'bg-[#dce5f7]',   iconText: 'text-[#000000]',   avatarBg: 'bg-[#c4d9ff]',   avatarText: 'text-primary',   badge: 'bg-[#c4d9ff] text-primary'   },
-  { hex: '#3b82f6', iconBg: 'bg-blue-50',   iconText: 'text-blue-600',   avatarBg: 'bg-blue-100',   avatarText: 'text-blue-700',   badge: 'bg-blue-100 text-blue-700'   },
-  { hex: '#a855f7', iconBg: 'bg-purple-50', iconText: 'text-purple-600', avatarBg: 'bg-purple-100', avatarText: 'text-purple-700', badge: 'bg-purple-100 text-purple-700' },
+  { hex: 'var(--brand-highlight)', iconBg: 'bg-[#dce5f7]',   iconText: 'text-[var(--brand-primary)]',   avatarBg: 'bg-[#c4d9ff]',   avatarText: 'text-primary',   badge: 'bg-[#c4d9ff] text-primary'   },
+  { hex: '#0054d7', iconBg: 'bg-blue-50',   iconText: 'text-blue-600',   avatarBg: 'bg-blue-100',   avatarText: 'text-blue-700',   badge: 'bg-blue-100 text-blue-700'   },
+  { hex: '#476891', iconBg: 'bg-purple-50', iconText: 'text-purple-600', avatarBg: 'bg-purple-100', avatarText: 'text-purple-700', badge: 'bg-purple-100 text-purple-700' },
   { hex: '#343434', iconBg: 'bg-orange-50', iconText: 'text-orange-600', avatarBg: 'bg-orange-100', avatarText: 'text-orange-700', badge: 'bg-orange-100 text-orange-700' },
-  { hex: '#22c55e', iconBg: 'bg-green-50',  iconText: 'text-green-600',  avatarBg: 'bg-green-100',  avatarText: 'text-green-700',  badge: 'bg-green-100 text-green-700'  },
+  { hex: '#c74300', iconBg: 'bg-green-50',  iconText: 'text-green-600',  avatarBg: 'bg-green-100',  avatarText: 'text-green-700',  badge: 'bg-green-100 text-green-700'  },
   { hex: '#ec4899', iconBg: 'bg-pink-50',   iconText: 'text-pink-600',   avatarBg: 'bg-pink-100',   avatarText: 'text-pink-700',   badge: 'bg-pink-100 text-pink-700'   },
-  { hex: '#6366f1', iconBg: 'bg-indigo-50', iconText: 'text-indigo-600', avatarBg: 'bg-indigo-100', avatarText: 'text-indigo-700', badge: 'bg-indigo-100 text-indigo-700' },
+  { hex: '#0054d7', iconBg: 'bg-indigo-50', iconText: 'text-indigo-600', avatarBg: 'bg-indigo-100', avatarText: 'text-indigo-700', badge: 'bg-indigo-100 text-indigo-700' },
 ]
 
 export function DepartmentsTab() {
@@ -162,20 +166,15 @@ export function DepartmentsTab() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <Button onClick={() => setOpen(true)} style={{ background: 'var(--brand-highlight)' }} className="text-white h-9">
+          <PermissionGate permission="departments:write"><Button onClick={() => setOpen(true)} style={{ background: 'var(--brand-highlight)' }} className="text-white h-9">
             <Plus className="w-4 h-4 mr-1.5" /> Add Department
-          </Button>
+          </Button></PermissionGate>
         </div>
       </div>
 
       {/* ── Content ── */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-44 rounded-xl bg-gray-100 animate-pulse" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3"><KpiCard icon={<Building2/>} label="Departments" value={loading?'...':departments.length}/><KpiCard icon={<Users/>} label="Assigned employees" tone="accent" value={loading?'...':totalEmployees}/><KpiCard icon={<Building2/>} label="Empty departments" value={loading?'...':departments.filter(d=>!d._count.employees).length}/></div>
+      {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Building2 className="w-14 h-14 text-gray-200 mb-3" />
           <p className="text-gray-500 font-medium text-lg">
@@ -185,9 +184,9 @@ export function DepartmentsTab() {
             {search ? 'Try a different search term' : 'Create your first department to get started'}
           </p>
           {!search && (
-            <Button className="mt-5 text-white" style={{ background: 'var(--brand-highlight)' }} onClick={() => setOpen(true)}>
+            <PermissionGate permission="departments:write"><Button className="mt-5 text-white" style={{ background: 'var(--brand-highlight)' }} onClick={() => setOpen(true)}>
               <Plus className="w-4 h-4 mr-1.5" /> Add your first department
-            </Button>
+            </Button></PermissionGate>
           )}
         </div>
       ) : (
@@ -277,22 +276,22 @@ export function DepartmentsTab() {
                   className="px-5 pb-4 flex items-center gap-2"
                   onClick={e => e.stopPropagation()}
                 >
-                  <Button
+                  <PermissionGate permission="departments:write"><Button
                     size="sm"
                     variant="outline"
                     className="h-7 text-xs"
                     onClick={() => openEdit(dept)}
                   >
                     <Pencil className="w-3 h-3 mr-1" /> Edit
-                  </Button>
-                  <Button
+                  </Button></PermissionGate>
+                  <PermissionGate permission="departments:write"><Button
                     size="sm"
                     variant="outline"
                     className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
                     onClick={() => openDelete(dept)}
                   >
                     <Trash2 className="w-3 h-3 mr-1" /> Delete
-                  </Button>
+                  </Button></PermissionGate>
                 </div>
 
                 {/* ── Expanded Employee List ── */}
@@ -382,9 +381,9 @@ export function DepartmentsTab() {
             </div>
             <div className="px-6 py-4 border-t bg-gray-50 rounded-b-2xl flex items-center justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={createDepartment} style={{ background: 'var(--brand-highlight)' }} className="text-white">
+              <PermissionGate permission="departments:write"><Button onClick={createDepartment} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                 Create Department
-              </Button>
+              </Button></PermissionGate>
             </div>
           </div>
         </div>
@@ -420,10 +419,10 @@ export function DepartmentsTab() {
               </div>
             </div>
             <div className="px-6 py-4 border-t bg-gray-50 rounded-b-2xl flex items-center justify-end gap-2">
-              <Button variant="outline" onClick={() => { setEditOpen(false); setEditing(null) }}>Cancel</Button>
-              <Button onClick={saveEditDepartment} style={{ background: 'var(--brand-highlight)' }} className="text-white">
+              <PermissionGate permission="departments:write"><Button variant="outline" onClick={() => { setEditOpen(false); setEditing(null) }}>Cancel</Button></PermissionGate>
+              <PermissionGate permission="departments:write"><Button onClick={saveEditDepartment} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                 Save Changes
-              </Button>
+              </Button></PermissionGate>
             </div>
           </div>
         </div>
@@ -471,13 +470,13 @@ export function DepartmentsTab() {
               >
                 Cancel
               </Button>
-              <Button
+              <PermissionGate permission="departments:write"><Button
                 className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={confirmDeleteDepartment}
                 disabled={deleteInput !== 'DELETE'}
               >
                 Delete Department
-              </Button>
+              </Button></PermissionGate>
             </div>
           </div>
         </div>

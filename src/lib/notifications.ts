@@ -8,6 +8,7 @@
  * a write transiently fails.
  */
 import { prisma } from '@/lib/prisma'
+import { requestNotificationType, requestNotificationRecipients } from '@/lib/notifications-audience'
 import type { NotificationType } from '@prisma/client'
 
 export interface CreateNotificationInput {
@@ -21,6 +22,7 @@ export interface CreateNotificationInput {
 
 export async function createNotification(input: CreateNotificationInput): Promise<void> {
   try {
+    if (requestNotificationType(input) && !(await requestNotificationRecipients(input.companyId, input, [input.userId])).includes(input.userId)) return
     await prisma.notification.create({
       data: {
         companyId: input.companyId,
@@ -44,8 +46,10 @@ export async function createNotificationsForUsers(
   userIds: string[],
   shared: Omit<CreateNotificationInput, 'userId'>,
 ): Promise<void> {
-  if (userIds.length === 0) return
+  if (userIds.length === 0 && !requestNotificationType(shared)) return
   try {
+    if (requestNotificationType(shared)) userIds = await requestNotificationRecipients(shared.companyId, shared)
+    if (!userIds.length) return
     await prisma.notification.createMany({
       data: userIds.map((userId) => ({
         companyId: shared.companyId,

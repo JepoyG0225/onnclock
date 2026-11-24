@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -103,7 +104,7 @@ export function EmployeeBlockEditor({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-[#343434] hover:bg-[var(--brand-highlight)] hover:text-black" aria-label={`Edit ${title}`}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-[#343434] hover:bg-[var(--brand-highlight)] hover:text-primary" aria-label={`Edit ${title}`}>
           <Pencil className="h-4 w-4" />
         </Button>
       </DialogTrigger>
@@ -168,11 +169,11 @@ export function EmployeeBlockEditor({
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]">
+          <PermissionGate permission="employees:write"><Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button></PermissionGate>
+          <PermissionGate permission="employees:write"><Button onClick={save} disabled={saving} className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save changes
-          </Button>
+          </Button></PermissionGate>
         </div>
       </DialogContent>
     </Dialog>

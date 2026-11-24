@@ -1,3 +1,4 @@
+import { halfDayWorkedShift } from '@/lib/attendance/half-day-leave'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -48,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         employee: {
           select: {
             workScheduleId: true,
-            workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
+            workSchedule: { select: { timezone: true, timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
           },
         },
       },
@@ -89,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Resolve the right shift (multi-shift safe — picks closest to actual timeIn).
   // This is the critical fix vs. the old behavior that only consulted
   // record.employee.workSchedule and ignored EmployeeShiftAssignment.
-  const resolved = await resolveShiftForDtr({
+  const resolved = halfDayWorkedShift(await resolveShiftForDtr({
     employeeId: record.employeeId,
     date: record.date,
     actualTimeIn: newTimeIn ?? null,
@@ -98,7 +99,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       workSchedule: record.employee.workSchedule,
     },
     defaultBreakMinutes: company?.defaultBreakMinutes ?? 60,
-  })
+  }), record)
 
   const plannedRegularMinutes = resolved.plannedRegularMinutes
   const ndWindow = await getCompanyNightDiffWindow(companyId)
@@ -112,10 +113,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
       nightDiffIncludesBreak: ndWindow.includesBreak,
-      scheduledTimeIn: resolved.scheduleTimeIn,
+      scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     })
-    lateUt = computeLateAndUndertime(newTimeIn, newTimeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+    lateUt = computeLateAndUndertime(newTimeIn, newTimeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut, resolved)
   }
 
   // Build final hours/minutes: any per-field override wins over the
@@ -184,7 +185,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Strip clockInPhoto — large base64 payload not needed by admin clients
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { clockInPhoto: _photo, ...safeRecord } = updated
+  const { clockInPhoto: _photo, breakInPhoto: _breakInPhoto, breakOutPhoto: _breakOutPhoto, clockOutPhoto: _clockOutPhoto, ...safeRecord } = updated
   return NextResponse.json({ record: safeRecord })
 }
 

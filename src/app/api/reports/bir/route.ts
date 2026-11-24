@@ -291,6 +291,7 @@ export async function GET(req: NextRequest) {
         employee: {
           select: {
             employeeNo: true, firstName: true, lastName: true,
+            bankAccountNo: true, bankName: true,
             department: { select: { name: true } },
           },
         },
@@ -300,6 +301,7 @@ export async function GET(req: NextRequest) {
     // Aggregate by employee
     const empMap = new Map<string, {
       employeeNo: string; lastName: string; firstName: string; department: string
+      bankAccountNo: string | null; bankName: string | null
       basicPay: number; allowances: number; otAmount: number; grossPay: number
       sssEmployee: number; philhealthEmployee: number; pagibigEmployee: number
       withholdingTax: number; loans: number; otherDeductions: number
@@ -328,6 +330,8 @@ export async function GET(req: NextRequest) {
         lastName: ps.employee.lastName,
         firstName: ps.employee.firstName,
         department: ps.employee.department?.name || '',
+        bankAccountNo: ps.employee.bankAccountNo,
+        bankName: ps.employee.bankName,
         basicPay: ps.basicSalary.toNumber(),
         allowances,
         otAmount,

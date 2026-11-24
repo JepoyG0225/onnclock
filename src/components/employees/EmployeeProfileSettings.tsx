@@ -1,5 +1,6 @@
 'use client'
 
+import { usePermissions } from '@/components/auth/PermissionsProvider'
 import { useState } from 'react'
 import { Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,8 @@ export function EmployeeProfileSettings({
   hasUser: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const permissions = usePermissions()
+  if (!permissions.includes('employees:write')) return null
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

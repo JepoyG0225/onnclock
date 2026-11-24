@@ -1,3 +1,4 @@
+import { faceBetaAvailable } from '@/lib/face/availability'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
@@ -29,6 +30,7 @@ function cosineSimilarity(a: number[], b: number[]) {
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!(await faceBetaAvailable(ctx.companyId))) return NextResponse.json({ error: 'Facial recognition is not available for this company.' }, { status: 403 })
 
   const body = await req.json()
   const parsed = schema.safeParse(body)

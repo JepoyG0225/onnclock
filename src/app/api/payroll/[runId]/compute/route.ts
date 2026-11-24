@@ -1,10 +1,23 @@
+import { monthlyPayDays, monthlyPayAmounts, earnedBasicPay } from '@/lib/payroll/monthly-pay'
+import { scheduleInstants, zonedParts, timezone } from '@/lib/attendance/timezone'
+import { restDayPay } from '@/lib/payroll/rest-day-pay'
+import { approvedChanges } from '@/lib/salary/service'
+import { calculateSalary, salaryAt, salaryBreakdown, type SalarySnapshot } from '@/lib/salary/calculation'
+import type { PayrollInput } from '@/lib/payroll/types'
+import { dailyBreakdown } from '@/lib/payroll/daily-breakdown'
+import { ADJUSTABLE_FIELDS } from '@/lib/payroll/review'
+import { allocateDeductions, readDeductionCarryover } from '@/lib/payroll/deduction-carryover'
+import { scheduledHourlyPayDays } from '@/lib/payroll/scheduled-hours'
+import { hourlyCalculationBasis } from '@/lib/payroll/calculation-basis'
+import { payslipTotals } from '@/lib/payroll/payslip-totals'
+import { deriveDailyRate, deriveHourlyRate } from '@/lib/payroll/rates'
+import { loanInstallment } from '@/lib/payroll/loan-repayment'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { buildOtMapKey, getApprovedOtHoursMap } from '@/lib/overtime-requests'
 import { computePayroll } from '@/lib/payroll/engine'
-import { computeHours, normalizeSingleShiftTimeOut, resolveShiftForDtr } from '@/lib/timesheet/compute'
-import { getWorkingDays, isFirstCutoff } from '@/lib/utils'
+import { getWorkingDays } from '@/lib/utils'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -19,6 +32,16 @@ const computePayloadSchema = z.object({
 })
 
 /**
+ * Count minutes of overlap with the night-differential window (PHT).
+ *
+ * The window is configured in Manila local time (e.g. 22:00-06:00 PHT). We
+ * MUST compare cursor times in the same TZ — Vercel's Node runtime defaults
+ * to UTC, so `cursor.getHours()` returns UTC hours, which would silently
+ * mis-count ND for any overnight PHT shift. This function uses the UTC
+ * accessors and shifts by +8 hours to get the PHT minute-of-day, so the
+ * result is identical regardless of the server's TZ.
+ */
+/**
  * Roll timeOut forward by 24h when it lands at or before timeIn — covers
  * overnight shifts where the operator (or a manual DTR edit) stored
  * timeOut on the same calendar day as timeIn. Without this, an
@@ -28,7 +51,8 @@ const computePayloadSchema = z.object({
  * that computes (timeOut - timeIn).
  */
 function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
-  return normalizeSingleShiftTimeOut(timeIn, timeOut)
+  if (timeOut.getTime() > timeIn.getTime()) return timeOut
+  return new Date(timeOut.getTime() + 24 * 60 * 60 * 1000)
 }
 
 // Hard ceiling on per-shift night-differential. Matches PH practice of an
@@ -40,6 +64,30 @@ function normalizeOvernightOut(timeIn: Date, timeOut: Date): Date {
 // credit more than 7 hours of ND should set this via PayrollCycleConfig
 // in a follow-up — for now we apply a flat ceiling.
 const MAX_ND_MINUTES_PER_SHIFT = 7 * 60
+
+function countNightMinutes(params: {
+  timeIn: Date
+  timeOut: Date
+  startMinutes: number
+  endMinutes: number
+}) {
+  let minutes = 0
+  const crossesMidnight = params.startMinutes > params.endMinutes
+  const effectiveTimeOut = normalizeOvernightOut(params.timeIn, params.timeOut)
+  let cursor = new Date(params.timeIn)
+  while (cursor < effectiveTimeOut) {
+    // PHT minute-of-day, regardless of server TZ
+    const utcMin = cursor.getUTCHours() * 60 + cursor.getUTCMinutes()
+    const currentMinutes = (utcMin + 8 * 60) % (24 * 60)
+    const inWindow = crossesMidnight
+      ? currentMinutes >= params.startMinutes || currentMinutes < params.endMinutes
+      : currentMinutes >= params.startMinutes && currentMinutes < params.endMinutes
+    if (inWindow) minutes += 1
+    cursor = new Date(cursor.getTime() + 60_000)
+  }
+  // Cap at 7 paid hours per shift (see MAX_ND_MINUTES_PER_SHIFT note).
+  return Math.min(minutes, MAX_ND_MINUTES_PER_SHIFT)
+}
 
 // ── Schedule-derived ND fallback ────────────────────────────────────────────
 // When an employee has a FIXED schedule (e.g. "Nightshift 23:00–08:00") but
@@ -92,6 +140,7 @@ function shiftNdOverlapMinutes(
  * Prisma — same convention used elsewhere in this route.
  */
 function computeScheduledNdHoursForPeriod(opts: {
+  timezone?: string
   shiftStartMin: number
   shiftEndMin: number
   workDays: number[]
@@ -105,27 +154,18 @@ function computeScheduledNdHoursForPeriod(opts: {
   // Same per-shift ceiling we apply to DTR-derived ND so monthly night-
   // shift hires don't end up with more credited ND than their actually-
   // clocked-in peers under the cap.
-  const perDayOverlap = Math.min(
-    shiftNdOverlapMinutes(
-      opts.shiftStartMin, opts.shiftEndMin,
-      opts.ndStartMin, opts.ndEndMin,
-    ),
-    MAX_ND_MINUTES_PER_SHIFT,
-  )
-  if (perDayOverlap === 0) return 0
-  // When break is excluded from ND, subtract up to `breakMinutes` per day
-  // (clamped — never let ND go negative when the shift overlap is smaller
-  // than the configured break, e.g. a 4-hour ND overlap on a 60-min break).
-  const perDayNet = opts.ndIncludesBreak
-    ? perDayOverlap
-    : Math.max(0, perDayOverlap - opts.breakMinutes)
   let totalMin = 0
   const cursor = new Date(opts.periodStart)
   // Inclusive end — match the rest of the route which filters DTRs with `lte`
   const endMs = opts.periodEnd.getTime()
   while (cursor.getTime() <= endMs) {
     if (opts.workDays.includes(cursor.getUTCDay())) {
-      totalMin += perDayNet
+      const clock=(m:number)=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`
+      const bounds=scheduleInstants(cursor,clock(opts.shiftStartMin),clock(opts.shiftEndMin),timezone(opts.timezone))
+      const start=bounds.scheduledStart?zonedParts(bounds.scheduledStart).minutes:opts.shiftStartMin
+      const end=bounds.scheduledEnd?zonedParts(bounds.scheduledEnd).minutes:opts.shiftEndMin
+      const overlap=Math.min(shiftNdOverlapMinutes(start,end,opts.ndStartMin,opts.ndEndMin),MAX_ND_MINUTES_PER_SHIFT)
+      totalMin += opts.ndIncludesBreak?overlap:Math.max(0,overlap-opts.breakMinutes)
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
@@ -262,10 +302,24 @@ export async function POST(
   })
 
   if (!run) return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 })
-  if (run.status === 'LOCKED') {
+  if (run.runType === 'FINAL_PAY' || await prisma.payslip.findFirst({where:{payrollRunId:runId,calculationBasis:{path:['kind'],equals:'FINAL_PAY'}},select:{id:true}})) return NextResponse.json({error:'This run contains reviewed final pay. Remove its final-pay payslip before recomputing regular payroll, then generate final pay again.'},{status:409})
+  if (run.runType === 'LEAVE_ENCASHMENT') return NextResponse.json({error:'This is a dedicated leave encashment payroll. Cancel the editable batch in Leave Encashment and generate a new batch to revise it.'},{status:409})
+  if (run.runType === 'THIRTEENTH_MONTH') return NextResponse.json({error:'This is a 13th-month payroll. Delete the editable run and regenerate from 13th Month Pay to revise it.'},{status:409})
+  if (['APPROVED', 'LOCKED', 'DISBURSED'].includes(run.status)) {
     return NextResponse.json({ error: 'Payroll run is locked and cannot be recomputed' }, { status: 400 })
   }
 
+  const computationStartedAt = new Date()
+  const claimed = await prisma.payrollRun.updateMany({
+    where: { id: runId, payslips:{none:{calculationBasis:{path:['kind'],equals:'FINAL_PAY'}}}, OR: [{ computationStartedAt: null }, { computationStartedAt: { lt: new Date(Date.now() - 30 * 60 * 1000) } }], status: { notIn: ['APPROVED', 'LOCKED', 'DISBURSED'] } },
+    data: { computationStartedAt },
+  })
+  if (!claimed.count) return NextResponse.json({ error: 'Payroll is already being computed or is locked' }, { status: 409 })
+  try {
+  const leaveEncashments = await prisma.leaveEncashment.findMany({
+    where: { payrollRunId: runId, companyId: scopedCompanyId, status: 'APPROVED' },
+    include: { balance: { select: { employeeId: true } }, incomeType: { select: { name: true } } },
+  })
   const rawBody = await req.json().catch(() => ({}))
   const parsedPayload = computePayloadSchema.safeParse(rawBody)
   if (!parsedPayload.success) {
@@ -274,7 +328,7 @@ export async function POST(
   const variableIncomeEntriesInput = parsedPayload.data.variableIncomeEntries
 
   const rawWorkingDays = getWorkingDays(run.periodStart, run.periodEnd)
-  const firstCutoff = isFirstCutoff(run.periodStart)
+  const firstCutoff = run.payDate.getUTCDate() <= 15
   let payrollConfig: {
     enableOvertime: boolean
     enableNightDifferential: boolean
@@ -283,6 +337,9 @@ export async function POST(
     nightDifferentialEnd?: string | null
     nightDifferentialIncludesBreak?: boolean | null
     disableLateDeductions?: boolean
+    disableUndertimeDeductions?: boolean
+    workingDaysPerMonth?: { toNumber(): number } | number
+    mandatoryDeductionFrequency?: 'SEMI_MONTHLY' | 'MONTHLY'
   } | null = null
   try {
     payrollConfig = await prisma.payrollCycleConfig.findUnique({
@@ -295,47 +352,19 @@ export async function POST(
         nightDifferentialEnd: true,
         nightDifferentialIncludesBreak: true,
         disableLateDeductions: true,
+        disableUndertimeDeductions: true,
+        workingDaysPerMonth: true,
+        mandatoryDeductionFrequency: true,
       },
     })
   } catch {
     payrollConfig = null
   }
-  // The two attendance-deduction settings live in a separate best-effort
-  // read. They're deliberately NOT added to the select above: that query's
-  // catch nulls out the ENTIRE config, so a database that hasn't run the
-  // 20260822000000_add_attendance_deduction_settings migration yet would
-  // silently lose every other payroll setting. Reading them on their own
-  // means an un-migrated DB just falls back to the defaults for these two.
-  let attendanceDeductionConfig: {
-    disableUndertimeDeductions: boolean
-    workingDaysPerMonth: number
-  } | null = null
-  try {
-    const rows = await prisma.$queryRaw<Array<{
-      disableUndertimeDeductions: boolean | null
-      workingDaysPerMonth: unknown
-    }>>`
-      SELECT "disableUndertimeDeductions", "workingDaysPerMonth"
-      FROM "payroll_cycle_configs"
-      WHERE "companyId" = ${scopedCompanyId}
-      LIMIT 1
-    `
-    const row = rows?.[0]
-    if (row) {
-      const wdpm = Number(row.workingDaysPerMonth)
-      attendanceDeductionConfig = {
-        disableUndertimeDeductions: row.disableUndertimeDeductions ?? false,
-        workingDaysPerMonth: Number.isFinite(wdpm) && wdpm > 0 ? wdpm : 22,
-      }
-    }
-  } catch {
-    attendanceDeductionConfig = null
-  }
-
   const overtimeEnabled = payrollConfig?.enableOvertime ?? true
   const disableLateDeductions = payrollConfig?.disableLateDeductions ?? false
-  const disableUndertimeDeductions = attendanceDeductionConfig?.disableUndertimeDeductions ?? false
-  const workingDaysPerMonth = attendanceDeductionConfig?.workingDaysPerMonth ?? 22
+  const disableUndertimeDeductions = payrollConfig?.disableUndertimeDeductions ?? false
+  const workingDaysPerMonth = Number(payrollConfig?.workingDaysPerMonth ?? 22)
+  const mandatoryDeductionFrequency = payrollConfig?.mandatoryDeductionFrequency ?? 'SEMI_MONTHLY'
   const nightDifferentialEnabled = payrollConfig?.enableNightDifferential ?? true
   const nightDiffRate = nightDifferentialEnabled
     ? (payrollConfig?.nightDifferentialRate && typeof payrollConfig.nightDifferentialRate === 'object'
@@ -347,7 +376,7 @@ export async function POST(
   // schedule-derived fallback so they agree on the boundary.
   const nightDiffStartMinutes = parseClockMinutes(payrollConfig?.nightDifferentialStart ?? null) ?? 22 * 60
   const nightDiffEndMinutes = parseClockMinutes(payrollConfig?.nightDifferentialEnd ?? null) ?? 6 * 60
-  const ndIncludesBreak = payrollConfig?.nightDifferentialIncludesBreak ?? false
+  const ndIncludesBreak = payrollConfig?.nightDifferentialIncludesBreak ?? true
   let differentialRules = {
     regularOtRate: 1.25,
     restDayOtRate: 1.69,
@@ -415,34 +444,47 @@ export async function POST(
     }
   }
 
+  const sourceRuns = await prisma.payrollRun.findMany({
+    where: { companyId: scopedCompanyId, id: { not: runId } },
+    select: { id: true, updatedAt: true }, orderBy: { id: 'asc' },
+  })
   const employees = await prisma.employee.findMany({
     where: employeeWhere,
     include: {
       workSchedule: {
         select: {
+          timezone: true,
           workHoursPerDay: true,
           scheduleType: true,
           timeIn: true,
           timeOut: true,
           workDays: true,
           breakMinutes: true,
+          breakEnabled: true,
         },
       },
-      // A loan must not be charged to a payroll period that ended before the
-      // loan began. Without this boundary, a back-dated/recomputed run can
-      // consume a newly-created cash advance or company loan.
-      loans: {
-        where: {
-          status: 'ACTIVE',
-          startDate: { lte: run.periodEnd },
-        },
-      },
+      loans: { where: { OR: [{ status: 'ACTIVE' }, { deductions: { some: { payslip: { payrollRunId: runId } } } }] }, orderBy: [{ startDate: 'asc' }, { id: 'asc' }] },
       incomeAssignments: {
         where: { isActive: true, incomeType: { isActive: true } },
         include: { incomeType: true },
       },
     },
   })
+
+  const existingRepayments = await prisma.payslipLoanDeduction.findMany({
+    where: { payslip: { payrollRunId: runId } }, select: { loanId: true, amount: true },
+  })
+  const restoredLoanAmounts = new Map(existingRepayments.map(d => [d.loanId, Number(d.amount)]))
+  // A downstream payroll has consumed this run's carryover. Prevent stale chains.
+  const laterPayroll = await prisma.payslip.findFirst({ where: {
+    employeeId: { in: employees.map(e => e.id) },
+    payrollRun: { runType: 'REGULAR', companyId: scopedCompanyId, id: { not: runId }, status: { in: ['COMPUTED', 'FOR_APPROVAL', 'APPROVED', 'LOCKED', 'DISBURSED'] }, OR: [
+      { payDate: { gt: run.payDate } },
+      { payDate: run.payDate, periodEnd: { gt: run.periodEnd } },
+      { payDate: run.payDate, periodEnd: run.periodEnd, createdAt: { gt: run.createdAt } },
+    ] },
+  }, select: { id: true } })
+  if (laterPayroll) return NextResponse.json({ error: 'A later payroll already exists for these employees. Remove or cancel later draft payrolls before recomputing an earlier cycle so carried deductions are not counted twice.' }, { status: 409 })
 
   // Per-employee "Other Deductions" line items. Fetched separately (and
   // guarded) so a not-yet-migrated table can't break the whole payroll compute
@@ -459,6 +501,25 @@ export async function POST(
       const list = otherDeductionMap.get(it.employeeId) ?? []
       list.push({ label: it.label, amount: Number(it.amount) })
       otherDeductionMap.set(it.employeeId, list)
+    }
+    // Active employee-paid benefit premiums are monthly amounts. Split them
+    // across the run frequency and include them in the same itemized deduction
+    // bucket used by recurring employee deductions.
+    const benefitDivisor = run.payFrequency === 'MONTHLY' ? 1 : run.payFrequency === 'SEMI_MONTHLY' ? 2 : run.payFrequency === 'WEEKLY' ? 4 : 22
+    const enrollments = await prisma.employeeBenefitEnrollment.findMany({
+      where: {
+        employeeId: { in: employees.map(e => e.id) }, status: 'ACTIVE',
+        effectiveDate: { lte: run.periodEnd }, OR: [{ endDate: null }, { endDate: { gte: run.periodStart } }],
+      },
+      include: { plan: { select: { name: true, employeeShare: true, isActive: true } } },
+    })
+    for (const enrollment of enrollments) {
+      if (!enrollment.plan.isActive) continue
+      const monthly = Number(enrollment.employeeShare ?? enrollment.plan.employeeShare)
+      if (monthly <= 0) continue
+      const list = otherDeductionMap.get(enrollment.employeeId) ?? []
+      list.push({ label: `Benefit: ${enrollment.plan.name}`, amount: Math.round(monthly / benefitDivisor * 100) / 100 })
+      otherDeductionMap.set(enrollment.employeeId, list)
     }
   } catch (err) {
     console.error('[payroll compute] other deductions unavailable (run migration)', err)
@@ -494,6 +555,9 @@ export async function POST(
     )
   }
 
+  if (leaveEncashments.some(e => !employees.some(employee => employee.id === e.balance.employeeId))) {
+    return NextResponse.json({ error: 'An approved leave encashment belongs to an employee outside this payroll. Restore the employee scope or cancel the encashment before computing.' }, { status: 409 })
+  }
   const variableIncomeEntriesByKey = new Map<string, number>()
   for (const entry of variableIncomeEntriesInput) {
     variableIncomeEntriesByKey.set(
@@ -534,10 +598,22 @@ export async function POST(
   })
 
   // ── Build payslip input data for each employee ─────────────────────────────
+  const hourlyAssignments = await prisma.employeeShiftAssignment.findMany({
+    where: { companyId: scopedCompanyId, employeeId: { in: employees.filter(e => e.rateType === 'HOURLY' || e.rateType === 'MONTHLY').map(e => e.id) }, date: { gte: run.periodStart, lte: run.periodEnd } },
+    include: { schedule: true },
+    orderBy: [{ date: 'asc' }, { id: 'asc' }],
+  })
+
+  const monthlyLeaves = await prisma.leaveRequest.findMany({
+    where: { employee: { companyId: scopedCompanyId }, employeeId: { in: employees.filter(e => e.rateType === 'MONTHLY').map(e => e.id) }, status: 'APPROVED', startDate: { lte: run.periodEnd }, endDate: { gte: run.periodStart } },
+    include: { leaveType: { select: { isWithPay: true } } },
+  })
+  const salaryRecords = await prisma.hrOperation.findMany({where:{companyId:scopedCompanyId,kind:'SALARY_CHANGE',status:'APPROVED'},orderBy:{id:'asc'}})
+  if(salaryRecords.some(r=>(r.data as Record<string,unknown>).retroTargetRunId===runId&&!employees.some(e=>e.id===r.employeeId)))throw new Error('A scheduled retro-pay employee is no longer in this payroll scope. Unschedule their retro pay in HR Center first.')
   type PayslipBuildItem = {
     employeeId: string
     data: Parameters<typeof prisma.payslip.create>[0]['data']
-    loanDeductions: { id: string; amount: number }[]
+    loanDeductions: { id: string; type: string; amount: number }[]
     incomes: { incomeTypeId: string; typeName: string; amount: number; isTaxable: boolean }[]
   }
 
@@ -556,53 +632,33 @@ export async function POST(
     // Enhance each DTR record:
     // 1. Auto-detect holiday from company calendar (overrides whatever was stored)
     // 2. Auto-compute OT/regular hours from timeIn/timeOut if missing
-    const enhancedDtr = await Promise.all(dtrRecords.map(async d => {
+    if (emp.trackTime && dtrRecords.some(d => d.source === 'OFFLINE' && (!d.timeOut || !d.approvedBy))) return NextResponse.json({ error: `Review ${emp.employeeNo}'s offline attendance before computing payroll.` }, { status: 409 })
+    const pendingRest = dtrRecords.filter(d => d.isRestDay && (d.restDayApproval === 'PENDING' || d.restDayApproval === 'REJECTED'))
+    if (pendingRest.length) return NextResponse.json({ error: `Review ${emp.employeeNo}'s unresolved rest-day shifts in Time Sheets before computing payroll.` }, { status: 409 })
+    const restRecords = dtrRecords.filter(d => d.isRestDay && d.restDayApproval === 'APPROVED')
+    if (restRecords.some(d => !d.timeOut || (emp.trackTime && !d.approvedBy))) return NextResponse.json({ error: `Complete and approve ${emp.employeeNo}'s rest-day attendance before computing payroll.` }, { status: 409 })
+    const remainingApprovedOt = new Map(approvedOtMap)
+    const enhancedDtr = dtrRecords.filter(d => !d.restDayApproval).map(d => {
       const dateKey = new Date(d.date).toISOString().split('T')[0]
       const holiday = holidayMap.get(dateKey)
 
-      // Recompute hours from timestamps if timeIn+timeOut are present
-      // but overtimeHours wasn't stored (manual DTR entries)
-      let overtimeHours = d.overtimeHours?.toNumber() ?? 0
+      const otKey = buildOtMapKey(emp.id, d.date)
+      const payableOt = d.timeIn && d.timeOut ? (remainingApprovedOt.get(otKey) ?? 0) : 0
+      if (d.timeIn && d.timeOut) remainingApprovedOt.set(otKey, 0)
       let nightDiffHours = d.nightDiffHours?.toNumber() ?? 0
-
       if (d.timeIn && d.timeOut) {
-        const effOut = normalizeOvernightOut(d.timeIn, d.timeOut)
-        if (!d.overtimeHours) {
-          const totalMinutes = Math.max(0, (effOut.getTime() - d.timeIn.getTime()) / 60000 - 60) // minus 60 min break
-          const otMinutes = Math.max(0, totalMinutes - 480) // beyond 8 hours
-          overtimeHours = Math.round((otMinutes / 60) * 100) / 100
-        }
-
-        // Use the exact same schedule, break and duration rules as the
-        // timesheet writer. The old payroll-only counter ignored recorded
-        // breaks and malformed multi-day spans, so payslips could disagree
-        // with the Timesheets tab even when both started from the same DTR.
-        const resolved = await resolveShiftForDtr({
-          employeeId: emp.id,
-          date: d.date,
-          actualTimeIn: d.timeIn,
-          employee: {
-            workScheduleId: emp.workScheduleId,
-            workSchedule: emp.workSchedule
-              ? {
-                  timeIn: emp.workSchedule.timeIn ?? null,
-                  timeOut: emp.workSchedule.timeOut ?? null,
-                  breakMinutes: emp.workSchedule.breakMinutes ?? null,
-                  workHoursPerDay: emp.workSchedule.workHoursPerDay ?? null,
-                }
-              : null,
-          },
-          defaultBreakMinutes: run.company.defaultBreakMinutes ?? 60,
+        // Night-differential: always recompute from raw timestamps using
+        // the PHT-aware countNightMinutes. Stored DTR values may be stale
+        // (e.g. set before the PHT bug fix or by a manual import that
+        // skipped ND), so the payroll-time recomputation is the source of
+        // truth.
+        const nightMins = countNightMinutes({
+          timeIn: d.timeIn,
+          timeOut: d.timeOut,
+          startMinutes: nightDiffStartMinutes,
+          endMinutes: nightDiffEndMinutes,
         })
-        nightDiffHours = computeHours(d.timeIn, d.timeOut, d.breakIn, d.breakOut, {
-          plannedRegularMinutes: resolved.plannedRegularMinutes,
-          allowedBreakMinutes: resolved.allowedBreakMinutes,
-          nightDiffStartMins: nightDiffStartMinutes,
-          nightDiffEndMins: nightDiffEndMinutes,
-          nightDiffIncludesBreak: ndIncludesBreak,
-          scheduledTimeIn: resolved.scheduleTimeIn,
-          scheduledTimeOut: resolved.scheduleTimeOut,
-        }).nightDiffHours
+        nightDiffHours = Math.round((nightMins / 60) * 100) / 100
       }
 
       return {
@@ -613,10 +669,10 @@ export async function POST(
         // late. Calendar still wins on the holiday TYPE when present.
         isHoliday: !!holiday || d.isHoliday === true,
         holidayType: holiday?.type ?? d.holidayType,
-        overtimeHours: approvedOtMap.get(buildOtMapKey(emp.id, d.date)) ?? 0,
+        overtimeHours: payableOt,
         nightDiffHours,
       }
-    }))
+    })
 
     const hasDtr = enhancedDtr.length > 0
     // Half-day leave counts as 0.5 worked day (if paid) or 0.5 absent day (if unpaid).
@@ -679,34 +735,19 @@ export async function POST(
       regularHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
     }
 
-    // ── Scheduled regular hours (basis for BASIC PAY) ─────────────────
-    // Same day set as regularHoursTotal above, but each paid day is
-    // credited its FULL scheduled length regardless of when the employee
-    // actually clocked in or out. This keeps the payslip's Basic Pay line
-    // showing the gross entitlement; tardiness and early-outs are charged
-    // once, in the separate late / undertime deduction column.
-    let scheduledHoursTotal = 0
-    if (hasDtr) {
-      for (const d of enhancedDtr) {
-        if (d.isAbsent) continue
-        if (d.isLeave && !d.isLeavePaid) continue
-        if (d.isLeave && d.isLeavePaid) {
-          const halfDay = (d as { isHalfDay?: boolean }).isHalfDay ?? false
-          scheduledHoursTotal += halfDay ? workHoursPerDayForCap / 2 : workHoursPerDayForCap
-          continue
-        }
-        scheduledHoursTotal += workHoursPerDayForCap
-      }
-      scheduledHoursTotal = Math.round(scheduledHoursTotal * 100) / 100
-    } else {
-      scheduledHoursTotal = parseFloat((daysWorked * workHoursPerDayForCap).toFixed(2))
-    }
-
-    // `enhancedDtr.overtimeHours` contains APPROVED OT-request hours only.
-    // Approval is the payroll eligibility gate; `trackTime` only controls how
-    // basic pay is prorated. Employees whose basic pay is fixed can still have
-    // explicitly approved OT, so do not discard it when trackTime=false.
-    const regularOtHoursRaw = enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
+    // Overtime requires DTR-based pay — NOT `trackTime || hasDtr` like the
+    // other DTR-derived figures below.
+    //
+    // Overtime is entirely a product of clock data. An employee with
+    // trackTime=false is paid on a fixed basis, so their basic pay already
+    // covers the period regardless of hours; paying overtime on top of that
+    // from stray DTR rows pays twice for the same time. Night differential
+    // and late/undertime deliberately keep the looser `|| hasDtr` condition:
+    // those are premiums and deductions that still apply to a fixed-pay
+    // employee when clock data happens to exist.
+    const regularOtHoursRaw = emp.trackTime
+      ? enhancedDtr.reduce((s, d) => s + d.overtimeHours, 0)
+      : 0
     let nightDiffHoursRaw = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + d.nightDiffHours, 0)
       : 0
@@ -734,6 +775,7 @@ export async function POST(
         : []
       if (shiftStart !== null && shiftEnd !== null && workDays.length > 0) {
         const scheduledNd = computeScheduledNdHoursForPeriod({
+          timezone: emp.workSchedule.timezone,
           shiftStartMin: shiftStart,
           shiftEndMin: shiftEnd,
           workDays,
@@ -749,13 +791,29 @@ export async function POST(
     }
 
     const regularOtHours = (overtimeEnabled || emp.overtimePayOverride) ? regularOtHoursRaw : 0
-    const nightDiffHours = nightDifferentialEnabled ? nightDiffHoursRaw : 0
+    const nightDiffHours = nightDifferentialEnabled && !emp.disableNightDifferential ? nightDiffHoursRaw : 0
     const lateMinutes = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + (d.lateMinutes ?? 0), 0)
       : 0
     const undertimeMinutes = emp.trackTime || hasDtr
       ? enhancedDtr.reduce((s, d) => s + (d.undertimeMinutes ?? 0), 0)
       : 0
+    // Credit the full scheduled value of each worked day in Basic Pay.
+    // `regularHoursTotal` is actual clocked time and may already exclude
+    // late/undertime minutes; using it here would deduct those minutes once
+    // from Basic Pay and again in the explicit deduction lines below.
+    const hourlySchedule = emp.rateType === 'HOURLY' ? scheduledHourlyPayDays({
+      attendance: enhancedDtr,
+      assignments: hourlyAssignments.filter(a => a.employeeId === emp.id),
+      defaultSchedule: emp.workSchedule,
+      trackTime: emp.trackTime,
+      start: run.periodStart,
+      end: run.periodEnd,
+    }) : null
+    if (hourlySchedule?.errors.length) {
+      return NextResponse.json({ error: `Cannot compute hourly pay for ${emp.employeeNo}. Correct the schedule: ${hourlySchedule.errors.join('; ')}` }, { status: 422 })
+    }
+    const scheduledHoursTotal = hourlySchedule?.hours ?? Number((daysWorked * workHoursPerDayForCap).toFixed(2))
     // Unpaid half-day leave counts as 0.5 absent day
     const dtrAbsent = enhancedDtr.reduce((sum, d) => {
       if (d.isAbsent) return sum + 1
@@ -776,6 +834,7 @@ export async function POST(
     // employees so a half-day clock-in on a holiday yields a half-day
     // premium rather than a full day's worth. MONTHLY/DAILY ignore
     // these fields and stick to the day-count formula.
+    const holidayHoursByDate: Record<string, number> = {}
     let regularHolidayHoursWorked = 0
     let specialHolidayHoursWorked = 0
     if (emp.rateType === 'HOURLY' && hasDtr) {
@@ -794,6 +853,7 @@ export async function POST(
           )
           hrs = Math.min(totalMinutes, workHoursPerDayForCap * 60) / 60
         }
+        holidayHoursByDate[d.id] = hrs
         if (hrs <= 0) continue
         if (d.holidayType === 'REGULAR') regularHolidayHoursWorked += hrs
         else if (d.holidayType === 'SPECIAL_NON_WORKING') specialHolidayHoursWorked += hrs
@@ -832,6 +892,8 @@ export async function POST(
         payrollRunId: { not: runId },
         payrollRun: {
           periodStart: { gte: yearStart, lt: run.periodStart },
+          payDate: { lte: run.payDate },
+          status: { in: ['COMPUTED', 'FOR_APPROVAL', 'APPROVED', 'LOCKED', 'DISBURSED'] },
           companyId: scopedCompanyId,
         },
       },
@@ -843,14 +905,14 @@ export async function POST(
       },
     })
 
-    const dailyRate = emp.dailyRate?.toNumber() ?? emp.basicSalary.toNumber() / 22
     const configuredWorkHours = Number(emp.workSchedule?.workHoursPerDay ?? 8)
     const effectiveWorkHoursPerDay = Number.isFinite(configuredWorkHours) && configuredWorkHours > 0
       ? configuredWorkHours
       : 8
-    const hourlyRate = emp.rateType === 'HOURLY'
-      ? (emp.hourlyRate?.toNumber() ?? dailyRate / effectiveWorkHoursPerDay)
-      : dailyRate / effectiveWorkHoursPerDay
+    const rateEmployee = { basicSalary: emp.basicSalary.toNumber(), dailyRate: Number(emp.dailyRate), hourlyRate: Number(emp.hourlyRate), rateType: emp.rateType }
+    const rateBasis = { workHoursPerDay: effectiveWorkHoursPerDay, workingDaysPerMonth }
+    const dailyRate = deriveDailyRate(rateEmployee, rateBasis)
+    const hourlyRate = deriveHourlyRate(rateEmployee, rateBasis)
 
     // ── Loan deductions: cap each at remaining balance ─────────────────────
     // For semi-monthly, deduct half the monthly amortization each period
@@ -861,12 +923,27 @@ export async function POST(
       : run.payFrequency === 'WEEKLY' ? 4
       : run.payFrequency === 'DAILY' ? 22
       : 1
-    const loanDeductions = emp.loans.map(loan => {
-      const periodAmount = loan.monthlyAmortization.toNumber() / periodDivisor
-      // Never deduct more than the remaining balance
-      const amount = Math.min(periodAmount, loan.balance.toNumber())
-      return { id: loan.id, type: loan.loanType, amount }
+    const previousPayslip = await prisma.payslip.findFirst({
+      where: { employeeId: emp.id, payrollRun: {
+        companyId: scopedCompanyId, runType: 'REGULAR', id: { not: runId },
+        status: { in: ['COMPUTED', 'FOR_APPROVAL', 'APPROVED', 'LOCKED', 'DISBURSED'] },
+        OR: [
+          { payDate: { lt: run.payDate } },
+          { payDate: run.payDate, periodEnd: { lt: run.periodEnd } },
+          { payDate: run.payDate, periodEnd: run.periodEnd, createdAt: { lt: run.createdAt } },
+        ],
+      } },
+      orderBy: [{ payrollRun: { payDate: 'desc' } }, { payrollRun: { periodEnd: 'desc' } }, { payrollRun: { createdAt: 'desc' } }],
+      select: { calculationBasis: true },
+    })
+    const incoming = readDeductionCarryover(previousPayslip?.calculationBasis)
+    const loanDeductions = emp.loans.filter(l => l.startDate <= run.periodEnd).map(loan => {
+      const balance = Number(loan.balance) + (restoredLoanAmounts.get(loan.id) ?? 0)
+      const arrears = incoming?.loans.find(l => l.id === loan.id)?.deferred ?? 0
+      const installment = loanInstallment(Number(loan.monthlyAmortization), periodDivisor, balance)
+      return { id: loan.id, type: loan.loanType, label: loan.loanNo || `${loan.loanType.replaceAll('_', ' ')} (${loan.id.slice(-6)})`, incoming: Math.min(balance, arrears), amount: Math.min(balance, installment + arrears) }
     }).filter(l => l.amount > 0)
+
 
     const incomeBreakdown = emp.incomeAssignments
       .map(assignment => {
@@ -885,6 +962,12 @@ export async function POST(
       })
       .filter(item => item.amount > 0)
 
+    // Ledger entries are independent of manually entered variable income and survive recomputation.
+    for (const entry of leaveEncashments.filter(e => e.balance.employeeId === emp.id)) {
+      const same = incomeBreakdown.find(i => i.incomeTypeId === entry.incomeTypeId)
+      if (same) same.amount = Number((same.amount + Number(entry.amount)).toFixed(2))
+      else incomeBreakdown.push({ incomeTypeId: entry.incomeTypeId, typeName: entry.incomeType.name, amount: Number(entry.amount), isTaxable: entry.isTaxable })
+    }
     const additionalTaxableIncome = incomeBreakdown
       .filter(item => item.isTaxable)
       .reduce((sum, item) => sum + item.amount, 0)
@@ -893,7 +976,30 @@ export async function POST(
       .reduce((sum, item) => sum + item.amount, 0)
     const totalOtherIncome = additionalTaxableIncome + additionalNonTaxableIncome
 
-    const result = computePayroll({
+    // Match statutory remittance reports: reconcile by pay-date month, never
+    // include this run, future runs, drafts or cancelled payrolls.
+    const mandatoryPrior = await prisma.payslip.aggregate({
+      where: { employeeId: emp.id, payrollRunId: { not: runId }, payrollRun: {
+        companyId: scopedCompanyId, runType: 'REGULAR',
+        status: { in: ['COMPUTED', 'FOR_APPROVAL', 'APPROVED', 'LOCKED', 'DISBURSED'] },
+        payDate: { gte: new Date(Date.UTC(run.payDate.getUTCFullYear(), run.payDate.getUTCMonth(), 1)) },
+        OR: [{ payDate: { lt: run.payDate } }, { payDate: run.payDate, periodEnd: { lt: run.periodEnd } },
+          { payDate: run.payDate, periodEnd: run.periodEnd, createdAt: { lt: run.createdAt } }],
+      } },
+      _count: { id: true },
+      _sum: { grossPay: true, lateDeduction: true, undertimeDeduction: true, absenceDeduction: true,
+        sssEmployee: true, sssEmployer: true, sssEc: true, philhealthEmployee: true, philhealthEmployer: true, pagibigEmployee: true, pagibigEmployer: true },
+    })
+    const sums = mandatoryPrior._sum
+    const mandatoryMonthToDate = {
+      compensation: Math.max(0, Number(sums.grossPay ?? 0) - Number(sums.lateDeduction ?? 0) - Number(sums.undertimeDeduction ?? 0) - Number(sums.absenceDeduction ?? 0)),
+      periods: mandatoryPrior._count.id,
+      sssEmployee: Number(sums.sssEmployee ?? 0), sssEmployer: Number(sums.sssEmployer ?? 0), sssEc: Number(sums.sssEc ?? 0),
+      philhealthEmployee: Number(sums.philhealthEmployee ?? 0), philhealthEmployer: Number(sums.philhealthEmployer ?? 0),
+      pagibigEmployee: Number(sums.pagibigEmployee ?? 0), pagibigEmployer: Number(sums.pagibigEmployer ?? 0),
+    }
+    const payrollInput: PayrollInput = {
+      mandatoryMonthToDate,
       employee: {
         id: emp.id,
         basicSalary:         emp.basicSalary.toNumber(),
@@ -903,6 +1009,7 @@ export async function POST(
         payFrequency:        run.payFrequency,
         isMinimumWageEarner:   emp.isMinimumWageEarner,
         isExemptFromTax:       emp.isExemptFromTax,
+        disableNightDifferential: emp.disableNightDifferential,
         disableHolidayPay:     (emp as { disableHolidayPay?: boolean }).disableHolidayPay ?? false,
         disableLateDeduction:  (emp as { disableLateDeduction?: boolean }).disableLateDeduction ?? false,
         disableUndertimeDeduction: (emp as { disableUndertimeDeduction?: boolean }).disableUndertimeDeduction ?? false,
@@ -917,6 +1024,7 @@ export async function POST(
         workingDays,
         payFrequency: run.payFrequency,
         isFirstCutoff: firstCutoff,
+        mandatoryDeductionFrequency,
         nightDifferentialRate: nightDiffRate,
         regularOtRate: differentialRules.regularOtRate,
         restDayOtRate: differentialRules.restDayOtRate,
@@ -924,9 +1032,7 @@ export async function POST(
         specialHolidayOtRate: differentialRules.specialHolidayOtRate,
         disableLateDeductions,
         disableUndertimeDeductions,
-        // Rate basis: both divisors come from company setup, so late /
-        // undertime minutes are priced the same way for every rate type.
-        workHoursPerDay: workHoursPerDayForCap,
+        workHoursPerDay: effectiveWorkHoursPerDay,
         workingDaysPerMonth,
       },
       attendance: {
@@ -958,7 +1064,47 @@ export async function POST(
         withholdingTax:         ytdData._sum.withholdingTax?.toNumber()              ?? 0,
         thirteenthMonthContrib: ytdData._sum.thirteenthMonthContribution?.toNumber() ?? 0,
       },
+    }
+    const history=approvedChanges(salaryRecords.filter(r=>r.employeeId===emp.id))
+    if(history.some(c=>c.rateType!==emp.rateType))throw new Error('Salary rate type changed outside the dated history. Review '+emp.employeeNo)
+    const endRate=salaryAt(history,run.periodEnd.toISOString().slice(0,10),Number(emp.basicSalary))
+    const monthlyDays = emp.rateType === 'MONTHLY' && ['MONTHLY', 'SEMI_MONTHLY', 'WEEKLY'].includes(run.payFrequency) ? monthlyPayDays({
+      start: run.periodStart, end: run.periodEnd, frequency: run.payFrequency, salary: Number(emp.basicSalary), trackTime: emp.trackTime,
+      hireDate: emp.hireDate, terminationDate: emp.terminationDate, workDays: emp.workSchedule?.workDays,
+      assignments: hourlyAssignments.filter(a => a.employeeId === emp.id), attendance: enhancedDtr,
+      leaves: monthlyLeaves.filter(l => l.employeeId === emp.id), holidays: companyHolidays.filter(h => h.type !== 'SPECIAL_WORKING'),
+    }) : undefined
+    if (monthlyDays) payrollInput.monthlyPay = monthlyPayAmounts(monthlyDays, workingDaysPerMonth)
+    const originalResult=computePayroll(payrollInput)
+    const originalBreakdown=dailyBreakdown({attendance:enhancedDtr,holidays:companyHolidays,hourlyDays:hourlySchedule?.days??null,holidayHours:holidayHoursByDate,rateType:emp.rateType,dailyRate,hourlyRate,workHours:workHoursPerDayForCap,trackTime:emp.trackTime,start:run.periodStart,end:run.periodEnd,disableHoliday:emp.disableHolidayPay??false,basicTotal:originalResult.basicPay,premiumTotal:originalResult.holidayPayAmount})
+    const salaryDays=originalBreakdown.rows.map(row=>{
+      const d=row.attendanceId?enhancedDtr.find(d=>d.id===row.attendanceId):undefined
+      return {date:row.date,rate:Number(emp.basicSalary),basicUnits:emp.rateType==='HOURLY'?row.hours:row.days,holidayUnits:row.holidayCredit>0?1:0,premiumUnits:row.premiumUnits*row.premiumFactor,
+        otUnits:emp.trackTime&&(overtimeEnabled||emp.overtimePayOverride)?Number(d?.overtimeHours??0)*differentialRules.regularOtRate:0,
+        nightUnits:nightDifferentialEnabled&&!emp.disableNightDifferential?Number(d?.nightDiffHours??0)*nightDiffRate:0,
+        lateUnits:disableLateDeductions||emp.disableLateDeduction?0:Number(d?.lateMinutes??0),underUnits:disableUndertimeDeductions||emp.disableUndertimeDeduction?0:Number(d?.undertimeMinutes??0)}
     })
+    const originalSnapshot=calculateSalary({version:1,rateType:emp.rateType,divisor:workingDaysPerMonth,hours:effectiveWorkHoursPerDay,days:salaryDays,monthlyDays,amounts:originalResult,changeIds:[]},[])
+    const canDateSalary=(Object.keys(originalSnapshot.amounts) as (keyof typeof originalSnapshot.amounts)[]).every(k=>Math.abs(originalSnapshot.amounts[k]-originalResult[k])<=0.02)
+    const ratesChanged=[...salaryDays,...(monthlyDays??[])].some(d=>salaryAt(history,d.date,d.rate)!==d.rate)
+    if(ratesChanged&&!canDateSalary)throw new Error('Dated salary computation requires a reconciled daily breakdown for '+emp.employeeNo+'. Review daily pay and scheduled night differential before computing.')
+    const salarySnapshot:SalarySnapshot|null=canDateSalary?calculateSalary(originalSnapshot,history):null
+    payrollInput.employee.basicSalary=endRate
+    payrollInput.employee.dailyRate=deriveDailyRate({...rateEmployee,basicSalary:endRate},rateBasis)
+    payrollInput.employee.hourlyRate=deriveHourlyRate({...rateEmployee,basicSalary:endRate},rateBasis)
+    if(history.length)payrollInput.rateAmounts=ratesChanged&&salarySnapshot?salarySnapshot.amounts:originalResult
+    const retroItems=salaryRecords.filter(r=>r.employeeId===emp.id).flatMap(r=>{
+      const d=r.data as Record<string,unknown>
+      return d.retroTargetRunId===runId?(d.retroItems as {sourceId:string;basic:number;other:number}[]??[]):[]
+    })
+    payrollInput.retroBasic=retroItems.reduce((n,r)=>n+r.basic,0)
+    payrollInput.additionalTaxableIncome+=retroItems.reduce((n,r)=>n+r.other,0)
+    const restDayBreak = emp.workSchedule?.breakEnabled === false ? 0 : emp.workSchedule?.breakMinutes ?? 60
+    const restDayBreakdown = restDayPay(restRecords.map(d => ({ ...d, holidayType: holidayMap.get(d.date.toISOString().slice(0,10))?.type ?? d.holidayType })), date => deriveHourlyRate({ ...rateEmployee, basicSalary: salaryAt(history, date, Number(emp.basicSalary)) }, rateBasis), restDayBreak)
+    const restDayTotal = Number(restDayBreakdown.reduce((sum, row) => sum + row.total, 0).toFixed(2))
+    payrollInput.additionalTaxableIncome += restDayTotal
+    const result=computePayroll(payrollInput)
+    const datedBreakdown=ratesChanged&&salarySnapshot?salaryBreakdown(originalBreakdown,salarySnapshot):originalBreakdown
 
     const sssLoans     = loanDeductions.filter(l => l.type.startsWith('SSS')        ).reduce((s, l) => s + l.amount, 0)
     const pagibigLoans = loanDeductions.filter(l => l.type.startsWith('PAGIBIG')    ).reduce((s, l) => s + l.amount, 0)
@@ -968,19 +1114,20 @@ export async function POST(
     // Employee "Other Deductions" (recurring, set up on the employee profile).
     const otherDeductionItems = otherDeductionMap.get(emp.id) ?? []
     const otherDeductionsTotal = parseFloat(
-      otherDeductionItems.reduce((s, d) => s + d.amount, 0).toFixed(2),
+      (otherDeductionItems.reduce((s, d) => s + d.amount, 0) + (incoming?.otherDeferred ?? 0)).toFixed(2),
     )
     const totalDeductionsWithOther = parseFloat((result.totalDeductions + otherDeductionsTotal).toFixed(2))
     const netPayWithOther = parseFloat((result.netPay - otherDeductionsTotal).toFixed(2))
 
     builds.push({
       employeeId: emp.id,
-      loanDeductions: loanDeductions.map(l => ({ id: l.id, amount: l.amount })),
+      loanDeductions,
       data: {
         payrollRunId:               runId,
         employeeId:                 emp.id,
         basicSalary:                result.basicPay,
-        dailyRate,
+        calculationBasis: { monthlyPay: monthlyDays ? { version: 1, frequency: run.payFrequency, divisor: workingDaysPerMonth, days: salarySnapshot?.monthlyDays ?? monthlyDays, ...monthlyPayAmounts(salarySnapshot?.monthlyDays ?? monthlyDays, workingDaysPerMonth) } : null, restDayBreakdown, dailyBreakdown: datedBreakdown, salarySnapshot, retroItems, ...(hourlySchedule&&!ratesChanged ? hourlyCalculationBasis(hourlyRate, hourlySchedule.days) : {}), incomingOther: incoming?.otherDeferred ?? 0 } as unknown as import('@prisma/client').Prisma.InputJsonValue,
+        dailyRate: payrollInput.employee.dailyRate,
         daysWorked,
         hoursWorked:                regularHoursTotal,
         regularOtHours,
@@ -993,7 +1140,7 @@ export async function POST(
         nightDiffAmount:            result.nightDiffAmount,
         holidayPayAmount:           result.holidayPayAmount,
         otherAllowances:            additionalNonTaxableIncome,
-        otherEarnings:              totalOtherIncome,
+        otherEarnings:              totalOtherIncome + restDayTotal + retroItems.reduce((n,r)=>n+r.other,0),
         grossPay:                   result.grossPay,
         sssEmployee:                result.sssEmployee,
         sssEc:                      result.sssEc,
@@ -1031,7 +1178,18 @@ export async function POST(
     totalPagibigEr   += result.pagibigEmployer
   }
 
-  await prisma.$transaction(async tx => {
+  const { priorByLoan, priorManualEdits, aggregated, loanTotalsDeducted, changedEmployees, netPayChange } = await prisma.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${scopedCompanyId}))`
+    await tx.$queryRaw`SELECT id FROM employee_loans WHERE "companyId" = ${scopedCompanyId} ORDER BY id FOR UPDATE`
+    const freshSalary=await tx.hrOperation.findMany({where:{companyId:scopedCompanyId,kind:'SALARY_CHANGE',status:'APPROVED'},orderBy:{id:'asc'}})
+    if(JSON.stringify(salaryRecords)!==JSON.stringify(freshSalary))throw new Error('Salary approvals changed during computation. Recompute again.')
+    const freshSources = await tx.payrollRun.findMany({ where: { companyId: scopedCompanyId, id: { not: runId } }, select: { id: true, updatedAt: true }, orderBy: { id: 'asc' } })
+    if (JSON.stringify(sourceRuns) !== JSON.stringify(freshSources)) throw new Error('Payroll inputs changed during computation. Please recompute again.')
+    for (const employee of employees) {
+      const freshLoans = await tx.employeeLoan.findMany({ where: { id: { in: employee.loans.map(l => l.id) } }, select: { id: true, balance: true, updatedAt: true } })
+      if (employee.loans.some(l => { const fresh = freshLoans.find(f => f.id === l.id); return !fresh || Number(fresh.balance) !== Number(l.balance) || fresh.updatedAt.getTime() !== l.updatedAt.getTime() })) throw new Error('A loan changed during computation. Please recompute again.')
+    }
+
     await tx.payrollRunIncomeEntry.deleteMany({
       where: {
         payrollRunId: runId,
@@ -1050,7 +1208,6 @@ export async function POST(
           })),
       })
     }
-  })
 
   // ── Persist everything in a transaction ───────────────────────────────────
   // Step 1: recompute-safe cleanup.
@@ -1060,7 +1217,7 @@ export async function POST(
   //   (b) Delete the ledger rows + payslips.
   //   (c) Restore each loan: balance += prior debit, flip FULLY_PAID → ACTIVE
   //       and clear endDate; the new pass below will re-deduct + re-flag.
-  const priorDeductions = await prisma.payslipLoanDeduction.findMany({
+  const priorDeductions = await tx.payslipLoanDeduction.findMany({
     where: { payslip: { payrollRunId: runId } },
     select: { loanId: true, amount: true },
   })
@@ -1069,10 +1226,14 @@ export async function POST(
     priorByLoan.set(d.loanId, (priorByLoan.get(d.loanId) ?? 0) + Number(d.amount))
   }
 
+  const previousPay = await tx.payslip.findMany({ where: { payrollRunId: runId }, select: { employeeId: true, netPay: true, grossPay: true, totalDeductions: true } })
+  const oldPay = new Map(previousPay.map(p => [p.employeeId, p]))
+  let changedEmployees = 0
+
   // Snapshot manual edits BEFORE deleting payslips so we can re-apply them
   // to the freshly-built payslips below. Key by employeeId — that's stable
   // across recomputes (payslip IDs are not).
-  const priorManualEdits = await prisma.payslip.findMany({
+  const priorManualEdits = await tx.payslip.findMany({
     where: { payrollRunId: runId, manualEdits: { not: null as never } },
     select: { employeeId: true, manualEdits: true },
   })
@@ -1083,22 +1244,16 @@ export async function POST(
     }
   }
 
-  await prisma.$transaction([
-    prisma.payslipLoanDeduction.deleteMany({
+    await tx.payslipLoanDeduction.deleteMany({
       where: { payslip: { payrollRunId: runId } },
-    }),
-    prisma.payslip.deleteMany({ where: { payrollRunId: runId } }),
-    ...[...priorByLoan.entries()].map(([loanId, amount]) =>
-      prisma.employeeLoan.update({
-        where: { id: loanId },
-        data: {
-          balance: { increment: amount },
-          status: 'ACTIVE',
-          endDate: null,
-        },
-      }),
-    ),
-  ])
+    })
+    await tx.payslip.deleteMany({ where: { payrollRunId: runId } })
+    for (const [loanId, amount] of priorByLoan) {
+      await tx.employeeLoan.update({ where: { id: loanId }, data: {
+        balance: { increment: amount }, status: 'ACTIVE', endDate: null,
+      } })
+    }
+
 
   // Step 2: create new payslips individually so we get their IDs back,
   //         then create PayslipLoanDeduction ledger records
@@ -1106,7 +1261,12 @@ export async function POST(
   const loanTotalsDeducted = new Map<string, number>()
 
   for (const build of builds) {
-    const payslip = await prisma.payslip.create({ data: build.data })
+    const base = (build.data.calculationBasis ?? {}) as Record<string, unknown>
+    build.data.calculationBasis = { ...base,
+      calculatedValues: Object.fromEntries(ADJUSTABLE_FIELDS.map(key => [key, Number(build.data[key] ?? 0)])),
+      calculatedAt: computationStartedAt.toISOString(),
+    } as unknown as import('@prisma/client').Prisma.InputJsonValue
+    const payslip = await tx.payslip.create({ data: build.data })
 
     // Re-apply any prior manual overrides for this employee on top of the
     // freshly-computed payslip. Recompute grossPay / totalDeductions / netPay
@@ -1125,6 +1285,7 @@ export async function POST(
           numericManual[field] = manual[field]
         }
       }
+      if (employees.find(e => e.id === build.employeeId)?.disableNightDifferential) delete numericManual.nightDiffAmount
       const customIncomes = Array.isArray(manual.customIncomes)
         ? manual.customIncomes as Array<{ label: string; amount: number }>
         : []
@@ -1133,10 +1294,10 @@ export async function POST(
         : []
       const customIncomeTotal = customIncomes.reduce((sum, item) => sum + Number(item.amount || 0), 0)
       const customDeductionTotal = customDeductions.reduce((sum, item) => sum + Number(item.amount || 0), 0)
-      const cur = await prisma.payslip.findUniqueOrThrow({
+      const cur = await tx.payslip.findUniqueOrThrow({
         where: { id: payslip.id },
         select: {
-          basicSalary: true, regularOtAmount: true, restDayOtAmount: true,
+          basicSalary: true, calculationBasis: true, regularOtAmount: true, restDayOtAmount: true,
           holidayOtAmount: true, nightDiffAmount: true, holidayPayAmount: true,
           riceAllowance: true, clothingAllowance: true, medicalAllowance: true,
           otherAllowances: true, otherEarnings: true,
@@ -1174,21 +1335,8 @@ export async function POST(
       }
       // otherEarnings already includes non-taxable income (which is also
       // stored in otherAllowances for display). Adding both would double-count.
-      const grossPayManual = parseFloat((
-        merged.basicSalary + merged.regularOtAmount + merged.restDayOtAmount
-        + merged.holidayOtAmount + merged.nightDiffAmount + merged.holidayPayAmount
-        + merged.riceAllowance + merged.clothingAllowance + merged.medicalAllowance
-        + merged.otherEarnings
-      ).toFixed(2))
-      // sssEc excluded: Employees' Compensation is employer-borne.
-      const totalDeductionsManual = parseFloat((
-        merged.sssEmployee + merged.philhealthEmployee + merged.pagibigEmployee
-        + merged.withholdingTax + merged.sssLoanDeduction + merged.pagibigLoan + merged.companyLoan
-        + merged.lateDeduction + merged.undertimeDeduction + merged.absenceDeduction
-        + merged.otherDeductions
-      ).toFixed(2))
-      const netPayManual = parseFloat((grossPayManual - totalDeductionsManual).toFixed(2))
-      await prisma.payslip.update({
+      const { grossPay: grossPayManual, totalDeductions: totalDeductionsManual, netPay: netPayManual } = payslipTotals(merged)
+      await tx.payslip.update({
         where: { id: payslip.id },
         data: {
           ...numericManual,
@@ -1197,13 +1345,26 @@ export async function POST(
           grossPay: grossPayManual,
           totalDeductions: totalDeductionsManual,
           netPay: netPayManual,
+          ...((cur.calculationBasis as { monthlyPay?: unknown } | null)?.monthlyPay ? { thirteenthMonthContribution: Number((earnedBasicPay({ ...merged, calculationBasis: cur.calculationBasis }) / 12).toFixed(2)) } : {}),
           manualEdits: manual as never,
         },
       })
     }
 
+    const finalPayslip = await tx.payslip.findUniqueOrThrow({ where: { id: payslip.id } })
+    const numeric = Object.fromEntries(Object.entries(finalPayslip).map(([key, value]) => [key, Number(value)]))
+    const basis = (finalPayslip.calculationBasis ?? {}) as Record<string, unknown>
+    const allocated = allocateDeductions(numeric, build.loanDeductions, Number(finalPayslip.otherDeductions), Number(basis.incomingOther ?? 0))
+    const old = oldPay.get(build.employeeId)
+    await tx.payslip.update({ where: { id: payslip.id }, data: {
+      ...allocated.deductions, ...allocated.totals,
+      calculationBasis: { ...basis, deductionCarryover: allocated.carryover, ...(old ? { previousPay: { grossPay: Number(old.grossPay), totalDeductions: Number(old.totalDeductions), netPay: Number(old.netPay) } } : {}) } as unknown as import('@prisma/client').Prisma.InputJsonValue,
+    } })
+    if (old && (Number(old.netPay) !== allocated.totals.netPay || Number(old.grossPay) !== allocated.totals.grossPay || Number(old.totalDeductions) !== allocated.totals.totalDeductions)) changedEmployees += 1
+    build.loanDeductions = allocated.carryover.loans.filter(l => l.paid > 0).map(l => ({ id: l.id, type: l.type, amount: l.paid }))
+
     if (build.loanDeductions.length > 0) {
-      await prisma.payslipLoanDeduction.createMany({
+      await tx.payslipLoanDeduction.createMany({
         data: build.loanDeductions.map(ld => ({
           payslipId: payslip.id,
           loanId:    ld.id,
@@ -1216,7 +1377,7 @@ export async function POST(
     }
 
     if (build.incomes.length > 0) {
-      await prisma.payslipIncome.createMany({
+      await tx.payslipIncome.createMany({
         data: build.incomes.map(income => ({
           payslipId: payslip.id,
           incomeTypeId: income.incomeTypeId,
@@ -1230,11 +1391,11 @@ export async function POST(
 
   // Step 3: update each loan's balance; mark PAID when fully settled
   for (const [loanId, deducted] of loanTotalsDeducted) {
-    const loan = await prisma.employeeLoan.findUnique({ where: { id: loanId } })
+    const loan = await tx.employeeLoan.findUnique({ where: { id: loanId } })
     if (!loan) continue
 
     const newBalance = parseFloat(Math.max(0, loan.balance.toNumber() - deducted).toFixed(2))
-    await prisma.employeeLoan.update({
+    await tx.employeeLoan.update({
       where: { id: loanId },
       data: {
         balance:  newBalance,
@@ -1247,14 +1408,14 @@ export async function POST(
   // Step 4: update payroll run totals.
   // Re-aggregate from the actual stored payslips so any manual edits we
   // re-applied above are reflected in the run-level totals.
-  const aggregated = await prisma.payslip.aggregate({
+  const aggregated = await tx.payslip.aggregate({
     where: { payrollRunId: runId },
     _sum: {
       basicSalary: true, grossPay: true, totalDeductions: true, netPay: true,
       sssEmployer: true, philhealthEmployer: true, pagibigEmployer: true,
     },
   })
-  await prisma.payrollRun.update({
+  await tx.payrollRun.update({
     where: { id: runId },
     data: {
       status: 'COMPUTED',
@@ -1268,6 +1429,9 @@ export async function POST(
     },
   })
 
+    return { priorByLoan, priorManualEdits, aggregated, loanTotalsDeducted, changedEmployees, netPayChange: Number((Number(aggregated._sum.netPay ?? 0) - previousPay.reduce((sum, p) => sum + Number(p.netPay), 0)).toFixed(2)) }
+  }, { timeout: 120000, maxWait: 10000 })
+
   const isRecompute = priorByLoan.size > 0 || priorManualEdits.length > 0
   await logAudit(ctx, isRecompute ? 'RECOMPUTE' : 'COMPUTE', 'PayrollRun', runId, {
     description: isRecompute
@@ -1275,6 +1439,7 @@ export async function POST(
       : `Computed payroll for ${employees.length} employees`,
     newValues: {
       employeeCount: employees.length,
+      changedEmployees, netPayChange,
       totalGross: aggregated._sum.grossPay?.toNumber() ?? totalGross,
       totalNetPay: aggregated._sum.netPay?.toNumber() ?? totalNetPay,
     },
@@ -1283,8 +1448,13 @@ export async function POST(
   return NextResponse.json({
     success:       true,
     employeeCount: employees.length,
-    totalGross,
-    totalNetPay,
+    totalGross: Number(aggregated._sum.grossPay ?? 0),
+    totalNetPay: Number(aggregated._sum.netPay ?? 0),
     loansUpdated:  loanTotalsDeducted.size,
+    changedEmployees, netPayChange,
   })
+  } finally {
+    await prisma.payrollRun.updateMany({ where: { id: runId, computationStartedAt }, data: { computationStartedAt: null } })
+  }
+
 }

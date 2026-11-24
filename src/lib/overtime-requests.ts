@@ -1,6 +1,11 @@
 import { prisma } from '@/lib/prisma'
+import { resolveShiftForDtr } from '@/lib/timesheet/compute'
+import { eligibleOtHours } from '@/lib/payroll/ot-policy'
 
 const AUTO_OT_REASON_PREFIX = '[AUTO_OT]'
+
+// A single exclusion still permits the other OT category. Both disable OT entirely.
+export const OT_ELIGIBLE_EMPLOYEE = { NOT: { disableEarlyInOt: true, disableBeyondScheduleOt: true } } as const
 
 function formatManilaDateKey(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -222,6 +227,23 @@ export async function getApprovedOtHoursMap(params: {
     const key = `${request.employeeId}:${formatManilaDateKey(request.date)}`
     map.set(key, (map.get(key) ?? 0) + Number(request.hours ?? 0))
   }
+  // Apply compensation restrictions to approved hours too (including older approvals).
+  const restricted = await prisma.employee.findMany({
+    where: { companyId: params.companyId, id: { in: [...new Set(requests.map(r => r.employeeId))] }, OR: [{ disableEarlyInOt: true }, { disableBeyondScheduleOt: true }] },
+    include: { workSchedule: true },
+  })
+  for (const employee of restricted) {
+    const sessions = await prisma.dTRRecord.findMany({ where: { employeeId: employee.id, date: { gte: params.dateFrom, lte: params.dateTo } } })
+    const caps = new Map<string, number>()
+    for (const session of sessions) {
+      const shift = await resolveShiftForDtr({ employeeId: employee.id, date: session.date, actualTimeIn: session.timeIn, employee: { ...employee, workSchedule: employee.workSchedule ? { ...employee.workSchedule, breakMinutes: employee.workSchedule.breakEnabled === false ? 0 : employee.workSchedule.breakMinutes } : null } })
+      const key = buildOtMapKey(employee.id, session.date)
+      caps.set(key, (caps.get(key) ?? 0) + eligibleOtHours(session, shift, employee))
+    }
+    for (const [key, hours] of map) {
+      if (key.startsWith(employee.id + ':')) map.set(key, Math.min(hours, caps.get(key) ?? 0))
+    }
+  }
   return map
 }
 
@@ -251,12 +273,12 @@ export async function isOvertimeEnabledForCompany(companyId: string): Promise<bo
 /** Company policy, with an explicit employee-level opt-in taking precedence. */
 export async function isOvertimeEnabledForEmployee(companyId: string, employeeId: string): Promise<boolean> {
   const companyEnabled = await isOvertimeEnabledForCompany(companyId)
-  if (companyEnabled) return true
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, companyId },
-    select: { overtimePayOverride: true },
+    select: { overtimePayOverride: true, disableEarlyInOt: true, disableBeyondScheduleOt: true },
   })
-  return employee?.overtimePayOverride === true
+  if (!employee || (employee.disableEarlyInOt && employee.disableBeyondScheduleOt)) return false
+  return companyEnabled || employee.overtimePayOverride === true
 }
 
 /**
@@ -280,6 +302,7 @@ export async function approveAutoOtForDtr(params: {
       date: { gte: dayStart, lt: dayEnd },
       status: 'PENDING',
       reason: { startsWith: AUTO_OT_REASON_PREFIX },
+      employee: OT_ELIGIBLE_EMPLOYEE,
     },
     data: {
       status: 'APPROVED',
@@ -302,15 +325,24 @@ export async function approveAutoOtForDtr(params: {
 export async function approveAutoOtByIds(params: {
   companyId: string
   ids: string[]
+  employeeId?:string
+  dateFrom?:Date
+  dateTo?:Date
   approvedById: string
 }): Promise<number> {
   if (params.ids.length === 0) return 0
+  const candidates=await prisma.overtimeRequest.findMany({where:{id:{in:params.ids},companyId:params.companyId,status:'PENDING',reason:{startsWith:AUTO_OT_REASON_PREFIX},...(params.employeeId?{employeeId:params.employeeId}:{}),...(params.dateFrom&&params.dateTo?{date:{gte:params.dateFrom,lte:params.dateTo}}:{})},select:{id:true,employeeId:true,date:true}})
+  if(!candidates.length)return 0
+  const sessions=await prisma.dTRRecord.findMany({where:{employee:{companyId:params.companyId,trackTime:true},timeIn:{not:null},timeOut:{not:null},approvedBy:params.approvedById,OR:candidates.map(c=>({employeeId:c.employeeId,date:c.date}))},select:{employeeId:true,date:true}})
+  const ids=candidates.filter(c=>sessions.some(s=>s.employeeId===c.employeeId&&s.date.getTime()===c.date.getTime())).map(c=>c.id)
+  if(!ids.length)return 0
   const result = await prisma.overtimeRequest.updateMany({
     where: {
-      id: { in: params.ids },
+      id: { in: ids },
       companyId: params.companyId,
       status: 'PENDING',
       reason: { startsWith: AUTO_OT_REASON_PREFIX },
+      employee: OT_ELIGIBLE_EMPLOYEE,
     },
     data: {
       status: 'APPROVED',
@@ -337,21 +369,8 @@ export async function approveAutoOtForRange(params: {
   const endPlus = new Date(params.dateTo)
   endPlus.setHours(0, 0, 0, 0)
   endPlus.setDate(endPlus.getDate() + 1)
-  const result = await prisma.overtimeRequest.updateMany({
-    where: {
-      companyId: params.companyId,
-      ...(params.employeeId ? { employeeId: params.employeeId } : {}),
-      date: { gte: start, lt: endPlus },
-      status: 'PENDING',
-      reason: { startsWith: AUTO_OT_REASON_PREFIX },
-    },
-    data: {
-      status: 'APPROVED',
-      approvedById: params.approvedById,
-      approvedAt: new Date(),
-    },
-  })
-  return result.count
+  const candidates=await prisma.overtimeRequest.findMany({where:{companyId:params.companyId,...(params.employeeId?{employeeId:params.employeeId}:{}),date:{gte:start,lt:endPlus},status:'PENDING',reason:{startsWith:AUTO_OT_REASON_PREFIX}},select:{id:true}})
+  return approveAutoOtByIds({companyId:params.companyId,ids:candidates.map(c=>c.id),approvedById:params.approvedById})
 }
 
 export async function syncAutoOvertimeRequestsForCompany(params: {

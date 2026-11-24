@@ -27,7 +27,7 @@ export function ProcessPayrollButton({ runId }: { runId: string }) {
       {processing && <span className="absolute inset-0 animate-pulse bg-white/10" />}
       <span className="relative inline-flex items-center gap-2">
         {processing && <Loader2 className="h-4 w-4 animate-spin" />}
-        {processing ? 'Processing payroll…' : 'Process Payroll'}
+        {processing ? 'Opening summary...' : 'Review Payroll Summary'}
       </span>
     </button>
   )

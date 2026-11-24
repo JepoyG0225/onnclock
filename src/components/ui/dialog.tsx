@@ -101,7 +101,7 @@ function DialogContent({
       {/* Panel */}
       <div
         className={cn(
-          'relative z-10 w-full bg-white rounded-2xl shadow-2xl',
+          'relative z-10 w-full bg-white rounded-2xl border border-[var(--brand-border)] shadow-2xl',
           'max-h-[90vh] overflow-y-auto',
           'animate-in fade-in zoom-in-95 duration-200',
           className ?? 'max-w-md mx-4'
@@ -111,7 +111,7 @@ function DialogContent({
         <button
           type="button"
           onClick={() => onOpenChange(false)}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
+          className="absolute right-4 top-4 rounded-full bg-white/90 p-1 text-primary hover:bg-blue-100 transition-colors z-10"
         >
           <X className="w-4 h-4" />
           <span className="sr-only">Close</span>
@@ -139,7 +139,7 @@ function DialogHeader({ children, className }: { children: React.ReactNode; clas
 
 function DialogTitle({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <h2 className={cn('text-lg font-semibold text-gray-900 pr-6', className)}>
+    <h2 className={cn('text-lg font-semibold text-primary pr-6', className)}>
       {children}
     </h2>
   )

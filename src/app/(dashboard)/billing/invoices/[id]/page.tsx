@@ -103,7 +103,7 @@ export default function InvoicePage() {
       <div className="text-center py-24 text-slate-400">
         <AlertCircle className="w-8 h-8 mx-auto mb-3" />
         <p className="font-medium">Invoice not found.</p>
-        <Link href="/settings/billing" className="text-[#000000] text-sm mt-2 inline-block hover:underline">
+        <Link href="/settings/billing" className="text-[var(--brand-primary)] text-sm mt-2 inline-block hover:underline">
           ← Back to Billing
         </Link>
       </div>
@@ -127,7 +127,7 @@ export default function InvoicePage() {
   }
 
   const statusConfig = {
-    PAID:   { label: 'PAID',   icon: CheckCircle, color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+    PAID:   { label: 'PAID',   icon: CheckCircle, color: '#c74300', bg: '#f0fdf4', border: '#bbf7d0' },
     UNPAID: { label: 'UNPAID', icon: Clock,        color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
     DRAFT:  { label: 'DRAFT',  icon: Clock,        color: '#666666', bg: '#f7f7f7', border: '#d4d4d4' },
     VOID:   { label: 'VOID',   icon: AlertCircle,  color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
@@ -148,7 +148,7 @@ export default function InvoicePage() {
     <>
       {/* Print/action bar — hidden in print */}
       <div className="no-print flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 sticky top-0 z-10">
-        <Link href="/settings/billing" className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#000000] transition-colors">
+        <Link href="/settings/billing" className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[var(--brand-primary)] transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Billing
         </Link>
         <button
@@ -269,7 +269,7 @@ export default function InvoicePage() {
               </div>
               <div className="flex justify-between pt-3 border-t-2 border-slate-200">
                 <span className="font-black text-slate-900 text-base">Total Due</span>
-                <span className="font-black text-xl" style={{ color: '#000000' }}>{fmt(invoice.total)}</span>
+                <span className="font-black text-xl" style={{ color: 'var(--brand-primary)' }}>{fmt(invoice.total)}</span>
               </div>
             </div>
           </div>

@@ -6,14 +6,15 @@
 // (src/components/employee/PortalPwaRegister.tsx) periodically calls
 // registration.update() so this check fires sooner than the default
 // 24-hour browser interval.
-const BUILD_VERSION = '2026-05-19-1'
+const BUILD_VERSION = '2026-11-20-brand-3'
 const CACHE_PREFIX = 'onclock-cache-'
 const CURRENT_CACHE = `${CACHE_PREFIX}${BUILD_VERSION}`
 
 self.addEventListener('install', (event) => {
   // skipWaiting() makes the new SW take over right away instead of
-  // waiting for every tab to close — combined with clients.claim() in
+  // waiting for every tab to close â€” combined with clients.claim() in
   // activate, users see the latest build on the next page load.
+  event.waitUntil(caches.open(CURRENT_CACHE).then(cache => cache.addAll(['/portal-offline.html', '/portal-offline.js'])))
   self.skipWaiting()
 })
 
@@ -47,5 +48,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()
+  }
+})
+
+// Cache only the public offline shell, never authenticated HTML or API responses.
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url)
+  if (url.origin !== self.location.origin || event.request.method !== 'GET') return
+  if (['/portal-offline.html', '/portal-offline.js'].includes(url.pathname)) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(url.pathname)))
+  } else if (event.request.mode === 'navigate' && (url.pathname === '/portal' || url.pathname.startsWith('/portal/'))) {
+    event.respondWith(fetch(event.request).catch(() => caches.match('/portal-offline.html')))
   }
 })

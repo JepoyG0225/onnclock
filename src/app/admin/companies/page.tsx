@@ -1,4 +1,5 @@
 'use client'
+import { getStatusColor } from '@/lib/utils'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -286,7 +287,7 @@ export default function AdminCompaniesPage() {
             { key: 'all', label: 'All Companies' },
             { key: 'no-employees', label: `No Employees (${summary.noEmployees})` },
           ] as { key: FilterTab; label: string }[]).map(t => (
-            <button
+            <button data-app-tab data-active={tab === t.key}
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`px-4 py-2 transition-colors ${tab === t.key ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
@@ -343,7 +344,7 @@ export default function AdminCompaniesPage() {
                           <p className="text-xs mt-0.5" style={{ color: THEME.mid }}>{company.email ?? '—'}</p>
                           {company.subscription?.trialEndsAt && (
                             <p className="text-[11px] mt-0.5" style={{ color: THEME.soft }}>
-                              Trial ends {format(new Date(company.subscription.trialEndsAt), 'MMM dd, yyyy')}
+                              Trial {company.subscription.status === 'EXPIRED' ? 'ended' : 'ends'} {format(new Date(company.subscription.trialEndsAt), 'MMM dd, yyyy')}
                             </p>
                           )}
                         </div>
@@ -353,9 +354,11 @@ export default function AdminCompaniesPage() {
                     {/* Subscription */}
                     <td className="px-5 py-4 hidden md:table-cell">
                       {company.subscription ? (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_COLORS[company.subscription.status]}`}>
+                        <><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getStatusColor(company.subscription.status)}`}>
                           {company.subscription.status}
                         </span>
+                        {company.subscription.currentPeriodEnd && <p className="mt-1 text-[11px]" style={{ color: THEME.mid }}>{company.subscription.status === 'EXPIRED' ? 'Expired - not renewed' : company.subscription.status === 'CANCELLED' ? 'Coverage ended / ends' : 'Expires'} {format(new Date(company.subscription.currentPeriodEnd), 'MMM dd, yyyy')}</p>}
+                        </>
                       ) : (
                         <span className="text-xs" style={{ color: THEME.mid }}>No subscription</span>
                       )}

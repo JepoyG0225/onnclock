@@ -22,20 +22,13 @@
  *   - Credit applies to ANY subsequent paid invoice (renewal OR
  *     add-seats), not just renewals — most useful flow is "deactivate
  *     one, add another later, only pay the difference".
- *   - Discount factor of the cycle is preserved (annual 20%-discounted
- *     seats issue 20%-discounted credit, so the refund matches what was
- *     actually paid).
+ *   - Refunds use the paid invoice amount, never current catalog prices.
+ *   - A refund retires one unused paid seat and is limited to once per employee/cycle.
  */
 
 import { prisma } from '@/lib/prisma'
-import { effectiveDiscountPct } from '@/lib/billing/pricing'
-
-const DURATION_MONTHS: Record<string, number> = {
-  MONTHLY: 1,
-  '3_MONTH': 3,
-  '6_MONTH': 6,
-  ANNUAL: 12,
-}
+import type { Prisma } from '@prisma/client'
+import { invoiceSeatCredit, invoiceFundedAmount } from './credit-policy'
 
 export interface IssueDeactivationCreditResult {
   /** Credit amount that was issued (0 when no credit was warranted). */
@@ -48,7 +41,7 @@ export interface IssueDeactivationCreditResult {
 
 /**
  * Issue a pro-rated billing credit for one freed-up seat on the current
- * subscription cycle. Safe to call inside a transaction.
+ * subscription cycle. Opens its own serialized transaction.
  */
 export async function issueDeactivationCredit(opts: {
   companyId: string
@@ -56,57 +49,37 @@ export async function issueDeactivationCredit(opts: {
   /** Free-form note saved on the ledger entry for audit. */
   notes?: string
 }): Promise<IssueDeactivationCreditResult> {
-  const sub = await prisma.subscription.findUnique({
-    where: { companyId: opts.companyId },
-    select: {
-      status: true, billingCycle: true, pricePerSeat: true, seatCount: true,
-      currentPeriodStart: true, currentPeriodEnd: true,
-    },
-  })
-  if (!sub) return { amount: 0, entryId: null, reason: 'no_subscription' }
-  if (sub.status !== 'ACTIVE') return { amount: 0, entryId: null, reason: `status_${sub.status}` }
-  if (!sub.currentPeriodStart || !sub.currentPeriodEnd) return { amount: 0, entryId: null, reason: 'no_period' }
-
-  const now = new Date()
-  if (sub.currentPeriodEnd.getTime() <= now.getTime()) {
-    return { amount: 0, entryId: null, reason: 'cycle_ended' }
-  }
-
-  const cycleKey = sub.billingCycle ?? 'ANNUAL'
-  const cycleMonths = DURATION_MONTHS[cycleKey] ?? 12
-  // Use the same discount the seats were billed at (volume tiers included) so
-  // the refund matches what was actually paid per seat.
-  const discountPct = effectiveDiscountPct(cycleKey, Number(sub.seatCount ?? 0))
-  const discountFactor = 1 - discountPct / 100
-  const pricePerSeat = Number(sub.pricePerSeat)
-
-  // What ONE seat actually cost (post-discount) for the whole cycle.
-  const oneSeatCycleCost = pricePerSeat * cycleMonths * discountFactor
-  const totalCycleMs = Math.max(1, sub.currentPeriodEnd.getTime() - sub.currentPeriodStart.getTime())
-  const remainingMs = Math.max(0, sub.currentPeriodEnd.getTime() - now.getTime())
-  const remainingRatio = Math.min(1, remainingMs / totalCycleMs)
-  const amount = parseFloat((oneSeatCycleCost * remainingRatio).toFixed(2))
-
-  if (amount <= 0) return { amount: 0, entryId: null, reason: 'zero_amount' }
-
-  // Two writes: bump the cached balance + log the ledger entry. Wrap in
-  // a transaction so they don't drift on a partial failure.
-  const [, entry] = await prisma.$transaction([
-    prisma.subscription.update({
-      where: { companyId: opts.companyId },
-      data: { creditBalance: { increment: amount }, updatedAt: new Date() },
-    }),
-    prisma.billingCreditEntry.create({
-      data: {
-        companyId: opts.companyId,
-        amount,
-        reason: 'EMPLOYEE_DEACTIVATION',
-        sourceEmployeeId: opts.employeeId,
-        notes: opts.notes ?? null,
-      },
-    }),
-  ])
-  return { amount, entryId: entry.id }
+  return prisma.$transaction(async tx => {
+    // Serialize refunds and credit spending for this subscription.
+    await tx.$queryRaw`SELECT id FROM subscriptions WHERE "companyId" = ${opts.companyId} FOR UPDATE`
+    const sub = await tx.subscription.findUnique({ where: { companyId: opts.companyId } })
+    if (!sub || sub.status !== 'ACTIVE') return { amount: 0, entryId: null, reason: 'no_active_subscription' }
+    const now = new Date()
+    if (!sub.currentPeriodStart || !sub.currentPeriodEnd || sub.currentPeriodEnd <= now || sub.currentPeriodStart > now) return { amount: 0, entryId: null, reason: 'no_active_period' }
+    const employee = await tx.employee.findFirst({ where: { id: opts.employeeId, companyId: opts.companyId }, select: { isActive: true } })
+    if (employee?.isActive) return { amount: 0, entryId: null, reason: 'employee_active' }
+    const previous = await tx.billingCreditEntry.findFirst({ where: { companyId: opts.companyId, sourceEmployeeId: opts.employeeId, reason: 'EMPLOYEE_DEACTIVATION', createdAt: { gte: sub.currentPeriodStart, lt: sub.currentPeriodEnd } } })
+    if (previous) return { amount: 0, entryId: previous.id, reason: 'already_credited_this_period' }
+    const active = await tx.employee.count({ where: { companyId: opts.companyId, isActive: true } })
+    if (sub.seatCount <= active) return { amount: 0, entryId: null, reason: 'no_unused_paid_seat' }
+    const invoices = await tx.invoice.findMany({ where: { companyId: opts.companyId, status: 'PAID', periodEnd: sub.currentPeriodEnd, periodStart: { gte: sub.currentPeriodStart, lte: now }, paidAt: { lte: now } }, orderBy: [{ paidAt: 'desc' }, { id: 'asc' }] })
+    const issued = await tx.billingCreditEntry.aggregate({ where: { companyId: opts.companyId, reason: { in: ['EMPLOYEE_DEACTIVATION', 'CREDIT_RECONCILIATION'] }, createdAt: { gte: sub.currentPeriodStart, lt: sub.currentPeriodEnd } }, _sum: { amount: true } })
+    const verifiedInvoices = invoices.filter(invoice => invoiceSeatCredit(invoice, now) > 0)
+    const remainingPaidValue = Math.max(0, verifiedInvoices.reduce((sum, invoice) => sum + invoiceFundedAmount(invoice), 0) - Math.max(0, Number(issued._sum.amount ?? 0)))
+    for (const invoice of invoices) {
+      const amount = Number(Math.min(invoiceSeatCredit(invoice, now), remainingPaidValue).toFixed(2))
+      if (amount <= 0) continue
+      const creditedSeats = await tx.billingCreditEntry.count({ where: { companyId: opts.companyId, sourceInvoiceId: invoice.id, reason: 'EMPLOYEE_DEACTIVATION' } })
+      if (creditedSeats >= invoice.seatCount) continue
+      await tx.subscription.update({ where: { companyId: opts.companyId }, data: { creditBalance: { increment: amount }, seatCount: { decrement: 1 } } })
+      const entry = await tx.billingCreditEntry.create({ data: {
+        companyId: opts.companyId, amount, reason: 'EMPLOYEE_DEACTIVATION', sourceEmployeeId: opts.employeeId, sourceInvoiceId: invoice.id,
+        notes: JSON.stringify({ version: 2, message: opts.notes ?? null, invoiceNo: invoice.invoiceNo, paidTotal: invoiceFundedAmount(invoice), invoiceSeats: invoice.seatCount, seatRemoved: true, periodStart: sub.currentPeriodStart, periodEnd: sub.currentPeriodEnd }),
+      } })
+      return { amount, entryId: entry.id }
+    }
+    return { amount: 0, entryId: null, reason: 'no_verifiable_paid_seat' }
+  }, { timeout: 30000 })
 }
 
 /** Pure helper for checkout-endpoint cost previews and final invoice math. */
@@ -125,20 +98,18 @@ export async function spendCreditOnInvoice(opts: {
   invoiceId: string
   invoiceNo?: string
 }) {
-  if (opts.amount <= 0) return
-  await prisma.$transaction([
-    prisma.subscription.update({
-      where: { companyId: opts.companyId },
-      data: { creditBalance: { decrement: opts.amount }, updatedAt: new Date() },
-    }),
-    prisma.billingCreditEntry.create({
-      data: {
-        companyId: opts.companyId,
-        amount: -opts.amount,
-        reason: 'APPLIED_TO_INVOICE',
-        sourceInvoiceId: opts.invoiceId,
-        notes: opts.invoiceNo ? `Invoice ${opts.invoiceNo}` : null,
-      },
-    }),
-  ])
+  return prisma.$transaction(tx => spendCreditInTransaction(tx, opts))
+}
+
+export async function spendCreditInTransaction(tx: Prisma.TransactionClient, opts: { companyId: string; amount: number; invoiceId: string; invoiceNo?: string }) {
+  if (!Number.isFinite(opts.amount) || opts.amount < 0) throw new Error('Invalid credit amount')
+  if (opts.amount === 0) return
+  await tx.$queryRaw`SELECT id FROM subscriptions WHERE "companyId" = ${opts.companyId} FOR UPDATE`
+  const existing = await tx.billingCreditEntry.findFirst({ where: { companyId: opts.companyId, sourceInvoiceId: opts.invoiceId, reason: 'APPLIED_TO_INVOICE' } })
+  if (existing) return
+  const invoice = await tx.invoice.findFirst({ where: { id: opts.invoiceId, companyId: opts.companyId, status: 'PAID' } })
+  if (!invoice) throw new Error('A paid invoice is required to spend credit')
+  const changed = await tx.subscription.updateMany({ where: { companyId: opts.companyId, creditBalance: { gte: opts.amount } }, data: { creditBalance: { decrement: opts.amount } } })
+  if (!changed.count) throw new Error('Insufficient billing credit. Contact support to reconcile this payment.')
+  await tx.billingCreditEntry.create({ data: { companyId: opts.companyId, amount: -opts.amount, reason: 'APPLIED_TO_INVOICE', sourceInvoiceId: opts.invoiceId, notes: opts.invoiceNo ? `Invoice ${opts.invoiceNo}` : null } })
 }

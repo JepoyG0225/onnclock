@@ -84,8 +84,10 @@ export function FaceEnrollDialog({
                 </p>
                 <p>
                   <span className="font-bold text-slate-800">No video is uploaded.</span>{' '}
-                  Only that signature and a single reference photo are stored, and matching
-                  happens against your own record — never against anyone else&apos;s.
+                  Your signature and a reference photo are stored. In your app, your scan is
+                  matched to your own record. At your company office kiosk, a scan is
+                  compared with your company&apos;s enrolled employees to identify you
+                  automatically for clock in, breaks, and clock out.
                 </p>
                 <p className="text-slate-400 text-[12px]">
                   You can ask your HR admin to remove it at any time.

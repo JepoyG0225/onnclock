@@ -19,7 +19,7 @@ export default async function NewEmployeePage() {
   // via the navbar, a deep link, or browser history.
   if (session.user.role !== 'SUPER_ADMIN') {
     const seat = await getSeatStatus(companyId)
-    if (seat.enforceCap && seat.activeCount >= seat.paidSeats) {
+    if (seat.enforceCap && seat.activeCount >= seat.paidSeats && !seat.canRestoreSeat) {
       redirect('/settings/billing')
     }
   }
@@ -47,6 +47,7 @@ export default async function NewEmployeePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Add New Employee</h1>
         <p className="text-gray-500 mt-1">Fill in the 201 file information</p>
+        <p className="text-sm text-gray-500 mt-2">If your current seats are full, available billing credit automatically restores a previously credited seat within your paid seat maximum.</p>
       </div>
       <EmployeeForm
         departments={departments}

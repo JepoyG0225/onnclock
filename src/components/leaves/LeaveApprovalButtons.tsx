@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -46,22 +47,22 @@ export function LeaveApprovalButtons({
   return (
     <>
       <div className="flex gap-2 justify-center">
-        <Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-600"
+        <PermissionGate permission="leaves:approve"><Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-600"
           onClick={() => handle('approve')}
           disabled={loading !== null || !canApprove}
           title={!canApprove ? (disabledReason ?? 'Approval not available yet') : undefined}
         >
           {loading === 'approve' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
           {loading === 'approve' ? 'Approving...' : 'Approve'}
-        </Button>
-        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-600"
+        </Button></PermissionGate>
+        <PermissionGate permission="leaves:approve"><Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-600"
           onClick={() => setShowRejectModal(true)}
           disabled={loading !== null || !canApprove}
           title={!canApprove ? (disabledReason ?? 'Approval not available yet') : undefined}
         >
           {loading === 'reject' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
           Reject
-        </Button>
+        </Button></PermissionGate>
       </div>
 
       {showRejectModal && (
@@ -84,15 +85,15 @@ export function LeaveApprovalButtons({
               />
             </div>
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setShowRejectModal(false)}
+              <PermissionGate permission="leaves:approve"><button onClick={() => setShowRejectModal(false)}
                 className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
                 Cancel
-              </button>
-              <button onClick={() => handle('reject', rejectNotes)} disabled={loading === 'reject'}
+              </button></PermissionGate>
+              <PermissionGate permission="leaves:approve"><button onClick={() => handle('reject', rejectNotes)} disabled={loading === 'reject'}
                 className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-1.5">
                 {loading === 'reject' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
                 Reject
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

@@ -8,6 +8,7 @@ const STEPS = [
   { key: 'FOR_APPROVAL', label: 'For Approval' },
   { key: 'APPROVED',     label: 'Approved' },
   { key: 'LOCKED',       label: 'Locked' },
+  { key: 'DISBURSED', label: 'Disbursed' },
 ] as const
 
 const STATUS_ORDER: Record<string, number> = {
@@ -16,6 +17,7 @@ const STATUS_ORDER: Record<string, number> = {
   FOR_APPROVAL: 2,
   APPROVED: 3,
   LOCKED: 4,
+  DISBURSED: 5,
   CANCELLED: -1,
 }
 
@@ -46,21 +48,21 @@ export function PayrollWorkflowStepper({ status }: { status: string }) {
     // on the left. Each step keeps a fixed-width content cluster (dot +
     // label) and the connector between steps absorbs the leftover space
     // via flex-1 — that way labels stay legible while the line grows.
-    <ol className="flex items-center w-full py-1">
+    <ol className="flex items-center gap-3 w-full py-1 overflow-x-auto">
       {STEPS.map((step, idx) => {
         const isComplete = idx < currentIdx
         const isCurrent  = idx === currentIdx
 
         const dotClass = isComplete
-          ? 'border-[var(--brand-highlight)] bg-[var(--brand-highlight)] text-black'
+          ? 'border-[var(--brand-highlight)] bg-[var(--brand-highlight)] text-primary'
           : isCurrent
-            ? 'border-[var(--brand-highlight)] bg-[var(--brand-highlight)] text-black ring-4 ring-[var(--brand-highlight)]/20'
+            ? 'border-[var(--brand-highlight)] bg-[var(--brand-highlight)] text-primary ring-4 ring-[var(--brand-highlight)]/20'
             : 'bg-white text-slate-400 border-slate-300'
 
         const labelClass = isCurrent
-          ? 'font-semibold text-black'
+          ? 'font-semibold text-primary'
           : isComplete
-            ? 'text-black'
+            ? 'text-primary'
             : 'text-slate-400'
 
         const connectorClass = isComplete ? 'bg-[var(--brand-highlight)]' : 'bg-slate-200'

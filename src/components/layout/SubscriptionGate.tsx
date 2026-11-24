@@ -15,6 +15,7 @@ interface Props {
   trialEndsAt: string | null
   children: React.ReactNode
   bypassGate?: boolean
+  canManageBilling?: boolean
   /**
    * Active employees − paid seats (clamped at 0). When > 0 on an ACTIVE
    * subscription the company is operating past their paid seat count, so
@@ -27,7 +28,7 @@ interface Props {
   unbilledSeats?: number
 }
 
-export function SubscriptionGate({ status, children, bypassGate, unbilledSeats = 0 }: Props) {
+export function SubscriptionGate({ status, children, bypassGate, canManageBilling = false, unbilledSeats = 0 }: Props) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -37,12 +38,12 @@ export function SubscriptionGate({ status, children, bypassGate, unbilledSeats =
 
   // EXPIRED/CANCELLED still hard-redirects.
   useEffect(() => {
-    if (isExpired && !isAllowed) {
+    if (isExpired && !isAllowed && canManageBilling) {
       router.replace('/settings/billing')
     }
-  }, [isExpired, isAllowed, router])
+  }, [isExpired, isAllowed, canManageBilling, router])
 
-  if (isExpired && !isAllowed) return null
+  if (isExpired && !isAllowed) return canManageBilling ? null : <div role="alert" className="rounded-xl border bg-white p-6"><h1 className="font-semibold">Company subscription inactive</h1><p className="mt-2 text-sm text-slate-600">Please contact your company administrator to renew the subscription.</p><a href="/settings/profile" className="mt-3 inline-block text-sm text-blue-600 underline">Open my profile</a></div>
 
   return (
     <>

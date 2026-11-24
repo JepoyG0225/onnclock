@@ -1,8 +1,8 @@
+import { requestAudience,visibleRequests } from '@/lib/approvals/audience'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { CHAT_MESSAGE_ENTITY, CHAT_GROUP_MESSAGE_ENTITY, conversationId, groupMessageEntityId, groupReadEntityId } from '@/lib/chat'
-import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 
 export async function GET() {
   const { ctx, error } = await requireAuth()
@@ -16,63 +16,70 @@ export async function GET() {
     let pendingBudgetRequisitions = 0
     let pendingCashAdvances = 0
 
-    const permissions = await getEffectivePermissions(ctx.role, ctx.companyId, ctx.userId)
-    const canReviewDtr = permissions.includes('dtr:read')
-    const canReviewLeaves = permissions.includes('leaves:read')
-    const canReviewOvertime = permissions.includes('overtime:approve')
-    const canReviewTimeCorrections = permissions.includes('corrections:approve')
-    const canReviewBudgetRequisitions = permissions.includes('budget:read')
-    const canReviewCashAdvances = permissions.includes('cashadvance:approve')
+    const canReviewDtr = true
+    const canReviewLeaves = true
+    const canReviewOvertime = true
+    const canReviewTimeCorrections = true
+    const canReviewBudgetRequisitions = true
+    const canReviewCashAdvances = true
 
+    const canSee=await requestAudience(ctx)
     const [dtr, leaves, overtime, timeCorrections, budgetRequisitions, cashAdvances] = await Promise.all([
       canReviewDtr
-        ? prisma.dTRRecord.count({
+        ? prisma.dTRRecord.findMany({
+          include:{employee:{select:{id:true,departmentId:true}}},
           where: {
-            employee: { companyId: ctx.companyId },
+            employee: { companyId: ctx.companyId,trackTime:true },
             timeOut: { not: null },
+            timeIn:{not:null},OR:[{remarks:null},{remarks:{not:'REJECTED'}}],
             approvedBy: null,
           },
-        })
+        }).then(rows=>visibleRequests(rows,'ATTENDANCE_REVIEW',canSee)).then(rows=>rows.length)
         : Promise.resolve(0),
       canReviewLeaves
-        ? prisma.leaveRequest.count({
+        ? prisma.leaveRequest.findMany({
+          include:{employee:{select:{id:true,departmentId:true}},leaveType:{select:{name:true,isWithPay:true}}},
           where: {
             employee: { companyId: ctx.companyId },
             status: 'PENDING',
           },
-        })
+        }).then(rows=>visibleRequests(rows,'LEAVE',canSee)).then(rows=>rows.length)
         : Promise.resolve(0),
       canReviewOvertime
-        ? prisma.overtimeRequest.count({
+        ? prisma.overtimeRequest.findMany({
+          include:{employee:{select:{id:true,departmentId:true}}},
           where: {
             companyId: ctx.companyId,
             status: 'PENDING',
           },
-        })
+        }).then(rows=>visibleRequests(rows,'OVERTIME',canSee)).then(rows=>rows.length)
         : Promise.resolve(0),
       canReviewTimeCorrections
-        ? prisma.timeEntryCorrection.count({
+        ? prisma.timeEntryCorrection.findMany({
+          include:{employee:{select:{id:true,departmentId:true}}},
           where: {
             companyId: ctx.companyId,
             status: 'PENDING',
           },
-        })
+        }).then(rows=>visibleRequests(rows,'TIME_CORRECTION',canSee)).then(rows=>rows.length)
         : Promise.resolve(0),
       canReviewBudgetRequisitions
-        ? prisma.budgetRequisition.count({
+        ? prisma.budgetRequisition.findMany({
+          include:{employee:{select:{id:true,departmentId:true}}},
           where: {
             companyId: ctx.companyId,
             status: 'PENDING',
           },
-        })
+        }).then(rows=>visibleRequests(rows,'BUDGET',canSee)).then(rows=>rows.length)
         : Promise.resolve(0),
       canReviewCashAdvances
-        ? prisma.cashAdvanceRequest.count({
+        ? prisma.cashAdvanceRequest.findMany({
+          include:{employee:{select:{id:true,departmentId:true}}},
           where: {
             companyId: ctx.companyId,
             status: 'PENDING',
           },
-        })
+        }).then(rows=>visibleRequests(rows,'CASH_ADVANCE',canSee)).then(rows=>rows.length)
         : Promise.resolve(0),
     ])
     pendingDtr = dtr

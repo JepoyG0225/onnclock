@@ -9,6 +9,7 @@ import { PortalBottomNav } from '@/components/employee/PortalBottomNav'
 import { PortalSidebar } from '@/components/employee/PortalSidebar'
 import { PortalAnnouncementPopup } from '@/components/employee/PortalAnnouncementPopup'
 import { Lock } from 'lucide-react'
+import ProductUpdatesPopup from '@/components/layout/ProductUpdatesPopup'
 
 export default async function EmployeePortalLayout({
   children,
@@ -126,6 +127,7 @@ export default async function EmployeePortalLayout({
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      {session.user.role !== 'SUPER_ADMIN' && <ProductUpdatesPopup userId={session.user.id} />}
       {/* Desktop sidebar — hidden on mobile */}
       <PortalSidebar {...sharedProps} />
 

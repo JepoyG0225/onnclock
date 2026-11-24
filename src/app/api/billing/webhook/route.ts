@@ -1,3 +1,4 @@
+import { reconcileSeatPayment } from '@/lib/billing/reconcile-seats'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
@@ -122,6 +123,12 @@ export async function POST(req: NextRequest) {
       invoiceId: invoiceId ?? null,
       eventType,
     })
+  }
+
+  const notes = (() => { try { return JSON.parse(invoice.notes ?? '{}') } catch { return {} } })()
+  if (notes.paymentProvider === 'PAYMONGO_QRPH' && notes.subscriptionActivationPayload?.addSeats) {
+    try { return NextResponse.json({ received: true, ...await reconcileSeatPayment(invoice.id, invoice.companyId) }) }
+    catch (error) { console.error('[billing-webhook/seat-payment]', error); return NextResponse.json({ error: 'Reconciliation failed' }, { status: 502 }) }
   }
 
   if (PAID_STATUSES.has(paymentStatus)) {

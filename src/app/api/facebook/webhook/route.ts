@@ -42,7 +42,7 @@ Contact: hello@onclock.ph
 - 13th month pay computation (DOLE compliant, pro-rated for new hires)
 - Tax annualization and BIR Form 2316 generation
 - Payslips downloadable by employees from their portal
-- Payroll disbursement directly to employee bank accounts via InstaPay and PesoNet
+- Payroll payment tracking with a final Disbursed stage
 
 **Government Compliance**
 - BIR: Alphalist, 1601-C, Form 2316

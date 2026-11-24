@@ -20,17 +20,28 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, CameraOff, ScanFace } from 'lucide-react'
+import { BlinkChallenge } from '@/lib/face/blink-challenge'
+import { FaceScanRearm } from '@/lib/face/scan-cycle'
 import {
   loadFaceApi, FACE_MESH_PATHS, LANDMARK_COUNT, DESCRIPTOR_LENGTH,
 } from '@/lib/face/face-api'
 
-type Phase = 'loading' | 'no-camera' | 'searching' | 'scanning' | 'done' | 'error'
+type Phase = 'loading' | 'no-camera' | 'searching' | 'blink' | 'scanning' | 'done' | 'error'
 
 export interface FaceMeshScannerProps {
   /** How many descriptors to collect before calling onComplete. */
+  fullScreen?: boolean
+  scanEffect?: boolean
+  requireBlink?: boolean
+  /** Keep the camera open; rearm only after the person leaves the frame. */
+  continuous?: boolean
+  onReady?: () => void
+  onEyePrompt?: (step: 'open' | 'close' | 'reopen') => void
   samples?: number
+  /** Stable hold per sample; enrollment keeps the slower default. */
+  sampleHoldMs?: number
   /** Fires once `samples` descriptors have been gathered. */
-  onComplete: (descriptors: number[][], photo: string | null) => void
+  onComplete: (descriptors: number[][], photo: string | null) => void | Promise<void>
   /** Include a still frame with the result (enrolment stores one). */
   capturePhoto?: boolean
   /** Tint of the mesh. Defaults to brand orange. */
@@ -45,12 +56,20 @@ const REVEAL_MS = 900
 const DETECT_INTERVAL_MS = 125
 
 export function FaceMeshScanner({
+  fullScreen = false,
+  scanEffect = false,
+  requireBlink = false,
+  continuous = false,
+  onReady,
+  onEyePrompt,
   samples = 5,
+  sampleHoldMs = REVEAL_MS,
   onComplete,
   capturePhoto = false,
   accent = 'var(--brand-highlight)',
   hint,
 }: FaceMeshScannerProps) {
+  const holdMs = Math.max(250, sampleHoldMs)
   const videoRef  = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -64,6 +83,11 @@ export function FaceMeshScanner({
   const descriptorsRef = useRef<number[][]>([])
   /** Guards against onComplete firing twice if a frame lands mid-teardown. */
   const finishedRef = useRef(false)
+  const blink = useRef(new BlinkChallenge())
+  const eyePrompt = useRef<string | null>(null)
+  const blinkStartedAt = useRef<number | null>(null)
+  const detectingRef = useRef(false)
+  const rearm = useRef(new FaceScanRearm())
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [message, setMessage] = useState<string | null>(null)
@@ -91,7 +115,7 @@ export function FaceMeshScanner({
     if (!pts || pts.length < LANDMARK_COUNT) return
 
     const held = holdStartRef.current ? Date.now() - holdStartRef.current : 0
-    const progress = Math.min(1, held / REVEAL_MS)
+    const progress = holdStartRef.current === null ? 1 : Math.min(1, held / holdMs)
     const revealed = Math.floor(progress * LANDMARK_COUNT)
 
     // Wireframe first so the dots sit on top of the lines.
@@ -129,10 +153,20 @@ export function FaceMeshScanner({
       ctx.fill()
       ctx.globalAlpha = 1
     }
-  }, [accent])
+  }, [accent, holdMs])
 
   useEffect(() => {
     let cancelled = false
+    finishedRef.current = false
+    detectingRef.current = false
+    descriptorsRef.current = []
+    pointsRef.current = null
+    holdStartRef.current = null
+    blink.current.reset()
+    eyePrompt.current = null
+    blinkStartedAt.current = null
+    setCollected(0)
+    setPhase('loading')
 
     async function start() {
       try {
@@ -149,15 +183,17 @@ export function FaceMeshScanner({
         const video = videoRef.current
         if (!video) return
         video.srcObject = stream
-        await video.play().catch(() => null)
+        await video.play()
         if (cancelled) return
 
         setPhase('searching')
 
         const options = new faceapi.TinyFaceDetectorOptions({
-          inputSize: 320,
-          scoreThreshold: 0.5,
+          inputSize: 416,
+          scoreThreshold: 0.35,
         })
+
+        const frame = document.createElement('canvas')
 
         // Render loop — cheap, every frame.
         const renderLoop = () => {
@@ -169,38 +205,77 @@ export function FaceMeshScanner({
         // Detection loop — expensive, throttled.
         timerRef.current = setInterval(async () => {
           const v = videoRef.current
-          if (!v || v.readyState < 2 || finishedRef.current) return
+          if (!v || v.readyState < 2 || (finishedRef.current && !continuous) || detectingRef.current) return
+          detectingRef.current = true
+          try {
 
-          const result = await faceapi
-            .detectSingleFace(v, options)
-            .withFaceLandmarks()
-            .withFaceDescriptor()
+          // Freeze each frame so landmarks and descriptors use the same pixels.
+          const capturedAt = Date.now()
+          frame.width = v.videoWidth; frame.height = v.videoHeight
+          const frameContext = frame.getContext('2d')
+          if (!frameContext || !frame.width || !frame.height) return
+          frameContext.drawImage(v, 0, 0)
+          // Recognition is intentionally deferred: running it for every preview
+          // frame can miss the closed-eye moment on slower Android devices.
+          const faces = await faceapi.detectAllFaces(frame, options).withFaceLandmarks()
+          const result = faces.length === 1 ? faces[0] : null
 
-          if (cancelled || finishedRef.current) return
+          if (cancelled) return
+          if (finishedRef.current) {
+            pointsRef.current = null
+            if (rearm.current.observe(faces?.length ?? (result ? 1 : 0), Date.now())) {
+              finishedRef.current = false; blink.current.reset()
+              descriptorsRef.current = []; holdStartRef.current = null
+              setCollected(0); setMessage(null); setPhase('searching'); onReady?.()
+            }
+            return
+          }
 
           if (!result) {
             pointsRef.current = null
             holdStartRef.current = null
             setPhase('searching')
+            blink.current.reset(); eyePrompt.current = null; blinkStartedAt.current = null; descriptorsRef.current = []; setCollected(0); setMessage(faces.length > 1 ? 'Multiple faces detected. Only one person should be in view.' : 'No face detected. Face the camera, move closer, and use good lighting.');
             return
           }
 
           // Map from the video's intrinsic resolution to its displayed size.
-          const resized = faceapi.resizeResults(result, {
-            width: v.clientWidth,
-            height: v.clientHeight,
-          })
-          pointsRef.current = resized.landmarks.positions.map(p => ({ x: p.x, y: p.y }))
+          // Match object-cover cropping instead of stretching the landmarks.
+          const scale = Math.max(v.clientWidth / v.videoWidth, v.clientHeight / v.videoHeight)
+          const offsetX = (v.clientWidth - v.videoWidth * scale) / 2
+          const offsetY = (v.clientHeight - v.videoHeight * scale) / 2
+          pointsRef.current = result.landmarks.positions.map(p => ({ x: p.x * scale + offsetX, y: p.y * scale + offsetY }))
 
+          if (requireBlink && !blink.current.done) {
+            const points = result.landmarks.positions
+            const dist = (a: number, b: number) => Math.hypot(points[a].x - points[b].x, points[a].y - points[b].y)
+            const eye = (i: number) => (dist(i + 1, i + 5) + dist(i + 2, i + 4)) / (2 * dist(i, i + 3))
+            blinkStartedAt.current ??= capturedAt
+            if (capturedAt - blinkStartedAt.current > 20000) {
+              finishedRef.current = true
+              setPhase('error')
+              setMessage('Eye movement could not be confirmed. Cancel and retry in brighter light, keeping your face close to the camera. Follow each eye prompt before moving to the next step.')
+              return
+            }
+            const step = blink.current.observe((eye(36) + eye(42)) / 2, capturedAt)
+            setMessage(step === 'open' ? '1. Keep your eyes open. Look straight at the camera.' : step === 'close' ? '2. Close your eyes and hold until asked to open.' : step === 'reopen' ? '3. Open your eyes now.' : 'Eye check complete. Hold still.')
+            if (step !== 'done' && eyePrompt.current !== step) { eyePrompt.current = step; onEyePrompt?.(step) }
+            holdStartRef.current = null
+            setPhase('blink')
+            if (step !== 'done') return
+          }
           if (holdStartRef.current === null) holdStartRef.current = Date.now()
           setPhase('scanning')
 
           // Sample only once the mesh has fully drawn, so every descriptor comes
           // from a face that stayed put — a moving face yields a poor embedding.
           const held = Date.now() - holdStartRef.current
-          if (held < REVEAL_MS) return
+          if (held < holdMs) return
 
-          const descriptor = Array.from(result.descriptor as Float32Array)
+          const [alignedFace] = await faceapi.extractFaces(frame, [result.landmarks.align(undefined, { useDlibAlignment: true })])
+          if (!alignedFace || cancelled) return
+          const descriptor = Array.from(await faceapi.nets.faceRecognitionNet.computeFaceDescriptor(alignedFace) as Float32Array)
+          if (cancelled) return
           if (descriptor.length !== DESCRIPTOR_LENGTH) return
 
           descriptorsRef.current.push(descriptor)
@@ -220,12 +295,15 @@ export function FaceMeshScanner({
               c.height = v.videoHeight
               const cx = c.getContext('2d')
               if (cx) {
-                cx.drawImage(v, 0, 0, c.width, c.height)
+                cx.drawImage(frame, 0, 0, c.width, c.height)
                 photo = c.toDataURL('image/jpeg', 0.8)
               }
             }
-            onComplete(descriptorsRef.current, photo)
+            await onComplete(descriptorsRef.current, photo)
+            if (continuous) rearm.current.finish(Date.now())
           }
+          } catch { if (!cancelled) { setPhase('error'); setMessage('Camera scan failed. Close and try again.'); } }
+          finally { detectingRef.current = false }
         }, DETECT_INTERVAL_MS)
       } catch (err) {
         if (cancelled) return
@@ -255,20 +333,21 @@ export function FaceMeshScanner({
       streamRef.current?.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
-  }, [draw, samples, onComplete, capturePhoto])
+  }, [draw, samples, onComplete, capturePhoto, requireBlink, continuous, onReady, holdMs, onEyePrompt])
 
   const statusText =
-    phase === 'loading'   ? 'Loading face models…'
-    : phase === 'searching' ? 'Position your face in the circle'
+    phase === 'loading'   ? ''
+    : phase === 'searching' ? (message || (requireBlink ? 'Look at the camera and blink slowly' : 'Position your face in the circle'))
+    : phase === 'blink' ? message || 'Face detected. Blink slowly.'
     : phase === 'scanning'  ? `Hold still… ${collected}/${samples}`
-    : phase === 'done'      ? 'Face captured'
+    : phase === 'done'      ? (continuous ? 'Step away to let the next employee scan' : 'Face captured')
     : message ?? 'Scanner unavailable'
 
   return (
-    <div className="space-y-3">
+    <div className={fullScreen ? "kiosk-full-camera" : "space-y-3"}>
       <div
-        className="relative mx-auto rounded-3xl overflow-hidden bg-slate-900"
-        style={{ width: '100%', maxWidth: 320, aspectRatio: '3 / 4' }}
+        className={fullScreen ? "kiosk-full-viewport" : "relative mx-auto rounded-3xl overflow-hidden bg-slate-900"}
+        style={fullScreen ? undefined : { width: '100%', maxWidth: 320, aspectRatio: '3 / 4' }}
       >
         {/* Mirrored so it reads as a mirror, which is what people expect of a
             selfie view. The canvas is mirrored with it so the mesh tracks. */}
@@ -285,6 +364,10 @@ export function FaceMeshScanner({
           style={{ transform: 'scaleX(-1)' }}
         />
 
+        {scanEffect && (phase === 'searching' || phase === 'blink' || phase === 'scanning') && <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+          <div className="kiosk-scan-beam absolute left-0 right-0 h-1 bg-cyan-300 shadow-[0_0_24px_8px_rgba(34,211,238,0.45)]" />
+          <span className="absolute top-3 left-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-bold tracking-widest text-cyan-200">{phase === 'scanning' ? 'CAPTURING FACE' : phase === 'blink' ? 'FACE DETECTED' : 'LIVE SCANNER'}</span>
+        </div>}
         {/* Framing guide */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
           <div
@@ -292,7 +375,7 @@ export function FaceMeshScanner({
             style={{
               width: '68%',
               aspectRatio: '1',
-              border: `2px dashed ${phase === 'scanning' || phase === 'done' ? accent : 'rgba(255,255,255,0.35)'}`,
+              border: `2px dashed ${phase === 'blink' || phase === 'scanning' || phase === 'done' ? accent : 'rgba(255,255,255,0.35)'}`,
             }}
           />
         </div>
@@ -300,24 +383,24 @@ export function FaceMeshScanner({
         {(phase === 'loading' || phase === 'no-camera' || phase === 'error') && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/85 px-6 text-center">
             {phase === 'loading'
-              ? <Loader2 className="w-7 h-7 text-white/80 animate-spin" />
+              ? <Loader2 role="status" aria-label="Starting camera" className="w-7 h-7 text-white/80 animate-spin" />
               : <CameraOff className="w-7 h-7 text-white/60" />}
-            <p className="text-[12px] font-semibold text-white/80 leading-relaxed">{statusText}</p>
+            {statusText && <p className="text-[12px] font-semibold text-white/80 leading-relaxed">{statusText}</p>}
           </div>
         )}
       </div>
 
-      <div className="text-center">
+      {phase !== 'loading' && <div className={fullScreen ? "kiosk-full-status" : "text-center"}>
         <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-slate-600">
           <ScanFace className="w-3.5 h-3.5" style={{ color: accent }} />
           {statusText}
         </p>
         {hint && <p className="text-[11px] text-slate-400 mt-1">{hint}</p>}
-      </div>
+      </div>}
 
       {/* Sample progress — meaningful during enrolment, where several are taken. */}
-      {samples > 1 && (
-        <div className="flex items-center justify-center gap-1.5">
+      {phase !== 'loading' && samples > 1 && (
+        <div className={fullScreen ? "kiosk-full-progress flex items-center justify-center gap-1.5" : "flex items-center justify-center gap-1.5"}>
           {Array.from({ length: samples }).map((_, i) => (
             <span
               key={i}

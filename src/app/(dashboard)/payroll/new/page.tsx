@@ -1,5 +1,8 @@
 ﻿'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
 
+
+import { PayrollJourney } from '@/components/payroll/PayrollJourney'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -271,23 +274,7 @@ export default function NewPayrollRunPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-3">
-        {[
-          { number: 1, label: 'Payroll Period', detail: 'Select payroll scope', active: true },
-          { number: 2, label: 'Payroll Inputs', detail: 'Calculate and adjust', active: false },
-          { number: 3, label: 'Payroll Summary', detail: 'Review and finalize', active: false },
-        ].map((item, index) => (
-          <div key={item.number} className={`flex items-center gap-3 px-5 py-4 ${index > 0 ? 'border-t sm:border-l sm:border-t-0' : ''} ${item.active ? 'bg-blue-50' : ''}`}>
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${item.active ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-500'}`}>
-              {item.number}
-            </span>
-            <span>
-              <span className="block text-sm font-semibold text-[#1f2937]">{item.label}</span>
-              <span className="block text-xs text-gray-500">{item.detail}</span>
-            </span>
-          </div>
-        ))}
-      </div>
+      <PayrollJourney runId={existingRunId ?? undefined} />
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{existingRunId ? 'Edit Payroll Period' : 'New Payroll Run'}</h1>
         <p className="text-gray-500 mt-1">Set up the payroll period, scope, and pay date</p>
@@ -297,7 +284,7 @@ export default function NewPayrollRunPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Payroll Period</CardTitle></CardHeader>
           <CardContent>
-            {loadingDefaults && <p className="text-xs text-gray-500 mb-3">Loading payroll cycle defaults...</p>}
+            {loadingDefaults && <AppSpinner size="md" message="Loading payroll cycle defaults..." className="py-8" />}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -464,7 +451,7 @@ export default function NewPayrollRunPage() {
                 </div>
                 <div className="max-h-72 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
                   {!employeesLoaded ? (
-                    <p className="p-3 text-xs text-gray-400">Loading employees…</p>
+                    <AppSpinner size="md" message="Loading employees…" className="py-8" />
                   ) : filteredEmployees.length === 0 ? (
                     <p className="p-3 text-xs text-gray-400">No employees match.</p>
                   ) : (

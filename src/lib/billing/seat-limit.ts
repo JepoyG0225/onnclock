@@ -16,6 +16,7 @@
  *                                them into the billing flow without
  *                                breaking initial company setup
  */
+import { availableSeatRestoration } from './restore-seat'
 import { cache } from 'react'
 import { prisma } from '@/lib/prisma'
 
@@ -34,6 +35,7 @@ function isUncappedCompanyName(name?: string | null): boolean {
 
 export interface SeatStatus {
   /** Active employees currently in the company (isActive=true). */
+  canRestoreSeat: boolean
   activeCount: number
   /** Seats the company is currently paying for. */
   paidSeats: number
@@ -112,5 +114,6 @@ export const getSeatStatus = cache(async (companyId: string): Promise<SeatStatus
   const enforceCap = status === 'ACTIVE' && !isUncappedCompanyName(company?.name)
   const isOver = enforceCap && unbilled > 0
 
-  return { activeCount, paidSeats, unbilled, status, enforceCap, isOver }
+  const canRestoreSeat = enforceCap && activeCount === paidSeats && !!(await availableSeatRestoration(prisma, companyId))
+  return { activeCount, paidSeats, unbilled, status, enforceCap, isOver, canRestoreSeat }
 })

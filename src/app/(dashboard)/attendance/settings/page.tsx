@@ -1,5 +1,7 @@
-﻿'use client'
+'use client'
 
+import { AppSpinner } from '@/components/ui/AppSpinner'
+import { Badge } from '@/components/ui/badge'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,12 +9,16 @@ import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 import { MapPin, Loader2, Fingerprint, Camera, ShieldCheck, Monitor, Download, Copy, Check, ScanFace} from 'lucide-react'
 import { toast } from 'sonner'
+import { OfficeKioskSettings } from '@/components/attendance/OfficeKioskSettings'
 
 const DESKTOP_DOWNLOAD_URL =
   process.env.NEXT_PUBLIC_DESKTOP_APP_URL ||
   (typeof window !== 'undefined' ? `${window.location.origin}/desktop` : 'https://onclockph.com/desktop')
 
 export default function AttendanceSettingsPage() {
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [faceAvailable, setFaceAvailable] = useState(false)
   const [saving, setSaving] = useState(false)
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [screenCaptureEntitled, setScreenCaptureEntitled] = useState(false)
@@ -25,6 +31,7 @@ export default function AttendanceSettingsPage() {
     faceRecognitionRequired: false,
     screenCaptureEnabled: false,
     screenCaptureFrequencyMinutes: '5',
+    shiftEndClockoutEnabled: false,
     autoClockoutEnabled: false,
     autoClockoutMinutes: '10',
     geofenceLat: '',
@@ -33,9 +40,12 @@ export default function AttendanceSettingsPage() {
   })
 
   async function load() {
+    setLoading(true)
+    setLoadError('')
+    try {
     const [settingsRes, securityRes] = await Promise.all([
-      fetch('/api/settings', { cache: 'no-store' }),
-      fetch('/api/attendance/security', { cache: 'no-store' }),
+      fetch('/api/settings', { cache: 'no-store', signal: AbortSignal.timeout(15000) }),
+      fetch('/api/attendance/security', { cache: 'no-store', signal: AbortSignal.timeout(15000) }),
     ])
     if (!settingsRes.ok) {
       const err = await settingsRes.json().catch(() => ({}))
@@ -45,8 +55,9 @@ export default function AttendanceSettingsPage() {
       const err = await securityRes.json().catch(() => ({}))
       throw new Error(err?.error?.message || err?.error || 'Failed to load attendance security feature flags')
     }
-    const data = await settingsRes.json().catch(() => ({}))
-    const security = await securityRes.json().catch(() => ({}))
+    const data = await settingsRes.json()
+    const security = await securityRes.json()
+    setFaceAvailable(data.faceBetaAvailable === true)
     const feature = security?.feature ?? {}
     setScreenCaptureEntitled(!!feature.entitled)
     setCurrentPricePerSeat(Number(feature.currentPricePerSeat ?? 0))
@@ -64,6 +75,7 @@ export default function AttendanceSettingsPage() {
         (typeof data.screenCaptureEnabled === 'boolean' ? data.screenCaptureEnabled : prev.screenCaptureEnabled)
         && !!feature.entitled,
       screenCaptureFrequencyMinutes: String(data.screenCaptureFrequencyMinutes ?? prev.screenCaptureFrequencyMinutes ?? 5),
+      shiftEndClockoutEnabled: Boolean(data.shiftEndClockoutEnabled),
       autoClockoutEnabled:
         typeof data.autoClockoutEnabled === 'boolean' ? data.autoClockoutEnabled : prev.autoClockoutEnabled,
       autoClockoutMinutes: String(data.autoClockoutMinutes ?? prev.autoClockoutMinutes ?? 10),
@@ -71,6 +83,10 @@ export default function AttendanceSettingsPage() {
       geofenceLng: data.geofenceLng != null ? String(data.geofenceLng) : '',
       geofenceRadiusMeters: data.geofenceRadiusMeters != null ? String(data.geofenceRadiusMeters) : '',
     }))
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load attendance settings')
+      throw e
+    } finally { setLoading(false) }
   }
 
   useEffect(() => {
@@ -86,9 +102,10 @@ export default function AttendanceSettingsPage() {
         fingerprintRequired: Boolean(form.fingerprintRequired),
         geofenceEnabled: Boolean(form.geofenceEnabled),
         selfieRequired: Boolean(form.selfieRequired),
-        faceRecognitionRequired: Boolean(form.faceRecognitionRequired),
+        ...(faceAvailable ? { faceRecognitionRequired: Boolean(form.faceRecognitionRequired) } : {}),
         screenCaptureEnabled: Boolean(form.screenCaptureEnabled),
         screenCaptureFrequencyMinutes: Number(form.screenCaptureFrequencyMinutes || 5),
+        shiftEndClockoutEnabled: Boolean(form.shiftEndClockoutEnabled),
         autoClockoutEnabled: Boolean(form.autoClockoutEnabled),
         autoClockoutMinutes: Number(form.autoClockoutMinutes || 10),
         geofenceLat: form.geofenceLat.trim() === '' ? null : Number(form.geofenceLat),
@@ -149,6 +166,9 @@ export default function AttendanceSettingsPage() {
     )
   }
 
+  if (loading) return <div role="status" aria-live="polite" aria-busy="true" className="flex min-h-64 flex-col items-center justify-center gap-3"><AppSpinner size="md" /><p className="text-sm text-slate-500">Loading attendance settings...</p></div>
+  if (loadError) return <div role="alert" className="rounded-xl border bg-white p-6"><h1 className="text-lg font-semibold text-primary">Attendance Settings</h1><p className="my-3 text-sm text-red-700">{loadError}</p><Button onClick={() => { void load().catch(() => {}) }}>Retry loading</Button></div>
+
   return (
     <div className="space-y-6">
       <div>
@@ -162,6 +182,8 @@ export default function AttendanceSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+
             <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
               <input
                 type="checkbox"
@@ -210,7 +232,7 @@ export default function AttendanceSettingsPage() {
               </span>
             </label>
 
-            <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
+            {faceAvailable && <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
               <input
                 type="checkbox"
                 checked={Boolean(form.faceRecognitionRequired)}
@@ -221,13 +243,13 @@ export default function AttendanceSettingsPage() {
                 <ScanFace className="w-5 h-5" />
               </div>
               <span>
-                <span className="text-sm font-medium text-gray-700 block">Require face verification</span>
+                <span className="text-sm font-medium text-gray-700 flex flex-wrap items-center gap-2">Require face verification <Badge variant="secondary" className="border-amber-200 bg-amber-50 text-amber-800">Beta</Badge></span>
                 <span className="text-xs text-gray-500">
                   Employees must pass a live face match to clock in. They set their face up once
                   from the portal. Also required for the Face Kiosk terminal.
                 </span>
               </span>
-            </label>
+            </label>}
 
             <label className={`relative flex flex-col gap-3 border rounded-xl p-4 bg-white ${screenCaptureEntitled ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}>
               <input
@@ -253,6 +275,8 @@ export default function AttendanceSettingsPage() {
               </span>
             </label>
           </div>
+
+          {faceAvailable && form.faceRecognitionRequired && <OfficeKioskSettings />}
 
           {!screenCaptureEntitled && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -289,6 +313,7 @@ export default function AttendanceSettingsPage() {
             </div>
           )}
 
+          <div className="rounded-xl border p-4"><label className="flex cursor-pointer items-start gap-3"><input type="checkbox" className="mt-1 h-4 w-4" checked={form.shiftEndClockoutEnabled} onChange={e=>setForm(f=>({...f,shiftEndClockoutEnabled:e.target.checked}))}/><div><p className="text-sm font-semibold">Auto clock-out at scheduled shift end</p><p className="mt-1 text-xs text-gray-500">Automatically close tracked attendance sessions at the assigned shift end, including overnight shifts. Runs every minute, even if the employee app is closed. The recorded time is the scheduled end; employees working beyond it need a time correction. Applies to shift endings after this option is enabled. Sessions without a timed schedule are left open.</p></div></label></div>
           {form.screenCaptureEnabled && screenCaptureEntitled && (
             <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-4">
               <div className="flex items-start gap-3">
@@ -342,6 +367,7 @@ export default function AttendanceSettingsPage() {
               keyboard or mouse input (also counts screen lock / sleep).
               When the threshold is hit the app fires the standard
               clock-out path with a remarks stamp so HR can audit. */}
+          {form.screenCaptureEnabled && screenCaptureEntitled && (
           <div className="space-y-3 rounded-xl border p-4">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -375,6 +401,8 @@ export default function AttendanceSettingsPage() {
               </div>
             )}
           </div>
+
+          )}
 
           {form.geofenceEnabled && (
             <div className="border rounded-xl p-4 space-y-4 bg-slate-50">

@@ -1,14 +1,13 @@
+import { requestAudience,visibleRequests } from '@/lib/approvals/audience'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
+import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
-  const roleError = requireAdminOrHR(ctx)
-  if (roleError) return roleError
 
-  const limit = Math.min(50, parseInt(new URL(req.url).searchParams.get('limit') || '20'))
+  const limit = Math.max(1,Math.min(50, parseInt(new URL(req.url).searchParams.get('limit') || '20')||20))
 
   try {
     // Five independent reads — fire them in parallel so total wall
@@ -16,44 +15,52 @@ export async function GET(req: NextRequest) {
     // version below was reliably hitting the 5s Prisma timeout (5.02s
     // executions in production traces) because each query waited for
     // the previous one to finish.
-    const empSelect = { firstName: true, lastName: true, employeeNo: true } as const
-    const [leaveRequests, dtrPending, disciplinary, timeCorrections, overtimeRequests] = await Promise.all([
+    const canSee=await requestAudience(ctx)
+    const empSelect = { id:true,departmentId:true, firstName: true, lastName: true, employeeNo: true } as const
+    let [leaveRequests, dtrPending, disciplinary, timeCorrections, overtimeRequests,cashAdvances,budgets,payrolls] = await Promise.all([
       prisma.leaveRequest.findMany({
         where: { employee: { companyId: ctx.companyId }, status: 'PENDING' },
-        include: { employee: { select: empSelect }, leaveType: { select: { name: true } } },
+        include: { employee: { select: empSelect }, leaveType: { select: { name: true,isWithPay:true } } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take: 500,
       }),
       prisma.dTRRecord.findMany({
         where: {
-          employee: { companyId: ctx.companyId },
+          employee: { companyId: ctx.companyId,trackTime:true },
+          timeIn:{not:null}, OR:[{remarks:null},{remarks:{not:'REJECTED'}}],
           timeOut: { not: null },
           approvedBy: null,
         },
         include: { employee: { select: empSelect } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take: 500,
       }),
       prisma.disciplinaryRecord.findMany({
         where: { companyId: ctx.companyId, status: 'OPEN' },
         include: { employee: { select: empSelect } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take: 500,
       }),
       prisma.timeEntryCorrection.findMany({
         where: { companyId: ctx.companyId, status: 'PENDING' },
         include: { employee: { select: empSelect } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take: 500,
       }),
       prisma.overtimeRequest.findMany({
         where: { companyId: ctx.companyId, status: 'PENDING' },
         include: { employee: { select: empSelect } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take: 500,
       }),
+      prisma.cashAdvanceRequest.findMany({where:{companyId:ctx.companyId,status:'PENDING'},include:{employee:{select:empSelect}},orderBy:{createdAt:'desc'},take:500}),
+      prisma.budgetRequisition.findMany({where:{companyId:ctx.companyId,status:'PENDING'},include:{employee:{select:empSelect}},orderBy:{createdAt:'desc'},take:500}),
+      prisma.payrollRun.findMany({where:{companyId:ctx.companyId,status:'FOR_APPROVAL'},orderBy:{createdAt:'desc'},take:500}),
     ])
 
+    ;[leaveRequests,dtrPending,timeCorrections,overtimeRequests]=await Promise.all([visibleRequests(leaveRequests,'LEAVE',canSee),visibleRequests(dtrPending,'ATTENDANCE_REVIEW',canSee),visibleRequests(timeCorrections,'TIME_CORRECTION',canSee),visibleRequests(overtimeRequests,'OVERTIME',canSee)])
+    ;[cashAdvances,budgets,payrolls]=await Promise.all([visibleRequests(cashAdvances,'CASH_ADVANCE',canSee),visibleRequests(budgets,'BUDGET',canSee),visibleRequests(payrolls,'PAYROLL',canSee)])
+    if(!['COMPANY_ADMIN','SUPER_ADMIN'].includes(ctx.role))disciplinary=[]
   const TYPE_LABELS: Record<string, string> = {
     INCIDENT_REPORT: 'Incident Report',
     VERBAL_WARNING: 'Verbal Warning',
@@ -66,6 +73,9 @@ export async function GET(req: NextRequest) {
   }
 
     const items = [
+      ...cashAdvances.map(r=>({id:r.id,type:'CASH_ADVANCE',status:r.status,createdAt:r.createdAt,title:'Cash advance request',employee:r.employee.firstName+' '+r.employee.lastName,employeeNo:r.employee.employeeNo,href:'/cash-advance'})),
+      ...budgets.map(r=>({id:r.id,type:'BUDGET',status:r.status,createdAt:r.createdAt,title:'Budget requisition',employee:r.employee.firstName+' '+r.employee.lastName,employeeNo:r.employee.employeeNo,href:'/budget-requisitions'})),
+      ...payrolls.map(r=>({id:r.id,type:'PAYROLL',status:r.status,createdAt:r.createdAt,title:'Payroll awaiting approval',employee:r.periodStart.toISOString().slice(0,10)+' to '+r.periodEnd.toISOString().slice(0,10),employeeNo:'',href:'/payroll/'+r.id})),
       ...leaveRequests.map(l => ({
         id: l.id,
         type: 'LEAVE' as const,
@@ -123,7 +133,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { items },
-      { headers: { 'Cache-Control': 'private, max-age=10, stale-while-revalidate=20' } }
+      { headers: { 'Cache-Control': 'private, no-store' } }
     )
   } catch (err) {
     console.error('[/api/notifications/admin]', err)

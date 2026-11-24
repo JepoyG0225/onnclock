@@ -85,16 +85,6 @@ const TOURS: Record<string, PageTour> = {
       { title: 'Review before releasing', body: 'Check the basic-salary total per employee - this is a figure employees know and check, and it is reportable to BIR.' },
     ],
   },
-  '/disbursement': {
-    key: 'disbursement',
-    label: 'Disbursement',
-    steps: [
-      { title: 'Paying people out', body: 'Sends the net pay from a locked payroll run to employee bank accounts via InstaPay or PESONet.' },
-      { title: 'Top up first', body: 'Disbursement draws from this balance. Check it covers the whole run before starting - if it runs out mid-batch, some employees are paid and others are not, and you have to chase the remainder.', selector: '[data-tour="db-balance"]' },
-      { title: 'Per-employee status', body: 'Every transfer is tracked individually - pending, processing, completed or failed - so a single failure is visible and can be retried without re-sending everyone.' },
-      { title: 'Channel matters', body: 'InstaPay is real-time with a per-transaction cap; PESONet is same-day batch. The right channel depends on amount and urgency.' },
-    ],
-  },
   '/payroll/settings': {
     key: 'payroll-settings',
     label: 'Payroll Settings',
@@ -175,7 +165,7 @@ const TOURS: Record<string, PageTour> = {
       { title: 'Employment types', body: 'Tick which employment types to include. This is the fastest way to scope a run - for example regulars only, or contractual staff paid on a different cycle.', selector: '[data-tour="pr-emp-types"]' },
       { title: 'Pick the employees', body: 'Search and tick individuals to fine-tune the list after the type filter. Anyone not selected is simply not in this run and can be paid in another one.', selector: '[data-tour="pr-emp-search"]' },
       { title: 'Create the run', body: 'This creates the run but does NOT pay anyone. If any timesheets in the period are still unapproved you will be warned first, because unapproved days are excluded from the computation.', selector: '[data-tour="pr-submit"]' },
-      { title: 'What happens next', body: 'After creating: Compute to generate payslips, review them, then Lock to freeze the figures and Release to publish to employees. Disbursement pays them out. Each step is reversible until you lock.' },
+      { title: 'What happens next', body: 'After creating: Compute, review, submit for approval, and lock the payroll. Once employees have been paid, mark the locked run as Disbursed to record completion.' },
     ],
   },
   '/tasks': {

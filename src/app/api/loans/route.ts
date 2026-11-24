@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -86,6 +87,11 @@ export async function POST(req: NextRequest) {
     targetEmployeeId = self.id
   }
 
+  if (ctx.role !== 'EMPLOYEE' && !await ctxHasPermission(ctx, 'loans:write')) {
+    const self = await prisma.employee.findFirst({ where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true }, select: { id: true } })
+    if (!self || (targetEmployeeId !== 'self' && targetEmployeeId !== self.id)) return NextResponse.json({ error: 'You may only request your own loan.' }, { status: 403 })
+    targetEmployeeId = self.id
+  }
   const employee = await prisma.employee.findFirst({
     where: { id: targetEmployeeId, companyId: ctx.companyId },
   })

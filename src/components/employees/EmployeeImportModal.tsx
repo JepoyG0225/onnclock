@@ -128,7 +128,7 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
       <DialogContent className="sm:max-w-[580px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-[#000000]">
+          <DialogTitle className="flex items-center gap-2 text-[var(--brand-primary)]">
             <FileSpreadsheet className="w-5 h-5" />
             Bulk Import Employees
           </DialogTitle>
@@ -151,7 +151,7 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-[#000000] text-[#000000] hover:bg-[#000000] hover:text-white"
+                  className="border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
                 >
                   <Download className="mr-1.5 w-4 h-4" />
                   Download
@@ -169,8 +169,8 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
                   dragOver
                     ? 'border-accent bg-orange-50'
                     : state === 'file-selected'
-                    ? 'border-[#000000] bg-blue-50'
-                    : 'border-gray-300 bg-white hover:border-[#000000] hover:bg-gray-50'
+                    ? 'border-[var(--brand-primary)] bg-blue-50'
+                    : 'border-gray-300 bg-white hover:border-[var(--brand-primary)] hover:bg-gray-50'
                 }`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
@@ -187,8 +187,8 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
 
                 {state === 'file-selected' && selectedFile ? (
                   <div className="flex flex-col items-center gap-2">
-                    <FileSpreadsheet className="w-10 h-10 text-[#000000]" />
-                    <p className="text-sm font-medium text-[#000000]">{selectedFile.name}</p>
+                    <FileSpreadsheet className="w-10 h-10 text-[var(--brand-primary)]" />
+                    <p className="text-sm font-medium text-[var(--brand-primary)]">{selectedFile.name}</p>
                     <p className="text-xs text-gray-500">
                       {(selectedFile.size / 1024).toFixed(1)} KB · Click to change
                     </p>
@@ -209,7 +209,7 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
           {/* Loading state */}
           {state === 'loading' && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 className="w-10 h-10 animate-spin text-[#000000]" />
+              <Loader2 className="w-10 h-10 animate-spin text-[var(--brand-primary)]" />
               <p className="text-sm font-medium text-gray-700">Importing employees…</p>
               <p className="text-xs text-gray-500">This may take a few seconds.</p>
             </div>
@@ -289,7 +289,7 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
                 </Button>
                 <Button
                   onClick={handleImport}
-                  className="bg-[#000000] hover:bg-[#0f1f3d] text-white"
+                  className="bg-[var(--brand-primary)] hover:bg-[#0f1f3d] text-white"
                 >
                   <Upload className="mr-1.5 w-4 h-4" />
                   Import
@@ -298,7 +298,7 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
             )}
 
             {state === 'loading' && (
-              <Button disabled className="bg-[#000000] text-white">
+              <Button disabled className="bg-[var(--brand-primary)] text-white">
                 <Loader2 className="mr-1.5 w-4 h-4 animate-spin" />
                 Importing…
               </Button>
@@ -307,7 +307,7 @@ export function EmployeeImportModal({ open, onClose, onSuccess }: Props) {
             {state === 'done' && (
               <Button
                 onClick={handleDone}
-                className="bg-[#000000] hover:bg-[#0f1f3d] text-white"
+                className="bg-[var(--brand-primary)] hover:bg-[#0f1f3d] text-white"
               >
                 Done
               </Button>

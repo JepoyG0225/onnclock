@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -7,12 +8,14 @@ import { Badge } from '@/components/ui/badge'
 import { Users, UserPlus, X, KeyRound, Trash2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { ROLE_LABELS, ROLE_COLORS, UserRole } from '@/lib/auth/permissions'
+import { RoleOptions } from '@/components/auth/RoleOptions'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 
 interface Member {
   id: string; userId: string; role: UserRole
   customRoleId?: string | null
   customRoleName?: string | null
+  permissionCount?: number
   email?: string; createdAt: string
   user?: { name?: string | null; email?: string | null }
 }
@@ -316,32 +319,16 @@ export default function UsersPage() {
               <div>
                 <label className="text-xs font-semibold text-gray-600 block mb-1">Role *</label>
                 <select
-                  value={form.role}
-                  onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole, customRoleId: '' }))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                >
-                  {ROLE_OPTIONS.map(r => (
-                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600 block mb-1">Custom Role (optional)</label>
-                <select
-                  value={form.customRoleId}
+                  value={form.customRoleId ? `custom:${form.customRoleId}` : form.role}
                   onChange={e => {
-                    const id = e.target.value
-                    const selected = customRoles.find(role => role.id === id)
-                    setForm(f => ({ ...f, customRoleId: id, role: (selected?.baseRole ?? f.role) as UserRole }))
+                    const value = e.target.value
+                    const custom = customRoles.find(role => `custom:${role.id}` === value)
+                    setForm(f => ({ ...f, role: custom?.baseRole ?? value as UserRole, customRoleId: custom?.id ?? '' }))
                   }}
                   className="w-full border rounded-lg px-3 py-2 text-sm"
+                  aria-label="User role"
                 >
-                  <option value="">— None (use base role) —</option>
-                  {customRoles.map(role => (
-                    <option key={role.id} value={role.id}>
-                      {role.name} ({ROLE_LABELS[role.baseRole]})
-                    </option>
-                  ))}
+                  <RoleOptions defaults={ROLE_OPTIONS} custom={customRoles} />
                 </select>
               </div>
               <div className="md:col-span-2 flex justify-end">
@@ -354,18 +341,6 @@ export default function UsersPage() {
         </Card>
       )}
 
-      {/* Role reference */}
-      <Card className="bg-[#dce5f7] border-[#AAB7B7]">
-        <CardContent className="p-4">
-          <p className="text-sm font-medium text-primary mb-2">Role Permissions</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-primary">
-            <div><strong>Company Admin</strong> — Full access</div>
-            <div><strong>HR Manager</strong> — Employees, leaves, DTR, reports</div>
-            <div><strong>Payroll Officer</strong> — Payroll, reports, loans</div>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
@@ -374,7 +349,7 @@ export default function UsersPage() {
             <Badge variant="outline">{members.length}</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="overflow-x-auto p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12"><AppSpinner size="md" /></div>
           ) : members.length === 0 ? (
@@ -385,6 +360,7 @@ export default function UsersPage() {
                 <tr>
                   <th className="text-left p-3 font-medium text-gray-600">User</th>
                   <th className="text-center p-3 font-medium text-gray-600">Current Role</th>
+                  <th className="text-center p-3 font-medium text-gray-600">Permissions</th>
                   <th className="text-left p-3 font-medium text-gray-600">Joined</th>
                   <th className="text-center p-3 font-medium text-gray-600">Change Role</th>
                   <th className="text-center p-3 font-medium text-gray-600">Edit Details</th>
@@ -403,15 +379,20 @@ export default function UsersPage() {
                         {m.customRoleName || ROLE_LABELS[m.role]}
                       </span>
                     </td>
+                    <td className="p-3 text-center">
+                      <Link href={`/settings/permissions?role=${encodeURIComponent(m.customRoleId ? `custom:${m.customRoleId}` : m.role)}`} aria-label={`View role permissions for ${m.user?.name || m.user?.email || m.email || "this user"}`} className="inline-flex whitespace-nowrap rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-primary underline-offset-2 hover:bg-blue-100 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600" title="Open this user's assigned role permissions">
+                        {typeof m.permissionCount === 'number' ? `${m.permissionCount} permissions` : 'Unavailable'}
+                      </Link>
+                    </td>
                     <td className="p-3 text-xs text-gray-400">
                       {new Date(m.createdAt).toLocaleDateString('en-PH')}
                     </td>
                     <td className="p-3 text-center">
                       <select
-                        value={m.customRoleId ?? m.role}
+                        value={m.customRoleId ? `custom:${m.customRoleId}` : m.role}
                         onChange={e => {
                           const next = e.target.value
-                          const custom = customRoles.find(role => role.id === next)
+                          const custom = customRoles.find(role => `custom:${role.id}` === next)
                           if (custom) {
                             changeRole(m.userId, custom.baseRole, custom.id)
                           } else {
@@ -420,12 +401,7 @@ export default function UsersPage() {
                         }}
                         className="border rounded px-2 py-1 text-xs"
                       >
-                        {ROLE_OPTIONS.map(r => (
-                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                        ))}
-                        {customRoles.map(role => (
-                          <option key={role.id} value={role.id}>{role.name}</option>
-                        ))}
+                        <RoleOptions defaults={ROLE_OPTIONS} custom={customRoles} />
                       </select>
                     </td>
                     <td className="p-3 text-center">

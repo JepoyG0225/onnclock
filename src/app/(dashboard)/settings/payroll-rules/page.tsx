@@ -103,7 +103,7 @@ export default function PayrollRulesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <LineChart className="h-4 w-4 text-[#000000]" />
+            <LineChart className="h-4 w-4 text-[var(--brand-primary)]" />
             Differential Rate Rules
           </CardTitle>
         </CardHeader>

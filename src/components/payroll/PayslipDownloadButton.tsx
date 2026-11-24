@@ -33,7 +33,7 @@ export function PayslipDownloadButton({ payslipId, employeeName }: Props) {
     <Button
       size="sm"
       variant="ghost"
-      className="h-7 w-7 p-0 text-gray-400 hover:text-[#000000]"
+      className="h-7 w-7 p-0 text-gray-400 hover:text-[var(--brand-primary)]"
       onClick={download}
       disabled={loading}
       title="Download payslip PDF"

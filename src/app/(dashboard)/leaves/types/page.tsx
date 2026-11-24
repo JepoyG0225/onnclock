@@ -1,7 +1,10 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit2, Trash2, X, Save, Loader2, Check } from 'lucide-react'
+import { KpiCard } from '@/components/ui/kpi-card'
+import { Search, CalendarDays, Wallet, ShieldCheck, Plus, Edit2, Trash2, X, Save, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface LeaveType {
@@ -9,6 +12,7 @@ interface LeaveType {
   name: string
   code: string
   daysEntitled: number
+  isPaidOut: boolean
   isWithPay: boolean
   isMandatory: boolean
   carryOver: boolean
@@ -19,7 +23,7 @@ interface LeaveType {
 }
 
 const emptyForm = {
-  name: '', code: '', daysEntitled: 5, isWithPay: true, isMandatory: false,
+  name: '', code: '', daysEntitled: 5, isPaidOut: false, isWithPay: true, isMandatory: false,
   carryOver: false, maxCarryOver: '', requiresDocuments: false, description: '', genderRestriction: '',
 }
 
@@ -27,18 +31,10 @@ const GENDER_LABELS: Record<string, string> = { MALE: 'Male only', FEMALE: 'Fema
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className="flex items-center gap-2.5 cursor-pointer select-none group">
-      <div
-        onClick={() => onChange(!checked)}
-        className="relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
-        style={{ background: checked ? 'var(--brand-highlight)' : '#d4d4d4' }}
-      >
-        <div
-          className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
-          style={{ transform: checked ? 'translateX(16px)' : 'translateX(0)' }}
-        />
-      </div>
-      <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">{label}</span>
+    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm text-primary">
+      <input type="checkbox" className="peer sr-only" checked={checked} onChange={e=>onChange(e.target.checked)}/>
+      <span aria-hidden="true" className="relative h-5 w-9 shrink-0 rounded-full bg-slate-200 transition-colors peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500"><span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked?'translate-x-4':''}`}/></span>
+      <span className="leading-5">{label}</span>
     </label>
   )
 }
@@ -58,8 +54,8 @@ function FormSection({
   saving: boolean
   isEdit: boolean
 }) {
-  const inputClass = "w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none transition-all border-2"
-  const inputStyle = { background: '#f7f7f7', border: '2px solid #d4d4d4', color: '#000000' }
+  const inputClass = "w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none transition-all border"
+  const inputStyle = { background: '#f7f7f7', border: '1px solid #e2e8f0', color: 'var(--brand-primary)' }
 
   return (
     <div
@@ -72,7 +68,7 @@ function FormSection({
           <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'var(--brand-highlight)' }}>
             {isEdit ? <Edit2 className="w-3.5 h-3.5 text-white" /> : <Plus className="w-3.5 h-3.5 text-white" />}
           </div>
-          <h3 className="text-sm font-bold" style={{ color: '#000000' }}>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>
             {isEdit ? 'Edit Leave Type' : 'New Leave Type'}
           </h3>
         </div>
@@ -92,7 +88,7 @@ function FormSection({
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Service Incentive Leave"
-              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(184, 225, 0,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(255, 89, 0,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#d4d4d4'; e.target.style.boxShadow = 'none' }}
             />
           </div>
@@ -105,7 +101,7 @@ function FormSection({
               onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
               placeholder="e.g. SIL"
               maxLength={10}
-              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(184, 225, 0,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(255, 89, 0,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#d4d4d4'; e.target.style.boxShadow = 'none' }}
             />
           </div>
@@ -118,14 +114,15 @@ function FormSection({
               style={inputStyle}
               value={form.daysEntitled}
               onChange={e => setForm(f => ({ ...f, daysEntitled: Number(e.target.value) }))}
-              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(184, 225, 0,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(255, 89, 0,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#d4d4d4'; e.target.style.boxShadow = 'none' }}
             />
           </div>
         </div>
 
         {/* Row 2 — Toggles */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6 py-3 px-4 rounded-xl" style={{ background: '#f7f7f7' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-3 px-4 rounded-xl" style={{ background: '#f7f7f7' }}>
+          <Toggle label="Convertible to cash" checked={form.isPaidOut} onChange={v => setForm(f => ({ ...f, isPaidOut: v }))} />
           <Toggle label="With Pay" checked={form.isWithPay} onChange={v => setForm(f => ({ ...f, isWithPay: v }))} />
           <Toggle label="DOLE Mandatory" checked={form.isMandatory} onChange={v => setForm(f => ({ ...f, isMandatory: v }))} />
           <Toggle label="Carry Over" checked={form.carryOver} onChange={v => setForm(f => ({ ...f, carryOver: v }))} />
@@ -144,7 +141,7 @@ function FormSection({
                 style={inputStyle}
                 value={form.maxCarryOver}
                 onChange={e => setForm(f => ({ ...f, maxCarryOver: e.target.value }))}
-                onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(184, 225, 0,0.08)' }}
+                onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(255, 89, 0,0.08)' }}
                 onBlur={e => { e.target.style.borderColor = '#d4d4d4'; e.target.style.boxShadow = 'none' }}
               />
             </div>
@@ -170,7 +167,7 @@ function FormSection({
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="Brief description of this leave type..."
-              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(184, 225, 0,0.08)' }}
+              onFocus={e => { e.target.style.borderColor = 'var(--brand-highlight)'; e.target.style.boxShadow = '0 0 0 3px rgba(255, 89, 0,0.08)' }}
               onBlur={e => { e.target.style.borderColor = '#d4d4d4'; e.target.style.boxShadow = 'none' }}
             />
           </div>
@@ -182,7 +179,7 @@ function FormSection({
             onClick={onSave}
             disabled={saving}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95 disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, var(--brand-highlight), #646568)', boxShadow: '0 4px 12px rgba(184, 225, 0,0.3)' }}
+            style={{ background: '#ff5900', boxShadow: '0 4px 12px rgba(255, 89, 0,0.3)' }}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Saving...' : isEdit ? 'Update Leave Type' : 'Add Leave Type'}
@@ -200,6 +197,8 @@ function FormSection({
 }
 
 export default function LeaveTypesPage() {
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
   const [types, setTypes] = useState<LeaveType[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -226,6 +225,7 @@ export default function LeaveTypesPage() {
       name: t.name,
       code: t.code,
       daysEntitled: t.daysEntitled,
+      isPaidOut: t.isPaidOut,
       isWithPay: t.isWithPay,
       isMandatory: t.isMandatory,
       carryOver: t.carryOver,
@@ -312,12 +312,13 @@ export default function LeaveTypesPage() {
     setDeletingId(null)
   }
 
+  const visible=types.filter(t=>`${t.name} ${t.code}`.toLowerCase().includes(search.trim().toLowerCase())&&(filter==='all'||filter==='paid'&&t.isWithPay||filter==='unpaid'&&!t.isWithPay||filter==='cash'&&t.isPaidOut||filter==='mandatory'&&t.isMandatory))
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Leave Types</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Leave Types</h1>
           <p className="text-sm text-slate-400 mt-0.5 font-medium">
             Configure DOLE-mandated and company leave policies
           </p>
@@ -326,7 +327,7 @@ export default function LeaveTypesPage() {
           <button
             onClick={() => { setShowAddForm(true); setEditingId(null) }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95 shadow-md"
-            style={{ background: 'linear-gradient(135deg, var(--brand-highlight), #646568)', boxShadow: '0 4px 12px rgba(184, 225, 0,0.3)' }}
+            style={{ background: '#ff5900', boxShadow: '0 4px 12px rgba(255, 89, 0,0.3)' }}
           >
             <Plus className="w-4 h-4" />
             Add Leave Type
@@ -334,6 +335,13 @@ export default function LeaveTypesPage() {
         )}
       </div>
 
+      {!loading&&<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Leave types" value={types.length} icon={<CalendarDays className="h-4 w-4"/>} hint="Active company policies"/>
+        <KpiCard label="Paid leave" value={types.filter(t=>t.isWithPay).length} icon={<Wallet className="h-4 w-4"/>} hint="Leave with pay" tone="accent"/>
+        <KpiCard label="Cash convertible" value={types.filter(t=>t.isPaidOut).length} icon={<Wallet className="h-4 w-4"/>} hint="Eligible for encashment" tone="accent"/>
+        <KpiCard label="Mandatory" value={types.filter(t=>t.isMandatory).length} icon={<ShieldCheck className="h-4 w-4"/>} hint="Marked as DOLE-mandated"/>
+      </div>}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm"><div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input aria-label="Search leave types" placeholder="Search name or code" value={search} onChange={e=>setSearch(e.target.value)} className="h-10 w-full rounded-xl border bg-slate-50 pl-9 pr-3 text-sm"/></div><select aria-label="Filter leave types" value={filter} onChange={e=>setFilter(e.target.value)} className="h-10 rounded-xl border bg-white px-3 text-sm"><option value="all">All policies</option><option value="paid">Paid leave</option><option value="unpaid">Unpaid leave</option><option value="cash">Cash convertible</option><option value="mandatory">Mandatory</option></select></div>
       {/* Add Form */}
       {showAddForm && (
         <FormSection
@@ -367,118 +375,22 @@ export default function LeaveTypesPage() {
       )}
 
       {/* Leave Types Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-32 rounded-2xl animate-pulse" style={{ background: '#eeeeee' }} />
-          ))}
-        </div>
-      ) : types.length === 0 ? (
+      {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : types.length === 0 ? (
         <div className="text-center py-16 rounded-2xl" style={{ background: '#f7f7f7' }}>
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(184, 225, 0,0.1)' }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(255, 89, 0,0.1)' }}>
             <Plus className="w-6 h-6" style={{ color: 'var(--brand-highlight)' }} />
           </div>
           <p className="text-slate-400 font-semibold">No leave types configured</p>
           <p className="text-sm text-slate-300 mt-1">Click &quot;Add Leave Type&quot; to get started</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {types.map(t => (
-            <div key={t.id}>
-              {/* Leave Type Card */}
-              <div
-                className="rounded-2xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow group"
-                style={{ border: '1px solid #d4d4d4' }}
-              >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      {/* Badges row */}
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span
-                          className="text-xs font-black tracking-wider px-2.5 py-1 rounded-lg"
-                          style={{ background: 'rgba(67,168,218,0.1)', color: '#000000' }}
-                        >
-                          {t.code}
-                        </span>
-                        {t.isMandatory && (
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(184, 225, 0,0.1)', color: 'var(--brand-highlight)' }}>
-                            DOLE
-                          </span>
-                        )}
-                        {t.genderRestriction && (
-                          <span
-                            className="text-xs font-bold px-2.5 py-1 rounded-lg"
-                            style={{
-                              background: t.genderRestriction === 'FEMALE' ? 'rgba(236,72,153,0.1)' : 'rgba(67,168,218,0.1)',
-                              color: t.genderRestriction === 'FEMALE' ? '#db2777' : '#000000',
-                            }}
-                          >
-                            {GENDER_LABELS[t.genderRestriction]}
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="font-bold text-sm" style={{ color: '#000000' }}>{t.name}</h3>
-
-                      {/* Stats row */}
-                      <div className="flex flex-wrap gap-3 mt-2">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#0055d4' }} />
-                          <span className="text-xs font-bold" style={{ color: '#000000' }}>{t.daysEntitled} days/yr</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: t.isWithPay ? '#10b981' : '#ef4444' }} />
-                          <span className="text-xs font-semibold" style={{ color: t.isWithPay ? '#059669' : '#dc2626' }}>
-                            {t.isWithPay ? 'With Pay' : 'No Pay'}
-                          </span>
-                        </div>
-                        {t.carryOver && (
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#0055d4' }} />
-                            <span className="text-xs font-semibold" style={{ color: '#000000' }}>
-                              Carry Over{t.maxCarryOver ? ` (max ${t.maxCarryOver}d)` : ''}
-                            </span>
-                          </div>
-                        )}
-                        {t.requiresDocuments && (
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#f59e0b' }} />
-                            <span className="text-xs font-semibold text-amber-600">Docs Required</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {t.description && (
-                        <p className="text-xs text-slate-400 mt-2 line-clamp-1">{t.description}</p>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => startEdit(t)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-                        style={{ background: 'rgba(67,168,218,0.1)', color: '#000000' }}
-                        title="Edit leave type"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => deleteType(t.id, t.name)}
-                        disabled={deletingId === t.id}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                        style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}
-                        title="Archive leave type"
-                      >
-                        {deletingId === t.id
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <Trash2 className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {visible.map(t=><article key={t.id} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-start justify-between gap-3 p-5"><div className="min-w-0"><div className="mb-2 flex flex-wrap gap-2"><span className="rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-primary">{t.code}</span>{t.isMandatory&&<span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-primary">DOLE mandatory</span>}</div><h2 className="break-words text-base font-semibold text-primary">{t.name}</h2><p className="mt-2 text-sm leading-5 text-slate-500">{t.description||'No description added.'}</p></div><div className="flex shrink-0 gap-1"><button aria-label={`Edit ${t.name}`} title="Edit leave type" onClick={()=>startEdit(t)} className="flex h-9 w-9 items-center justify-center rounded-lg border text-primary hover:bg-orange-50"><Edit2 className="h-4 w-4"/></button><button aria-label={`Archive ${t.name}`} title="Archive leave type" disabled={deletingId===t.id} onClick={()=>deleteType(t.id,t.name)} className="flex h-9 w-9 items-center justify-center rounded-lg border text-red-600 hover:bg-red-50 disabled:opacity-50">{deletingId===t.id?<Loader2 className="h-4 w-4 animate-spin"/>:<Trash2 className="h-4 w-4"/>}</button></div></div>
+            <div className="mx-5 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3"><div><strong className="text-2xl font-semibold tabular-nums text-primary">{t.daysEntitled}</strong><span className="ml-2 text-xs text-slate-500">days per year</span></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${t.isWithPay?'bg-blue-50 text-primary':'bg-slate-200 text-slate-600'}`}>{t.isWithPay?'With pay':'Unpaid'}</span></div>
+            <div className="mt-auto grid grid-cols-2 gap-3 border-t px-5 py-4 text-xs"><div><p className="text-slate-400">Cash conversion</p><p className="mt-1 font-medium text-primary">{t.isPaidOut?'Convertible to cash':'Not convertible'}</p></div><div><p className="text-slate-400">Carry-over</p><p className="mt-1 font-medium text-primary">{t.carryOver?(t.maxCarryOver!==null?`Up to ${t.maxCarryOver} days`:'Allowed'):'Not allowed'}</p></div><div><p className="text-slate-400">Documents</p><p className="mt-1 font-medium text-primary">{t.requiresDocuments?'Required':'Not required'}</p></div><div><p className="text-slate-400">Eligibility</p><p className="mt-1 font-medium text-primary">{t.genderRestriction?GENDER_LABELS[t.genderRestriction]:'All employees'}</p></div></div>
+          </article>)}
+          {!visible.length&&<div className="col-span-full rounded-2xl border bg-white p-10 text-center text-sm text-slate-500">No leave types match your search or filter.</div>}
         </div>
       )}
     </div>

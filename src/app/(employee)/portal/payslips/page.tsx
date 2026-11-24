@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -279,11 +281,7 @@ export default function PayslipsPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="space-y-2.5">
-          {[1, 2, 3].map(i => <div key={i} className="h-24 bg-white/70 rounded-2xl animate-pulse" />)}
-        </div>
-      ) : payslips.length === 0 ? (
+      {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : payslips.length === 0 ? (
         <div className="rounded-2xl bg-white border border-slate-200 p-10 text-center">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
             <CreditCard className="w-7 h-7 text-emerald-500" />

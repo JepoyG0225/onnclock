@@ -1,3 +1,5 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
+import { requestNotificationRecipients } from '@/lib/notifications-audience'
 /**
  * Cash Advance request endpoints.
  *
@@ -8,7 +10,7 @@
  *
  * POST /api/cash-advance              Employee files a new request
  *   - amountRequested capped server-side at 30% of monthly basic salary
- *   - repaymentMonths must be 1..3
+ *   - repaymentMonths must be 1..6
  *
  * Approval/rejection happens at /api/cash-advance/[id].
  *
@@ -26,9 +28,9 @@ import { z } from 'zod'
 const HR_ROLES = ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'SUPER_ADMIN']
 
 const createSchema = z.object({
-  amountRequested: z.number().positive(),
-  reason: z.string().min(3).max(500),
-  repaymentMonths: z.number().int().min(1).max(3).default(1),
+  amountRequested: z.number().finite().positive().max(999999999).refine(value => Math.abs(value * 100 - Math.round(value * 100)) < 0.0001, 'Use up to two decimal places.'),
+  reason: z.string().trim().min(3).max(500),
+  repaymentMonths: z.number().int().min(1).max(6).default(1),
   /** Repay in N cutoffs instead of N months. Takes precedence when set. */
   repaymentCutoffs: z.number().int().min(1).max(6).optional(),
   // HR can file on behalf of an employee
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest) {
   // 200 and has no pagination control, so the old cap silently clipped it.
   const limit    = intParam(searchParams.get('limit'), { def: 50, max: 500 })
 
-  const isHR = HR_ROLES.includes(ctx.role ?? '')
+  const isHR = HR_ROLES.includes(ctx.role ?? '') || await ctxHasPermission(ctx, 'loans:read') || await ctxHasPermission(ctx, 'loans:write') || await ctxHasPermission(ctx, 'cashadvance:approve')
 
   if (ownOnly && !ownEmployeeId) {
     return NextResponse.json({ requests: [], total: 0, page, limit })
@@ -124,13 +126,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { amountRequested, reason, repaymentMonths, repaymentCutoffs, employeeId: targetEmployeeId } = parsed.data
-  const isHR = HR_ROLES.includes(ctx.role ?? '')
+  const canEnter = targetEmployeeId ? (await ctxHasPermission(ctx, 'loans:write') || await ctxHasPermission(ctx, 'cashadvance:approve')) : false
+  if (targetEmployeeId && !canEnter) return NextResponse.json({ error: 'Permission to enter employee cash advances is required.' }, { status: 403 })
 
   // Resolve who the request is for.
   let employeeId: string | null = null
-  if (targetEmployeeId && isHR) {
+  if (targetEmployeeId && canEnter) {
     const target = await prisma.employee.findFirst({
-      where: { id: targetEmployeeId, companyId: ctx.companyId },
+      where: { id: targetEmployeeId, companyId: ctx.companyId, isActive: true },
       select: { id: true },
     })
     if (!target) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
@@ -207,22 +210,17 @@ export async function POST(req: NextRequest) {
 
   // Notify HR/admin users in the company so they see the new request
   try {
-    const admins = await prisma.userCompany.findMany({
-      where: {
-        companyId: ctx.companyId,
-        role: { in: ['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER'] },
-      },
-      select: { userId: true },
-    })
+    const link = `/cash-advance?requestId=${request.id}`
+    const recipients = await requestNotificationRecipients(ctx.companyId, { type: 'GENERIC', link })
     await Promise.all(
-      admins.map((a) =>
+      recipients.map((userId) =>
         createNotification({
           companyId: ctx.companyId,
-          userId: a.userId,
+          userId,
           type: 'GENERIC',
           title: 'New cash advance request',
           body: `${employee.firstName} ${employee.lastName} requested ₱${amountRequested.toLocaleString()}`,
-          link: '/cash-advance',
+          link,
         }),
       ),
     )
@@ -231,7 +229,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAudit(ctx, 'CREATE', 'CashAdvance', request.id, {
-    description: `${employee.firstName} ${employee.lastName} requested ₱${amountRequested.toLocaleString()} cash advance`,
+    description: `${targetEmployeeId ? 'Admin manual entry: ' : ''}${employee.firstName} ${employee.lastName} requested ₱${amountRequested.toLocaleString()} cash advance`,
   }).catch(() => {})
 
   return NextResponse.json({ request }, { status: 201 })

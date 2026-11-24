@@ -51,3 +51,25 @@ desktop-app-employee/dist/
 desktop-app/dist/
 desktop-app/node_modules/
 desktop-app-employee/node_modules/
+
+# Android office kiosk: never commit release keys or local build outputs
+android-office-kiosk/.gradle/
+android-office-kiosk/**/build/
+android-office-kiosk/local.properties
+*.jks
+*.keystore
+**/keystore.properties
+
+output/pdf/
+
+tmp/pdfs/
+
+tmp/payslip-design-qa/
+
+# Local sessions, recordings, and scratch files
+/tmp/
+/.vscode/
+.codex-dev-server*.log
+.test-*.log
+
+/.claude/settings.local.json

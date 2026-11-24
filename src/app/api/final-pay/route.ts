@@ -1,3 +1,6 @@
+import { finalPayReviewHash } from '@/lib/payroll/final-pay-transfer'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
+import { earnedBasicPay } from '@/lib/payroll/monthly-pay'
 /**
  * Final Pay Calculator endpoint.
  *
@@ -18,6 +21,7 @@
  * Returns a full FinalPayResult plus the employee/company info needed
  * to render a printable Final Pay statement.
  */
+import { availableLeave } from '@/lib/leaves/balance'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -55,6 +59,7 @@ const bodySchema = z.object({
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if(!await ctxHasPermission(ctx,'payroll:write')) return NextResponse.json({error:'Payroll write permission is required.'},{status:403})
   const roleGate = requireAdminOrHR(ctx)
   if (roleGate) return roleGate
 
@@ -102,12 +107,13 @@ export async function POST(req: NextRequest) {
     },
     select: {
       basicSalary: true,
+      absenceDeduction: true, lateDeduction: true, undertimeDeduction: true, calculationBasis: true,
       taxableIncome: true,
       withholdingTax: true,
       thirteenthMonthContribution: true,
     },
   })
-  const basicEarnedYTD     = payslips.reduce((s, p) => s + p.basicSalary.toNumber(),          0)
+  const basicEarnedYTD     = payslips.reduce((s, p) => s + earnedBasicPay(p),          0)
   const taxableIncomeYTD   = payslips.reduce((s, p) => s + p.taxableIncome.toNumber(),         0)
   const taxWithheldYTD     = payslips.reduce((s, p) => s + p.withholdingTax.toNumber(),        0)
   const thirteenthPaidYTD  = payslips.reduce((s, p) => s + p.thirteenthMonthContribution.toNumber(), 0)
@@ -121,11 +127,7 @@ export async function POST(req: NextRequest) {
     })
     unusedLeaveDays = balances
       .filter(b => b.leaveType.isPaidOut)
-      .reduce((s, b) => {
-        const entitled = b.entitled.toNumber()
-        const used     = b.used.toNumber()
-        return s + Math.max(0, entitled - used)
-      }, 0)
+      .reduce((s, b) => s + availableLeave(b), 0)
   }
 
   // ── Outstanding loans (auto-fill) ─────────────────────────────────────────
@@ -191,7 +193,7 @@ export async function POST(req: NextRequest) {
     lastWorkingDay:              lastDay,
     reason:                      input.reason as SeparationReason,
     thirteenthMonthAlreadyPaid:  thirteenthPaidYTD,
-    basicEarnedYTD:              basicEarnedYTD || monthlyEquivalent, // fallback in case no payslips
+    basicEarnedYTD:              payslips.length ? basicEarnedYTD : monthlyEquivalent, // fallback in case no payslips
     unusedLeaveDays,
     unpaidWorkedDays:            input.unpaidWorkedDays,
     taxWithheldYTD,
@@ -203,7 +205,7 @@ export async function POST(req: NextRequest) {
     additionalNonTaxableEarnings: input.additionalNonTaxableEarnings,
   })
 
-  return NextResponse.json({
+  const response = {
     employee: {
       id: employee.id,
       employeeNo: employee.employeeNo,
@@ -229,5 +231,6 @@ export async function POST(req: NextRequest) {
       cashAdvanceBalance,
     },
     result,
-  })
+  }
+  return NextResponse.json({...response,reviewHash:finalPayReviewHash(response)})
 }

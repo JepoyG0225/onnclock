@@ -33,7 +33,7 @@ export async function POST(
     select: { id: true, companyId: true, status: true },
   })
   if (!run) return NextResponse.json({ error: 'Run not found' }, { status: 404 })
-  if (run.status === 'LOCKED') {
+  if (['LOCKED', 'DISBURSED'].includes(run.status)) {
     return NextResponse.json({ error: 'Locked runs cannot be recomputed' }, { status: 400 })
   }
 

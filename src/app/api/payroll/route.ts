@@ -215,6 +215,7 @@ export async function POST(req: NextRequest) {
           where: {
             employeeId: { in: ids },
             date: { gte: start, lt: endPlus },
+            employee:{trackTime:true},timeIn:{not:null},timeOut:{not:null},
             approvedBy: null,
             OR: [{ remarks: null }, { remarks: { not: 'REJECTED' } }],
           },

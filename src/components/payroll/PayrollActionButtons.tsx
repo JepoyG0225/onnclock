@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import {
   Send,
   Download,
   MoreVertical,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -33,6 +35,7 @@ export default function PayrollActionButtons({
   const router  = useRouter()
   const [loading,       setLoading]       = useState<string | null>(null)
   const [showDeleteDlg, setShowDeleteDlg] = useState(false)
+  const [showDisburseDlg, setShowDisburseDlg] = useState(false)
   const [showUnlockDlg, setShowUnlockDlg] = useState(false)
   const [confirmText,   setConfirmText]   = useState('')
   const [menuOpen,      setMenuOpen]      = useState(false)
@@ -65,10 +68,10 @@ export default function PayrollActionButtons({
     }
   }, [menuOpen])
 
-  async function action(type: 'submit' | 'approve' | 'lock' | 'unlock') {
+  async function action(type: 'submit' | 'approve' | 'lock' | 'unlock' | 'disburse') {
     setLoading(type)
     try {
-      const endpoint = type === 'submit' ? 'submit' : type === 'approve' ? 'approve' : type === 'unlock' ? 'unlock' : 'lock'
+      const endpoint = type
       const res = await fetch(`/api/payroll/${runId}/${endpoint}`, { method: 'POST' })
       if (res.ok) {
         const msgs: Record<string, string> = {
@@ -76,8 +79,10 @@ export default function PayrollActionButtons({
           approve: 'Payroll approved',
           lock: 'Payroll locked',
           unlock: 'Payroll unlocked',
+          disburse: 'Payroll marked as disbursed',
         }
         toast.success(msgs[type])
+        setShowDisburseDlg(false)
         router.refresh()
       } else {
         const err = await res.json()
@@ -106,34 +111,59 @@ export default function PayrollActionButtons({
     }
   }
 
-  const canDelete = status !== 'LOCKED'
+  const canDelete = !['LOCKED', 'DISBURSED'].includes(status)
   const confirmed = confirmText.trim().toUpperCase() === 'DELETE'
   const portalTarget = typeof document !== 'undefined' ? document.body : null
 
-  function downloadExcel() {
+  async function downloadExcel() {
     setMenuOpen(false)
-    window.location.assign(`/api/payroll/${runId}/download`)
+    setLoading('download')
+    try {
+      const response = await fetch(`/api/payroll/${runId}/download`)
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error ?? 'Could not download the payroll register.')
+      }
+      const url = URL.createObjectURL(await response.blob())
+      const link = document.createElement('a')
+      link.href = url
+      link.download = response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ?? `Payroll-${runId}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not download the payroll register.')
+    } finally {
+      setLoading(null)
+    }
   }
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {['APPROVED', 'LOCKED', 'DISBURSED'].includes(status) && (
+          <Button type="button" variant="outline" size="sm" onClick={downloadExcel} disabled={!!loading}>
+            {loading === 'download' ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+            Download Payroll Register
+          </Button>
+        )}
         {/* ── Primary status-driven action ─────────────────────────────
             Stays prominent in the header so HR always sees the next
             step in the workflow at a glance. */}
         {status === 'COMPUTED' && (
-          <Button
+          <PermissionGate permission="payroll:write"><Button
             onClick={() => action('submit')}
             disabled={!!loading}
             size="sm"
-            className="bg-primary text-white hover:bg-[#000000] focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
+            className="bg-primary text-white hover:bg-[var(--brand-primary)] focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
           >
             <Send className="w-4 h-4 mr-1.5" />
             {loading === 'submit' ? 'Submitting…' : 'Submit for Approval'}
-          </Button>
+          </Button></PermissionGate>
         )}
         {status === 'FOR_APPROVAL' && (
-          <Button
+          <PermissionGate permission="payroll:approve"><Button
             onClick={() => action('approve')}
             disabled={!!loading || !canApprove}
             title={!canApprove ? (approveDisabledReason ?? 'Approval not available yet') : undefined}
@@ -142,10 +172,10 @@ export default function PayrollActionButtons({
           >
             <CheckCircle className="w-4 h-4 mr-1.5" />
             {loading === 'approve' ? 'Approving…' : 'Approve'}
-          </Button>
+          </Button></PermissionGate>
         )}
         {status === 'APPROVED' && (
-          <Button
+          <PermissionGate permission="payroll:lock"><Button
             onClick={() => action('lock')}
             disabled={!!loading}
             size="sm"
@@ -153,10 +183,11 @@ export default function PayrollActionButtons({
           >
             <Lock className="w-4 h-4 mr-1.5" />
             {loading === 'lock' ? 'Locking…' : 'Lock Payroll'}
-          </Button>
+          </Button></PermissionGate>
         )}
+        {status === 'LOCKED' && <PermissionGate permission="payroll:lock"><Button size="sm" disabled={!!loading} onClick={() => setShowDisburseDlg(true)}>Mark Disbursed</Button></PermissionGate>}
         {status === 'LOCKED' && (
-          <Button
+          <PermissionGate permission="payroll:lock"><Button
             onClick={() => setShowUnlockDlg(true)}
             disabled={!!loading}
             size="sm"
@@ -164,7 +195,7 @@ export default function PayrollActionButtons({
           >
             <Unlock className="w-4 h-4 mr-1.5" />
             Unlock Payroll
-          </Button>
+          </Button></PermissionGate>
         )}
 
         {/* ── More actions dropdown ────────────────────────────────────
@@ -195,12 +226,12 @@ export default function PayrollActionButtons({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
               >
                 <Download className="w-4 h-4 text-emerald-600" />
-                Download Excel
+                Download Payroll Register
               </button>
               {canDelete && (
                 <>
                   <div className="h-px bg-slate-100" />
-                  <button
+                  <PermissionGate permission="payroll:write"><button
                     role="menuitem"
                     onClick={() => {
                       setMenuOpen(false)
@@ -210,7 +241,7 @@ export default function PayrollActionButtons({
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete payroll run
-                  </button>
+                  </button></PermissionGate>
                 </>
               )}
             </div>
@@ -218,6 +249,15 @@ export default function PayrollActionButtons({
         </div>
       </div>
 
+      {showDisburseDlg && portalTarget && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="disburse-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 id="disburse-title" className="text-lg font-bold">Mark payroll as disbursed?</h2>
+            <p className="mt-3 text-sm text-slate-600">Confirm that all employees in {periodLabel} have been paid. This records payment completion and does not transfer money. The run will remain finalized and cannot be edited or unlocked.</p>
+            <div className="mt-5 flex justify-end gap-2"><Button variant="outline" disabled={!!loading} onClick={() => setShowDisburseDlg(false)}>Cancel</Button><Button disabled={!!loading} onClick={() => action('disburse')}>{loading === 'disburse' ? 'Saving...' : 'Confirm Disbursed'}</Button></div>
+          </div>
+        </div>, portalTarget
+      )}
       {showUnlockDlg && portalTarget && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !loading && setShowUnlockDlg(false)} />
@@ -239,7 +279,7 @@ export default function PayrollActionButtons({
               >
                 Cancel
               </button>
-              <button
+              <PermissionGate permission="payroll:lock"><button
                 onClick={() => action('unlock')}
                 disabled={loading === 'unlock'}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -254,7 +294,7 @@ export default function PayrollActionButtons({
                     <Unlock className="w-3.5 h-3.5" /> Unlock Payroll
                   </span>
                 )}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -299,7 +339,7 @@ export default function PayrollActionButtons({
                 className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50">
                 Cancel
               </button>
-              <button onClick={deleteRun} disabled={!confirmed || loading === 'delete'}
+              <PermissionGate permission="payroll:write"><button onClick={deleteRun} disabled={!confirmed || loading === 'delete'}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: confirmed ? '#ef4444' : '#fca5a5' }}>
                 {loading === 'delete' ? (
@@ -312,7 +352,7 @@ export default function PayrollActionButtons({
                     <Trash2 className="w-3.5 h-3.5" /> Delete Payroll Run
                   </span>
                 )}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

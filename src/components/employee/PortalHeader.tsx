@@ -1,7 +1,8 @@
 'use client'
 
+import { usePortalNotifications } from './usePortalNotifications'
 import { Bell } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import { signOut } from 'next-auth/react'
 
@@ -13,32 +14,10 @@ interface PortalHeaderProps {
   employeeNo?: string
 }
 
-const DISMISSED_KEY = 'portal_dismissed_notifs'
-
-function getDismissed(): string[] {
-  try { return JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]') } catch { return [] }
-}
-
-function setDismissed(ids: string[]) {
-  localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids))
-}
-
 export function PortalHeader({ companyName, companyLogoUrl, employeeName, employeeInitials, employeeNo }: PortalHeaderProps) {
   const [showMenu, setShowMenu] = useState(false)
-  const [allItems, setAllItems] = useState<Array<{
-    id: string
-    type: 'LEAVE' | 'DISCIPLINARY' | 'TIME_CORRECTION'
-    status: string
-    title: string
-    createdAt: string
-    href?: string
-  }>>([])
-  const [dismissed, setDismissedState] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return []
-    return getDismissed()
-  })
   const [showNotif, setShowNotif] = useState(false)
-  const items = allItems.filter(item => !dismissed.includes(item.id))
+  const { items, busy, error, markAsRead, markAllAsRead } = usePortalNotifications()
 
   async function handlePortalSignOut() {
     const target = '/portal/login'
@@ -48,39 +27,14 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
     window.location.assign(target)
   }
 
-  function markAsRead(id: string) {
-    if (dismissed.includes(id)) return
-    const ids = [...dismissed, id]
-    setDismissed(ids)
-    setDismissedState(ids)
-  }
-
-  useEffect(() => {
-    let active = true
-    async function loadNotifications() {
-      try {
-        const res = await fetch('/api/notifications/portal?limit=20')
-        if (!res.ok) return
-        const data = await res.json()
-        if (active) setAllItems(data.items ?? [])
-      } catch { /* ignore */ }
-    }
-    loadNotifications()
-    const id = window.setInterval(loadNotifications, 30000)
-    return () => {
-      active = false
-      window.clearInterval(id)
-    }
-  }, [])
-
   return (
     <header
       className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
       style={{
-        background: 'rgba(247,250,255,0.96)',
+        background: 'var(--brand-primary)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid #dfe7f1',
+        borderBottom: '1px solid rgba(255,255,255,0.2)',
       }}
     >
       {/* Left - Onclock Logo */}
@@ -102,12 +56,12 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
           />
         )}
         {companyName && (
-          <div className="hidden sm:block border-l border-slate-200 pl-3 min-w-0">
-            <p className="text-slate-700 text-xs font-semibold truncate leading-tight">
+          <div className="hidden sm:block border-l border-white/25 pl-3 min-w-0">
+            <p className="text-white text-xs font-semibold truncate leading-tight">
               {companyName}
             </p>
             {employeeNo && (
-              <p className="text-slate-400 text-[10px] leading-tight">{employeeNo}</p>
+              <p className="text-white/80 text-[10px] leading-tight">{employeeNo}</p>
             )}
           </div>
         )}
@@ -116,8 +70,10 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
       {/* Right - Notification + Avatar */}
       <div className="flex items-center gap-2">
         <button
+          aria-label="Notifications"
+          aria-expanded={showNotif}
           onClick={() => setShowNotif(v => !v)}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-[var(--brand-primary)] hover:bg-blue-50 transition-colors relative"
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-white hover:text-white hover:bg-white/15 transition-colors relative"
         >
           <Bell className="w-4 h-4" />
           {items.length > 0 && (
@@ -130,11 +86,13 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
           <>
             <div className="fixed inset-0 z-10" onClick={() => setShowNotif(false)} />
             <div
-              className="absolute right-12 top-12 z-20 rounded-2xl shadow-2xl overflow-hidden w-72 bg-white border border-gray-200"
+              className="absolute right-4 top-12 z-20 rounded-2xl shadow-2xl overflow-hidden w-80 max-w-[calc(100vw-2rem)] bg-white border border-gray-200"
             >
-              <div className="px-4 py-3 border-b border-gray-100">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
                 <p className="text-gray-900 text-sm font-semibold">Notifications</p>
+                {items.length > 0 && <button type="button" onClick={markAllAsRead} disabled={busy} className="min-h-9 text-xs font-semibold text-blue-700 disabled:opacity-50">{busy ? 'Marking...' : 'Mark all as read'}</button>}
               </div>
+              {error && <p role="alert" className="px-4 py-2 text-xs text-red-600">{error}</p>}
               {items.length === 0 ? (
                 <div className="px-4 py-3 text-xs text-gray-400">No updates yet</div>
               ) : (
@@ -166,7 +124,7 @@ export function PortalHeader({ companyName, companyLogoUrl, employeeName, employ
         <div className="relative">
           <button
             onClick={() => setShowMenu(v => !v)}
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-xs font-black text-blue-700 shadow-sm ring-1 ring-blue-200 transition-transform hover:scale-105 active:scale-95"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-xs font-black text-white shadow-sm ring-1 ring-white/30 transition-transform hover:scale-105 active:scale-95"
           >
             {employeeInitials ?? 'E'}
           </button>

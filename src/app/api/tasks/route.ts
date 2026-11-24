@@ -6,6 +6,7 @@
  * only changes how rows are bucketed, never which rows come back, so
  * switching views can't change what you're looking at.
  */
+import { sendTaskReminders } from '@/lib/tasks/reminders'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -97,6 +98,7 @@ export async function GET(req: NextRequest) {
     })),
     viewerEmployeeId: actor.employeeId,
     canManage: actor.canManage,
+    canWrite: !!actor.canWrite,
   })
 }
 
@@ -203,5 +205,6 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  await sendTaskReminders(companyId, created.id).catch(err => console.error('[task-reminders]', err))
   return NextResponse.json({ task: shapeTask(created) }, { status: 201 })
 }

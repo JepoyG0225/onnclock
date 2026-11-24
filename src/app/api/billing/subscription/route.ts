@@ -1,3 +1,4 @@
+import { effectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { NextResponse } from 'next/server'
 import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -52,19 +53,10 @@ export async function GET() {
     where: { companyId: ctx.companyId, isActive: true },
   })
 
-  // Check if trial has expired and auto-update status
-  if (sub.status === 'TRIAL' && sub.trialEndsAt && sub.trialEndsAt < new Date()) {
-    sub = await prisma.subscription.update({
-      where: { companyId: ctx.companyId },
-      data: { status: 'EXPIRED', seatCount: employeeCount, updatedAt: new Date() },
-    })
-  } else if (sub.status === 'TRIAL') {
-    // Keep seat count in sync
-    sub = await prisma.subscription.update({
-      where: { companyId: ctx.companyId },
-      data: { seatCount: employeeCount, updatedAt: new Date() },
-    })
-  }
+  // Derive expiry at read time so a missed job cannot leave an ended plan Active.
+  // Do not write stale status over a renewal happening concurrently.
+  const effectiveStatus = effectiveSubscriptionStatus(sub)
+  sub = { ...sub, status: effectiveStatus, ...(sub.status === 'TRIAL' ? { seatCount: employeeCount } : {}) }
 
   const company = await prisma.company.findUnique({
     where: { id: ctx.companyId },
@@ -91,7 +83,7 @@ export async function GET() {
   // is auto-locked until the company adds seats. Returned with the
   // subscription payload so the billing page can list them inline next
   // to the "X unbilled employees" banner.
-  const paused = await getPausedEmployees(ctx.companyId)
+  const paused = sub.status === 'ACTIVE' ? await getPausedEmployees(ctx.companyId) : { details: [] }
 
   return NextResponse.json({
     subscription: {

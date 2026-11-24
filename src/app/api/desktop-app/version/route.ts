@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { resolveDesktopInstallerUrl } from '@/lib/desktop-download'
 
 function normalizeVersion(value: string | undefined): string {
@@ -6,11 +6,14 @@ function normalizeVersion(value: string | undefined): string {
   return /^\d+\.\d+\.\d+$/.test(v) ? v : ''
 }
 
-export async function GET() {
-  const latestVersion =
+export async function GET(req: NextRequest) {
+  const platform = req.nextUrl.searchParams.get('platform')
+  const legacyVersion =
     normalizeVersion(process.env.DESKTOP_APP_LATEST_VERSION) ||
     normalizeVersion(process.env.NEXT_PUBLIC_DESKTOP_APP_LATEST_VERSION) ||
     '1.1.17'
+
+  const latestVersion = platform === 'windows' ? normalizeVersion(process.env.DESKTOP_APP_LATEST_VERSION_WINDOWS) || '1.1.21' : platform === 'mac' ? normalizeVersion(process.env.DESKTOP_APP_LATEST_VERSION_MAC) || legacyVersion : legacyVersion
 
   // Platform-specific download URLs (for the in-app auto-downloader)
   const winUrl  = resolveDesktopInstallerUrl('employee', 'windows')

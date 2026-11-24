@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/audit'
-import { isOvertimeEnabledForCompany } from '@/lib/overtime-requests'
+import { isOvertimeEnabledForCompany, OT_ELIGIBLE_EMPLOYEE } from '@/lib/overtime-requests'
 import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { Prisma } from '@prisma/client'
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
   const where: Prisma.OvertimeRequestWhereInput = {
     companyId: ctx.companyId,
     status: 'PENDING',
+    employee: OT_ELIGIBLE_EMPLOYEE,
     ...(parsed.data.ids?.length ? { id: { in: parsed.data.ids } } : {}),
   }
 
@@ -105,8 +106,8 @@ export async function POST(req: NextRequest) {
     if (!canAct) continue
 
     // Approve the request
-    await prisma.overtimeRequest.update({
-      where: { id: request.id },
+    const changed = await prisma.overtimeRequest.updateMany({
+      where: { id: request.id, companyId: ctx.companyId, status: 'PENDING', employee: OT_ELIGIBLE_EMPLOYEE },
       data: {
         status: 'APPROVED',
         approvedById: ctx.userId,
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    if (!changed.count) continue
     approved++
     approvedIds.push(request.id)
   }

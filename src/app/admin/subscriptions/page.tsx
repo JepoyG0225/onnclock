@@ -1,4 +1,6 @@
-﻿'use client'
+'use client';
+import { getStatusColor } from '@/lib/utils'
+﻿
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CreditCard, Loader2, Save } from 'lucide-react'
@@ -226,12 +228,12 @@ export default function AdminSubscriptionsPage() {
                     )}
                     {company.subscription?.currentPeriodEnd && (
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Period ends: {format(new Date(company.subscription.currentPeriodEnd), 'MMM dd, yyyy')}
+                        {company.subscription.status === 'EXPIRED' ? 'Expired - not renewed:' : 'Period ends:'} {format(new Date(company.subscription.currentPeriodEnd), 'MMM dd, yyyy')}
                       </p>
                     )}
                   </div>
                   {company.subscription && (
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${STATUS_COLORS[company.subscription.status]}`}>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${getStatusColor(company.subscription.status)}`}>
                       {company.subscription.status}
                     </span>
                   )}

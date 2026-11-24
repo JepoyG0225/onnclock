@@ -22,7 +22,7 @@ function makeQuoteNo() {
   return `QT-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${rand}`
 }
 
-const inputCls = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0055d4]/30 focus:border-[#0055d4]'
+const inputCls = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0054d7]/30 focus:border-[#0054d7]'
 const labelCls = 'text-xs font-semibold text-slate-500 uppercase tracking-wide'
 
 export default function ProposalGeneratorPage() {
@@ -114,7 +114,7 @@ export default function ProposalGeneratorPage() {
   return (
     <div className="p-6 md:p-8 max-w-6xl">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#000000' }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--brand-primary)' }}>
           <FileText className="w-5 h-5 text-white" />
         </div>
         <div>
@@ -196,7 +196,7 @@ export default function ProposalGeneratorPage() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className={labelCls}>Summary text</label>
-                <button type="button" onClick={autofillSummary} className="text-xs font-semibold text-[#0055d4] hover:underline">Auto-fill</button>
+                <button type="button" onClick={autofillSummary} className="text-xs font-semibold text-[#0054d7] hover:underline">Auto-fill</button>
               </div>
               <textarea className={inputCls + ' h-32'} value={scope} onChange={e => setScope(e.target.value)}
                 placeholder="Click Auto-fill to generate, or write a high-level overview of the client's needs and how OnClock addresses them." />
@@ -259,7 +259,7 @@ export default function ProposalGeneratorPage() {
             </div>
             <button onClick={sendEmail} disabled={sending}
               className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-              style={{ background: '#0055d4' }}>
+              style={{ background: '#0054d7' }}>
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               Send Proposal
             </button>

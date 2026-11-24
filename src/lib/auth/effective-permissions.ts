@@ -45,8 +45,8 @@ export async function getEffectivePermissions(
   // If this user is on a company custom role (e.g. "Operations Lead"),
   // honor that assignment over the built-in role override. We use a raw
   // query because user_custom_roles is created via ensureCustomRoleTables
-  // and isn't part of the Prisma schema. Silently fall through to the
-  // built-in path if anything goes wrong — we'd rather degrade to defaults
+  // and isn't part of the Prisma schema. Only a missing legacy table falls
+  // through to the built-in path; other lookup failures deny access — we'd rather degrade to defaults
   // than lock the user out.
   if (userId) {
     try {
@@ -60,15 +60,18 @@ export async function getEffectivePermissions(
         userId,
       )
       const customPerms = rows[0]?.permissions
-      if (Array.isArray(customPerms) && customPerms.length > 0) {
+      if (Array.isArray(customPerms)) {
         return [...customPerms]
       }
-    } catch {
-      // Table missing or query failed → fall through to built-in path.
+    } catch (error) {
+      const e = error as { code?: string; meta?: { code?: string } }
+      if (e.code !== 'P2021' && e.meta?.code !== '42P01') throw error
+      // Legacy table missing → fall through to built-in path.
     }
   }
 
   const defaults = ROLE_PERMISSIONS[role as UserRole] ?? []
+  if (!(role in ROLE_PERMISSIONS)) return []
 
   // Look up per-company override; if missing, use the hardcoded defaults.
   let effective: Permission[]
@@ -82,10 +85,9 @@ export async function getEffectivePermissions(
     } else {
       effective = [...defaults]
     }
-  } catch {
-    // If the lookup fails (e.g. transient DB error), fall back to defaults
-    // rather than locking the user out entirely.
-    effective = [...defaults]
+  } catch (error) {
+    // A failed permission lookup must never restore broader role defaults.
+    throw error
   }
 
   // Lockout protection: COMPANY_ADMIN must always retain the two

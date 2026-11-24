@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trash2, Unlock, AlertTriangle, Download } from 'lucide-react'
+import { Trash2, Unlock, AlertTriangle, Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Props {
@@ -26,6 +26,30 @@ export default function PayrollRunRowActions({ runId, status }: Props) {
       setTimeout(() => inputRef.current?.focus(), 80)
     }
   }, [showDeleteDlg])
+
+  async function handleDownload() {
+    setLoading('download')
+    try {
+      const response = await fetch(`/api/payroll/${runId}/download`)
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error ?? 'Could not download the payroll report.')
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ?? `Payroll-${runId}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not download the payroll report.')
+    } finally {
+      setLoading(null)
+    }
+  }
 
   async function handleDelete() {
     if (confirmText.trim().toUpperCase() !== 'DELETE') return
@@ -69,15 +93,18 @@ export default function PayrollRunRowActions({ runId, status }: Props) {
   return (
     <>
       <div className="flex items-center justify-center gap-1">
-        {status !== 'DRAFT' && (
-          <a
-            href={`/api/payroll/${runId}/download`}
-            title="Download payroll Excel"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--brand-primary)] transition-colors hover:bg-blue-50"
-          >
-            <Download className="h-4 w-4" />
-          </a>
-        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          title="Download Payroll Register"
+          aria-label="Download Payroll Register"
+          className="text-blue-600 hover:bg-blue-50"
+          disabled={!!loading}
+          onClick={() => void handleDownload()}
+        >
+          {loading === 'download' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        </Button>
         {status === 'LOCKED' && (
           <Button
             type="button"
@@ -90,7 +117,7 @@ export default function PayrollRunRowActions({ runId, status }: Props) {
             <Unlock className="w-4 h-4" />
           </Button>
         )}
-        {status !== 'LOCKED' && (
+        {!['LOCKED', 'DISBURSED'].includes(status) && (
           <Button
             type="button"
             variant="ghost"

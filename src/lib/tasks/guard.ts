@@ -27,6 +27,7 @@ export type TaskGuardSuccess = {
 export async function guardTasks(
   req: NextRequest,
   need: 'read' | 'manage' = 'read',
+  scopedTask = false,
 ): Promise<TaskGuardSuccess | GuardFailure> {
   const { ctx, error } = await requireAuth(undefined, req)
   if (error) return { ok: false, response: error }
@@ -45,7 +46,9 @@ export async function guardTasks(
     return { ok: false, response: NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 }) }
   }
 
-  const actor = await resolveTaskActor(ctx, companyId, canManage)
+  const canWrite = await ctxHasPermission(ctx, 'tasks:write')
+  if (!['GET','HEAD','OPTIONS'].includes(req.method) && !canWrite && !canManage && !(scopedTask && ctx.role === 'EMPLOYEE')) return { ok: false, response: NextResponse.json({ error: 'View-only task access.' }, { status: 403 }) }
+  const actor = await resolveTaskActor(ctx, companyId, canManage, canWrite)
 
   if (need === 'manage' && !actor.canManage) {
     return { ok: false, response: NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 }) }
@@ -71,7 +74,7 @@ export async function guardTask(
   taskId: string,
   need: 'view' | 'edit' = 'view',
 ): Promise<SingleTaskGuardSuccess | GuardFailure> {
-  const base = await guardTasks(req)
+  const base = await guardTasks(req, 'read', true)
   if (!base.ok) return base
 
   const task = await prisma.task.findFirst({
@@ -89,7 +92,7 @@ export async function guardTask(
   }
 
   const canEdit = canEditTask(base.actor, task)
-  if (need === 'edit' && !canEdit) {
+  if ((need === 'edit' || !['GET','HEAD','OPTIONS'].includes(req.method)) && !canEdit) {
     return {
       ok: false,
       response: NextResponse.json(

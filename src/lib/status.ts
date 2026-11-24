@@ -28,6 +28,7 @@ const STATUS_MAP: Record<string, BadgeVariant> = {
   COMPLETED: 'success',
   ACTIVE: 'success',
   PAID: 'success',
+  DISBURSED: 'success',
   RELEASED: 'success',
   REGULAR: 'success',
   ONGOING: 'success',

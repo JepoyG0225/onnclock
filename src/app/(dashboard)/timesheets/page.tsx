@@ -59,6 +59,7 @@ function TimesheetsTabs() {
             key={tab.id}
             type="button"
             onClick={() => select(tab.id)}
+            data-app-tab
             aria-current={active === tab.id ? 'page' : undefined}
             data-tour-tab={tab.id}
             className={cn(

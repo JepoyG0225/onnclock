@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/audit'
-import { syncAutoOvertimeRequestsForCompany } from '@/lib/overtime-requests'
+import { syncAutoOvertimeRequestsForCompany, OT_ELIGIBLE_EMPLOYEE } from '@/lib/overtime-requests'
 import { authorizeAdvance, buildPlan, resolveWorkflow } from '@/lib/approvals/engine'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { z } from 'zod'
@@ -51,6 +51,8 @@ export async function GET(req: NextRequest) {
   // historical records that may already have been paid, so hiding them from
   // the approval queue is reversible while deleting them isn't.
   where.employee = { trackTime: true }
+  // Suppress disabled pending requests; retain historical approvals/rejections.
+  where.AND = [{ OR: [{ status: { not: 'PENDING' } }, { employee: OT_ELIGIBLE_EMPLOYEE }] }]
   if (dateFrom || dateTo) {
     where.date = {
       ...(dateFrom && { gte: new Date(dateFrom) }),

@@ -83,7 +83,7 @@ export default function AuditSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#000000]" />
+            <ShieldCheck className="h-4 w-4 text-[var(--brand-primary)]" />
             Audit Log
           </CardTitle>
         </CardHeader>

@@ -199,7 +199,7 @@ export function OrgChartTab() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-[#000000]" /> Company Org Chart
+              <Building2 className="w-4 h-4 text-[var(--brand-primary)]" /> Company Org Chart
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -240,7 +240,7 @@ function nodeContent(d: { data: OrgNode & { _directSubordinates?: number } }) {
     ? `<div style="width:48px;height:48px;border-radius:999px;overflow:hidden;flex:0 0 48px;display:block;">
          <img src="${photoUrl}" style="width:48px;height:48px;object-fit:cover;display:block;border-radius:999px;" />
        </div>`
-    : `<div style="width:48px;height:48px;border-radius:999px;background:#eef2ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 48px;">${initials}</div>`
+    : `<div style="width:48px;height:48px;border-radius:999px;background:#eef2ff;color:#0054d7;display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 48px;">${initials}</div>`
 
   if (isDept) {
     const len = department.length
@@ -273,7 +273,7 @@ function nodeContent(d: { data: OrgNode & { _directSubordinates?: number } }) {
 function deptColor(name: string) {
   const key = name.toLowerCase()
   const palette = [
-    '#A78BFA',
+    '#9bafce',
     '#F4A261',
     '#84C5A7',
     '#60A5FA',

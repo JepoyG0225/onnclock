@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { UserRole, ROLE_PERMISSIONS, Permission } from '@/lib/auth/permissions'
+import { UserRole, ROLE_PERMISSIONS, Permission, ALL_PERMISSIONS } from '@/lib/auth/permissions'
 import { ensureCustomRoleTables, listCompanyCustomRoles } from '@/lib/custom-roles'
 
 // GET /api/settings/role-permissions
@@ -38,12 +38,15 @@ export async function PUT(req: NextRequest) {
   const { ctx, error } = await requireAuth(['COMPANY_ADMIN'])
   if (error) return error
 
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   const { role, permissions } = body as { role: string; permissions: Permission[] }
 
-  if (!role || !Array.isArray(permissions)) {
+  if (typeof role !== 'string' || !Array.isArray(permissions) || permissions.some(p => !ALL_PERMISSIONS.includes(p))) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
+
+  if (!role.startsWith('custom:') && !['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'EMPLOYEE'].includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
 
   // Lockout protection: COMPANY_ADMIN must retain the permissions that
   // unlock the Role Permissions matrix itself. Mirrors the safeguard in
@@ -66,6 +69,8 @@ export async function PUT(req: NextRequest) {
 
   if (role.startsWith('custom:')) {
     const customRoleId = role.replace('custom:', '')
+    const roles = await listCompanyCustomRoles(ctx.companyId)
+    if (!roles.some(r => r.id === customRoleId)) return NextResponse.json({ error: 'Custom role not found' }, { status: 404 })
     await ensureCustomRoleTables()
     const permissionsJson = JSON.stringify(permissions)
     await prisma.$executeRawUnsafe(
@@ -97,6 +102,7 @@ export async function DELETE(req: NextRequest) {
 
   const role = new URL(req.url).searchParams.get('role')
   if (!role) return NextResponse.json({ error: 'role param required' }, { status: 400 })
+  if (!role.startsWith('custom:') && !['COMPANY_ADMIN', 'HR_MANAGER', 'PAYROLL_OFFICER', 'EMPLOYEE'].includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
 
   if (role.startsWith('custom:')) {
     const customRoleId = role.replace('custom:', '')

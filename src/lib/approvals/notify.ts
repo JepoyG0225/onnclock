@@ -1,3 +1,4 @@
+import { requestNotificationType, requestNotificationRecipients } from '@/lib/notifications-audience'
 /**
  * Dispatch for the approval engine's NOTIFY steps and the built-in
  * "it's your turn" / decision notifications. Resolves a step's recipients,
@@ -79,7 +80,10 @@ async function emailsForUsers(userIds: string[]): Promise<string[]> {
 /** Fire a single NOTIFY step. */
 export async function dispatchNotifyStep(step: LiveStep, ctx: NotifyContext): Promise<void> {
   try {
-    const userIds = await resolveRecipientUserIds(step, ctx)
+    let userIds = await resolveRecipientUserIds(step, ctx)
+    if (requestNotificationType({ type: 'GENERIC', link: ctx.link })) {
+      userIds = await requestNotificationRecipients(ctx.companyId, { type: 'GENERIC', link: ctx.link }, userIds)
+    }
     if (userIds.length === 0) return
 
     const title = render(step.messageTitle, ctx.vars) || 'Approval workflow update'
@@ -132,6 +136,7 @@ export async function notifyAfterApprove(opts: {
     const approvers = await resolveApprovers(nextStep, {
       companyId: ctx.companyId,
       requesterDepartmentId: ctx.requesterDepartmentId,
+      requesterEmployeeId: ctx.requesterEmployeeId,
     })
     if (approvers.length > 0) {
       await createNotificationsForUsers(approvers, {

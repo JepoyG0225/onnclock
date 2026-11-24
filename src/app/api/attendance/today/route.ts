@@ -1,3 +1,4 @@
+import { resolveAttendanceLocation } from '@/lib/attendance/schedule-location'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
     where: { id: employeeId },
     select: {
       id: true,
+      disableHolidayPay: true,
       firstName: true,
       lastName: true,
       workScheduleId: true,
@@ -46,8 +48,8 @@ export async function GET(req: NextRequest) {
   }) : null
   if (!employee) return NextResponse.json({ record: null })
 
-  const manilaDate = getManilaDateOnly()
-  const dayOfWeek = getManilaDayOfWeek()
+  const manilaDate = (await resolveAttendanceLocation(ctx.companyId,employee.id)).date
+  const dayOfWeek = manilaDate.getUTCDay()
 
   const activeRecord = await prisma.dTRRecord.findFirst({
     where: { employeeId: employee.id, timeIn: { not: null }, timeOut: null },
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
   })
   const record = activeRecord ?? await prisma.dTRRecord.findFirst({
     where: { employeeId: employee.id, date: manilaDate },
+    orderBy: [{ timeIn: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
   })
 
   const fixedScheduleSet = !!employee.workScheduleId
@@ -81,31 +84,15 @@ export async function GET(req: NextRequest) {
   const assignmentIsWorkDay = !!workAssignment
   const allMarkedRestDay = assignmentsToday.length > 0 && assignmentsToday.every(a => a.isRestDay)
 
-  if (fixedScheduleSet) {
-    // Fixed schedule: check if today is in the scheduled work days
-    const workDays = normalizeWorkDays(employee.workSchedule?.workDays)
-    const isScheduledWorkDay = workDays.includes(dayOfWeek)
-
-    if (isScheduledWorkDay || assignmentIsWorkDay) {
-      // Either a normal work day OR an explicit shift-assignment override
-      scheduleReady = true
-    } else {
-      scheduleReady = false
-      scheduleMessage = allMarkedRestDay
-        ? 'Today is marked as rest day in your schedule.'
-        : 'Today is your rest day based on your fixed schedule.'
-    }
+  const fixedRestDay = fixedScheduleSet && !assignmentIsWorkDay && !normalizeWorkDays(employee.workSchedule?.workDays).includes(dayOfWeek)
+  if (allMarkedRestDay || fixedRestDay) {
+    scheduleReady = true
+    scheduleMessage = 'You may clock in on your rest day. HR must approve this additional shift.'
+  } else if (fixedScheduleSet || assignmentIsWorkDay) {
+    scheduleReady = true
   } else {
-    // Flexible employee: must have at least one non-rest-day assignment today
-    if (assignmentIsWorkDay) {
-      scheduleReady = true
-    } else if (allMarkedRestDay) {
-      scheduleReady = false
-      scheduleMessage = 'Today is marked as rest day in your flexible schedule.'
-    } else {
-      scheduleReady = false
-      scheduleMessage = 'No work schedule is set for you yet. Please contact your admin.'
-    }
+    scheduleReady = false
+    scheduleMessage = 'No work schedule is set for you yet. Please contact your admin.'
   }
 
   // breakMinutes: 0 = break disabled, >0 = allowed break duration in minutes
@@ -115,7 +102,7 @@ export async function GET(req: NextRequest) {
   const breakDisabled =
     workAssignment?.schedule?.breakEnabled === false ||
     (!workAssignment && employee.workSchedule?.breakEnabled === false)
-  const breakMinutes = breakDisabled ? 0 : normalizeBreakMinutes(
+  const breakMinutes = breakDisabled || (record?.isHalfDay && !record.isLeave) ? 0 : normalizeBreakMinutes(
     workAssignment?.schedule?.breakMinutes ??
       employee.workSchedule?.breakMinutes ??
       companyDefaultBreakMinutes
@@ -123,7 +110,7 @@ export async function GET(req: NextRequest) {
 
   // Strip clockInPhoto — large base64 payload not needed by the clock page
   const safeRecord = record ? Object.fromEntries(
-    Object.entries(record).filter(([k]) => k !== 'clockInPhoto')
+    Object.entries(record).filter(([k]) => !['clockOutPhoto', 'clockInPhoto', 'breakInPhoto', 'breakOutPhoto'].includes(k))
   ) : null
   return NextResponse.json({ record: safeRecord, employee, scheduleReady, scheduleMessage, breakMinutes })
 }

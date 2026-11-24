@@ -1,3 +1,5 @@
+import { scheduleInstants, timezone, zonedParts } from '@/lib/attendance/timezone'
+import { chooseAssignment } from '@/lib/attendance/schedule-location'
 /**
  * Single source of truth for timesheet hour math.
  *
@@ -186,6 +188,8 @@ export function computeHours(
      * so an employee clocking in early (e.g. 22:50 for a 23:00 shift) can't
      * pad ND. Pass nothing to skip the cap.
      */
+    scheduledStart?: Date | null
+    scheduledEnd?: Date | null
     scheduledTimeIn?: string | null
     scheduledTimeOut?: string | null
   } = {},
@@ -262,8 +266,8 @@ export function computeHours(
       // clock-in is at e.g. 20:00, the difference is 2h early. But if schedule
       // is 09:00 and actual is 23:00 (previous day), that's not early — that's
       // a different shift or overnight arrival handled elsewhere.
-      let earlyMinutes = 0
-      if (actualInMins < schedInMins) {
+      let earlyMinutes = opts.scheduledStart?Math.max(0,(opts.scheduledStart.getTime()-timeIn.getTime())/60000):0
+      if (!opts.scheduledStart && actualInMins < schedInMins) {
         // Same-day early: e.g. actual 07:00 (420) < scheduled 09:00 (540) → 120 min early
         earlyMinutes = schedInMins - actualInMins
       }
@@ -351,7 +355,9 @@ export function computeLateAndUndertime(
   timeOut: Date,
   scheduleTimeIn: string | null | undefined,
   scheduleTimeOut: string | null | undefined,
+  bounds?: { scheduledStart?: Date | null; scheduledEnd?: Date | null },
 ): LateUndertimeResult {
+  if(bounds?.scheduledStart&&bounds?.scheduledEnd)return {lateMinutes:Math.max(0,Math.floor((timeIn.getTime()-bounds.scheduledStart.getTime())/60000)),undertimeMinutes:Math.max(0,Math.floor((bounds.scheduledEnd.getTime()-timeOut.getTime())/60000))}
   const scheduledInMins = parseTimeToMinutes(scheduleTimeIn)
   if (scheduledInMins == null) return { lateMinutes: 0, undertimeMinutes: 0 }
 
@@ -400,6 +406,9 @@ export interface ResolvedShift {
    */
   plannedRegularMinutes: number
   /** Whether a per-date assignment was found (vs. falling back to fixed schedule) */
+  timezone?: string
+  scheduledStart?: Date | null
+  scheduledEnd?: Date | null
   matchedAssignment: boolean
 }
 
@@ -414,13 +423,20 @@ export interface ResolvedShift {
  * Pass `actualTimeIn = null` if you don't have a clock-in yet (e.g. creating
  * an absent/rest-day record); the function will return the first assignment.
  */
+export type DtrShiftAssignment = {
+  date: Date; timeIn: string | null; timeOut: string | null
+  schedule: { timezone: string; timeIn: string | null; timeOut: string | null; breakMinutes: number | null; workHoursPerDay: number | { toNumber(): number } | null; breakEnabled: boolean } | null
+}
+
 export async function resolveShiftForDtr(params: {
+  assignments?: DtrShiftAssignment[]
   employeeId: string
   date: Date
   actualTimeIn: Date | null
   employee: {
     workScheduleId: string | null
     workSchedule: {
+      timezone?: string
       timeIn: string | null
       timeOut: string | null
       breakMinutes: number | null
@@ -431,6 +447,7 @@ export async function resolveShiftForDtr(params: {
 }): Promise<ResolvedShift> {
   const { employeeId, date, actualTimeIn, employee, defaultBreakMinutes } = params
 
+  let zone=timezone(employee.workSchedule?.timezone)
   let scheduleTimeIn: string | null = employee.workSchedule?.timeIn ?? null
   let scheduleTimeOut: string | null = employee.workSchedule?.timeOut ?? null
   let allowedBreakMinutes = normalizeBreakMinutes(
@@ -447,32 +464,20 @@ export async function resolveShiftForDtr(params: {
 
   // Look up per-date assignments (works for both fixed and flex employees:
   // a fixed-schedule employee can still have a per-day override).
-  const assignments = await prisma.employeeShiftAssignment.findMany({
-    where: { employeeId, date },
+  const assignments = params.assignments ?? await prisma.employeeShiftAssignment.findMany({
+    where: { employeeId, date, isRestDay: false },
+    orderBy: { id: 'asc' },
     select: {
+      date: true,
       timeIn: true,
       timeOut: true,
-      schedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true, breakEnabled: true } }, // Decimal
+      schedule: { select: { timezone: true, timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true, breakEnabled: true } }, // Decimal
     },
   })
 
   if (assignments.length > 0) {
-    let chosen = assignments[0]
-    if (assignments.length > 1 && actualTimeIn) {
-      // Multi-shift day: pick the assignment closest to the actual clock-in.
-      const actualPhtMins = getManilaMinutes(actualTimeIn)
-      let bestDistance = Infinity
-      for (const a of assignments) {
-        const planMins = parseTimeToMinutes(a.timeIn ?? a.schedule?.timeIn ?? null)
-        if (planMins == null) continue
-        const raw = Math.abs(planMins - actualPhtMins)
-        const dist = Math.min(raw, 24 * 60 - raw)
-        if (dist < bestDistance) {
-          bestDistance = dist
-          chosen = a
-        }
-      }
-    }
+    const chosen = chooseAssignment(assignments, actualTimeIn, zone)!
+    zone=timezone(chosen.schedule?.timezone??zone)
     scheduleTimeIn = chosen.timeIn ?? chosen.schedule?.timeIn ?? scheduleTimeIn
     scheduleTimeOut = chosen.timeOut ?? chosen.schedule?.timeOut ?? scheduleTimeOut
     // Honour the assignment's schedule break policy (same rule: breakEnabled
@@ -514,7 +519,11 @@ export async function resolveShiftForDtr(params: {
     spanMinutes ??
     DEFAULT_REGULAR_CAP_MINUTES
 
-  return { scheduleTimeIn, scheduleTimeOut, allowedBreakMinutes, plannedRegularMinutes, matchedAssignment }
+  const bounds=scheduleInstants(date,scheduleTimeIn,scheduleTimeOut,zone)
+  // Existing payroll helpers operate in PHT; convert schedule clocks to the same reference.
+  const convertedIn=bounds.scheduledStart?zonedParts(bounds.scheduledStart).time:scheduleTimeIn
+  const convertedOut=bounds.scheduledEnd?zonedParts(bounds.scheduledEnd).time:scheduleTimeOut
+  return { scheduleTimeIn:convertedIn, scheduleTimeOut:convertedOut, allowedBreakMinutes, plannedRegularMinutes, matchedAssignment,timezone:zone,...bounds }
 }
 
 // ─── Night-differential window ──────────────────────────────────────────────

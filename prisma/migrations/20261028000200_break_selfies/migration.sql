@@ -1,0 +1,1 @@
+ALTER TABLE "dtr_records" ADD COLUMN IF NOT EXISTS "breakInPhoto" TEXT, ADD COLUMN IF NOT EXISTS "breakOutPhoto" TEXT;

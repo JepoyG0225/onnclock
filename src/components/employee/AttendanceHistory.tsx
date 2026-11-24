@@ -1,10 +1,13 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, ClipboardEdit} from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { TimesheetActivities } from '@/components/attendance/ActivityLog'
 
 interface DTRRecord {
   id: string
@@ -16,6 +19,7 @@ interface DTRRecord {
   lateMinutes: number | null
   undertimeMinutes: number | null
   isAbsent: boolean
+  employee?: { disableHolidayPay?: boolean }
   isHoliday: boolean
   isLeave: boolean
   isRestDay: boolean
@@ -31,20 +35,18 @@ function statusBadge(record: DTRRecord) {
   if (record.isLeave) {
     return (
       <Badge
-        className="border"
-        style={{ background: 'rgba(170,183,183,0.28)', color: '#000000', borderColor: 'rgba(170,183,183,0.5)' }}
+        variant="info"
       >
         On Leave
       </Badge>
     )
   }
-  if (record.isHoliday && !record.timeIn) return <Badge className="bg-amber-100 text-amber-700 border-amber-200">Holiday</Badge>
+  if (record.employee?.disableHolidayPay === false && record.isHoliday && !record.timeIn) return <Badge className="bg-amber-100 text-amber-700 border-amber-200">Holiday</Badge>
   if (record.isRestDay && !record.timeIn) return <Badge className="bg-gray-100 text-gray-600 border-gray-200">Rest Day</Badge>
   if (record.timeIn && !record.timeOut) {
     return (
       <Badge
-        className="border"
-        style={{ background: 'rgba(46,65,86,0.12)', color: '#000000', borderColor: 'rgba(170,183,183,0.45)' }}
+        variant="info"
       >
         Clocked In
       </Badge>
@@ -53,8 +55,7 @@ function statusBadge(record: DTRRecord) {
   if (record.timeIn && record.timeOut) {
     return (
       <Badge
-        className="border"
-        style={{ background: 'rgba(46,65,86,0.12)', color: '#000000', borderColor: 'rgba(170,183,183,0.45)' }}
+        variant="success"
       >
         Present
       </Badge>
@@ -105,7 +106,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           plus two arrow buttons left barely 150px for the title and the
           correction link, which wrapped badly at 375px. */}
       <div>
-        <h2 className="text-[19px] font-black" style={{ color: '#000000' }}>Attendance history</h2>
+        <h2 className="text-[19px] font-black" style={{ color: '#0369a1' }}>Attendance history</h2>
         <p className="text-slate-400 text-[13px] font-semibold mt-0.5">Your daily time records</p>
       </div>
 
@@ -137,14 +138,14 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           too cramped for the numeric values. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
         {[
-          { label: 'Days Present', value: totals.present, color: 'text-[#000000]' },
+          { label: 'Days Present', value: totals.present, color: 'text-[var(--brand-primary)]' },
           { label: 'Days Absent', value: totals.absent, color: 'text-red-600' },
           { label: 'Days Late', value: totals.late, color: 'text-amber-600' },
           { label: 'Total Hours', value: `${totals.hours.toFixed(1)}h`, color: '' },
           { label: 'OT Hours', value: `${totals.ot.toFixed(1)}h`, color: 'text-primary' },
         ].map(s => (
-          <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-            <p className={`text-lg sm:text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#000000' } : undefined}>
+          <div key={s.label} className="bg-gradient-to-br from-blue-50/60 to-emerald-50/40 border border-blue-100 rounded-xl p-3 text-center">
+            <p className={`text-lg sm:text-xl font-bold ${s.color}`} style={s.label === 'Total Hours' ? { color: '#0369a1' } : undefined}>
               {s.value}
             </p>
             <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">{s.label}</p>
@@ -156,11 +157,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           which on a phone meant sideways scrolling to reach Hours, Late and
           Source — the columns an employee most wants. A card fits the whole day
           in the viewport with no horizontal movement. */}
-      {loading ? (
-        <div className="space-y-2">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-20 bg-white/70 rounded-2xl animate-pulse" />)}
-        </div>
-      ) : records.length === 0 ? (
+      {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : records.length === 0 ? (
         <div className="rounded-2xl bg-white border border-slate-200 p-10 text-center">
           <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
             <Calendar className="w-7 h-7 text-slate-300" />
@@ -174,17 +171,18 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
             const late = record.lateMinutes ?? 0
             const ot = Number(record.overtimeHours ?? 0)
             return (
-              <div key={record.id} className="rounded-2xl bg-white border border-slate-200 shadow-sm px-4 py-3">
+              <div key={record.id} className="rounded-2xl bg-gradient-to-r from-blue-50/40 via-white to-emerald-50/30 border border-blue-100 shadow-sm px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[13px] font-black text-slate-900">
                     {format(new Date(record.date), 'EEE, MMM d')}
                   </p>
                   {statusBadge(record)}
                 </div>
+                <TimesheetActivities dtrRecordId={record.id} />
 
                 <div className="flex items-center gap-4 mt-2.5">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">In</p>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">In</p>
                     <p className="text-[13px] font-bold text-slate-800 tabular-nums flex items-center gap-1">
                       {record.timeIn ? format(new Date(record.timeIn), 'h:mm a') : '--'}
                       {record.clockInAddress && (
@@ -193,7 +191,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                     </p>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Out</p>
+                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Out</p>
                     <p className="text-[13px] font-bold text-slate-800 tabular-nums flex items-center gap-1">
                       {record.timeOut ? format(new Date(record.timeOut), 'h:mm a') : '--'}
                       {record.clockOutAddress && (
@@ -203,7 +201,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                   </div>
                   <div className="ml-auto text-right">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hours</p>
-                    <p className="text-[13px] font-black tabular-nums" style={{ color: '#000000' }}>
+                    <p className="text-[13px] font-black tabular-nums" style={{ color: '#0369a1' }}>
                       {record.regularHours ? `${record.regularHours}h` : '--'}
                     </p>
                   </div>
@@ -237,7 +235,7 @@ export function AttendanceHistory({ refreshKey = 0 }: { refreshKey?: number }) {
           this list, so the fix sits right after it. */}
       <Link
         href="/portal/time-corrections"
-        className="flex items-center justify-center gap-1.5 w-full py-3 rounded-2xl bg-white border border-slate-200 text-[12px] font-black text-slate-600 active:bg-slate-50 transition-colors"
+        className="flex items-center justify-center gap-1.5 w-full py-3 rounded-2xl bg-blue-50/60 border border-blue-100 text-[12px] font-black text-blue-700 active:bg-blue-100 transition-colors"
       >
         <ClipboardEdit className="w-3.5 h-3.5" />
         Request a time correction

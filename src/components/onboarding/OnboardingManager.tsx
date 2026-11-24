@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -242,7 +244,7 @@ function ProgressRing({ pct, size = 52 }: { pct: number; size?: number }) {
   const r = (size - 8) / 2
   const circ = 2 * Math.PI * r
   const offset = circ - (pct / 100) * circ
-  const color = pct === 100 ? '#10b981' : pct > 60 ? '#3b82f6' : pct > 30 ? '#f59e0b' : '#d4d4d4'
+  const color = pct === 100 ? '#c74300' : pct > 60 ? '#0054d7' : pct > 30 ? '#f59e0b' : '#d4d4d4'
   return (
     <svg width={size} height={size} className="rotate-[-90deg]">
       <circle cx={size / 2} cy={size / 2} r={r} stroke="#d4d4d4" strokeWidth={6} fill="none" />
@@ -1258,7 +1260,7 @@ export function OnboardingManager() {
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" data-tour="onb-status-tabs">
         {([['active', 'Active Onboardings'], ['templates', 'Templates']] as const).map(([key, label]) => (
-          <button
+          <button data-app-tab data-active={tab === key}
             key={key}
             onClick={() => setTab(key)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
@@ -1297,12 +1299,7 @@ export function OnboardingManager() {
             </select>
           </div>
 
-          {loading ? (
-            <div className="text-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto" />
-              <p className="text-sm text-slate-400 mt-2">Loading onboarding list...</p>
-            </div>
-          ) : filtered.length === 0 ? (
+          {loading ? <AppSpinner size="md" message="Loading onboarding list..." className="py-10" /> : filtered.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
               <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <p className="text-sm font-semibold text-slate-500">No onboarding processes found</p>
@@ -1336,11 +1333,7 @@ export function OnboardingManager() {
             </button>
           </div>
 
-          {loading ? (
-            <div className="text-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto" />
-            </div>
-          ) : templates.length === 0 ? (
+          {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : templates.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
               <ClipboardList className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <p className="text-sm font-semibold text-slate-500">No templates yet</p>

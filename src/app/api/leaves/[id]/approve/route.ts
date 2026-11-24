@@ -1,3 +1,4 @@
+import { leaveWorkDates } from '@/lib/leaves/duration'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -157,19 +158,12 @@ export async function POST(
         },
       })
 
-      // Auto-create DTR leave entries (skip weekends)
-      const start = new Date(leaveRequest.startDate)
-      const end = new Date(leaveRequest.endDate)
-      start.setHours(0, 0, 0, 0)
-      end.setHours(0, 0, 0, 0)
-
-      const dates: Date[] = []
-      const cursor = new Date(start)
-      while (cursor <= end) {
-        const dow = cursor.getDay()
-        if (dow !== 0 && dow !== 6) dates.push(new Date(cursor))
-        cursor.setDate(cursor.getDate() + 1)
-      }
+      // Use the same scheduled working dates as leave submission, including weekends.
+      const [scheduledEmployee,assignments]=await Promise.all([
+        tx.employee.findUnique({where:{id:leaveRequest.employeeId},include:{workSchedule:true}}),
+        tx.employeeShiftAssignment.findMany({where:{employeeId:leaveRequest.employeeId,companyId:ctx.companyId,date:{gte:leaveRequest.startDate,lte:leaveRequest.endDate}},include:{schedule:true}}),
+      ])
+      const dates=leaveWorkDates(leaveRequest.startDate.toISOString().slice(0,10),leaveRequest.endDate.toISOString().slice(0,10),assignments,scheduledEmployee?.workSchedule??null)
 
       const isPaid     = !!leaveRequest.leaveType?.isWithPay
       const typeName   = leaveRequest.leaveType?.name ?? 'Leave'
@@ -271,7 +265,7 @@ export async function POST(
       companyId: ctx.companyId,
       requesterEmployeeId: leaveRequest.employeeId,
       requesterDepartmentId,
-      link: '/leaves',
+      link: `/leaves?requestId=${leaveRequest.id}`,
       vars: {
         requestType: 'Leave',
         requesterName,
@@ -294,7 +288,7 @@ export async function POST(
             type: 'GENERIC',
             title: 'Leave request awaiting your approval',
             body: `${requesterName} · ${leaveRequest.leaveType?.name ?? 'Leave'}`,
-            link: '/leaves',
+            link: `/leaves?requestId=${leaveRequest.id}`,
           })
         }
       }

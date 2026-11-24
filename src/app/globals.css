@@ -51,9 +51,8 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* Core brand palette: lime, black, and jet black. White and neutral gray
-     are functional surfaces only, not additional brand accents. */
-  --color-brand-orange: var(--brand-danger);
+  /* OnClock brand: navy and orange, with blue as the secondary accent. */
+  --color-brand-orange: var(--brand-highlight);
   --color-brand-navy: var(--brand-primary);
   --color-black: #000000;
   /* Remap the neutral utility ramps used throughout legacy pages. This makes
@@ -89,118 +88,182 @@
   --color-zinc-800: #343434;
   --color-zinc-900: #000000;
   /* Legacy decorative accent ramps. Components across older pages use these
-     names directly; collapse them into black/jet/neutral to prevent rainbow UI. */
-  --color-orange-50: #f7f7f7;
-  --color-orange-100: var(--brand-highlight);
-  --color-orange-200: #d4d4d4;
-  --color-orange-300: #d4d4d4;
-  --color-orange-400: #343434;
-  --color-orange-500: #343434;
-  --color-orange-600: #000000;
-  --color-orange-700: #343434;
-  --color-orange-800: #000000;
-  --color-orange-900: #000000;
-  --color-blue-50: #f7f7f7;
-  --color-blue-100: #eeeeee;
-  --color-blue-200: #d4d4d4;
-  --color-blue-300: #343434;
-  --color-blue-400: #343434;
-  --color-blue-500: #343434;
-  --color-blue-600: #343434;
-  --color-blue-700: #343434;
-  --color-blue-800: #343434;
-  --color-blue-900: #000000;
-  --color-cyan-50: #f7f7f7;
-  --color-cyan-100: #eeeeee;
-  --color-cyan-200: #d4d4d4;
-  --color-cyan-300: #343434;
-  --color-cyan-400: #343434;
-  --color-cyan-500: #343434;
-  --color-cyan-600: #343434;
-  --color-cyan-700: #343434;
-  --color-cyan-800: #343434;
-  --color-cyan-900: #000000;
-  --color-teal-50: #f7f7f7;
-  --color-teal-100: #eeeeee;
-  --color-teal-200: #d4d4d4;
-  --color-teal-300: #343434;
-  --color-teal-400: #343434;
-  --color-teal-500: #343434;
-  --color-teal-600: #343434;
-  --color-teal-700: #343434;
-  --color-teal-800: #343434;
-  --color-teal-900: #000000;
-  --color-indigo-50: #f7f7f7;
-  --color-indigo-100: #eeeeee;
-  --color-indigo-200: #d4d4d4;
-  --color-indigo-300: #777777;
-  --color-indigo-400: #343434;
-  --color-indigo-500: #343434;
-  --color-indigo-600: #343434;
-  --color-indigo-700: #343434;
-  --color-indigo-800: #343434;
-  --color-indigo-900: #000000;
-  --color-purple-50: #f7f7f7;
-  --color-purple-100: #eeeeee;
-  --color-purple-200: #d4d4d4;
-  --color-purple-300: #777777;
-  --color-purple-400: #343434;
-  --color-purple-500: #343434;
-  --color-purple-600: #343434;
-  --color-purple-700: #343434;
-  --color-purple-800: #343434;
-  --color-purple-900: #000000;
-  --color-violet-50: #f7f7f7;
-  --color-violet-100: #eeeeee;
-  --color-violet-200: #d4d4d4;
-  --color-violet-300: #777777;
-  --color-violet-400: #343434;
-  --color-violet-500: #343434;
-  --color-violet-600: #343434;
-  --color-violet-700: #343434;
-  --color-violet-800: #343434;
-  --color-violet-900: #000000;
-  --color-pink-50: #f7f7f7;
-  --color-pink-100: #eeeeee;
-  --color-pink-200: #d4d4d4;
-  --color-pink-300: #777777;
-  --color-pink-400: #343434;
-  --color-pink-500: #343434;
-  --color-pink-600: #343434;
-  --color-pink-700: #343434;
-  --color-pink-800: #343434;
-  --color-pink-900: #000000;
-  --color-fuchsia-50: #f7f7f7;
-  --color-fuchsia-100: #eeeeee;
-  --color-fuchsia-200: #d4d4d4;
-  --color-fuchsia-300: #777777;
-  --color-fuchsia-400: #343434;
-  --color-fuchsia-500: #343434;
-  --color-fuchsia-600: #343434;
-  --color-fuchsia-700: #343434;
-  --color-fuchsia-800: #343434;
-  --color-fuchsia-900: #000000;
-  --color-lime-50: #f7f7f7;
-  --color-lime-100: #f7f7f7;
-  --color-lime-200: #d4d4d4;
-  --color-lime-300: var(--brand-highlight);
-  --color-lime-400: var(--brand-highlight);
-  --color-lime-500: var(--brand-highlight);
-  --color-lime-600: #343434;
-  --color-lime-700: #343434;
-  --color-lime-800: #343434;
-  --color-lime-900: #000000;
+     names directly; map them to brand colors to keep older screens consistent. */
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #ff5900;
+  --color-orange-600: #c74300;
+  --color-orange-700: #9a3412;
+  --color-orange-800: #7c2d12;
+  --color-orange-900: #632710;
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #0054d7;
+  --color-blue-600: #0054d7;
+  --color-blue-700: #0044ad;
+  --color-blue-800: #163d78;
+  --color-blue-900: #162d54;
+  /* Legacy decorative cyan/teal utilities use the secondary blue ramp. */
+  --color-cyan-50: #eff6ff;
+  --color-cyan-100: #dbeafe;
+  --color-cyan-200: #bfdbfe;
+  --color-cyan-300: #93c5fd;
+  --color-cyan-400: #60a5fa;
+  --color-cyan-500: #0054d7;
+  --color-cyan-600: #0054d7;
+  --color-cyan-700: #0044ad;
+  --color-cyan-800: #163d78;
+  --color-cyan-900: #162d54;
+  --color-teal-50: #eff6ff;
+  --color-teal-100: #dbeafe;
+  --color-teal-200: #bfdbfe;
+  --color-teal-300: #93c5fd;
+  --color-teal-400: #60a5fa;
+  --color-teal-500: #0054d7;
+  --color-teal-600: #0054d7;
+  --color-teal-700: #0044ad;
+  --color-teal-800: #163d78;
+  --color-teal-900: #162d54;
+  --color-indigo-50: #eff6ff;
+  --color-indigo-100: #dbeafe;
+  --color-indigo-200: #bfdbfe;
+  --color-indigo-300: #93c5fd;
+  --color-indigo-400: #60a5fa;
+  --color-indigo-500: #0054d7;
+  --color-indigo-600: #0054d7;
+  --color-indigo-700: #0044ad;
+  --color-indigo-800: #163d78;
+  --color-indigo-900: #162d54;
+  --color-purple-50: #f2f5fa;
+  --color-purple-100: #e3eaf4;
+  --color-purple-200: #c4d1e5;
+  --color-purple-300: #9bafce;
+  --color-purple-400: #6d89b2;
+  --color-purple-500: #476891;
+  --color-purple-600: #294a75;
+  --color-purple-700: #162d54;
+  --color-purple-800: #132749;
+  --color-purple-900: #10213e;
+  --color-violet-50: #f2f5fa;
+  --color-violet-100: #e3eaf4;
+  --color-violet-200: #c4d1e5;
+  --color-violet-300: #9bafce;
+  --color-violet-400: #6d89b2;
+  --color-violet-500: #476891;
+  --color-violet-600: #294a75;
+  --color-violet-700: #162d54;
+  --color-violet-800: #132749;
+  --color-violet-900: #10213e;
+  --color-pink-50: #fff7ed;
+  --color-pink-100: #ffedd5;
+  --color-pink-200: #fed7aa;
+  --color-pink-300: #fdba74;
+  --color-pink-400: #fb923c;
+  --color-pink-500: #ff5900;
+  --color-pink-600: #c74300;
+  --color-pink-700: #9a3412;
+  --color-pink-800: #7c2d12;
+  --color-pink-900: #632710;
+  --color-fuchsia-50: #fff7ed;
+  --color-fuchsia-100: #ffedd5;
+  --color-fuchsia-200: #fed7aa;
+  --color-fuchsia-300: #fdba74;
+  --color-fuchsia-400: #fb923c;
+  --color-fuchsia-500: #ff5900;
+  --color-fuchsia-600: #c74300;
+  --color-fuchsia-700: #9a3412;
+  --color-fuchsia-800: #7c2d12;
+  --color-fuchsia-900: #632710;
+  --color-lime-50: #fff7ed;
+  --color-lime-100: #ffedd5;
+  --color-lime-200: #fed7aa;
+  --color-lime-300: #fdba74;
+  --color-lime-400: #fb923c;
+  --color-lime-500: #ff5900;
+  --color-lime-600: #c74300;
+  --color-lime-700: #9a3412;
+  --color-lime-800: #7c2d12;
+  --color-lime-900: #632710;
+  --color-purple-950: #0b172c;
+  --color-violet-950: #0b172c;
+  --color-pink-950: #431a0a;
+  --color-fuchsia-950: #431a0a;
+  --color-sky-50: #eff6ff;
+  --color-sky-100: #dbeafe;
+  --color-sky-200: #bfdbfe;
+  --color-sky-300: #93c5fd;
+  --color-sky-400: #60a5fa;
+  --color-sky-500: #0054d7;
+  --color-sky-600: #0054d7;
+  --color-sky-700: #0044ad;
+  --color-sky-800: #163d78;
+  --color-sky-900: #162d54;
+  --color-sky-950: #10213e;
+  --color-green-50: #fff7ed;
+  --color-green-100: #ffedd5;
+  --color-green-200: #fed7aa;
+  --color-green-300: #fdba74;
+  --color-green-400: #fb923c;
+  --color-green-500: #c74300;
+  --color-green-600: #c74300;
+  --color-green-700: #9a3412;
+  --color-green-800: #7c2d12;
+  --color-green-900: #632710;
+  --color-green-950: #431a0a;
+  --color-emerald-50: #fff7ed;
+  --color-emerald-100: #ffedd5;
+  --color-emerald-200: #fed7aa;
+  --color-emerald-300: #fdba74;
+  --color-emerald-400: #fb923c;
+  --color-emerald-500: #c74300;
+  --color-emerald-600: #c74300;
+  --color-emerald-700: #9a3412;
+  --color-emerald-800: #7c2d12;
+  --color-emerald-900: #632710;
+  --color-emerald-950: #431a0a;
+  --color-amber-50: #fff7ed;
+  --color-amber-100: #ffedd5;
+  --color-amber-200: #fed7aa;
+  --color-amber-300: #fdba74;
+  --color-amber-400: #fb923c;
+  --color-amber-500: #ff5900;
+  --color-amber-600: #c74300;
+  --color-amber-700: #9a3412;
+  --color-amber-800: #7c2d12;
+  --color-amber-900: #632710;
+  --color-amber-950: #431a0a;
+  --color-yellow-50: #fff7ed;
+  --color-yellow-100: #ffedd5;
+  --color-yellow-200: #fed7aa;
+  --color-yellow-300: #fdba74;
+  --color-yellow-400: #fb923c;
+  --color-yellow-500: #ff5900;
+  --color-yellow-600: #c74300;
+  --color-yellow-700: #9a3412;
+  --color-yellow-800: #7c2d12;
+  --color-yellow-900: #632710;
+  --color-yellow-950: #431a0a;
 }
 
 :root {
   --radius: 0.75rem;
-  --brand-primary: #0b6ffb;
-  --brand-primary-hover: #075bd4;
-  --brand-highlight: #19c2f2;
-  --brand-highlight-soft: #eaf8fe;
-  --brand-danger: #f43f5e;
-  --brand-danger-hover: #dc2949;
-  --brand-ink: #1f2937;
+  --brand-primary: #162d54;
+  --brand-primary-hover: #10213e;
+  --brand-secondary: #0054d7;
+  --brand-secondary-hover: #0044ad;
+  --brand-surface: #eff6ff;
+  --brand-border: #c4d1e5;
+  --brand-highlight: #ff5900;
+  --brand-highlight-soft: #fff1e8;
+  --brand-danger: #b42338;
+  --brand-danger-hover: #921c2d;
+  --brand-ink: #162d54;
 
   /* Light theme */
   --background: #f3f7fc;
@@ -209,27 +272,15 @@
   --card-foreground: #1f2937;
   --popover: #ffffff;
   --popover-foreground: #1f2937;
-  /* ── Brand hierarchy ──
-   *
-   * NAVY is the primary brand color and is now used for default buttons,
-   * focus rings, primary CTAs, and links. ORANGE is reserved as the
-   * ACCENT — used sparingly on the highest-priority CTAs (e.g. "File
-   * Leave", "Run Payroll"), the active-step indicator in workflows, and
-   * the NEW badge. This separation gives the brand visual hierarchy:
-   * navy = "this is the right action", orange = "this is the action".
-   *
-   * Previously --primary, --accent, AND --ring were all var(--brand-highlight) (orange),
-   * which meant every button, focus ring, and accent looked identical
-   * and there was no way to draw the eye to the truly important CTA.
-   */
+  /* Navy anchors text and navigation; orange identifies primary actions and active tabs. */
   --primary: var(--brand-primary);
   --primary-foreground: #ffffff;
-  --secondary: #e8eef6;
-  --secondary-foreground: #1f2937;
+  --secondary: #0054d7;
+  --secondary-foreground: #ffffff;
   --muted: #f3f7fc;
   --muted-foreground: #64748b;
   --accent: var(--brand-highlight);
-  --accent-foreground: #000000;
+  --accent-foreground: #ffffff;
   --destructive: var(--brand-danger);
   --destructive-foreground: #ffffff;
   /* Semantic status colours. These existed only as hardcoded Tailwind
@@ -238,9 +289,9 @@
    * here makes status colour a theme decision rather than a per-component
    * guess, and keeps them distinct from the brand ramp above: navy and
    * orange say "act on this", these say "this is the state". */
-  --success: var(--brand-highlight);
-  --success-foreground: #000000;
-  --warning: var(--brand-primary);
+  --success: #c74300;
+  --success-foreground: #ffffff;
+  --warning: #162d54;
   --warning-foreground: #ffffff;
   --border: #dfe7f1;
   --input: #dfe7f1;
@@ -248,17 +299,17 @@
 
   /* Charts — navy lead, then chromatic for differentiation */
   --chart-1: var(--brand-primary);
-  --chart-2: var(--brand-danger);
+  --chart-2: var(--brand-secondary);
   --chart-3: var(--brand-highlight);
-  --chart-4: #343434;
-  --chart-5: #d4d4d4;
+  --chart-4: #476891;
+  --chart-5: #9bafce;
 
   /* Sidebar — stays black */
   --sidebar: var(--brand-primary);
   --sidebar-foreground: #ffffff;
   --sidebar-primary: var(--brand-highlight);
   --sidebar-primary-foreground: #000000;
-  --sidebar-accent: rgba(255, 213, 39, 0.18);
+  --sidebar-accent: rgba(255, 89, 0, 0.18);
   --sidebar-accent-foreground: var(--brand-highlight);
   --sidebar-border: rgba(255, 255, 255, 0.18);
   --sidebar-ring: var(--brand-highlight);
@@ -273,43 +324,47 @@
   }
 }
 
-/* Compatibility for older status badges that still pass direct Tailwind
-   color classes into <Badge>. Keep every chip in the three-color system. */
+/* Colorful fallback status tones, independent of brand utility colors. */
 @layer components {
+  .status-approved,
   [data-slot="badge"][class*="bg-green-"],
   [data-slot="badge"][class*="bg-emerald-"] {
-    background: var(--brand-highlight) !important;
-    border-color: var(--brand-highlight) !important;
-    color: #000000 !important;
+    background: #15803d !important;
+    border-color: #15803d !important;
+    color: #ffffff !important;
+    --tw-ring-color: #15803d;
   }
-
+  .status-warning,
   [data-slot="badge"][class*="bg-amber-"],
   [data-slot="badge"][class*="bg-yellow-"],
   [data-slot="badge"][class*="bg-orange-"] {
-    background: var(--brand-danger) !important;
-    border-color: var(--brand-danger) !important;
+    background: #a16207 !important;
+    border-color: #a16207 !important;
     color: #ffffff !important;
   }
-
+  .status-info,
   [data-slot="badge"][class*="bg-blue-"],
   [data-slot="badge"][class*="bg-sky-"],
   [data-slot="badge"][class*="bg-cyan-"],
   [data-slot="badge"][class*="bg-indigo-"],
   [data-slot="badge"][class*="bg-purple-"],
   [data-slot="badge"][class*="bg-violet-"] {
-    background: var(--brand-primary) !important;
-    border-color: var(--brand-primary) !important;
+    background: #0369a1 !important;
+    border-color: #0369a1 !important;
     color: #ffffff !important;
   }
-
-  /* Semantic approval state intentionally stays soft green. This must follow
-     the legacy color-normalization rules above, which otherwise turn every
-     green badge into the cyan brand highlight. */
-  [data-slot="badge"].status-approved {
-    background: #dcfce7 !important;
-    border-color: #bbf7d0 !important;
-    color: #15803d !important;
-    --tw-ring-color: #bbf7d0 !important;
+  .status-neutral {
+    background: #52617a !important;
+    border-color: #52617a !important;
+    color: #ffffff !important;
+  }
+  .status-negative,
+  [data-slot="badge"][data-variant="destructive"],
+  [data-slot="badge"][class*="bg-red-"],
+  [data-slot="badge"][class*="bg-rose-"] {
+    background: #b42338 !important;
+    border-color: #b42338 !important;
+    color: #ffffff !important;
   }
 }
 
@@ -331,7 +386,7 @@ html {
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--brand-danger);
+  background: var(--brand-secondary);
 }
 
 /* Minimal visible sidebar scrollbar */
@@ -383,4 +438,123 @@ body.font-sans {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Certificate preview fonts match the files embedded in exported PDFs. */
+@font-face { font-family: "Certificate Montserrat"; src: url("/fonts/certificates/regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Montserrat"; src: url("/fonts/certificates/bold.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Playfair"; src: url("/fonts/certificates/playfair-display/regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Playfair"; src: url("/fonts/certificates/playfair-display/bold.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Cormorant"; src: url("/fonts/certificates/cormorant-garamond/regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Cormorant"; src: url("/fonts/certificates/cormorant-garamond/bold.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Cinzel"; src: url("/fonts/certificates/cinzel/regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Cinzel"; src: url("/fonts/certificates/cinzel/bold.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Dancing"; src: url("/fonts/certificates/dancing-script/regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Dancing"; src: url("/fonts/certificates/dancing-script/bold.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Certificate Vibes"; src: url("/fonts/certificates/great-vibes/regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+
+/* Only actionable payroll warnings animate; respect reduced-motion preferences. */
+@keyframes payroll-review-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .payroll-review-blink { animation: payroll-review-blink 1.2s ease-in-out infinite; }
+}
+
+/* Shared native controls and text selection follow the application brand. */
+@layer base {
+  input[type="checkbox"], input[type="radio"], input[type="range"], progress { accent-color: var(--brand-secondary); }
+  ::selection { background: #dbeafe; color: #162d54; }
+}
+
+/* Explicit status colors override legacy utility and variant colors. */
+@layer components {
+  .record-status-approved.record-status-approved, [data-slot="badge"].record-status-approved, [data-status="APPROVED"] { background: #15803d !important; border-color: #15803d !important; color: #ffffff !important; }
+  .record-status-pending.record-status-pending, [data-slot="badge"].record-status-pending, [data-status="PENDING"] { background: #a16207 !important; border-color: #a16207 !important; color: #ffffff !important; }
+  .record-status-for-approval.record-status-for-approval, [data-slot="badge"].record-status-for-approval, [data-status="FOR_APPROVAL"] { background: #c2410c !important; border-color: #c2410c !important; color: #ffffff !important; }
+  .record-status-draft.record-status-draft, [data-slot="badge"].record-status-draft, [data-status="DRAFT"] { background: #64748b !important; border-color: #64748b !important; color: #ffffff !important; }
+  .record-status-computed.record-status-computed, [data-slot="badge"].record-status-computed, [data-status="COMPUTED"] { background: #0369a1 !important; border-color: #0369a1 !important; color: #ffffff !important; }
+  .record-status-locked.record-status-locked, [data-slot="badge"].record-status-locked, [data-status="LOCKED"] { background: #6d28d9 !important; border-color: #6d28d9 !important; color: #ffffff !important; }
+  .record-status-disbursed.record-status-disbursed, [data-slot="badge"].record-status-disbursed, [data-status="DISBURSED"] { background: #0f766e !important; border-color: #0f766e !important; color: #ffffff !important; }
+  .record-status-rejected.record-status-rejected, [data-slot="badge"].record-status-rejected, [data-status="REJECTED"] { background: #b91c1c !important; border-color: #b91c1c !important; color: #ffffff !important; }
+  .record-status-cancelled.record-status-cancelled, [data-slot="badge"].record-status-cancelled, [data-status="CANCELLED"] { background: #be185d !important; border-color: #be185d !important; color: #ffffff !important; }
+  .record-status-active.record-status-active, [data-slot="badge"].record-status-active, [data-status="ACTIVE"] { background: #047857 !important; border-color: #047857 !important; color: #ffffff !important; }
+  .record-status-inactive.record-status-inactive, [data-slot="badge"].record-status-inactive, [data-status="INACTIVE"] { background: #475569 !important; border-color: #475569 !important; color: #ffffff !important; }
+  .record-status-completed.record-status-completed, [data-slot="badge"].record-status-completed, [data-status="COMPLETED"] { background: #166534 !important; border-color: #166534 !important; color: #ffffff !important; }
+  .record-status-paid.record-status-paid, [data-slot="badge"].record-status-paid, [data-status="PAID"] { background: #0e7490 !important; border-color: #0e7490 !important; color: #ffffff !important; }
+  .record-status-released.record-status-released, [data-slot="badge"].record-status-released, [data-status="RELEASED"] { background: #4338ca !important; border-color: #4338ca !important; color: #ffffff !important; }
+  .record-status-regular.record-status-regular, [data-slot="badge"].record-status-regular, [data-status="REGULAR"] { background: #3f6212 !important; border-color: #3f6212 !important; color: #ffffff !important; }
+  .record-status-ongoing.record-status-ongoing, [data-slot="badge"].record-status-ongoing, [data-status="ONGOING"] { background: #1d4ed8 !important; border-color: #1d4ed8 !important; color: #ffffff !important; }
+  .record-status-in-progress.record-status-in-progress, [data-slot="badge"].record-status-in-progress, [data-status="IN_PROGRESS"] { background: #2563eb !important; border-color: #2563eb !important; color: #ffffff !important; }
+  .record-status-probationary.record-status-probationary, [data-slot="badge"].record-status-probationary, [data-status="PROBATIONARY"] { background: #9a3412 !important; border-color: #9a3412 !important; color: #ffffff !important; }
+  .record-status-processing.record-status-processing, [data-slot="badge"].record-status-processing, [data-status="PROCESSING"] { background: #7e22ce !important; border-color: #7e22ce !important; color: #ffffff !important; }
+  .record-status-partial.record-status-partial, [data-slot="badge"].record-status-partial, [data-status="PARTIAL"] { background: #854d0e !important; border-color: #854d0e !important; color: #ffffff !important; }
+  .record-status-submitted.record-status-submitted, [data-slot="badge"].record-status-submitted, [data-status="SUBMITTED"] { background: #075985 !important; border-color: #075985 !important; color: #ffffff !important; }
+  .record-status-acknowledged.record-status-acknowledged, [data-slot="badge"].record-status-acknowledged, [data-status="ACKNOWLEDGED"] { background: #115e59 !important; border-color: #115e59 !important; color: #ffffff !important; }
+  .record-status-failed.record-status-failed, [data-slot="badge"].record-status-failed, [data-status="FAILED"] { background: #991b1b !important; border-color: #991b1b !important; color: #ffffff !important; }
+  .record-status-terminated.record-status-terminated, [data-slot="badge"].record-status-terminated, [data-status="TERMINATED"] { background: #9f1239 !important; border-color: #9f1239 !important; color: #ffffff !important; }
+  .record-status-expired.record-status-expired, [data-slot="badge"].record-status-expired, [data-status="EXPIRED"] { background: #9d174d !important; border-color: #9d174d !important; color: #ffffff !important; }
+  .record-status-resigned.record-status-resigned, [data-slot="badge"].record-status-resigned, [data-status="RESIGNED"] { background: #57534e !important; border-color: #57534e !important; color: #ffffff !important; }
+  .record-status-skipped.record-status-skipped, [data-slot="badge"].record-status-skipped, [data-status="SKIPPED"] { background: #52525b !important; border-color: #52525b !important; color: #ffffff !important; }
+  .record-status-closed.record-status-closed, [data-slot="badge"].record-status-closed, [data-status="CLOSED"] { background: #334155 !important; border-color: #334155 !important; color: #ffffff !important; }
+  .record-status-part-time.record-status-part-time, [data-slot="badge"].record-status-part-time, [data-status="PART_TIME"] { background: #86198f !important; border-color: #86198f !important; color: #ffffff !important; }
+  .record-status-contractual.record-status-contractual, [data-slot="badge"].record-status-contractual, [data-status="CONTRACTUAL"] { background: #5b21b6 !important; border-color: #5b21b6 !important; color: #ffffff !important; }
+  .record-status-project-based.record-status-project-based, [data-slot="badge"].record-status-project-based, [data-status="PROJECT_BASED"] { background: #1e40af !important; border-color: #1e40af !important; color: #ffffff !important; }
+  .record-status-retired.record-status-retired, [data-slot="badge"].record-status-retired, [data-status="RETIRED"] { background: #6b21a8 !important; border-color: #6b21a8 !important; color: #ffffff !important; }
+  .record-status-present.record-status-present, [data-slot="badge"].record-status-present, [data-status="PRESENT"] { background: #166b3b !important; border-color: #166b3b !important; color: #ffffff !important; }
+  .record-status-absent.record-status-absent, [data-slot="badge"].record-status-absent, [data-status="ABSENT"] { background: #a91d2f !important; border-color: #a91d2f !important; color: #ffffff !important; }
+  .record-status-on-leave.record-status-on-leave, [data-slot="badge"].record-status-on-leave, [data-status="ON_LEAVE"] { background: #7130a0 !important; border-color: #7130a0 !important; color: #ffffff !important; }
+  .record-status-rest-day.record-status-rest-day, [data-slot="badge"].record-status-rest-day, [data-status="REST_DAY"] { background: #556078 !important; border-color: #556078 !important; color: #ffffff !important; }
+  .record-status-holiday.record-status-holiday, [data-slot="badge"].record-status-holiday, [data-status="HOLIDAY"] { background: #8d650a !important; border-color: #8d650a !important; color: #ffffff !important; }
+  .record-status-clocked-in.record-status-clocked-in, [data-slot="badge"].record-status-clocked-in, [data-status="CLOCKED_IN"] { background: #075f89 !important; border-color: #075f89 !important; color: #ffffff !important; }
+  .record-status-overdue.record-status-overdue, [data-slot="badge"].record-status-overdue, [data-status="OVERDUE"] { background: #be123c !important; border-color: #be123c !important; color: #ffffff !important; }
+  .record-status-open.record-status-open, [data-slot="badge"].record-status-open, [data-status="OPEN"] { background: #0275b1 !important; border-color: #0275b1 !important; color: #ffffff !important; }
+  .record-status-resolved.record-status-resolved, [data-slot="badge"].record-status-resolved, [data-status="RESOLVED"] { background: #086b50 !important; border-color: #086b50 !important; color: #ffffff !important; }
+  .record-status-published.record-status-published, [data-slot="badge"].record-status-published, [data-status="PUBLISHED"] { background: #126f72 !important; border-color: #126f72 !important; color: #ffffff !important; }
+  .record-status-unpublished.record-status-unpublished, [data-slot="badge"].record-status-unpublished, [data-status="UNPUBLISHED"] { background: #59697d !important; border-color: #59697d !important; color: #ffffff !important; }
+  .record-status-trial.record-status-trial, [data-slot="badge"].record-status-trial, [data-status="TRIAL"] { background: #8035a5 !important; border-color: #8035a5 !important; color: #ffffff !important; }
+  .record-status-suspended.record-status-suspended, [data-slot="badge"].record-status-suspended, [data-status="SUSPENDED"] { background: #8c254d !important; border-color: #8c254d !important; color: #ffffff !important; }
+}
+
+/* One active-tab treatment for Radix tabs, page tabs, and custom tab controls.
+   Explicit state selectors also beat older page-specific text overrides. */
+@layer components {
+  [role="tab"][aria-selected="true"],
+  [data-app-tab][data-active="true"],
+  [data-app-tab][aria-current="page"] {
+    background: #ff5900 !important;
+    color: #ffffff !important;
+    border-color: #ff5900 !important;
+  }
+  [role="tab"][aria-selected="true"] :where(svg, span),
+  [data-app-tab][data-active="true"] :where(svg, span),
+  [data-app-tab][aria-current="page"] :where(svg, span) { color: #ffffff !important; }
+}
+
+.record-status-in-review.record-status-in-review, [data-status="IN_REVIEW"] { background: #6340a1 !important; border-color: #6340a1 !important; color: #fff !important; }
+.record-status-past-due.record-status-past-due, [data-status="PAST_DUE"] { background: #a83142 !important; border-color: #a83142 !important; color: #fff !important; }
+.record-status-unpaid.record-status-unpaid, [data-status="UNPAID"] { background: #894713 !important; border-color: #894713 !important; color: #fff !important; }
+/* Shared action styling also covers older page-specific primary button colors.
+   Keep destructive, outline, ghost, and secondary actions distinct. */
+@layer components {
+  [data-slot="button"][data-variant="default"],
+  [data-slot="button"][data-variant="accent"],
+  button:not([data-slot]):is(.bg-primary, .bg-blue-600, .bg-blue-700, .bg-accent) {
+    background: var(--brand-highlight) !important;
+    border-color: var(--brand-highlight) !important;
+    color: #ffffff !important;
+  }
+  [data-slot="button"][data-variant="default"]:hover:not(:disabled),
+  [data-slot="button"][data-variant="accent"]:hover:not(:disabled),
+  button:not([data-slot]):is(.bg-primary, .bg-blue-600, .bg-blue-700, .bg-accent):hover:not(:disabled) {
+    background: #e65000 !important;
+    border-color: #e65000 !important;
+  }
+  [data-slot="button"][data-variant="default"] :where(svg, span),
+  [data-slot="button"][data-variant="accent"] :where(svg, span) { color: inherit; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-spinner-dot { animation: none !important; opacity: 0.6; }
 }

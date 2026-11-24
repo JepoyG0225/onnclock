@@ -1,4 +1,5 @@
 'use client'
+import { ManualCashAdvance } from '@/components/cash-advance/ManualCashAdvance'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -81,13 +82,14 @@ export function CashAdvanceTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Cash Advance Requests</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Cash Advance Requests</h1>
           <p className="text-slate-500 text-sm mt-1">
             Review employee cash advance requests. Approving creates a loan that gets deducted automatically from payroll.
           </p>
         </div>
+        <ManualCashAdvance onCreated={()=>{if(statusFilter==='PENDING')void load();else setStatusFilter('PENDING')}}/>
       </div>
 
       {/* Summary */}

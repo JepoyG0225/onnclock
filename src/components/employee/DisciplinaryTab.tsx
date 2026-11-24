@@ -1,4 +1,7 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
+import { getStatusColor } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, ShieldAlert, Send, CheckCircle2 } from 'lucide-react'
@@ -33,7 +36,7 @@ const TYPE_LABELS: Record<string, string> = {
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   INCIDENT_REPORT:     { bg: '#eeeeee', text: '#343434' },
   VERBAL_WARNING:      { bg: '#fef3c7', text: '#92400e' },
-  NOTICE_TO_EXPLAIN:   { bg: '#dbeafe', text: '#1d4ed8' },
+  NOTICE_TO_EXPLAIN:   { bg: '#dbeafe', text: '#0044ad' },
   NOTICE_OF_DECISION:  { bg: '#eeeeee', text: '#343434' },
   WRITTEN_WARNING:     { bg: '#fef9c3', text: '#92400e' },
   SUSPENSION:          { bg: '#f7f7f7', text: '#343434' },
@@ -44,7 +47,7 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   OPEN:       { bg: '#fee2e2', text: '#b91c1c' },
   RESPONDED:  { bg: '#fef9c3', text: '#92400e' },
-  CLOSED:     { bg: '#dcfce7', text: '#15803d' },
+  CLOSED:     { bg: '#dcfce7', text: '#9a3412' },
 }
 
 export function DisciplinaryTab() {
@@ -111,13 +114,7 @@ export function DisciplinaryTab() {
         <p className="text-sm text-gray-500 mt-0.5">Your disciplinary history on file</p>
       </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map(n => (
-            <div key={n} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-      ) : records.length === 0 ? (
+      {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : records.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <ShieldAlert className="w-12 h-12 text-gray-200 mb-3" />
           <p className="text-gray-500 font-medium">No disciplinary records</p>
@@ -166,6 +163,7 @@ export function DisciplinaryTab() {
                     </div>
                     <span
                       className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                      data-status={r.status}
                       style={{ background: statusColor.bg, color: statusColor.text }}
                     >
                       {r.status}
@@ -233,7 +231,7 @@ export function DisciplinaryTab() {
                           onClick={() => handleSubmitResponse(r)}
                           disabled={submitting === r.id || !responseText[r.id]?.trim()}
                           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{ background: submitting === r.id ? '#93c5fd' : '#1d4ed8' }}
+                          style={{ background: submitting === r.id ? '#93c5fd' : '#0044ad' }}
                         >
                           <Send className="w-4 h-4" />
                           {submitting === r.id ? 'Submitting…' : 'Submit Explanation'}

@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 /**
  * All Tasks — the primary surface of the module.
@@ -50,6 +51,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [labels, setLabels] = useState<LabelBrief[]>([])
   const [employees, setEmployees] = useState<EmployeeBrief[]>([])
+  const [canWrite, setCanWrite] = useState(false)
   const [canManage, setCanManage] = useState(false)
   const [viewerEmployeeId, setViewerEmployeeId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -97,7 +99,7 @@ export default function TasksPage() {
     const data = await res.json()
     setStatuses(data.statuses ?? [])
     setTasks(data.tasks ?? [])
-    setCanManage(Boolean(data.canManage))
+    setCanManage(Boolean(data.canManage)); setCanWrite(Boolean(data.canWrite))
     setViewerEmployeeId(data.viewerEmployeeId ?? null)
   }, [includeDone])
 
@@ -182,14 +184,14 @@ export default function TasksPage() {
                 <Settings2 /> Statuses & labels
               </Button>
             )}
-            <Button
+            <PermissionGate permission="tasks:write"><Button
               size="sm"
               data-tour="task-new"
               onClick={() => setShowCreate({ statusId: statuses[0]?.id ?? null })}
               disabled={statuses.length === 0}
             >
               <Plus /> New task
-            </Button>
+            </Button></PermissionGate>
           </div>
         }
       />
@@ -312,17 +314,17 @@ export default function TasksPage() {
           >
             {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <Button size="sm" onClick={() => void quickCreate(creatingIn)} disabled={creating}>
+          <PermissionGate permission="tasks:write"><Button size="sm" onClick={() => void quickCreate(creatingIn)} disabled={creating}>
             {creating && <Loader2 className="animate-spin" />} Add
-          </Button>
-          <Button
+          </Button></PermissionGate>
+          <PermissionGate permission="tasks:write"><Button
             size="sm"
             variant="ghost"
             onClick={() => { setShowCreate({ statusId: creatingIn }); setCreatingIn(null) }}
             title="Open the full form to add a due date, assignees, notes or files"
           >
             More options
-          </Button>
+          </Button></PermissionGate>
           <Button size="sm" variant="ghost" onClick={() => setCreatingIn(null)}>Cancel</Button>
         </div>
       )}
@@ -339,7 +341,7 @@ export default function TasksPage() {
             <TaskBoard
               statuses={statuses}
               tasks={filtered}
-              canEdit
+              canEdit={canWrite}
               onOpenTask={setOpenTaskId}
               onQuickAdd={statusId => { setCreatingIn(statusId); setNewTitle('') }}
               onTasksChange={setTasks}

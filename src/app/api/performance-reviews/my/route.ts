@@ -1,3 +1,4 @@
+import { serializeReview } from '@/lib/performance/serialize'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -31,5 +32,5 @@ export async function GET() {
     orderBy: [{ periodEnd: 'desc' }, { createdAt: 'desc' }],
   })
 
-  return NextResponse.json({ reviews })
+  return NextResponse.json({ reviews: reviews.map(serializeReview) })
 }

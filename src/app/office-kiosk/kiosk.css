@@ -1,0 +1,73 @@
+.kiosk-wallpaper {
+  background: linear-gradient(125deg, #0f172a, #3730a3, #0e7490, #4c1d95);
+  background-size: 350% 350%;
+  animation: kiosk-gradient 18s ease infinite;
+}
+@keyframes kiosk-gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.kiosk-scan-beam { animation: kiosk-scan 2.4s ease-in-out infinite alternate; }
+@keyframes kiosk-scan { from { top: 12%; } to { top: 88%; } }
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-wallpaper, .kiosk-scan-beam { animation: none; }
+  .kiosk-scan-beam { top: 50%; }
+}
+
+.kiosk-idle {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  justify-items: center;
+  padding: max(2.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+  color: #fff;
+  text-align: center;
+}
+.kiosk-idle-brand { align-self: start; max-width: 100%; }
+.kiosk-idle-logo { display: block; width: 200px; height: 96px; object-fit: contain; margin: 0 auto; }
+.kiosk-idle-brand h1 { color: #fff; font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 700; margin-top: 1rem; overflow-wrap: anywhere; }
+.kiosk-idle .kiosk-touch-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 2rem;
+  margin: 1.5rem 0;
+  color: #fff !important;
+  background: transparent !important;
+  border: 0;
+  border-radius: 1.5rem;
+  box-shadow: none;
+  font-size: clamp(1.5rem, 5vw, 2.25rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+.kiosk-touch-start:focus-visible { outline: 2px solid white; outline-offset: 8px; }
+.kiosk-touch-symbol { position: relative; display: grid; place-items: center; width: 96px; height: 96px; }
+.kiosk-touch-symbol svg { width: 48px; height: 48px; stroke: #fff; animation: kiosk-touch-hand 2.4s ease-in-out infinite; }
+.kiosk-touch-ring { position: absolute; inset: 0; border: 1px solid #ffffff90; border-radius: 50%; animation: kiosk-touch-ripple 2.4s ease-out infinite; }
+.kiosk-touch-ring-delayed { animation-delay: 1.2s; }
+.kiosk-idle-footer { align-self: end; color: #fff; font-size: 0.8rem; padding-top: 1.5rem; }
+@keyframes kiosk-touch-ripple { from { transform: scale(0.65); opacity: 0.8; } to { transform: scale(1.45); opacity: 0; } }
+@keyframes kiosk-touch-hand { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.92); } }
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-touch-symbol svg, .kiosk-touch-ring { animation: none; }
+  .kiosk-touch-ring-delayed { display: none; }
+}
+.kiosk-idle-clock { margin-top: 1.5rem; color: #fff; font-size: clamp(1.75rem, 6vw, 2.75rem); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.025em; }
+.kiosk-idle-date { margin-top: 0.35rem; color: #fff; font-size: clamp(0.75rem, 2.5vw, 0.95rem); }
+.kiosk-active-screen { position: relative; min-height: 100dvh; color: #fff; }
+.kiosk-full-camera, .kiosk-full-viewport { position: absolute; inset: 0; overflow: hidden; background: #0f172a; }
+.kiosk-full-viewport::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 55%, rgba(0,0,0,.75)); }
+.kiosk-full-viewport .text-cyan-200 { color: #fff; }
+.kiosk-full-status { position: absolute; z-index: 2; bottom: calc(140px + env(safe-area-inset-bottom)); left: 20px; right: 20px; text-align: center; text-shadow: 0 1px 6px #000; }
+.kiosk-full-status p { color: #fff !important; font-size: 14px; }
+.kiosk-full-status p + p { font-size: 12px; }
+.kiosk-full-progress { position: absolute; z-index: 2; bottom: calc(118px + env(safe-area-inset-bottom)); left: 20px; right: 20px; }
+.kiosk-active-screen .kiosk-cancel-scan { position: absolute; z-index: 3; bottom: calc(32px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); min-width: 180px; max-width: calc(100% - 40px); padding: 14px 24px; border: 1px solid #ffffff90; border-radius: 999px; color: #fff !important; background: transparent !important; box-shadow: none; font-weight: 600; text-shadow: 0 1px 4px #000; cursor: pointer; }
+.kiosk-cancel-scan:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
+.kiosk-cancel-scan:disabled { opacity: .65; cursor: wait; }
+.kiosk-active-processing { position: absolute; top: 64px; left: 20px; right: 20px; z-index: 2; text-align: center; color: #fff; text-shadow: 0 1px 6px #000; }
+.kiosk-active-result { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 40px 24px 140px; color: #fff; }
+.kiosk-active-result h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 700; color: #fff; margin-bottom: 20px; }
+.kiosk-active-result p { color: #fff; margin-top: 12px; }

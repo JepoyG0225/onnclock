@@ -9,6 +9,7 @@ import {
   X, Mail, Home, DollarSign, CheckCircle2, UserPlus, ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { absoluteAppUrl, copyTextToClipboard } from '@/lib/clipboard'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -415,7 +416,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
           href={proxyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90 transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 transition-colors"
         >
           <ExternalLink className="w-4 h-4" /> Open in New Tab
         </a>
@@ -447,7 +448,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
                 href={proxyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90"
               >
                 <ExternalLink className="w-4 h-4" /> Open PDF
               </a>
@@ -475,7 +476,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
                   href={proxyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90"
                 >
                   <ExternalLink className="w-4 h-4" /> Open in New Tab
                 </a>
@@ -492,7 +493,7 @@ function ResumeTab({ applicationId, resumeUrl }: { applicationId: string; resume
           <a
             href={proxyUrl}
             download={fileName}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#000000] hover:bg-[#000000]/90"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90"
           >
             <Download className="w-4 h-4" /> Download File
           </a>
@@ -665,12 +666,12 @@ function ApplicationDrawer({
           {/* Tabs */}
           <div className="flex border-b border-slate-200 shrink-0 px-4 gap-1 overflow-x-auto">
             {tabs.filter((t) => t.show).map((t) => (
-              <button
+              <button data-app-tab data-active={tab === t.key}
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={`inline-flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors ${
                   tab === t.key
-                    ? 'border-[#000000] text-[#000000]'
+                    ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -767,7 +768,7 @@ function ApplicationDrawer({
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-3">Quick Access</p>
                     <div className="flex flex-wrap gap-2">
                       {app.resumeUrl && (
-                        <button
+                        <button 
                           onClick={() => setTab('resume')}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
                         >
@@ -776,7 +777,7 @@ function ApplicationDrawer({
                         </button>
                       )}
                       {app.coverLetter && (
-                        <button
+                        <button 
                           onClick={() => setTab('cover_letter')}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors"
                         >
@@ -785,7 +786,7 @@ function ApplicationDrawer({
                         </button>
                       )}
                       {hasRequirementAnswers && (
-                        <button
+                        <button 
                           onClick={() => setTab('qa')}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition-colors"
                         >
@@ -811,7 +812,7 @@ function ApplicationDrawer({
                     <button
                       onClick={saveNotes}
                       disabled={savingNotes || notes === (app.internalNotes ?? '')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[#000000] hover:bg-[#000000]/90 disabled:opacity-50 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 disabled:opacity-50 transition-colors"
                     >
                       {savingNotes ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                       Save Notes
@@ -911,10 +912,16 @@ export default function RecruitmentJobDetailPage() {
     setAutoOpenHire(false)
   }
 
-  const shareUrl = useMemo(() => {
-    if (!job?.publicApplyToken || typeof window === 'undefined') return ''
-    return `${window.location.origin}/apply/${job.publicApplyToken}`
-  }, [job?.publicApplyToken])
+  async function copyApplyLink() {
+    try {
+      if (!job?.publicApplyToken) throw new Error('This job post has no public application token.')
+      const url = absoluteAppUrl(`/apply/${job.publicApplyToken}`)
+      await copyTextToClipboard(url)
+      toast.success('Apply link copied')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to copy apply link')
+    }
+  }
 
   useEffect(() => {
     if (!jobId) return
@@ -1044,7 +1051,7 @@ export default function RecruitmentJobDetailPage() {
           )}
         </div>
         <button
-          onClick={() => { navigator.clipboard.writeText(shareUrl); toast.success('Apply link copied') }}
+          onClick={() => void copyApplyLink()}
           className="shrink-0 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5 whitespace-nowrap"
         >
           <Link2 className="w-3.5 h-3.5" /> Copy Apply Link
@@ -1181,7 +1188,7 @@ export default function RecruitmentJobDetailPage() {
                           {initials(app)}
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-800 group-hover:text-[#000000]">
+                          <p className="font-semibold text-slate-800 group-hover:text-[var(--brand-primary)]">
                             {app.firstName} {app.lastName}
                           </p>
                           <div className="flex items-center gap-1.5 mt-0.5">

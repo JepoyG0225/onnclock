@@ -24,7 +24,7 @@ export async function POST(
     select: { id: true, periodStart: true, periodEnd: true, status: true },
   })
   if (!run) return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 })
-  if (run.status === 'LOCKED') {
+  if (['LOCKED', 'DISBURSED'].includes(run.status)) {
     return NextResponse.json({ error: 'Run is locked' }, { status: 400 })
   }
 

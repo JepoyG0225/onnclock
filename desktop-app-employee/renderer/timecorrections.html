@@ -8,7 +8,7 @@
 @font-face{font-family:'Montserrat';src:url('../assets/fonts/Montserrat-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;}
 @font-face{font-family:'Montserrat';src:url('../assets/fonts/Montserrat-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap;}
 :root{
-  --navy:#0d1b2a;--navy-mid:#1a2d42;--orange:#fa5e01;--orange-dim:#c44d00;
+  --navy:#0d1b2a;--navy-mid:#1a2d42;--orange:#0b6ffb;--orange-dim:#075bd4;
   --bg:#eef2f7;--surface:#fff;--border:#e2e8f0;--border-mid:#cbd5e1;
   --text:#0f172a;--muted:#64748b;--subtle:#94a3b8;
   --amber:#92400e;--amber-bg:#fffbeb;--amber-border:#fde68a;
@@ -56,7 +56,7 @@ select.inp,input.inp,textarea.inp{
   background:var(--surface);outline:none;margin-bottom:12px;
 }
 textarea.inp{resize:vertical;min-height:72px;}
-select.inp:focus,input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(250,94,1,.12);}
+select.inp:focus,input.inp:focus,textarea.inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(11,111,251,.12);}
 .row{display:flex;gap:10px;}
 .row > div{flex:1;}
 .btn-row{display:flex;gap:10px;margin-top:4px;}
@@ -68,6 +68,7 @@ select.inp:focus,input.inp:focus,textarea.inp:focus{border-color:var(--orange);b
 .btn-ghost:hover:not(:disabled){background:var(--bg);}
 .err{display:none;background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);padding:8px 10px;border-radius:var(--radius-sm);font-size:12px;margin-bottom:12px;}
 </style>
+  <link rel="stylesheet" href="portal-theme.css" />
 </head>
 <body>
 <div class="hdr">

@@ -134,7 +134,7 @@ export function RequestDetailDialog({
         style={{ maxHeight: 'calc(100vh - 2rem)' }}
       >
         {/* Header */}
-        <div className="relative bg-[#343434] px-5 py-4">
+        <div className="relative bg-[var(--brand-primary)] px-5 py-4">
           <button
             type="button"
             onClick={onClose}

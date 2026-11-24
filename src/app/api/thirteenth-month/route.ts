@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -13,6 +14,7 @@ const settingsSchema = z.object({
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, req.method === 'GET' ? 'payroll:read' : 'payroll:write')) return NextResponse.json({error:'Insufficient payroll access'},{status:403})
 
   const { searchParams } = new URL(req.url)
   const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()))
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest) {
     include: {
       employee: {
         select: {
-          firstName: true, lastName: true, employeeNo: true,
+          firstName: true, lastName: true, employeeNo: true, isExemptFromTax: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
         },
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, req.method === 'GET' ? 'payroll:read' : 'payroll:write')) return NextResponse.json({error:'Insufficient payroll access'},{status:403})
 
   const body = await req.json().catch(() => null)
   const parsed = settingsSchema.safeParse(body)

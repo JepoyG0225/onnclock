@@ -43,7 +43,7 @@ export function PayrollRunViewButton({ runId, status }: { runId: string; status?
       size="sm"
       onClick={go}
       disabled={loading}
-      className="text-[#000000] hover:bg-[#dce5f7] hover:text-[#000000] disabled:opacity-100 disabled:cursor-progress"
+      className="text-[var(--brand-primary)] hover:bg-[#dce5f7] hover:text-[var(--brand-primary)] disabled:opacity-100 disabled:cursor-progress"
       aria-busy={loading}
     >
       {loading ? (

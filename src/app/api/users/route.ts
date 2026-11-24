@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
+import { ALL_PERMISSIONS } from '@/lib/auth/permissions'
 import { hash } from 'bcryptjs'
 import { z } from 'zod'
 import { ensureCustomRoleTables, getCustomRoleById } from '@/lib/custom-roles'
@@ -33,13 +35,24 @@ export async function GET() {
     WHERE ucr."companyId" = ${ctx.companyId}
   `
   const map = new Map(customAssignments.map(row => [row.userId, row]))
-  return NextResponse.json({
-    members: members.map(member => ({
+  // Reuse the authorization resolver so custom assignments, company overrides,
+  // and administrator lockout protections are reflected in the displayed count.
+  const counts = new Map<string, Promise<number>>()
+  const rows = await Promise.all(members.map(async member => {
+    const custom = map.get(member.userId)
+    const key = custom ? `custom:${custom.customRoleId}:${member.role}` : member.role
+    if (!counts.has(key)) {
+      counts.set(key, getEffectivePermissions(member.role, ctx.companyId, custom ? member.userId : undefined)
+        .then(permissions => new Set(permissions.filter(p => ALL_PERMISSIONS.includes(p))).size))
+    }
+    return {
       ...member,
-      customRoleId: map.get(member.userId)?.customRoleId ?? null,
-      customRoleName: map.get(member.userId)?.customRoleName ?? null,
-    })),
-  })
+      customRoleId: custom?.customRoleId ?? null,
+      customRoleName: custom?.customRoleName ?? null,
+      permissionCount: await counts.get(key),
+    }
+  }))
+  return NextResponse.json({ members: rows }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function PATCH(req: NextRequest) {

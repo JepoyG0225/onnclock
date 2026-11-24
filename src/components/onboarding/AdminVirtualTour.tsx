@@ -93,9 +93,9 @@ const DEFAULT_STEPS: TourStep[] = [
     href: '/loans',
   },
   {
-    title: 'Payroll - Disbursement',
-    description: 'Pay everyone out after a run is locked, via InstaPay or PESONet, and track each transfer status.',
-    href: '/disbursement',
+    title: 'Payroll - Disbursed',
+    description: 'After paying employees, open the locked payroll run and mark it as Disbursed to record completion.',
+    href: '/payroll',
   },
   {
     title: 'Workspace - Tasks  (NEW)',
@@ -357,7 +357,7 @@ export function AdminVirtualTour({
               width: targetRect.width + 4,
               height: targetRect.height + 4,
               borderColor: 'var(--brand-highlight)',
-              boxShadow: '0 0 0 4px rgba(184, 225, 0,0.2)',
+              boxShadow: '0 0 0 4px rgba(255, 89, 0,0.2)',
             }}
           />
           <div

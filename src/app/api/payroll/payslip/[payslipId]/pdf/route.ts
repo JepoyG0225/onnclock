@@ -1,3 +1,5 @@
+import { readDesign, contrastText, REGION_HEIGHT } from '@/lib/payslip-design/schema'
+import { drawDesignRegion, pdfColor } from '@/lib/payslip-design/render'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -37,10 +39,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
 
   const company = await prisma.company.findUnique({
     where: { id: ctx.companyId },
-    select: { name: true, address: true, tin: true, payrollCurrency: true },
+    select: { name: true, address: true, tin: true, payrollCurrency: true, payslipDesign: true },
   })
   if (!company) return NextResponse.json({ error: 'No company' }, { status: 403 })
 
+  const design = readDesign(company.payslipDesign)
+  const hideDeductions = design?.hideDeductions ?? false
   const currency = (company.payrollCurrency || 'PHP').toUpperCase()
   const peso = makePeso(currency)
 
@@ -105,19 +109,40 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
   const incomesSum = [...incomeLines, ...customIncomeLines].reduce((s, [, v]) => s + v, 0)
   const residualOther = payslip.otherEarnings.toNumber() - incomesSum
 
-  const earnings: [string, number][] = [
-    ['Basic Pay', payslip.basicSalary.toNumber()],
-    ['Regular Overtime (125%)', payslip.regularOtAmount.toNumber()],
-    ['Rest Day OT (130%)', payslip.restDayOtAmount.toNumber()],
-    ['Holiday OT', payslip.holidayOtAmount.toNumber()],
+  // A row is either a figure or, when the amount is null, a section heading.
+  type Row = [string, number | null]
+
+  const basicDetail = 'Basic Pay'
+
+  const otTotal =
+    payslip.regularOtAmount.toNumber()
+    + payslip.restDayOtAmount.toNumber()
+    + payslip.holidayOtAmount.toNumber()
+  const otHours =
+    payslip.regularOtHours.toNumber()
+    + payslip.restDayOtHours.toNumber()
+    + payslip.holidayOtHours.toNumber()
+
+  // Other earnings — everything that is neither basic nor overtime.
+  const otherEarningRows: Row[] = ([
     ['Holiday Pay', payslip.holidayPayAmount.toNumber()],
     ['Night Differential', payslip.nightDiffAmount.toNumber()],
     ['Allowances', allowancesTotal],
     ...incomeLines,
     ...customIncomeLines,
     ...(residualOther > 0.01 ? [['Other Earnings', residualOther] as [string, number]] : []),
+  ] as Array<[string, number]>).filter(([, v]) => v > 0)
+
+  const earningsRows: Row[] = [
+    ['BASIC PAY', null],
+    [basicDetail, payslip.basicSalary.toNumber()],
+    ...(emp.disableEarlyInOt && emp.disableBeyondScheduleOt ? [] : [
+      ['OVERTIME', null],
+      [`${otHours.toFixed(2)} OT hours`, otTotal],
+    ] as Row[]),
+    ['ADDITIONAL EARNINGS', null],
+    ...(otherEarningRows.length > 0 ? otherEarningRows : [['Additional Income', 0] as Row]),
   ]
-  const earningsRows: Array<[string, number]> = earnings.filter(([, v]) => v > 0)
 
   // Itemize "Other Deductions" from the employee's deduction setup, but only
   // when those items reconcile with the payslip's stored total (so the
@@ -142,21 +167,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
       ? customDeductionLines
       : (otherDedTotal > 0 ? [['Other Deductions', otherDedTotal] as [string, number]] : [])
 
-  const deductions: Array<[string, number]> = [
-    ['SSS (Employee Share)', payslip.sssEmployee.toNumber()],
-    ['PhilHealth (Employee)', payslip.philhealthEmployee.toNumber()],
-    ['Pag-IBIG (Employee)', payslip.pagibigEmployee.toNumber()],
+  // Deductions are NOT filtered by amount. A zero line is information — it
+  // says the deduction was considered and came to nothing, which is exactly
+  // what an employee querying their payslip wants to see. Only "Other
+  // Deductions" collapses: itemized when there is a breakdown, one general
+  // line otherwise (including at zero).
+  const deductionRows: Row[] = [
+    ['MANDATORY', null],
+    ['SSS', payslip.sssEmployee.toNumber()],
+    ['PhilHealth', payslip.philhealthEmployee.toNumber()],
+    ['Pag-IBIG', payslip.pagibigEmployee.toNumber()],
     ['Withholding Tax', payslip.withholdingTax.toNumber()],
-    ['Late/Undertime', payslip.lateDeduction.toNumber() + payslip.undertimeDeduction.toNumber()],
+    ['ATTENDANCE', null],
+    ['Late / Undertime', payslip.lateDeduction.toNumber() + payslip.undertimeDeduction.toNumber()],
     ['Absences', payslip.absenceDeduction.toNumber()],
+    ['CASH ADVANCE / LOANS', null],
     ['Loan Amortizations', loanDeductionsTotal],
-    ...otherDedLines,
+    ['OTHER DEDUCTIONS', null],
+    ...(otherDedLines.length > 0
+      ? (otherDedLines as Row[])
+      : ([['Other Deductions', otherDedTotal]] as Row[])),
   ]
-  const deductionRows: Array<[string, number]> = deductions.filter(([, v]) => v > 0)
 
   try {
     const pdf = await PDFDocument.create()
-    const page = pdf.addPage([595.28, 841.89])
+    let page = pdf.addPage([595.28, 841.89])
+    const pages = [page]
     let font
     let bold
     try {
@@ -177,15 +213,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
     const C = {
       deep: rgb(0.043, 0.435, 0.984),
       base: rgb(0.122, 0.161, 0.216),
-      mid: rgb(0.098, 0.761, 0.949),
+      // Brand highlight green (--brand-highlight, #aadd30). Used only for the
+      // decorative accent bars, never behind text — it is far too light to
+      // carry white type.
+      highlight: rgb(0.667, 0.867, 0.188),
       light: rgb(0.875, 0.906, 0.945),
       white: rgb(1, 1, 1),
       text: rgb(0.122, 0.161, 0.216),
       muted: rgb(0.392, 0.455, 0.545),
       alt: rgb(0.969, 0.984, 1),
-      cyanSoft: rgb(0.925, 0.984, 1),
       rose: rgb(0.882, 0.153, 0.278),
       roseSoft: rgb(1, 0.949, 0.957),
+    }
+
+    if (design) {
+      C.deep = pdfColor(design.primary); C.highlight = pdfColor(design.accent)
+      C.text = pdfColor(design.text); C.base = C.text; C.muted = pdfColor(design.muted)
+      C.rose = pdfColor(design.deduction)
+      const tint=(hex:string)=>{const c=pdfColor(hex);return rgb(0.95+c.red*0.05,0.95+c.green*0.05,0.95+c.blue*0.05)}
+      C.alt=tint(design.primary);C.roseSoft=tint(design.deduction)
     }
 
     // Wrap drawText so every string goes through the WinAnsi sanitizer.
@@ -202,89 +248,160 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pays
       page.drawText(safe, { x: rightX - w, y, size, font: f, color })
     }
 
-    // Header
-    page.drawRectangle({ x: 0, y: 0, width: 595.28, height: 3, color: C.mid })
-    page.drawRectangle({ x: 0, y: 838, width: 595.28, height: 4, color: C.mid })
-    page.drawRectangle({ x: 0, y: 760, width: 595.28, height: 78, color: C.deep })
-    draw(company.name, 24, 804, 16, true, C.white)
-    if (company.address) draw(company.address, 24, 790, 8, false, C.white)
-    if (company.tin) draw(`TIN: ${company.tin}`, 24, 778, 8, false, C.white)
-    page.drawRectangle({ x: 485, y: 801, width: 86, height: 24, color: C.white, opacity: 0.16 })
-    drawRight('PAYSLIP', 558, 808, 12, true, C.white)
-    drawRight(`Period: ${periodStart} - ${periodEnd}`, 572, 790, 8, false, C.white)
-    drawRight(`Pay Date: ${payDate}`, 572, 778, 8, false, C.white)
+    // Measure using the embedded font, including long words, rather than character counts.
+    const wrapWidth = (text: string, width: number, size = 9, isBold = false) => {
+      const f = isBold ? bold : font
+      const lines: string[] = []
+      let line = ''
+      for (const word of toWinAnsiSafe(text).split(/\s+/)) {
+        const candidate = line ? `${line} ${word}` : word
+        if (f.widthOfTextAtSize(candidate, size) <= width) { line = candidate; continue }
+        if (line) lines.push(line)
+        line = ''
+        for (const character of word) {
+          if (line && f.widthOfTextAtSize(line + character, size) > width) { lines.push(line); line = '' }
+          line += character
+        }
+      }
+      if (line) lines.push(line)
+      return lines
+    }
 
-    // Employee info card — give Department and Position their OWN lines
-    // (each spanning the full card width) so long values don't overlap the
-    // next field. Card height bumped up slightly to fit the extra row.
-    page.drawRectangle({ x: 24, y: 678, width: 547, height: 70, color: C.white, borderColor: C.light, borderWidth: 1 })
-    page.drawRectangle({ x: 24, y: 678, width: 4, height: 70, color: C.mid })
-    draw(`${emp.lastName}, ${emp.firstName}`, 32, 730, 11, true, C.deep)
-    draw(`Employee No.: ${emp.employeeNo ?? '-'}`, 32, 716, 8, true, C.base)
-    draw(`Department: ${emp.department?.name ?? '-'}`, 32, 704, 8, true, C.base)
-    draw(`Position: ${emp.position?.title ?? '-'}`, 32, 692, 8, true, C.base)
-    draw(`TIN: ${emp.tinNo ?? '-'}   SSS: ${emp.sssNo ?? '-'}   PhilHealth: ${emp.philhealthNo ?? '-'}   Pag-IBIG: ${emp.pagibigNo ?? '-'}`, 32, 681, 7.5, true, C.muted)
+    if (design) { await drawDesignRegion(pdf, page, design, 'header', company, font, bold) } else {
+    // Company details and payroll dates occupy separate bands.
+    page.drawRectangle({ x: 0, y: 730, width: 595.28, height: 112, color: C.deep })
+    page.drawRectangle({ x: 0, y: 838, width: 595.28, height: 4, color: C.highlight })
+    drawRight('PAYSLIP', 571, 819, 9, true, C.white)
+    wrapWidth(company.name, 547, 14, true).slice(0, 2).forEach((line, i) => draw(line, 24, 800 - i * 18, 14, true, C.white))
+    if (company.address) wrapWidth(company.address, 547, 8).slice(0, 2).forEach((line, i) => draw(line, 24, 765 - i * 12, 8, false, C.white))
+    if (company.tin) draw(`TIN: ${company.tin}`, 24, 739, 8, false, C.white)
+    }
+    draw(`Period: ${periodStart} - ${periodEnd}`, 24, 713, 8, false, C.muted)
+    drawRight(`Pay date: ${payDate}`, 571, 713, 8, true, C.base)
 
-    // Column headers — pushed down to clear the taller employee card above
-    page.drawRectangle({ x: 24, y: 650, width: 261, height: 20, color: C.alt })
-    page.drawRectangle({ x: 310, y: 650, width: 261, height: 20, color: C.roseSoft })
-    draw('EARNINGS', 30, 657, 9, true, C.deep)
-    draw('DEDUCTIONS', 316, 657, 9, true, C.rose)
+    page.drawRectangle({ x: 24, y: 609, width: 547, height: 90, color: C.alt, borderColor: C.light, borderWidth: 1 })
+    page.drawRectangle({ x: 24, y: 609, width: 4, height: 90, color: C.highlight })
+    draw(`${emp.lastName}, ${emp.firstName}`, 36, 682, 11, true, C.deep)
+    draw(`Employee No.: ${emp.employeeNo ?? '-'}`, 36, 666, 8, false, C.base)
+    draw(`Department: ${emp.department?.name ?? '-'}`, 36, 652, 8, false, C.base)
+    draw(`Position: ${emp.position?.title ?? '-'}`, 36, 638, 8, false, C.base)
+    draw(`TIN: ${emp.tinNo ?? '-'}   SSS: ${emp.sssNo ?? '-'}`, 36, 624, 7.5, false, C.muted)
+    draw(`PhilHealth: ${emp.philhealthNo ?? '-'}   Pag-IBIG: ${emp.pagibigNo ?? '-'}`, 295, 624, 7.5, false, C.muted)
+
+    const columnHeaders = (y: number) => {
+      page.drawRectangle({ x: 24, y, width: hideDeductions ? 547 : 261, height: 24, color: C.alt })
+      if (!hideDeductions) page.drawRectangle({ x: 310, y, width: 261, height: 24, color: C.roseSoft })
+      draw('EARNINGS', 32, y + 8, 9, true, C.deep)
+      if (!hideDeductions) draw('DEDUCTIONS', 318, y + 8, 9, true, C.rose)
+    }
+    columnHeaders(575)
+    const usePage = (index: number) => {
+      if (!pages[index]) {
+        page = pdf.addPage([595.28, 841.89]); pages.push(page)
+        draw('PAYSLIP / CONTINUED', 24, 809, 10, true, C.deep)
+        draw(`${emp.employeeNo ?? ''} - ${emp.lastName}, ${emp.firstName}`, 24, 791, 9)
+        columnHeaders(752)
+      } else page = pages[index]
+    }
 
     // Rows
-    let yl = 642
-    earningsRows.forEach(([label, value], i) => {
-      if (i % 2 === 1) page.drawRectangle({ x: 24, y: yl - 4, width: 261, height: 18, color: C.alt })
-      draw(label, 28, yl, 8.5, false, C.text)
-      drawRight(peso(value), 280, yl, 8.5, true, C.base)
-      yl -= 18
-    })
-    if (earningsRows.length === 0) {
-      draw('No earnings recorded', 28, yl, 8.5, false, C.muted)
-      yl -= 18
+    // Shared row painter for both columns.
+    //
+    // Geometry matters here: the zebra band is drawn from the baseline
+    // upwards, so at the old 13pt heading gap its top edge cut through the
+    // bottom of the heading above it. Sections now get a lead-in gap and a
+    // taller drop, and the band sits low enough to clear the text above.
+    // Reserve the actual summary (116pt), footer region and a 12pt gap.
+    // The previous fixed 300pt reserve moved otherwise fitting totals to page two.
+    const minimumTotalsY = design ? 116 + 24 + REGION_HEIGHT.footer + 12 : 195
+    const measureRows = (rows: Row[], width: number, compact: boolean) => rows.reduce((height, [label, value], i) => {
+      if (value === null) return height + (i ? (compact ? 6 : 9) : 0) + (compact ? 18 : 20)
+      const amountWidth = Math.max(82, bold.widthOfTextAtSize(toWinAnsiSafe(peso(value)), 9))
+      return height + Math.max(compact ? 22 : 25, wrapWidth(label, width - amountWidth - 20, 9).length * 13 + 10)
+    }, 0)
+    const bodyHeight = (compact: boolean) => Math.max(
+      measureRows(earningsRows, hideDeductions ? 539 : 253, compact),
+      hideDeductions ? 0 : measureRows(deductionRows, 253, compact),
+    )
+    const availableBodyHeight = 557 - 18 - minimumTotalsY
+    const compact = bodyHeight(false) > availableBodyHeight && bodyHeight(true) <= availableBodyHeight
+    const ROW_H = compact ? 22 : 25
+    const HEAD_DROP = compact ? 18 : 20
+    const HEAD_LEAD = compact ? 6 : 9
+    const paintRows = (
+      rows: Row[],
+      x: number,
+      rightX: number,
+      zebra: ReturnType<typeof rgb>,
+      valueColor: ReturnType<typeof rgb>,
+    ): { y: number; pageIndex: number } => {
+      usePage(0)
+      let pageIndex = 0
+      let y = 557
+      let z = 0
+      let first = true
+      for (const [label, value] of rows) {
+        if (y < 85) { usePage(++pageIndex); y = 734 }
+        if (value === null) {
+          if (!first) y -= HEAD_LEAD
+          draw(label, x + 4, y, 7, true, C.muted)
+          y -= HEAD_DROP
+          z = 0                     // each section starts unshaded
+          first = false
+          continue
+        }
+        const amount = peso(value)
+        const amountWidth = Math.max(82, bold.widthOfTextAtSize(toWinAnsiSafe(amount), 9))
+        const lines = wrapWidth(label, rightX - x - amountWidth - 20, 9)
+        const rowHeight = Math.max(ROW_H, lines.length * 13 + 10)
+        if (y - rowHeight < 48) { usePage(++pageIndex); y = 734 }
+        if (z % 2 === 1) {
+          page.drawRectangle({ x, y: y - rowHeight + 13, width: rightX - x + 8, height: rowHeight, color: zebra })
+        }
+        z += 1
+        lines.forEach((line, i) => draw(line, x + 8, y - i * 13, 9, false, C.text))
+        drawRight(amount, rightX, y, 9, true, value > 0 ? valueColor : C.muted)
+        y -= rowHeight
+        first = false
+      }
+      return { y, pageIndex }
     }
 
-    // Match earnings column start (yl = 642) so the first deduction row
-    // doesn't overlap the "DEDUCTIONS" header at y=662 / the underline
-    // at y=658. Previously yr=654 produced a visible overlap.
-    let yr = 642
-    deductionRows.forEach(([label, value], i) => {
-      if (i % 2 === 1) page.drawRectangle({ x: 310, y: yr - 4, width: 261, height: 18, color: C.roseSoft })
-      draw(label, 314, yr, 8.5, false, C.text)
-      drawRight(peso(value), 566, yr, 8.5, true, C.rose)
-      yr -= 18
-    })
-    if (deductionRows.length === 0) {
-      draw('No deductions for this period', 314, yr, 8.5, false, C.muted)
-      yr -= 18
-    }
-
-    const totalsY = Math.min(yl, yr) - 10
-    page.drawRectangle({ x: 24, y: totalsY - 8, width: 261, height: 24, color: C.alt, borderColor: C.light, borderWidth: 1 })
+    const left = paintRows(earningsRows, 24, hideDeductions ? 563 : 277, C.alt, C.base)
+    const right = hideDeductions ? left : paintRows(deductionRows, 310, 563, C.roseSoft, C.rose)
+    const lastPage = Math.max(left.pageIndex, right.pageIndex)
+    usePage(lastPage)
+    let totalsY = Math.min(left.pageIndex === lastPage ? left.y : 734, right.pageIndex === lastPage ? right.y : 734) - 18
+    if (totalsY < minimumTotalsY) { usePage(lastPage + 1); totalsY = 719 }
+    page.drawRectangle({ x: 24, y: totalsY - 8, width: hideDeductions ? 547 : 261, height: 24, color: C.alt, borderColor: C.light, borderWidth: 1 })
     draw('GROSS PAY', 28, totalsY, 9, true, C.deep)
-    drawRight(peso(payslip.grossPay.toNumber()), 280, totalsY, 9, true, C.deep)
+    drawRight(peso(payslip.grossPay.toNumber()), hideDeductions ? 566 : 280, totalsY, 9, true, C.deep)
 
+    if (!hideDeductions) {
     page.drawRectangle({ x: 310, y: totalsY - 8, width: 261, height: 24, color: C.roseSoft, borderColor: rgb(0.98, 0.78, 0.82), borderWidth: 1 })
     draw('TOTAL DEDUCTIONS', 314, totalsY, 9, true, C.rose)
     drawRight(peso(payslip.totalDeductions.toNumber()), 566, totalsY, 9, true, C.rose)
+    }
 
-    const netY = totalsY - 52
+    const netY = totalsY - 64
     page.drawRectangle({ x: 24, y: netY, width: 547, height: 44, color: C.deep })
-    page.drawRectangle({ x: 24, y: netY, width: 6, height: 44, color: C.mid })
-    draw('NET PAY', 34, netY + 26, 10, true, C.white)
-    draw('Take-home amount for this pay period', 34, netY + 12, 7.5, false, rgb(0.85, 0.88, 0.92))
-    drawRight(peso(payslip.netPay.toNumber()), 562, netY + 17, 18, true, C.white)
+    page.drawRectangle({ x: 24, y: netY, width: 6, height: 44, color: C.highlight })
+    const netColor=design?pdfColor(contrastText(design.primary)):C.white
+    draw('NET PAY', 34, netY + 26, 10, true, netColor)
+    draw('Take-home amount for this pay period', 34, netY + 12, 7.5, false, netColor)
+    drawRight(peso(payslip.netPay.toNumber()), 562, netY + 17, 18, true, netColor)
 
     const ytdY = netY - 52
     page.drawRectangle({ x: 24, y: ytdY, width: 547, height: 36, color: C.white, borderColor: C.light, borderWidth: 1 })
     draw('YTD Gross Pay', 34, ytdY + 20, 8, true, C.muted)
     draw(peso(payslip.ytdGrossPay.toNumber()), 34, ytdY + 8, 10, true, C.deep)
-    draw('YTD Withholding Tax', 310, ytdY + 20, 8, true, C.muted)
-    draw(peso(payslip.ytdWithholdingTax.toNumber()), 310, ytdY + 8, 10, true, C.deep)
+    if (!hideDeductions) draw('YTD Withholding Tax', 310, ytdY + 20, 8, true, C.muted)
+    if (!hideDeductions) draw(peso(payslip.ytdWithholdingTax.toNumber()), 310, ytdY + 8, 10, true, C.deep)
 
     const noteY = ytdY - 26
     const notes = wrap('This is a computer-generated payslip. No signature required. Please contact HR for any discrepancies.', 96)
-    notes.forEach((line, idx) => draw(line, 24, noteY - idx * 10, 7.5, false, C.muted))
+    if (design) await drawDesignRegion(pdf, page, design, 'footer', company, font, bold)
+    else notes.forEach((line, idx) => draw(line, 24, noteY - idx * 10, 7.5, false, C.muted))
 
     const bytes = await pdf.save()
     const buffer = Buffer.from(bytes)

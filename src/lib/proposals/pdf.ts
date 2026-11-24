@@ -55,7 +55,6 @@ const FEATURES: { label: string; basic: boolean; pro: boolean }[] = [
   { label: 'Budget Requisitions', basic: false, pro: true },
   { label: 'Overtime Requests', basic: false, pro: true },
   { label: 'Screen Capture Tracker', basic: false, pro: true },
-  { label: 'Disbursement', basic: false, pro: true },
 ]
 
 export interface ProposalTotals {

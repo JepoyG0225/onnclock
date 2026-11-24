@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { parseCareerHeroContent } from '@/lib/career-page'
+import { applicationResponse, resumeFileType } from '@/lib/recruitment-upload'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 import {
   ArrowRight,
@@ -98,6 +99,7 @@ export default function PublicApplyPage() {
   const params = useParams<{ publicToken: string }>()
   const token = params?.publicToken
 
+  const uploadedResume = useRef<{ file: File; email: string; token: string; receipt: string; expiresAt: number } | null>(null)
   const [job, setJob] = useState<JobData | null>(null)
   const [otherJobs, setOtherJobs] = useState<JobListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -145,13 +147,29 @@ export default function PublicApplyPage() {
       payload.set('currentAddress', form.currentAddress)
       payload.set('expectedSalary', form.expectedSalary)
       payload.set('coverLetter', form.coverLetter)
-      if (form.resumeFile) payload.set('resumeFile', form.resumeFile)
+      if (form.resumeFile) {
+        resumeFileType(form.resumeFile)
+        const email = form.email.trim().toLowerCase()
+        const cached = uploadedResume.current
+        if (!cached || cached.file !== form.resumeFile || cached.email !== email || cached.token !== token || cached.expiresAt < Date.now()) {
+          const upload = await applicationResponse<{ signedUrl: string; receipt: string; contentType: string }>(await fetch(`/api/public/jobs/${encodeURIComponent(token)}/resume-upload`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, name: form.resumeFile.name, type: form.resumeFile.type, size: form.resumeFile.size }),
+          }))
+          const result = await fetch(upload.signedUrl, {
+            method: 'PUT', headers: { 'Content-Type': upload.contentType, 'x-upsert': 'false' }, body: form.resumeFile,
+          })
+          if (!result.ok) throw new Error(result.status === 413 ? 'Resume file exceeds the 10 MB size limit.' : 'The r?sum? could not be uploaded. Please check your connection and try again.')
+          uploadedResume.current = { file: form.resumeFile, email, token, receipt: upload.receipt, expiresAt: Date.now() + 110 * 60 * 1000 }
+        }
+        payload.set('resumeReceipt', uploadedResume.current!.receipt)
+      }
       const res = await fetch(`/api/public/jobs/${token}/apply`, { method: 'POST', body: payload })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? 'Application failed')
+      if (res.status === 400) uploadedResume.current = null
+      await applicationResponse(res)
       setSubmitted(true)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Application failed')
+      toast.error(error instanceof TypeError ? 'Could not connect to the application service. Please check your connection and try again.' : error instanceof Error ? error.message : 'Application failed')
     } finally {
       setSubmitting(false)
     }
@@ -291,7 +309,7 @@ export default function PublicApplyPage() {
             {job.isOpen ? (
               <button
                 onClick={() => setDrawerOpen(true)}
-                className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#000000] hover:bg-[#000000]/90 transition-colors flex items-center gap-2"
+                className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 transition-colors flex items-center gap-2"
               >
                 Apply Now <ArrowRight className="w-4 h-4" />
               </button>
@@ -449,7 +467,7 @@ export default function PublicApplyPage() {
                 </p>
                 <button
                   onClick={() => { setDrawerOpen(false); setSubmitted(false) }}
-                  className="mt-4 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#000000] hover:bg-[#000000]/90"
+                  className="mt-4 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90"
                 >
                   Close
                 </button>
@@ -508,7 +526,7 @@ export default function PublicApplyPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Expected Monthly Salary (\u20b1)</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Expected Monthly Salary (?)</label>
                   <input
                     type="number"
                     min="0"
@@ -535,7 +553,17 @@ export default function PublicApplyPage() {
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      onChange={e => setForm(p => ({ ...p, resumeFile: e.target.files?.[0] ?? null }))}
+                      onChange={e => {
+                        const file = e.target.files?.[0] ?? null
+                        try { if (file) resumeFileType(file) }
+                        catch (err) {
+                          toast.error(err instanceof Error ? err.message : 'Invalid r?sum? file')
+                          e.target.value = ''
+                          return
+                        }
+                        uploadedResume.current = null
+                        setForm(p => ({ ...p, resumeFile: file }))
+                      }}
                       className="sr-only"
                     />
                   </label>
@@ -554,7 +582,7 @@ export default function PublicApplyPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white bg-[#000000] hover:bg-[#000000]/90 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
                   >
                     {submitting ? 'Submitting...' : (
                       <>Submit Application <ArrowRight className="w-4 h-4" /></>

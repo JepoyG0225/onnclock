@@ -17,7 +17,7 @@
 }
 :root{
   --navy:#0d1b2a;--navy-mid:#1a2d42;--navy-light:#2e4a6a;
-  --orange:#fa5e01;--orange-dim:#c44d00;
+  --orange:#0b6ffb;--orange-dim:#075bd4;
   --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
   --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
   --bg:#eef2f7;--surface:#fff;--border:#e2e8f0;--border-mid:#cbd5e1;
@@ -99,7 +99,7 @@ body{display:flex;flex-direction:column;overflow:hidden;}
   padding:8px 11px;font-size:13px;font-family:inherit;color:var(--text);
   background:var(--surface);outline:none;width:100%;
 }
-.form-inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(250,94,1,.10);}
+.form-inp:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(11,111,251,.10);}
 .form-inp:disabled{background:var(--bg);color:var(--muted);cursor:not-allowed;}
 select.form-inp{cursor:pointer;}
 
@@ -128,6 +128,7 @@ select.form-inp{cursor:pointer;}
 .spin{display:inline-block;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 </style>
+  <link rel="stylesheet" href="portal-theme.css" />
 </head>
 <body>
 <div class="hdr">

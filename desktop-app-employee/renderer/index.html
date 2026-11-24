@@ -21,9 +21,9 @@
       --navy:        #0d1b2a;
       --navy-mid:    #1a2d42;
       --navy-light:  #2e4a6a;
-      --orange:      #fa5e01;
-      --orange-dim:  #c44d00;
-      --orange-bg:   #fff3eb;
+      --orange:      #0b6ffb;
+      --orange-dim:  #075bd4;
+      --orange-bg:   #eff6ff;
       --amber:       #f59e0b;
       --amber-bg:    #fffbeb;
       --amber-border:#fde68a;
@@ -88,7 +88,7 @@
     .login-icon {
       width: 64px; height: 64px; border-radius: 16px; overflow: hidden;
       background: var(--orange); display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 8px 24px rgba(250,94,1,.30);
+      box-shadow: 0 8px 24px rgba(11,111,251,.30);
     }
     .login-icon img { width: 100%; height: 100%; object-fit: cover; }
     .login-icon-fallback { font-size: 32px; font-weight: 900; color: #fff; }
@@ -107,7 +107,7 @@
       color: var(--text); background: var(--surface); outline: none;
       transition: border-color .15s, box-shadow .15s;
     }
-    input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(250,94,1,.12); }
+    input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(11,111,251,.12); }
     /* ---- */
     .btn {
       padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700;
@@ -397,14 +397,14 @@
       padding:9px 12px; font-size:13px; font-family:inherit;
       color:var(--text); background:var(--surface); outline:none;
     }
-    .form-select:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(250,94,1,.12); }
+    .form-select:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(11,111,251,.12); }
     textarea.form-ta {
       width:100%; border:1.5px solid var(--border); border-radius:var(--radius-sm);
       padding:9px 12px; font-size:13px; font-family:inherit;
       color:var(--text); background:var(--surface); outline:none;
       resize:vertical; min-height:68px;
     }
-    textarea.form-ta:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(250,94,1,.12); }
+    textarea.form-ta:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(11,111,251,.12); }
 
     /* ---- Contacts ---- */
     .contact-item {
@@ -506,7 +506,7 @@
     .loading-logo {
       width: 60px; height: 60px; border-radius: 14px; overflow: hidden;
       background: var(--orange); display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 8px 28px rgba(250,94,1,.32);
+      box-shadow: 0 8px 28px rgba(11,111,251,.32);
       animation: loadPop .4s cubic-bezier(.34,1.56,.64,1) both;
     }
     @keyframes loadPop { from { transform: scale(.7); opacity: 0 } to { transform: scale(1); opacity: 1 } }
@@ -530,6 +530,7 @@
       40%         { opacity: 1;   transform: scale(1.2); }
     }
   </style>
+  <link rel="stylesheet" href="portal-theme.css" />
 </head>
 <body>
 <!-- ---- -->
@@ -598,9 +599,10 @@
 
     <!-- Profile -->
     <div class="profile-row">
-      <div class="avatar" id="user-avatar">?</div>
+      <div class="avatar" id="user-avatar" hidden></div>
       <div class="profile-info">
-        <div class="profile-email"  id="user-email">-</div>
+        <div class="profile-greeting" id="profile-greeting">Welcome back</div>
+        <div class="profile-email" id="user-email">-</div>
         <div class="profile-company" id="user-company"></div>
       </div>
       <button class="signout-btn" id="signout-btn" title="Sign out">
@@ -636,6 +638,12 @@
         </div>
       </div>
     </div>
+
+    <section class="today-schedule-row" aria-label="Today's schedule">
+      <span class="schedule-label">Today</span>
+      <div id="today-schedule">Loading...</div>
+      <button id="refresh-schedule" type="button" aria-label="Refresh today's schedule" title="Refresh schedule">&#8635;</button>
+    </section>
 
     <!-- Break banner (visible when on break) -->
     <div class="break-banner" id="break-banner" style="display:none;">
@@ -678,6 +686,14 @@
       </div>
     </div>
 
+    <!-- Action button -->
+    <div class="action-row" id="action-row-main">
+      <button class="btn btn-orange btn-lg" id="primary-action-btn" style="flex:1;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg>
+        Clock In
+      </button>
+    </div>
+
     <!-- Location card -->
     <div class="card" id="location-card" style="display:none; padding:12px 14px;">
       <div class="loc-header">
@@ -696,14 +712,6 @@
     <!-- Error -->
     <div id="action-error" class="error-banner" style="display:none;">
       <span>!</span><span id="action-error-text"></span>
-    </div>
-
-    <!-- Action button -->
-    <div class="action-row" id="action-row-main">
-      <button class="btn btn-orange btn-lg" id="primary-action-btn" style="flex:1;">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg>
-        Clock In
-      </button>
     </div>
 
     <div class="history-card">
@@ -908,7 +916,7 @@
         <span id="um-progress-pct" style="font-size:11px;color:#64748b;">0%</span>
       </div>
       <div style="height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;">
-        <div id="um-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fa5e01,#f59e0b);
+        <div id="um-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#0b6ffb,#f59e0b);
           border-radius:99px;transition:width .2s ease;"></div>
       </div>
       <div id="um-progress-bytes" style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:right;"></div>
@@ -929,7 +937,7 @@
       ">Later</button>
       <button id="um-download-btn" style="
         flex:1;padding:10px;border-radius:10px;border:none;
-        background:#fa5e01;color:#fff;font-size:13px;font-weight:700;
+        background:#0b6ffb;color:#fff;font-size:13px;font-weight:700;
         cursor:pointer;font-family:inherit;display:flex;align-items:center;
         justify-content:center;gap:6px;
       ">⬇ Download &amp; Install</button>
@@ -1044,6 +1052,7 @@ let activeAnnouncement = null
 function tickClock() {
   const now = new Date()
   let h = now.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12
+  document.getElementById('profile-greeting').textContent = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
   clockTimeEl.textContent = `${h}:${String(now.getMinutes()).padStart(2,'0')}`
   clockAmpmEl.textContent = ampm
   clockDateEl.textContent = now.toLocaleDateString('en-PH', { weekday:'long', month:'short', day:'numeric' })
@@ -1209,7 +1218,7 @@ function renderUpdateBanner(update) {
   updateBanner.style.display = hasUpdate ? 'flex' : 'none'
   if (!hasUpdate) return
   updateTitle.textContent = `Update available: v${update.latestVersion}`
-  updateSub.textContent = update.notes || 'Download and install the latest desktop version.'
+  updateSub.textContent = update.automatic ? (update.error || (update.state === 'ready' ? 'Downloaded. Installs automatically when you are off shift.' : update.state === 'installing' ? 'Installing update and restarting...' : `Downloading automatically${update.percent ? ' (' + update.percent + '%)' : ''}...`)) : update.notes || 'Download and install the latest desktop version.'
   // Populate the modal fields
   const umTitle   = document.getElementById('um-title')
   const umVersion = document.getElementById('um-version')
@@ -1218,7 +1227,7 @@ function renderUpdateBanner(update) {
   if (umTitle)   umTitle.textContent   = 'Update Available'
   if (umVersion) umVersion.textContent = `Version ${update.latestVersion} is ready`
   if (umNotes)   umNotes.textContent   = update.notes || 'A new version of OnClock Desktop is available. Download and install it now to get the latest improvements.'
-  if (umCaption) umCaption.textContent = 'The installer will open automatically after downloading.'
+  if (umCaption) umCaption.textContent = update.automatic ? 'Updates download automatically and install while you are off shift.' : 'The installer will open automatically after downloading.'
 }
 
 function closeMorePanel() {
@@ -1409,7 +1418,42 @@ function getInitials(email) {
   return parts.length>=2 ? (parts[0][0]+parts[1][0]).toUpperCase() : name.slice(0,2).toUpperCase()
 }
 
+let desktopEmployeeName = ''
+let profileRequested = false
+let scheduleRequest = 0
+let scheduleLastLoaded = 0
+async function loadTodaySchedule(force = false) {
+  if (statusView.style.display === 'none') return
+  if (!force && Date.now() - scheduleLastLoaded < 60000) return
+  scheduleLastLoaded = Date.now()
+  const current = ++scheduleRequest
+  const container = document.getElementById('today-schedule')
+  try {
+    const result = await api.getSchedule()
+    if (current !== scheduleRequest) return
+    if (!result.ok) throw Error(result.status === 404 ? 'No active employee profile. Contact your administrator.' : result.status === 401 ? 'Session expired. Please sign in again.' : 'Schedule unavailable. Retry.')
+    const day = result.data?.days?.[0]
+    container.replaceChildren()
+    container.classList.remove('schedule-error')
+    const time = value => { const [h,m] = value.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}` }
+    if (!day?.shifts?.length) container.textContent = 'No schedule assigned'
+    for (const shift of day?.shifts || []) {
+      const row = document.createElement('div'); row.className = 'schedule-shift'
+      const title = document.createElement('span');title.textContent=shift.isRestDay?'Rest day':shift.timeIn&&shift.timeOut?`${time(shift.timeIn)} - ${time(shift.timeOut)}${shift.nextDay?' (+1 day)':''}`:'No fixed hours';row.append(title)
+      if (!shift.isRestDay && shift.breakMinutes > 0) { const detail=document.createElement('small');detail.textContent=`${shift.breakMinutes}m break`;row.append(detail) }
+      if(!shift.isRestDay){const zone=document.createElement('small');zone.textContent=shift.timezone||'Asia/Manila';row.append(zone);const localZone=Intl.DateTimeFormat().resolvedOptions().timeZone;if(shift.scheduledStart&&shift.scheduledEnd&&localZone!==shift.timezone){const local=document.createElement('small');const fmt=value=>new Date(value).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});local.textContent=`Your time: ${fmt(shift.scheduledStart)} - ${fmt(shift.scheduledEnd)} (${localZone})`;row.append(local)}}
+      container.append(row)
+    }
+  } catch (error) { if(current===scheduleRequest){container.textContent=error.message || 'Schedule unavailable. Retry.';container.classList.add('schedule-error')} }
+}
+document.getElementById('refresh-schedule').addEventListener('click',()=>void loadTodaySchedule(true))
+window.addEventListener('focus',()=>void loadTodaySchedule(true))
+window.addEventListener('online',()=>void loadTodaySchedule(true))
+setInterval(()=>void loadTodaySchedule(),60000)
+
 function showLoginView() {
+  desktopEmployeeName = ''; profileRequested = false
+  scheduleRequest++; scheduleLastLoaded=0; document.getElementById('today-schedule').textContent='Loading schedule...'
   loginView.style.display='flex'; statusView.style.display='none'
   bottomNav.style.display='none'
   announcementsShownForSession = false
@@ -1423,10 +1467,12 @@ function showStatusView(data) {
   loginView.style.display='none'; statusView.style.display='flex'
   bottomNav.style.display='block'
   locationCard.style.display='block'
+  void loadTodaySchedule()
 
   // Profile
   const email=data.email||''; const company=data.companyName||''
-  userEmail.textContent=email||'Unknown'; userAvatar.textContent=getInitials(email); userCompany.textContent=company
+  userEmail.textContent=desktopEmployeeName||email||'Employee'; userAvatar.textContent=getInitials(email); userCompany.textContent=company
+  if (!profileRequested) { profileRequested = true; const profileSession = scheduleRequest; api.getProfile().then(result => { const e = result.data?.employee; if (e && profileSession === scheduleRequest) { desktopEmployeeName = [e.firstName,e.lastName].filter(Boolean).join(' '); userEmail.textContent = desktopEmployeeName || email } }).catch(()=>{}) }
   renderUpdateBanner(data.update)
 
   const clocked   = Boolean(data.isClockedIn)
@@ -1631,7 +1677,7 @@ function openUpdateModal() {
   if (umTitle)   umTitle.textContent   = 'Update Available'
   if (umVersion) umVersion.textContent = `Version ${currentUpdateInfo.latestVersion} is ready`
   if (umNotes)   umNotes.textContent   = currentUpdateInfo.notes || 'A new version of OnClock Desktop is available. Download and install it now to get the latest improvements.'
-  if (umCaption) umCaption.textContent = 'The installer will open automatically after downloading.'
+  if (umCaption) umCaption.textContent = update.automatic ? 'Updates download automatically and install while you are off shift.' : 'The installer will open automatically after downloading.'
   // Reset state
   umError.style.display        = 'none'
   umProgressWrap.style.display = 'none'
@@ -1679,7 +1725,9 @@ umDownloadBtn.addEventListener('click', async () => {
   })
 
   try {
-    await api.downloadUpdate()
+    const result = await api.downloadUpdate()
+    if (!result?.ok) throw new Error(result?.error || 'Update failed.')
+    if (result.automatic) { closeUpdateModal(); return }
     // Download complete — installer has been opened
     umProgressBar.style.width    = '100%'
     umProgressPct.textContent    = '100%'

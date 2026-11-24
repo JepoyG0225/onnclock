@@ -1,3 +1,4 @@
+import { notificationVisibility } from '@/lib/notifications-audience'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -6,7 +7,7 @@ export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  const limit = Math.min(50, parseInt(new URL(req.url).searchParams.get('limit') || '20'))
+  const limit = Math.max(1, Math.min(50, parseInt(new URL(req.url).searchParams.get('limit') || '20') || 20))
 
   try {
     const employee = await prisma.employee.findFirst({
@@ -15,11 +16,8 @@ export async function GET(req: NextRequest) {
     })
     if (!employee) return NextResponse.json({ items: [] })
 
-    // Three independent reads — parallel instead of sequential so the
-    // portal's notification poll doesn't stack 3× the latency of a
-    // single query (and stay under the 5s Prisma timeout when the DB
-    // is briefly slow).
-    const [leaves, disciplinary, corrections] = await Promise.all([
+    // Read legacy HR updates and durable personal notifications together.
+    const [leaves, disciplinary, corrections, personal] = await Promise.all([
       prisma.leaveRequest.findMany({
         where: { employeeId: employee.id, status: { in: ['APPROVED', 'REJECTED'] } },
         include: { leaveType: { select: { name: true } } },
@@ -36,6 +34,10 @@ export async function GET(req: NextRequest) {
         orderBy: { reviewedAt: 'desc' },
         take: limit,
       }),
+      prisma.notification.findMany({
+        where: { companyId: ctx.companyId, userId: ctx.userId, isRead: false },
+        orderBy: { createdAt: 'desc' }, take: limit,
+      }),
     ])
 
   const TYPE_LABELS: Record<string, string> = {
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest) {
     TERMINATION: 'Termination',
   }
 
-    const items = [
+    const legacy = [
       ...leaves.map(l => ({
         id: l.id,
         type: 'LEAVE' as const,
@@ -76,12 +78,21 @@ export async function GET(req: NextRequest) {
       })),
     ]
       .map(item => ({ ...item, id: `${item.type}:${item.id}` }))
+
+    const visible = await notificationVisibility(ctx)
+    const checks = await Promise.all(personal.map(visible))
+    const safePersonal = personal.filter((_, index) => checks[index])
+    const items = [...legacy, ...safePersonal.map(n => ({
+      id: `NOTIFICATION:${n.id}`, type: n.type, status: 'UNREAD',
+      title: n.body ? `${n.title}: ${n.body}` : n.title, createdAt: n.createdAt,
+      href: n.link?.startsWith('/tasks') ? n.link.replace('/tasks', '/portal/tasks') : n.link ?? '/portal',
+    }))]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit)
 
     return NextResponse.json(
-      { items },
-      { headers: { 'Cache-Control': 'private, max-age=10, stale-while-revalidate=20' } }
+      { items, scope: employee.id },
+      { headers: { 'Cache-Control': 'private, no-store' } }
     )
   } catch (err) {
     console.error('[/api/notifications/portal]', err)

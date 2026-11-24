@@ -119,7 +119,7 @@ export default function RecruitmentSettingsPage() {
         </Link>
         <h1 className="text-2xl font-black text-slate-900">Career Page Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Build a branded landing page that introduces your company and guides candidates to open roles.</p></div>
-        {settings?.id && <Link href={`/careers/${settings.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-[#1d4ed8] hover:bg-blue-100"><ExternalLink className="h-4 w-4" /> View Live Career Page</Link>}
+        {settings?.id && <Link href={`/careers/${settings.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-[#0044ad] hover:bg-blue-100"><ExternalLink className="h-4 w-4" /> View Live Career Page</Link>}
       </div>
 
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-[#071d3b] shadow-sm">

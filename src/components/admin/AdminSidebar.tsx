@@ -6,8 +6,8 @@ import { signOut } from 'next-auth/react'
 import { Building2, CreditCard, Receipt, Wallet, LogOut, ShieldCheck, ArrowDownToLine, FileText } from 'lucide-react'
 
 const THEME = {
-  deep: '#000000',
-  base: '#000000',
+  deep: '#162d54',
+  base: '#162d54',
   mid: '#AAB7B7',
   soft: '#c4d9ff',
   light: '#dce5f7',
@@ -35,11 +35,6 @@ const NAV_ITEMS = [
     label: 'Payment Methods',
   },
   {
-    href: '/admin/disbursement-topups',
-    icon: ArrowDownToLine,
-    label: 'Wallet Top-Ups',
-  },
-  {
     href: '/admin/proposals',
     icon: FileText,
     label: 'Proposals',
@@ -60,7 +55,7 @@ export function AdminSidebar() {
         style={{ borderColor: THEME.base, background: '#22374f' }}
         title="Admin Console"
       >
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#0055d4' }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#0054d7' }}>
           <ShieldCheck className="w-4.5 h-4.5" style={{ color: THEME.light }} />
         </div>
         <div>
@@ -79,7 +74,7 @@ export function AdminSidebar() {
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
               style={
                 isActive
-                  ? { background: '#0055d4', color: '#f7f7f7' }
+                  ? { background: '#0054d7', color: '#f7f7f7' }
                   : { color: THEME.mid }
               }
             >

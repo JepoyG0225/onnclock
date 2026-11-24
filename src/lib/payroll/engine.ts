@@ -1,7 +1,5 @@
 import { PayrollInput, PayrollResult } from './types'
-import { getSSSForPeriod } from './sss'
-import { getPhilHealthForPeriod } from './philhealth'
-import { getPagIBIGForPeriod } from './pagibig'
+import { mandatoryContributions } from './mandatory-contributions'
 import { computeWithholdingTax } from './bir'
 import {
   computeHolidayPayAdditional,
@@ -56,19 +54,19 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // `scheduledHours` (workHoursPerDay × paid days) is supplied by the
   // compute route. When it's missing we fall back to the DTR-derived
   // `regularHours` so legacy runs keep their previous behavior.
-  const basicPay = computeBasicPay(
+  const fixedMonthly = employee.rateType === 'MONTHLY' && ['MONTHLY', 'SEMI_MONTHLY', 'WEEKLY'].includes(period.payFrequency)
+  const basicPay = fixedMonthly ? (input.monthlyPay?.basicPay ?? Number((employee.basicSalary * (period.payFrequency === 'WEEKLY' ? 12 / 52 : period.payFrequency === 'SEMI_MONTHLY' ? 0.5 : 1)).toFixed(2))) : computeBasicPay(
     employee.basicSalary,
+    effectiveDailyRate,
     employee.rateType,
     attendance.daysWorked,
-    period.workingDays,
-    period.payFrequency,
     attendance.regularHours,
     attendance.scheduledHours,
     rateBasis.workHoursPerDay,
   )
 
   // If basic pay is zero, zero out all earnings/deductions for the period.
-  if (basicPay === 0) {
+  if (!input.retroBasic && !input.rateAmounts?.basicPay && basicPay === 0 && !input.mandatoryMonthToDate?.compensation && !input.additionalTaxableIncome && !input.additionalNonTaxableIncome) {
     return {
       basicPay: 0,
       regularOtAmount: 0,
@@ -107,8 +105,8 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // ── 2. OVERTIME & PREMIUM PAY ─────────────────
   const hourlyRate = deriveHourlyRate(employee, rateBasis)
 
-  const regularOtAmount = parseFloat((hourlyRate * attendance.regularOtHours * regularOtRate).toFixed(2))
-  const restDayOtAmount = parseFloat((hourlyRate * attendance.restDayOtHours * restDayOtRate).toFixed(2))
+  let regularOtAmount = parseFloat((hourlyRate * attendance.regularOtHours * regularOtRate).toFixed(2))
+  let restDayOtAmount = parseFloat((hourlyRate * attendance.restDayOtHours * restDayOtRate).toFixed(2))
 
   // Holiday OT: total of regular holiday OT + special holiday OT
   const regularHolidayOt = attendance.regularHolidayOtHours > 0
@@ -117,9 +115,9 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const specialHolidayOt = attendance.specialHolidayOtHours > 0
     ? parseFloat((hourlyRate * attendance.specialHolidayOtHours * specialHolidayOtRate).toFixed(2))
     : 0
-  const holidayOtAmount = regularHolidayOt + specialHolidayOt
+  let holidayOtAmount = regularHolidayOt + specialHolidayOt
 
-  const nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours, period.nightDifferentialRate)
+  let nightDiffAmount = computeNightDifferential(hourlyRate, attendance.nightDiffHours, period.nightDifferentialRate)
 
   // Holiday pay premium — ONLY for holidays the employee actually clocked in
   // on. This is the visible holidayPayAmount on the payslip.
@@ -169,7 +167,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
       )
     }
   }
-  const holidayPayAmount = regularHolidayPremium + specialHolidayPremium
+  let holidayPayAmount = regularHolidayPremium + specialHolidayPremium
 
   // Unworked-holiday handling — fold into basic pay (no separate line):
   //
@@ -215,7 +213,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // what the payslip's separate Late / Undertime column reports.
   const skipLate = period.disableLateDeductions
     || employee.disableLateDeduction === true
-  const lateDeduction = skipLate
+  let lateDeduction = skipLate
     ? 0
     : parseFloat((minuteRate * attendance.lateMinutes).toFixed(2))
   // Undertime is an explicit deduction for every rate type, mirroring late.
@@ -230,17 +228,23 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   // exactly like late.
   const skipUndertime = period.disableUndertimeDeductions
     || employee.disableUndertimeDeduction === true
-  const undertimeDeduction = skipUndertime
+  let undertimeDeduction = skipUndertime
     ? 0
     : parseFloat((minuteRate * attendance.undertimeMinutes).toFixed(2))
-  // Absences are already reflected in basic pay, which is paid strictly as
-  // worked days × daily rate — an unworked day is simply never paid. Charging
-  // an absence deduction on top would take the same day off twice, so this
-  // line stays at zero. (Late and undertime are different: basic pay is NOT
-  // reduced for them, which is exactly why they are charged separately.)
-  const absenceDeduction = 0
+  // Fixed monthly-rate payroll starts from the cutoff entitlement. Deduct
+  // scheduled absences once here; daily/hourly basic already excludes them.
+  let absenceDeduction = fixedMonthly ? (input.monthlyPay?.absenceDeduction ?? Math.min(basicPay, Number((effectiveDailyRate * Math.max(0, attendance.absentDays)).toFixed(2)))) : 0
 
   // ── 4. ALLOWANCES & DE MINIMIS ────────────────
+  if (input.rateAmounts) {
+    const r=input.rateAmounts
+    basicPayWithHolidayCredit=r.basicPay
+    regularOtAmount=r.regularOtAmount; restDayOtAmount=r.restDayOtAmount; holidayOtAmount=r.holidayOtAmount
+    nightDiffAmount=r.nightDiffAmount; holidayPayAmount=r.holidayPayAmount
+    lateDeduction=r.lateDeduction; undertimeDeduction=r.undertimeDeduction; absenceDeduction=r.absenceDeduction
+  }
+  if (employee.disableNightDifferential) nightDiffAmount = 0
+  basicPayWithHolidayCredit += input.retroBasic ?? 0
   const deMinimisTotal = deMinimis.riceSubsidy + deMinimis.clothing +
     deMinimis.medical + deMinimis.laundry + deMinimis.meal + deMinimis.other
 
@@ -266,24 +270,21 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   ).toFixed(2))
 
   // ── 6. GOVERNMENT CONTRIBUTIONS ───────────────
-  // Bracket lookup is driven by what the employee ACTUALLY earned this
-  // period (post-attendance-deductions), annualized to monthly. Falls
-  // back to the recorded basicSalary when basicPay is zero so the bracket
-  // stays consistent. Each contribution is then split evenly across the
-  // periods in a month (SEMI_MONTHLY = ½, WEEKLY = ¼, DAILY = 1/22)
-  // instead of the previous "first-cutoff-takes-all" behavior.
-  //
-  // IMPORTANT: includes the Art. 94 holiday credit (basicPayWithHolidayCredit)
-  // because per DOLE Handbook regular-holiday pay is considered wages —
-  // SSS / PhilHealth / Pag-IBIG contributions are computed on wages, not
-  // worked-day-only basic. Previously we used `basicPay` (worked only)
-  // which understated Pag-IBIG (and PhilHealth/SSS for higher brackets)
-  // for any DAILY/HOURLY employee with an unworked regular holiday in
-  // the period.
-  const actualEarned = basicPayWithHolidayCredit - lateDeduction - undertimeDeduction - absenceDeduction
-  const sssRaw = getSSSForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
-  const phRaw = getPhilHealthForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
-  const pagibigRaw = getPagIBIGForPeriod(actualEarned, employee.basicSalary, period.payFrequency)
+  // SSS/Pag-IBIG use remuneration actually earned, before government/loan
+  // deductions. PhilHealth uses monthly basic salary, without attendance reductions.
+  const actualEarned = Math.max(0, grossPay - lateDeduction - undertimeDeduction - absenceDeduction)
+  const monthlyBasic = employee.rateType === 'MONTHLY'
+    ? employee.basicSalary : effectiveDailyRate * rateBasis.workingDaysPerMonth
+  const mandatory = mandatoryContributions({
+    earned: actualEarned, monthlyBasic,
+    frequency: period.payFrequency,
+    monthlyOnly: period.mandatoryDeductionFrequency === 'MONTHLY' && (period.payFrequency === 'SEMI_MONTHLY' || period.payFrequency === 'MONTHLY'),
+    firstCutoff: period.isFirstCutoff,
+    prior: input.mandatoryMonthToDate,
+  })
+  const sssRaw = { employee: mandatory.sssEmployee, employer: mandatory.sssEmployer, ec: mandatory.sssEc }
+  const phRaw = { employee: mandatory.philhealthEmployee, employer: mandatory.philhealthEmployer }
+  const pagibigRaw = { employee: mandatory.pagibigEmployee, employer: mandatory.pagibigEmployer }
 
   // Apply per-employee deduction toggles
   const sss = employee.sssEnabled
@@ -315,14 +316,16 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   })
 
   // ── 8. LOAN DEDUCTIONS ────────────────────────
-  const loanDeductions = loans.reduce((sum, l) => sum + (grossPay > l.amount ? l.amount : 0), 0)
+  const availableForLoans = Math.max(0, grossPay - sss.employee - ph.employee - pagibig.employee
+    - taxResult.withholdingTax - lateDeduction - undertimeDeduction - absenceDeduction)
+  const loanDeductions = Number(Math.min(availableForLoans, loans.reduce((sum, l) => sum + Math.max(0, l.amount), 0)).toFixed(2))
 
   // ── 9. 13TH MONTH CONTRIBUTION ────────────────
   // Accrue 1/12 of basic pay earned this period. Per DOLE Labor Advisory,
   // Art. 94 holiday pay for unworked regular holidays counts as basic
   // salary for 13th-month purposes — so use basicPayWithHolidayCredit,
   // not the raw worked-day basicPay.
-  const thirteenthMonthContribution = parseFloat((basicPayWithHolidayCredit / 12).toFixed(2))
+  const thirteenthMonthContribution = parseFloat((Math.max(0, basicPayWithHolidayCredit - (fixedMonthly ? absenceDeduction + lateDeduction + undertimeDeduction : 0)) / 12).toFixed(2))
 
   // ── 10. TOTALS ────────────────────────────────
   // NOTE: sss.ec is deliberately NOT here. Employees' Compensation is a
@@ -364,7 +367,7 @@ export function computePayroll(input: PayrollInput): PayrollResult {
     pagibigEmployee: pagibig.employee,
     sssEmployer: sss.employer,
     philhealthEmployer: ph.employer,
-    pagibigEmployer: pagibig.employee,  // same rate as employee for PhilHealth
+    pagibigEmployer: pagibig.employer,
     taxableIncome: taxResult.taxableIncome,
     nonTaxableIncome: taxResult.nonTaxableIncome,
     withholdingTax: taxResult.withholdingTax,
@@ -384,10 +387,9 @@ export function computePayroll(input: PayrollInput): PayrollResult {
 
 function computeBasicPay(
   basicSalary: number,
+  dailyRate: number,
   rateType: string,
   daysWorked: number,
-  workingDaysInPeriod: number,
-  payFrequency: string,
   regularHours: number,
   scheduledHours: number | undefined,
   workHoursPerDay: number,
@@ -416,6 +418,8 @@ function computeBasicPay(
   }
 
   if (rateType === 'HOURLY') {
+    // An explicit zero schedule is zero entitlement, never an 8h fallback.
+    if (scheduledHours != null) return Number((basicSalary * Math.max(0, scheduledHours)).toFixed(2))
     // basicSalary IS the hourly rate. Pay = rate × payable (scheduled)
     // hours, already capped at the schedule's workHoursPerDay upstream
     // so overtime hours don't double-count in regular pay.
@@ -425,18 +429,8 @@ function computeBasicPay(
     return parseFloat((basicSalary * hours).toFixed(2))
   }
 
-  // Monthly rate: pro-rate the monthly salary down to this pay period's share.
-  //   MONTHLY → full month, SEMI → half, WEEKLY → quarter, DAILY → 1/22.
-  const divisor = payFrequency === 'SEMI_MONTHLY' ? 2
-    : payFrequency === 'WEEKLY' ? 4
-    : payFrequency === 'DAILY' ? 22
-    : 1
-  const periodSalary = basicSalary / divisor
-
-  if (daysWorked >= workingDaysInPeriod) return parseFloat(periodSalary.toFixed(2))
-
-  // Pro-rate down to days actually worked — same "worked days × daily rate"
-  // basis the DAILY branch uses.
-  const dailyRate = periodSalary / workingDaysInPeriod
+  // Keep the payslip basis explicit for monthly employees too: Basic Pay is
+  // exactly worked days x the configured/derived daily rate. Attendance
+  // minute penalties remain separate deductions and never reduce this line.
   return parseFloat((dailyRate * daysWorked).toFixed(2))
 }

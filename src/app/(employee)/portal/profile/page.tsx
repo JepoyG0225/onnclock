@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useState, FormEvent, ChangeEvent, useRef } from 'react'
 import { startRegistration } from '@simplewebauthn/browser'
@@ -10,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { FaceRegistrationSection } from '@/components/employee/FaceRegistrationSection'
 import { DatePicker } from '@/components/ui/date-picker'
 
 interface EmployeeProfile {
@@ -274,7 +277,7 @@ export default function ProfilePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to update profile')
       setProfile(data.employee)
-      toast.success('Profile updated')
+      toast.success(data.pending ? 'Profile changes submitted for HR approval. Your current information stays unchanged until approved.' : 'Profile updated')
       onDone()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to update profile')
@@ -335,7 +338,7 @@ export default function ProfilePage() {
                 ) : (
                   <div
                     className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-2xl shadow"
-                    style={{ background: 'rgba(46,65,86,0.12)', color: '#000000' }}
+                    style={{ background: 'rgba(46,65,86,0.12)', color: 'var(--brand-primary)' }}
                   >
                     {initials}
                   </div>
@@ -366,7 +369,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingPersonal(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#000000' }}
+                style={{ color: 'var(--brand-primary)' }}
               >
                 {editingPersonal ? 'Cancel' : 'Edit'}
               </button>
@@ -463,7 +466,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingContact(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#000000' }}
+                style={{ color: 'var(--brand-primary)' }}
               >
                 {editingContact ? 'Cancel' : 'Edit'}
               </button>
@@ -527,7 +530,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setEditingGov(v => !v)}
                 className="text-xs font-semibold"
-                style={{ color: '#000000' }}
+                style={{ color: 'var(--brand-primary)' }}
               >
                 {editingGov ? 'Cancel' : 'Edit'}
               </button>
@@ -602,6 +605,7 @@ export default function ProfilePage() {
 
         <TabsContent value="portal">
           <div className="space-y-5">
+            <FaceRegistrationSection />
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4 flex items-center gap-2">
                 <KeyRound className="w-4 h-4" /> Portal Password
@@ -649,18 +653,13 @@ export default function ProfilePage() {
                 <Fingerprint className="w-4 h-4" /> Fingerprint Access
               </h3>
 
-              {biometricLoading ? (
-                <div className="text-sm text-gray-500 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Checking fingerprint status...
-                </div>
-              ) : (
+              {biometricLoading ? <AppSpinner size="md" message="Checking fingerprint status..." className="py-10" /> : (
                 <div className="space-y-3">
                   <div className="text-sm flex items-center gap-2">
                     {biometricEnrolled ? (
                       <>
-                        <ShieldCheck className="w-4 h-4" style={{ color: '#000000' }} />
-                        <span className="font-medium" style={{ color: '#000000' }}>Fingerprint enrolled</span>
+                        <ShieldCheck className="w-4 h-4" style={{ color: 'var(--brand-primary)' }} />
+                        <span className="font-medium" style={{ color: 'var(--brand-primary)' }}>Fingerprint enrolled</span>
                       </>
                     ) : (
                       <>

@@ -1,3 +1,4 @@
+import { reserveEmployeeSeat, SeatLimitError } from '@/lib/billing/restore-seat'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -49,7 +50,10 @@ const createEmployeeSchema = z.object({
   bankBic: z.string().optional(),
   isExemptFromTax: z.boolean().default(false),
   isMinimumWageEarner: z.boolean().default(false),
+  disableNightDifferential: z.boolean().default(false),
   disableHolidayPay: z.boolean().default(false),
+  disableEarlyInOt: z.boolean().default(false),
+  disableBeyondScheduleOt: z.boolean().default(false),
   disableLateDeduction: z.boolean().default(false),
   disableUndertimeDeduction: z.boolean().default(false),
   fingerprintExempt: z.boolean().default(false),
@@ -183,26 +187,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  // Seat-cap guard. SUPER_ADMIN bypasses (they help customers from
-  // impersonation sessions and shouldn't be blocked). TRIAL companies
-  // are also bypassed inside getSeatStatus (enforceCap=false) so the
-  // free trial UX stays unrestricted. ACTIVE subscriptions hit a hard
-  // 402 the moment they'd exceed their paid seatCount — the client
-  // catches code === 'SEAT_LIMIT_EXCEEDED' and routes to /settings/billing.
-  if (ctx.role !== 'SUPER_ADMIN') {
-    const seat = await getSeatStatus(ctx.companyId)
-    if (seat.enforceCap && seat.activeCount >= seat.paidSeats) {
-      return NextResponse.json(
-        {
-          error: `Seat limit reached: ${seat.activeCount} of ${seat.paidSeats} paid seats in use. Upgrade your subscription to add more employees.`,
-          code: 'SEAT_LIMIT_EXCEEDED',
-          activeCount: seat.activeCount,
-          paidSeats: seat.paidSeats,
-        },
-        { status: 402 },
-      )
-    }
-  }
+  const seat = await getSeatStatus(ctx.companyId)
 
   const data = parsed.data
   // dayOffDays is accepted in the schema for backward compat but intentionally ignored —
@@ -233,7 +218,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const employee = await prisma.employee.create({
+    const employee = await prisma.$transaction(async tx => {
+      if (ctx.role !== 'SUPER_ADMIN' && seat.enforceCap) await reserveEmployeeSeat(tx, ctx.companyId)
+      return tx.employee.create({
       data: {
         companyId: ctx.companyId,
         ...employeeData,
@@ -248,6 +235,7 @@ export async function POST(req: NextRequest) {
         directManagerId: employeeData.directManagerId || null,
       },
     })
+    }, { timeout: 30000 })
 
     // Initialize leave balances for current year
     const currentYear = new Date().getFullYear()
@@ -275,6 +263,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ employee }, { status: 201 })
   } catch (error: unknown) {
+    if (error instanceof SeatLimitError) return NextResponse.json({ error: error.message, code: 'SEAT_LIMIT_EXCEEDED' }, { status: 402 })
     if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2002') {
       return NextResponse.json({ error: 'Employee number already exists' }, { status: 409 })
     }

@@ -34,7 +34,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
   const isMobile = useIsMobile()
   const [allItems, setAllItems] = useState<Array<{
     id: string
-    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION' | 'OVERTIME'
+    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION' | 'OVERTIME' | 'CASH_ADVANCE' | 'BUDGET' | 'PAYROLL'
     status: string
     title: string
     employee?: string

@@ -1,20 +1,9 @@
+import { savedGeofence } from '@/lib/attendance/schedule-location'
+import { effectiveGeofence, geofenceStatus } from '@/lib/attendance/location-policy'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getManilaDateOnly } from '@/lib/date-manila'
-
-function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const toRad = (d: number) => (d * Math.PI) / 180
-  const R = 6371000
-  const dLat = toRad(lat2 - lat1)
-  const dLng = toRad(lng2 - lng1)
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
 
 // Returns the last known location for each employee currently clocked in (today)
 export async function GET(req: NextRequest) {
@@ -52,6 +41,7 @@ export async function GET(req: NextRequest) {
           lastName: true,
           employeeNo: true,
           photoUrl: true,
+          geofenceExempt: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
         },
@@ -86,17 +76,8 @@ export async function GET(req: NextRequest) {
   // Merge with DTR data
   const locations = activeDTR.map(dtr => {
     const ping = pingByEmployee.get(dtr.employeeId)
-    let geofenceOut: boolean | null = null
-    if (
-      company?.geofenceEnabled &&
-      company.geofenceLat != null &&
-      company.geofenceLng != null &&
-      company.geofenceRadiusMeters != null &&
-      ping
-    ) {
-      const dist = distanceMeters(ping.lat, ping.lng, company.geofenceLat, company.geofenceLng)
-      geofenceOut = dist > company.geofenceRadiusMeters
-    }
+    const policy = savedGeofence(dtr.attendanceLocation) ?? (company ? effectiveGeofence(null, dtr.employee.geofenceExempt, company) : null)
+    const geofenceOut = policy?.enabled && ping ? !(geofenceStatus(policy, ping.lat, ping.lng)?.inside ?? false) : null
     return {
       employeeId: dtr.employeeId,
       employee: dtr.employee,

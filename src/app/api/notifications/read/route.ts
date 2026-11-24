@@ -18,15 +18,15 @@ export async function POST(req: NextRequest) {
   try {
     const result = await prisma.notification.updateMany({
       where: {
-        userId: ctx.userId,
+        companyId: ctx.companyId, userId: ctx.userId,
         isRead: false,
-        ...(ids && ids.length > 0 ? { id: { in: ids } } : {}),
+        ...(ids ? { id: { in: ids } } : {}),
       },
       data: { isRead: true, readAt: new Date() },
     })
     return NextResponse.json({ updated: result.count })
   } catch (err) {
     console.error('[notifications] mark-read failed', err)
-    return NextResponse.json({ updated: 0 })
+    return NextResponse.json({ error: 'Unable to mark notifications as read' }, { status: 500 })
   }
 }

@@ -1,3 +1,4 @@
+import { effectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { NextResponse } from 'next/server'
 import { requireAuth, requireSuperAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -82,6 +83,7 @@ export async function GET() {
       subscription: company.subscription
         ? {
             ...company.subscription,
+            status: effectiveSubscriptionStatus(company.subscription),
             pricePerSeat: Number(company.subscription.pricePerSeat),
           }
         : null,

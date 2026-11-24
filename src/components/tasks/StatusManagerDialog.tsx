@@ -46,7 +46,7 @@ export function StatusManagerDialog({
 
   const [newStatus, setNewStatus] = useState('')
   const [newLabel, setNewLabel] = useState('')
-  const [newLabelColor, setNewLabelColor] = useState('#6366f1')
+  const [newLabelColor, setNewLabelColor] = useState('#0054d7')
 
   const applyStatuses = async (init: RequestInit, url = '/api/task-statuses') => {
     setBusy(true)
@@ -130,7 +130,7 @@ export function StatusManagerDialog({
 
         <div className="flex gap-1 border-b border-border">
           {TABS.map(t => (
-            <button
+            <button data-app-tab data-active={tab === t}
               key={t}
               type="button"
               onClick={() => setTab(t)}

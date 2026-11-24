@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -185,14 +186,14 @@ export function LoansTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Loans</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Loans</h1>
           <p className="text-slate-500 text-sm mt-1">
             SSS, Pag-IBIG, and company loans — deductions applied automatically each payroll run
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} style={{ background: 'var(--brand-highlight)' }}>
+        <PermissionGate permission="loans:write"><Button onClick={() => setShowForm(!showForm)} style={{ background: 'var(--brand-highlight)' }}>
           <Plus className="w-4 h-4 mr-2" />New Loan
-        </Button>
+        </Button></PermissionGate>
       </div>
 
       {/* Summary */}
@@ -207,7 +208,7 @@ export function LoansTab() {
       {showForm && (
         <Card className="border-orange-200">
           <CardHeader>
-            <CardTitle className="text-base" style={{ color: '#000000' }}>New Loan</CardTitle>
+            <CardTitle className="text-base" style={{ color: 'var(--brand-primary)' }}>New Loan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -281,8 +282,8 @@ export function LoansTab() {
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={createLoan} style={{ background: 'var(--brand-highlight)' }}>Create Loan</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <PermissionGate permission="loans:write"><Button onClick={createLoan} style={{ background: 'var(--brand-highlight)' }}>Create Loan</Button></PermissionGate>
+              <PermissionGate permission="loans:write"><Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button></PermissionGate>
             </div>
           </CardContent>
         </Card>
@@ -302,7 +303,7 @@ export function LoansTab() {
             variant={statusFilter === val ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(val)}
-            style={statusFilter === val ? { background: '#0055d4' } : {}}
+            style={statusFilter === val ? { background: '#0054d7' } : {}}
           >
             {label}
             {val === 'PENDING' && pendingCount > 0 && (
@@ -381,7 +382,7 @@ export function LoansTab() {
                             <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                               <div
                                 className="h-1.5 rounded-full transition-all"
-                                style={{ width: `${progress}%`, background: progress >= 100 ? '#16a34a' : 'var(--brand-highlight)' }}
+                                style={{ width: `${progress}%`, background: progress >= 100 ? '#c74300' : 'var(--brand-highlight)' }}
                               />
                             </div>
                             <div className="text-xs text-gray-400 mt-0.5">{progress.toFixed(0)}% paid</div>
@@ -462,11 +463,11 @@ export function LoansTab() {
                           <tr key={`${l.id}-history`} className="bg-[#dce5f7] border-b">
                             <td colSpan={9} className="px-6 py-3">
                               <div className="flex items-center gap-2 mb-2">
-                                <History className="w-3.5 h-3.5 text-[#000000]" />
+                                <History className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                                 <span className="text-xs font-semibold text-primary">Deduction History</span>
                               </div>
                               {!loanDetail || loanDetail.id !== l.id ? (
-                                <p className="text-xs text-gray-400">Loading...</p>
+                                <AppSpinner size="md" message="Loading..." className="py-8" />
                               ) : !loanDetail.deductions?.length ? (
                                 <p className="text-xs text-gray-400">No deductions recorded yet — will appear after payroll is computed.</p>
                               ) : (

@@ -1,3 +1,4 @@
+import { restDayPayrollIssue } from '@/lib/payroll/rest-day-review'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
     where: { id: runId, companyId: ctx.companyId },
   })
   if (!run) return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 })
+  const restDayIssue = await restDayPayrollIssue(runId, ctx.companyId, run.periodStart, run.periodEnd)
+  if (restDayIssue) return NextResponse.json({ error: restDayIssue }, { status: 409 })
+  if (run.computationStartedAt) return NextResponse.json({ error: 'Wait for payroll computation to finish' }, { status: 409 })
   if (run.status !== 'APPROVED') {
     return NextResponse.json({ error: 'Payroll must be APPROVED before locking' }, { status: 400 })
   }
@@ -28,10 +32,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ run
   // their exact amounts to loan balances. Locking is therefore only a state
   // transition. Re-applying the aggregate payslip columns here used to debit
   // loans twice and could even allocate the second debit to a different loan.
-  await prisma.payrollRun.update({
-    where: { id: runId },
+  const updated = await prisma.payrollRun.updateMany({
+    where: { id: runId, companyId: ctx.companyId, status: 'APPROVED', computationStartedAt: null },
     data: { status: 'LOCKED' },
   })
+
+  if (!updated.count) return NextResponse.json({ error: 'Payroll status changed. Refresh and try again.' }, { status: 409 })
 
   logAudit(ctx, 'LOCK', 'PayrollRun', runId, {
     description: `Locked payroll run — computed loan deductions retained`,

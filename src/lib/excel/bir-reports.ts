@@ -140,6 +140,8 @@ export interface PayrollRegisterRow {
   lastName: string
   firstName: string
   department: string
+  bankAccountNo?: string | null
+  bankName?: string | null
   basicPay: number
   allowances: number
   otAmount: number
@@ -167,7 +169,7 @@ export function generatePayrollRegister(
     [],
     [
       'Employee No.', 'Last Name', 'First Name', 'Department',
-      'Basic Pay', 'Allowances', 'OT Amount', 'Gross Pay',
+      'Basic Pay', 'Bank Account Number', 'Bank Name', 'Allowances', 'OT Amount', 'Gross Pay',
       'SSS', 'PhilHealth', 'Pag-IBIG', 'W/Tax',
       'Loans', 'Other Ded.', 'Total Ded.', 'Net Pay',
     ],
@@ -175,7 +177,7 @@ export function generatePayrollRegister(
 
   const bodyData = rows.map(r => [
     r.employeeNo, r.lastName, r.firstName, r.department,
-    r.basicPay, r.allowances, r.otAmount, r.grossPay,
+    r.basicPay, r.bankAccountNo ?? '', r.bankName ?? '', r.allowances, r.otAmount, r.grossPay,
     r.sssEmployee, r.philhealthEmployee, r.pagibigEmployee, r.withholdingTax,
     r.loans, r.otherDeductions, r.totalDeductions, r.netPay,
   ])
@@ -185,7 +187,7 @@ export function generatePayrollRegister(
 
   const totalRow = [
     '', '', '', 'TOTAL',
-    totals('basicPay'), totals('allowances'), totals('otAmount'), totals('grossPay'),
+    totals('basicPay'), '', '', totals('allowances'), totals('otAmount'), totals('grossPay'),
     totals('sssEmployee'), totals('philhealthEmployee'), totals('pagibigEmployee'), totals('withholdingTax'),
     totals('loans'), totals('otherDeductions'), totals('totalDeductions'), totals('netPay'),
   ]
@@ -193,8 +195,8 @@ export function generatePayrollRegister(
   const allData = [...headerData, ...bodyData, [], totalRow]
   const ws = XLSX.utils.aoa_to_sheet(allData)
 
-  ws['!cols'] = Array(16).fill({ wch: 13 })
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } }]
+  ws['!cols'] = Array.from({ length: 18 }, (_, i) => ({ wch: i === 5 || i === 6 ? 24 : 13 }))
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 17 } }]
 
   XLSX.utils.book_append_sheet(wb, ws, 'Payroll Register')
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer

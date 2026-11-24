@@ -1,3 +1,6 @@
+import { saveProfileChange } from '@/lib/hr-center/save-profile'
+import { profileSchema } from '@/lib/hr-center/profile'
+import { faceBetaAvailable } from '@/lib/face/availability'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -51,7 +54,7 @@ export async function GET() {
   // so enabling it costs no extra round trip. `faceEnrolled` is derived here
   // rather than sent as the embedding — the reference vector must never reach
   // the browser, or a tampered client could match against it locally.
-  const faceRecognitionRequired = company?.faceRecognitionRequired ?? false
+  const faceRecognitionRequired = (await faceBetaAvailable(ctx.companyId)) && (company?.faceRecognitionRequired ?? false)
   const faceEnrolled = !!(employee as { faceEmbedding?: unknown }).faceEmbedding
 
   return NextResponse.json({
@@ -68,23 +71,12 @@ export async function PATCH(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  const body = await req.json()
-  const data = {
-    firstName: body.firstName,
-    middleName: body.middleName ?? null,
-    lastName: body.lastName,
-    suffix: body.suffix ?? null,
-    gender: body.gender,
-    birthDate: body.birthDate ? new Date(body.birthDate) : undefined,
-    civilStatus: body.civilStatus,
-    nationality: body.nationality,
-    personalEmail: body.personalEmail ?? null,
-    mobileNo: body.mobileNo ?? null,
-    sssNo: body.sssNo ?? null,
-    philhealthNo: body.philhealthNo ?? null,
-    pagibigNo: body.pagibigNo ?? null,
-    tinNo: body.tinNo ?? null,
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Invalid profile update' }, { status: 422 })
   }
+  const parsed = profileSchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 422 })
 
   const employeeId = await resolvePortalEmployeeId(ctx)
   const existing = employeeId
@@ -92,15 +84,10 @@ export async function PATCH(req: NextRequest) {
     : null
   if (!existing) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
-  const updated = await prisma.employee.update({
-    where: { id: existing.id },
-    data,
-    include: {
-      department: { select: { name: true } },
-      position: { select: { title: true } },
-      workSchedule: { select: { id: true, name: true, requireSelfieOnClockIn: true } },
-    },
-  })
-
-  return NextResponse.json({ employee: stripLargePrivateFields(updated) })
+  try {
+    const result = await saveProfileChange(ctx.companyId, existing.id, ctx.userId, parsed.data)
+    return NextResponse.json({ employee: stripLargePrivateFields(result.employee), pending: result.pending })
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not save profile.' }, { status: 409 })
+  }
 }

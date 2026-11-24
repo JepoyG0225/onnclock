@@ -37,6 +37,8 @@ export async function GET(
           employeeNo: true,
           firstName: true,
           lastName: true,
+          bankAccountNo: true,
+          bankName: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
           otherDeductionItems: {
@@ -115,6 +117,8 @@ export async function GET(
       firstName: ps.employee.firstName,
       department: ps.employee.department?.name || '',
       position: ps.employee.position?.title || '',
+      bankAccountNo: ps.employee.bankAccountNo,
+      bankName: ps.employee.bankName,
       basicPay: ps.basicSalary.toNumber(),
       allowances,
       incomeItems,
@@ -151,6 +155,7 @@ export async function GET(
 
   return new NextResponse(Buffer.from(buf), {
     headers: {
+      'Cache-Control': 'private, no-store',
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="Payroll-${slug}.xlsx"`,
     },

@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
@@ -74,7 +75,7 @@ export async function GET(
 
   const isHR = HR_ROLES.has(ctx.role ?? '')
   const employee = isHR ? null : await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
 
@@ -111,9 +112,9 @@ export async function POST(
 
   const { id } = await params
 
-  const isHR = HR_ROLES.has(ctx.role ?? '')
+  const isHR = await ctxHasPermission(ctx, 'budget:approve')
   const employee = isHR ? null : await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
 
@@ -214,9 +215,9 @@ export async function DELETE(
   const attachmentId = searchParams.get('attachmentId')
   if (!attachmentId) return NextResponse.json({ error: 'attachmentId required' }, { status: 400 })
 
-  const isHR = HR_ROLES.has(ctx.role ?? '')
+  const isHR = await ctxHasPermission(ctx, 'budget:approve')
   const employee = isHR ? null : await prisma.employee.findFirst({
-    where: { userId: ctx.userId },
+    where: { userId: ctx.userId, companyId: ctx.companyId, isActive: true },
     select: { id: true },
   })
 

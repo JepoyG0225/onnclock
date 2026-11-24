@@ -47,7 +47,7 @@ export async function upsertDtrRecord(companyId: string, data: DtrInput) {
       select: {
         id: true,
         workScheduleId: true,
-        workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
+        workSchedule: { select: { timezone: true, timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
       },
     }),
     prisma.company.findUnique({
@@ -89,10 +89,10 @@ export async function upsertDtrRecord(companyId: string, data: DtrInput) {
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
       nightDiffIncludesBreak: ndWindow.includesBreak,
-      scheduledTimeIn: resolved.scheduleTimeIn,
+      scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     })
-    computedLateUt = computeLateAndUndertime(timeIn, timeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut)
+    computedLateUt = computeLateAndUndertime(timeIn, timeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut, resolved)
   }
 
   const existing = await prisma.dTRRecord.findFirst({

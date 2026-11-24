@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Boxes, Plus, UserPlus, Undo2, Trash2, Search, X } from 'lucide-react'
@@ -170,7 +171,7 @@ export default function AssetsPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Track company-issued equipment, assignments, and returns.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} data-tour="asset-add" className="gap-1.5"><Plus className="w-4 h-4" /> Add Asset</Button>
+        <PermissionGate permission="assets:manage"><Button onClick={() => setShowAdd(true)} data-tour="asset-add" className="gap-1.5"><Plus className="w-4 h-4" /> Add Asset</Button></PermissionGate>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -254,14 +255,14 @@ export default function AssetsPage() {
                         <td className="p-3">
                           <div className="flex gap-1 justify-center">
                             {a.status === 'AVAILABLE' && (
-                              <Button size="sm" variant="outline" onClick={() => setAssignFor(a)} className="h-7 text-xs gap-1">
+                              <PermissionGate permission="assets:manage"><Button size="sm" variant="outline" onClick={() => setAssignFor(a)} className="h-7 text-xs gap-1">
                                 <UserPlus className="w-3 h-3" /> Assign
-                              </Button>
+                              </Button></PermissionGate>
                             )}
                             {a.status === 'ASSIGNED' && (
-                              <Button size="sm" variant="outline" onClick={() => returnAsset(a.id)} className="h-7 text-xs gap-1">
+                              <PermissionGate permission="assets:manage"><Button size="sm" variant="outline" onClick={() => returnAsset(a.id)} className="h-7 text-xs gap-1">
                                 <Undo2 className="w-3 h-3" /> Return
-                              </Button>
+                              </Button></PermissionGate>
                             )}
                             <Button size="sm" variant="outline" onClick={() => deleteAsset(a.id)} className="h-7 text-xs text-red-600 hover:bg-red-50">
                               <Trash2 className="w-3 h-3" />
@@ -285,7 +286,7 @@ export default function AssetsPage() {
           <Card className="relative w-full max-w-md shadow-2xl">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Add Asset</CardTitle>
-              <button onClick={() => setShowAdd(false)}><X className="w-4 h-4 text-slate-400" /></button>
+              <PermissionGate permission="assets:manage"><button onClick={() => setShowAdd(false)}><X className="w-4 h-4 text-slate-400" /></button></PermissionGate>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
@@ -303,7 +304,7 @@ export default function AssetsPage() {
               </div>
               <div><label className="text-xs font-medium">Notes</label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
               <div className="flex gap-2 justify-end pt-2">
-                <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+                <PermissionGate permission="assets:manage"><Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button></PermissionGate>
                 <Button onClick={submitAdd} disabled={adding} className="bg-blue-600 hover:bg-blue-700 text-white">{adding ? 'Saving…' : 'Add Asset'}</Button>
               </div>
             </CardContent>
@@ -318,7 +319,7 @@ export default function AssetsPage() {
           <Card className="relative w-full max-w-md shadow-2xl">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Assign {assignFor.name}</CardTitle>
-              <button onClick={() => setAssignFor(null)}><X className="w-4 h-4 text-slate-400" /></button>
+              <PermissionGate permission="assets:manage"><button onClick={() => setAssignFor(null)}><X className="w-4 h-4 text-slate-400" /></button></PermissionGate>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-slate-500">{assignFor.category} · Tag {assignFor.assetTag ?? '—'} · SN {assignFor.serialNumber ?? '—'}</p>
@@ -334,8 +335,8 @@ export default function AssetsPage() {
                 <Input value={assignCondition} onChange={(e) => setAssignCondition(e.target.value)} placeholder="Brand new in sealed box" />
               </div>
               <div className="flex gap-2 justify-end pt-2">
-                <Button variant="outline" onClick={() => setAssignFor(null)}>Cancel</Button>
-                <Button onClick={submitAssign} disabled={assigning} className="bg-blue-600 hover:bg-blue-700 text-white">{assigning ? 'Assigning…' : 'Confirm Assignment'}</Button>
+                <PermissionGate permission="assets:manage"><Button variant="outline" onClick={() => setAssignFor(null)}>Cancel</Button></PermissionGate>
+                <PermissionGate permission="assets:manage"><Button onClick={submitAssign} disabled={assigning} className="bg-blue-600 hover:bg-blue-700 text-white">{assigning ? 'Assigning…' : 'Confirm Assignment'}</Button></PermissionGate>
               </div>
             </CardContent>
           </Card>

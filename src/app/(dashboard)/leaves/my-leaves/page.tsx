@@ -13,7 +13,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 interface LeaveType { id: string; name: string; code: string; isWithPay: boolean }
 interface LeaveBalance {
   leaveType: { name: string; code: string }
-  entitled: number; used: number; pending: number; carriedOver: number
+  entitled: number; used: number; pending: number; carriedOver: number; encashed: number
 }
 interface LeaveRequest {
   id: string; status: string; startDate: string; endDate: string; totalDays: number
@@ -95,7 +95,7 @@ export default function MyLeavesPage() {
       {balances.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {balances.map(b => {
-            const available = b.entitled + b.carriedOver - b.used - b.pending
+            const available = Number(b.entitled) + Number(b.carriedOver) - Number(b.used) - Number(b.pending) - Number(b.encashed ?? 0)
             return (
               <Card key={b.leaveType.code}>
                 <CardContent className="p-4">

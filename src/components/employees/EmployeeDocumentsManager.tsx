@@ -1,4 +1,7 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Trash2, Upload } from 'lucide-react'
@@ -95,7 +98,7 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
 
   return (
     <div className="space-y-4">
-      <Button size="sm" className="absolute right-4 top-3" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" />Upload</Button>
+      <PermissionGate permission="employees:write"><Button size="sm" className="absolute right-4 top-3" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" />Upload</Button></PermissionGate>
 
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -105,14 +108,14 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
             <div><label className="mb-1 block text-xs font-semibold">Expiration date</label><input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
             <div><label className="mb-1 block text-xs font-semibold">File</label><input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" /></div>
             <div><label className="mb-1 block text-xs font-semibold">Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Optional notes" /></div>
-            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setUploadOpen(false)} disabled={saving}>Cancel</Button><Button disabled={saving || !file} onClick={upload}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload document</Button></div>
+            <div className="flex justify-end gap-2"><PermissionGate permission="employees:write"><Button variant="outline" onClick={() => setUploadOpen(false)} disabled={saving}>Cancel</Button></PermissionGate><PermissionGate permission="employees:write"><Button disabled={saving || !file} onClick={upload}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload document</Button></PermissionGate></div>
           </div>
         </DialogContent>
       </Dialog>
 
       <div className="rounded-xl border border-slate-200 overflow-hidden">
         {loading ? (
-          <div className="p-4 text-sm text-slate-500">Loading documents...</div>
+          <AppSpinner size="md" message="Loading documents..." className="py-8" />
         ) : documents.length === 0 ? (
           <div className="p-4 text-sm text-slate-500">No documents uploaded yet.</div>
         ) : (
@@ -131,20 +134,20 @@ export function EmployeeDocumentsManager({ employeeId }: { employeeId: string })
                 <tr key={doc.id} className="border-b">
                   <td className="px-3 py-2">{doc.documentType}</td>
                   <td className="px-3 py-2">
-                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-[#000000] hover:underline">
+                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-[var(--brand-primary)] hover:underline">
                       {doc.fileName}
                     </a>
                   </td>
                   <td className="px-3 py-2">{new Date(doc.uploadedAt).toLocaleDateString('en-PH')}</td>
                   <td className="px-3 py-2">{doc.expiresAt ? new Date(doc.expiresAt).toLocaleDateString('en-PH') : '-'}</td>
                   <td className="px-3 py-2">
-                    <button
+                    <PermissionGate permission="employees:write"><button
                       onClick={() => removeDocument(doc.id)}
                       className="inline-flex items-center gap-1 text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Delete
-                    </button>
+                    </button></PermissionGate>
                   </td>
                 </tr>
               ))}

@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
   }
 
-  if (!['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER'].includes(ctx.role)) {
+  if (!await ctxHasPermission({...ctx,companyId},'dtr:approve')) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
   const { weekStart, weekEnd, approveOvertime, overtimeRequestIds } = parsed.data
   const start = new Date(weekStart)
   const end = new Date(weekEnd)
+  if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||start>end)return NextResponse.json({error:'Invalid date range.'},{status:422})
   const endPlus = new Date(end)
   endPlus.setDate(endPlus.getDate() + 1)
 
@@ -47,6 +49,7 @@ export async function POST(req: NextRequest) {
     where: {
       employeeId: { in: employeeIds },
       date: { gte: start, lt: endPlus },
+      timeIn:{not:null},timeOut:{not:null},employee:{trackTime:true},
       approvedBy: null,
       OR: [{ remarks: null }, { remarks: { not: 'REJECTED' } }],
     },
@@ -59,6 +62,7 @@ export async function POST(req: NextRequest) {
       otApproved = await approveAutoOtByIds({
         companyId,
         ids: overtimeRequestIds,
+        dateFrom:start,dateTo:end,
         approvedById: ctx.userId,
       })
     } else if (approveOvertime) {

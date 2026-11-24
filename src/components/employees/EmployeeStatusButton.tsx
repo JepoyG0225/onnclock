@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -71,7 +72,7 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
   return (
     <>
       {isActive ? (
-        <Button
+        <PermissionGate permission="employees:write"><Button
           size="sm"
           variant="outline"
           className="border-orange-300 text-orange-700 hover:bg-orange-50 hover:text-orange-700"
@@ -79,9 +80,9 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
         >
           <UserX className="w-3.5 h-3.5 mr-1" />
           Deactivate
-        </Button>
+        </Button></PermissionGate>
       ) : (
-        <Button
+        <PermissionGate permission="employees:write"><Button
           size="sm"
           variant="outline"
           className="border-green-300 text-green-700 hover:bg-green-50 hover:text-green-700"
@@ -89,7 +90,7 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
         >
           <UserCheck className="w-3.5 h-3.5 mr-1" />
           Reactivate
-        </Button>
+        </Button></PermissionGate>
       )}
 
       {open && portalTarget && createPortal(
@@ -113,15 +114,15 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
                 }
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setOpen(false)} disabled={loading}>
+                <PermissionGate permission="employees:write"><Button variant="outline" className="flex-1" onClick={() => setOpen(false)} disabled={loading}>
                   Cancel
-                </Button>
+                </Button></PermissionGate>
                 {loading ? (
                   <div
                     className="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium"
                     style={isActive
                       ? { background: '#343434', color: 'white' }
-                      : { background: '#16a34a', color: 'white' }
+                      : { background: '#c74300', color: 'white' }
                     }
                   >
                     Please wait...
@@ -131,7 +132,7 @@ export function EmployeeStatusButton({ employeeId, isActive, employeeName }: Pro
                     className="flex-1"
                     style={isActive
                       ? { background: '#343434', color: 'white' }
-                      : { background: '#16a34a', color: 'white' }
+                      : { background: '#c74300', color: 'white' }
                     }
                     onClick={handleToggle}
                   >

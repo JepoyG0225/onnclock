@@ -1,3 +1,10 @@
+import { HrError } from '@/lib/hr-center/service'
+import { randomUUID } from 'node:crypto'
+import { profileSchema, changesFor } from '@/lib/hr-center/profile'
+import { addEvent, jsonData } from '@/lib/hr-center/service'
+import { reserveEmployeeSeat, SeatLimitError } from '@/lib/billing/restore-seat'
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
+import { deleteEmployeePermanently } from '@/lib/employees/delete'
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/api-auth'
@@ -46,6 +53,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { ctx, error } = await requireAuth()
     if (error) return error
 
+    if (!await ctxHasPermission(ctx, 'employees:write')) return NextResponse.json({ error: 'Employee edit permission is required.' }, { status: 403 })
+
     const body = await req.json()
 
     // Verify the employee belongs to this company first.
@@ -58,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true,
         payFrequency: true,
         isActive: true,
-        isExemptFromTax: true, isMinimumWageEarner: true, disableHolidayPay: true,
+        isExemptFromTax: true, isMinimumWageEarner: true, disableNightDifferential: true, disableHolidayPay: true, disableEarlyInOt: true, disableBeyondScheduleOt: true,
         disableLateDeduction: true, disableUndertimeDeduction: true,
         trackTime: true,
         sssEnabled: true, philhealthEnabled: true, pagibigEnabled: true,
@@ -87,25 +96,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    // Reactivation seat-cap guard. PATCH may flip isActive false→true via
-    // the EmployeeStatusButton component — that bumps the active count
-    // against paid seats the same way a fresh create does, so apply the
-    // same gate. SUPER_ADMIN and TRIAL bypass via getSeatStatus.
-    const willActivate = body.isActive === true && existing.isActive === false
-    if (willActivate && ctx.role !== 'SUPER_ADMIN') {
-      const seat = await getSeatStatus(ctx.companyId)
-      if (seat.enforceCap && seat.activeCount >= seat.paidSeats) {
-        return NextResponse.json(
-          {
-            error: `Seat limit reached: ${seat.activeCount} of ${seat.paidSeats} paid seats in use. Upgrade your subscription to reactivate this employee.`,
-            code: 'SEAT_LIMIT_EXCEEDED',
-            activeCount: seat.activeCount,
-            paidSeats: seat.paidSeats,
-          },
-          { status: 402 },
-        )
-      }
-    }
+    const seat = body.isActive === true ? await getSeatStatus(ctx.companyId) : null
 
     // Convert empty strings / undefined to null for nullable fields
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,7 +124,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ? (body.directManagerId ? { connect: { id: body.directManagerId } } : { disconnect: true })
       : undefined
 
-    await prisma.employee.update({
+    await prisma.$transaction(async tx => {
+      if (body.isActive === true && ctx.role !== 'SUPER_ADMIN' && seat?.enforceCap) await reserveEmployeeSeat(tx, ctx.companyId, id)
+      await tx.$queryRaw`SELECT id FROM employees WHERE id = ${id} AND "companyId" = ${ctx.companyId} FOR UPDATE`
+      const profileBefore = await tx.employee.findUniqueOrThrow({ where: { id } })
+      if ((body.basicSalary != null && Number(body.basicSalary)!==Number(profileBefore.basicSalary)) || (body.rateType && body.rateType!==profileBefore.rateType)) {
+        if(await tx.hrOperation.count({where:{companyId:ctx.companyId,employeeId:id,kind:'SALARY_CHANGE',status:'APPROVED'}}))throw new HrError('Use HR Center > Salary changes to update this employee rate. Dated salary history is already active.',409)
+      }
+      const profileAfter = await tx.employee.update({
       where: { id },
       data: {
         ...(body.isActive != null ? { isActive: Boolean(body.isActive) } : {}),
@@ -194,6 +192,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         isExemptFromTax:          body.isExemptFromTax          != null ? Boolean(body.isExemptFromTax)          : undefined,
         isMinimumWageEarner:      body.isMinimumWageEarner      != null ? Boolean(body.isMinimumWageEarner)      : undefined,
         disableHolidayPay:        body.disableHolidayPay        != null ? Boolean(body.disableHolidayPay)        : undefined,
+        disableEarlyInOt: typeof body.disableEarlyInOt === 'boolean' ? body.disableEarlyInOt : undefined,
+        disableNightDifferential: typeof body.disableNightDifferential === 'boolean' ? body.disableNightDifferential : undefined,
+        disableBeyondScheduleOt: typeof body.disableBeyondScheduleOt === 'boolean' ? body.disableBeyondScheduleOt : undefined,
         disableLateDeduction:     body.disableLateDeduction     != null ? Boolean(body.disableLateDeduction)     : undefined,
         disableUndertimeDeduction: body.disableUndertimeDeduction != null ? Boolean(body.disableUndertimeDeduction) : undefined,
         trackTime:                body.trackTime                != null ? Boolean(body.trackTime)                : undefined,
@@ -206,7 +207,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         withholdingTaxEnabled:    body.withholdingTaxEnabled    != null ? Boolean(body.withholdingTaxEnabled)    : undefined,
         notes:                    n(body.notes),
       },
-    })
+      })
+      const auditedFields = Object.fromEntries(Object.keys(profileSchema.shape).map(key => [key, profileAfter[key as keyof typeof profileAfter]]))
+      const changes = changesFor(profileBefore as unknown as Record<string, unknown>, auditedFields)
+      if (Object.keys(changes).length) {
+        const record = await tx.hrOperation.create({ data: { companyId: ctx.companyId, employeeId: id, requestKey: randomUUID(), kind: 'PROFILE_CHANGE', title: 'Profile updated by HR', status: 'APPLIED', data: jsonData({ changes }), createdBy: ctx.userId } })
+        await addEvent(tx, record.id, ctx.userId, 'ADMIN_APPLIED', { changes })
+      }
+    }, { timeout: 30000 })
 
     // ── Auto-recompute any in-flight payroll runs ────────────────────────
     // If any payroll-affecting field actually changed value, re-run the
@@ -218,7 +226,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       select: {
         rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true,
         payFrequency: true,
-        isExemptFromTax: true, isMinimumWageEarner: true, disableHolidayPay: true,
+        isExemptFromTax: true, isMinimumWageEarner: true, disableNightDifferential: true, disableHolidayPay: true, disableEarlyInOt: true, disableBeyondScheduleOt: true,
         disableLateDeduction: true, disableUndertimeDeduction: true,
         trackTime: true,
         sssEnabled: true, philhealthEnabled: true, pagibigEnabled: true,
@@ -265,6 +273,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success: true, recompute, credit })
   } catch (e: unknown) {
+    if (e instanceof HrError) return NextResponse.json({error:e.message},{status:e.status})
+    if (e instanceof SeatLimitError) return NextResponse.json({ error: e.message, code: 'SEAT_LIMIT_EXCEEDED' }, { status: 402 })
     // Friendly handling for a duplicate employee number (unique constraint on
     // companyId + employeeNo) — surface a clear 409 instead of a raw 500.
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -291,38 +301,36 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { ctx, error } = await requireAuth()
   if (error) return error
 
-  // Soft delete — just mark as inactive. Need the employee number first
-  // so we can stamp the credit ledger entry with it for audit.
-  const employee = await prisma.employee.findFirst({
-    where: { id, companyId: ctx.companyId },
-    select: { id: true, employeeNo: true, isActive: true },
-  })
-  if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
-
-  await prisma.employee.updateMany({
-    where: { id, companyId: ctx.companyId },
-    data: { isActive: false, updatedAt: new Date() },
-  })
-
-  // Only issue credit if the employee was active immediately before this
-  // call — otherwise we'd double-credit on repeated soft-delete clicks.
-  let credit: { amount: number; entryId: string | null; reason?: string } | null = null
-  if (employee.isActive) {
-    try {
-      credit = await issueDeactivationCredit({
-        companyId: ctx.companyId,
-        employeeId: id,
-        notes: `Soft-deleted ${employee.employeeNo}`,
-      })
-    } catch (err) {
-      console.error('[DELETE /api/employees/:id] credit issuance failed', err)
-    }
+  if (!await ctxHasPermission(ctx, 'employees:delete')) return NextResponse.json({ error: 'You do not have permission to delete employees.' }, { status: 403 })
+  const body = await req.json().catch(() => null)
+  if (!body || !['inactive', 'permanent'].includes(body.action) || (body.action === 'permanent' && body.confirmation !== 'DELETE')) {
+    return NextResponse.json({ error: 'Choose Make inactive or confirm permanent deletion by typing DELETE.' }, { status: 400 })
   }
-
-  logAudit(ctx, 'DEACTIVATE', 'Employee', id, {
-    description: `Deactivated employee ${employee.employeeNo}`,
-    newValues: { employeeNo: employee.employeeNo },
-  }).catch(() => {})
-
-  return NextResponse.json({ success: true, credit })
+  try {
+    const employee = await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ctx.companyId}))`
+      await tx.$queryRaw`SELECT id FROM employees WHERE id = ${id} AND "companyId" = ${ctx.companyId} FOR UPDATE`
+      const record = await tx.employee.findFirst({ where: { id, companyId: ctx.companyId }, select: { id: true, companyId: true, userId: true, employeeNo: true, isActive: true } })
+      if (!record) return null
+      if (body.action === 'permanent') await deleteEmployeePermanently(tx, record)
+      else await tx.employee.update({ where: { id }, data: { isActive: false } })
+      await tx.auditLog.create({ data: {
+        companyId: ctx.companyId, userId: ctx.userId, entity: 'Employee', entityId: id,
+        action: body.action === 'permanent' ? 'DELETE' : 'DEACTIVATE',
+        oldValues: { employeeNo: record.employeeNo, wasActive: record.isActive },
+        newValues: { description: `${body.action === 'permanent' ? 'Permanently deleted employee and linked records' : 'Deactivated employee'} ${record.employeeNo}` },
+      } })
+      return record
+    }, { timeout: 60000 })
+    if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+    let credit = null
+    if (employee.isActive) {
+      try { credit = await issueDeactivationCredit({ companyId: ctx.companyId, employeeId: id, notes: `${body.action === 'permanent' ? 'Permanently deleted' : 'Deactivated'} ${employee.employeeNo}` }) }
+      catch (error) { console.error('[employee deletion] credit failed', error) }
+    }
+    return NextResponse.json({ success: true, action: body.action, credit })
+  } catch (error) {
+    console.error('[employee deletion]', error)
+    return NextResponse.json({ error: 'Could not complete the deletion. Please refresh and try again.' }, { status: 500 })
+  }
 }

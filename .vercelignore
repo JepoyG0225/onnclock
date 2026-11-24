@@ -11,3 +11,13 @@ desktop-system-admin/dist
 desktop-system-admin/out
 mobile
 .claude
+
+.codex-dev-server*.log
+
+android-office-kiosk
+
+output/pdf/
+
+tmp/pdfs/
+
+tmp/payslip-design-qa/

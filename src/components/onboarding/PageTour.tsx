@@ -138,7 +138,7 @@ export function PageTour({ userId, role, actorRole, enabled = false }: { userId:
       {rect && (
         <div
           className="fixed rounded-xl border-2 pointer-events-none transition-all"
-          style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8, borderColor: 'var(--brand-highlight)', boxShadow: '0 0 0 4px rgba(184, 225, 0,0.20), 0 0 0 9999px rgba(0,0,0,0.30)' }}
+          style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8, borderColor: 'var(--brand-highlight)', boxShadow: '0 0 0 4px rgba(255, 89, 0,0.20), 0 0 0 9999px rgba(0,0,0,0.30)' }}
         />
       )}
       <div

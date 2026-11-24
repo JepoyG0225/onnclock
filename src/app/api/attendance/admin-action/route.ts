@@ -1,3 +1,4 @@
+import { halfDayWorkedShift } from '@/lib/attendance/half-day-leave'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       firstName: true,
       lastName: true,
       workScheduleId: true,
-      workSchedule: { select: { timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
+      workSchedule: { select: { timezone: true, timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true } },
     },
   })
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     // Multi-shift safe schedule resolver — picks the assignment whose start
     // time is closest to the actual clock-in for days with multiple shifts.
-    const resolved = await resolveShiftForDtr({
+    const resolved = halfDayWorkedShift(await resolveShiftForDtr({
       employeeId: employee.id,
       date: existing.date,
       actualTimeIn: existing.timeIn!,
@@ -83,14 +84,15 @@ export async function POST(req: NextRequest) {
         workScheduleId: employee.workScheduleId,
         workSchedule: employee.workSchedule
           ? {
-              timeIn: employee.workSchedule.timeIn ?? null,
+              timezone: employee.workSchedule.timezone,
+            timeIn: employee.workSchedule.timeIn ?? null,
               timeOut: employee.workSchedule.timeOut ?? null,
               breakMinutes: employee.workSchedule.breakMinutes ?? null,
             }
           : null,
       },
       defaultBreakMinutes: company?.defaultBreakMinutes ?? 60,
-    })
+    }), existing)
     const plannedRegularMins = resolved.plannedRegularMinutes
     const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
         nightDiffStartMins: ndWindow.startMins,
         nightDiffEndMins: ndWindow.endMins,
         nightDiffIncludesBreak: ndWindow.includesBreak,
-        scheduledTimeIn: resolved.scheduleTimeIn,
+        scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
         scheduledTimeOut: resolved.scheduleTimeOut,
       },
     )
@@ -117,8 +119,7 @@ export async function POST(req: NextRequest) {
       existing.timeIn!,
       now,
       resolved.scheduleTimeIn,
-      resolved.scheduleTimeOut,
-    )
+      resolved.scheduleTimeOut, resolved)
 
     // Overbreak: extra minutes spent on break beyond the allowed window count
     // as tardiness. Cap at 12h to ignore corrupted multi-day break spans.

@@ -1,4 +1,6 @@
 'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -91,12 +93,7 @@ export default function PayrollActivityLog({ runId }: { runId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-6 text-gray-400">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            Loading activity...
-          </div>
-        ) : entries.length === 0 ? (
+        {loading ? <AppSpinner size="md" message="Loading activity..." className="py-10" /> : entries.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">No activity recorded yet.</p>
         ) : (
           <div className="relative">
@@ -126,6 +123,8 @@ export default function PayrollActivityLog({ runId }: { runId: string }) {
                         <span className="text-sm font-medium text-gray-900">{entry.userName}</span>
                         <span className="text-sm text-gray-600">{config.verb}</span>
                       </div>
+                      {typeof entry.newValues?.adjustmentReason === 'string' && entry.newValues.adjustmentReason && <p className="mt-1 text-sm text-slate-700"><strong>Reason:</strong> {entry.newValues.adjustmentReason}</p>}
+                      {entry.action === 'EDIT_PAYSLIP' && entry.oldValues && entry.newValues && <details className="mt-2 text-xs"><summary className="cursor-pointer min-h-9 inline-flex items-center underline">View amount changes</summary><dl className="space-y-1">{Object.entries(entry.oldValues).filter(([key, value]) => typeof value === 'number' && typeof entry.newValues?.[key] === 'number' && value !== entry.newValues[key]).map(([key, value]) => <div key={key} className="flex flex-wrap gap-2"><dt className="capitalize">{key.replace(/([A-Z])/g, ' $1')}:</dt><dd>{Number(value).toFixed(2)} to {Number(entry.newValues![key]).toFixed(2)}</dd></div>)}</dl></details>}
                       {entry.description && (
                         <p className="text-xs text-gray-500 mt-0.5">{entry.description}</p>
                       )}

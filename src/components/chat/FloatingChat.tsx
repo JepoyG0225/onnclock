@@ -83,7 +83,7 @@ function Avatar({ name, size = 32, online }: { name: string; size?: number; onli
           style={{
             width: size * 0.32,
             height: size * 0.32,
-            background: online ? '#22c55e' : '#777777',
+            background: online ? '#c74300' : '#777777',
           }}
         />
       )}
@@ -226,7 +226,7 @@ function CreateGroupModal({
             onClick={handleCreate}
             disabled={saving}
             className="flex-1 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-60"
-            style={{ background: '#000000' }}
+            style={{ background: 'var(--brand-primary)' }}
           >
             {saving ? 'Creating...' : 'Create Group'}
           </button>
@@ -366,7 +366,7 @@ function AddMembersModal({
               onClick={handleAdd}
               disabled={saving || selected.size === 0}
               className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
-              style={{ background: '#000000' }}
+              style={{ background: 'var(--brand-primary)' }}
             >
               {saving ? 'Adding…' : `Add ${selected.size > 0 ? `(${selected.size})` : ''}`}
             </button>
@@ -755,7 +755,7 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
           style={{ ...panelStyle, borderColor: '#dce5f7' }}
         >
           {/* ── Top bar ── */}
-          <div className="flex items-center justify-between px-4 py-3 text-white flex-shrink-0" style={{ background: '#000000' }}>
+          <div className="flex items-center justify-between px-4 py-3 text-white flex-shrink-0" style={{ background: 'var(--brand-primary)' }}>
             <div className="flex items-center gap-2.5 min-w-0">
               {portalMobile && mobileView === 'conversation' && (
                 <button onClick={() => setMobileView('contacts')} className="p-1 rounded hover:bg-white/10">
@@ -816,14 +816,14 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
             >
               {/* Tabs */}
               <div className="flex border-b flex-shrink-0" style={{ borderColor: '#E5E9EA' }}>
-                <button
+                <button data-app-tab data-active={tab === 'direct'}
                   onClick={() => setTab('direct')}
                   className="flex-1 py-2 text-[11px] font-semibold transition-colors"
                   style={{ color: tab === 'direct' ? '#000000' : '#777777', borderBottom: tab === 'direct' ? '2px solid #000000' : '2px solid transparent' }}
                 >
                   Direct
                 </button>
-                <button
+                <button data-app-tab data-active={tab === 'groups'}
                   onClick={() => setTab('groups')}
                   className="flex-1 py-2 text-[11px] font-semibold transition-colors relative"
                   style={{ color: tab === 'groups' ? '#000000' : '#777777', borderBottom: tab === 'groups' ? '2px solid #000000' : '2px solid transparent' }}
@@ -907,7 +907,7 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                     <button
                       onClick={() => setShowCreateGroup(true)}
                       className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-colors"
-                      style={{ background: '#000000' }}
+                      style={{ background: 'var(--brand-primary)' }}
                     >
                       <Plus className="w-3 h-3" />
                       New Group
@@ -931,7 +931,7 @@ export function FloatingChat({ portal = false }: { portal?: boolean }) {
                             }}
                           >
                             <div className="flex items-center gap-1.5">
-                              <div className="w-6 h-6 rounded-full bg-[#000000] flex items-center justify-center flex-shrink-0">
+                              <div className="w-6 h-6 rounded-full bg-[var(--brand-primary)] flex items-center justify-center flex-shrink-0">
                                 <Users className="w-3 h-3 text-white" />
                               </div>
                               <div className="min-w-0 flex-1">

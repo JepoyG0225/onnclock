@@ -1,4 +1,5 @@
 'use client'
+import { getStatusColor } from '@/lib/utils'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
@@ -156,12 +157,7 @@ function getCategoryDot(cat: string, index: number) {
   return PALETTE_COLORS[index % PALETTE_COLORS.length].dot
 }
 
-function statusBadge(status: string) {
-  if (status === 'IN_PROGRESS') return 'bg-blue-100 text-blue-700'
-  if (status === 'COMPLETED') return 'bg-green-100 text-green-700'
-  if (status === 'CANCELLED') return 'bg-gray-100 text-gray-500'
-  return 'bg-gray-100 text-gray-500'
-}
+function statusBadge(status: string) { return getStatusColor(status) }
 
 function statusLabel(status: string) {
   if (status === 'IN_PROGRESS') return 'In Progress'
@@ -459,7 +455,7 @@ export function OffboardingTab() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="bg-gradient-to-br from-primary to-[#000000] px-8 py-10 text-center">
+          <div className="bg-gradient-to-br from-primary to-[var(--brand-primary)] px-8 py-10 text-center">
             <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-white" />
             </div>
@@ -500,8 +496,8 @@ export function OffboardingTab() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2563eb]">Employee lifecycle</p>
-          <h1 className="mt-1 text-2xl font-black text-[#12345b]">Offboarding</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#0054d7]">Employee lifecycle</p>
+          <h1 className="mt-1 text-2xl font-black text-[#162d54]">Offboarding</h1>
           <p className="mt-1 text-sm text-slate-500">Coordinate exits, clearances, final pay, equipment returns, and access removal.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -509,12 +505,12 @@ export function OffboardingTab() {
             variant="outline"
             size="sm"
             onClick={() => setShowTemplate(true)}
-            className="border-slate-200 text-slate-600 hover:bg-[#f4f8ff] hover:text-[#1d4ed8]"
+            className="border-slate-200 text-slate-600 hover:bg-[#f4f8ff] hover:text-[#0044ad]"
           >
             <Settings className="w-4 h-4 mr-1.5" />
             Checklist Template
           </Button>
-          <Button onClick={handleOpenCreate} className="bg-[#2563eb] text-white hover:bg-[#1d4ed8]">
+          <Button onClick={handleOpenCreate} className="bg-[#0054d7] text-white hover:bg-[#0044ad]">
             <Plus className="w-4 h-4 mr-2" />
             Start Offboarding
           </Button>
@@ -532,25 +528,25 @@ export function OffboardingTab() {
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:flex-row md:items-center" data-tour="off-status-tabs">
         <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
           {tabs.map(tab => (
-          <button
+          <button data-app-tab data-active={activeTab === tab.key}
             key={tab.key}
             onClick={() => { setActiveTab(tab.key); setSelected(null) }}
             className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
               activeTab === tab.key
-                ? 'bg-white text-[#1d4ed8] shadow-sm'
+                ? 'bg-white text-[#0044ad] shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             {tab.label}
             {tab.key !== 'ALL' && (
-              <span className="ml-1.5 rounded-full bg-[#eaf2ff] px-1.5 py-0.5 text-[10px] text-[#1d4ed8]">
+              <span className="ml-1.5 rounded-full bg-[#eaf2ff] px-1.5 py-0.5 text-[10px] text-[#0044ad]">
                 {processes.filter(p => p.status === tab.key).length}
               </span>
             )}
           </button>
           ))}
         </div>
-        <label className="relative md:ml-auto md:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><span className="sr-only">Search offboarding cases</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search employee or department" className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#2563eb]" /></label>
+        <label className="relative md:ml-auto md:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><span className="sr-only">Search offboarding cases</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search employee or department" className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#0054d7]" /></label>
       </div>
 
       {/* Full-width offboarding list */}
@@ -560,13 +556,7 @@ export function OffboardingTab() {
             <span>Employee</span><span>Exit reason</span><span>Last working day</span><span>Status</span><span>Clearance progress</span><span />
           </div>
           <div className="divide-y divide-slate-100">
-          {loading ? (
-            <div className="space-y-2">
-              {[1,2,3,4].map(n => (
-                <div key={n} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
-              ))}
-            </div>
-          ) : visibleProcesses.length === 0 ? (
+          {loading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : visibleProcesses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <UserMinus className="w-12 h-12 text-gray-200 mb-3" />
               <p className="text-gray-500 font-medium">No offboarding processes</p>
@@ -583,7 +573,7 @@ export function OffboardingTab() {
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-[#12345b]">
+                      <p className="truncate text-sm font-bold text-[#162d54]">
                         {p.employee.lastName}, {p.employee.firstName}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -615,13 +605,13 @@ export function OffboardingTab() {
                         className="h-full rounded-full transition-all"
                         style={{
                           width: `${pct}%`,
-                          background: pct === 100 ? '#22c55e' : '#2563eb',
+                          background: pct === 100 ? '#c74300' : '#0054d7',
                         }}
                       />
                     </div>
                   </div>
 
-                  <div className="mt-1 flex items-center justify-end"><span className="mr-1 text-[10px] font-bold text-[#2563eb]">View details</span><ChevronRight className="h-3.5 w-3.5 text-[#2563eb]" /></div>
+                  <div className="mt-1 flex items-center justify-end"><span className="mr-1 text-[10px] font-bold text-[#0054d7]">View details</span><ChevronRight className="h-3.5 w-3.5 text-[#0054d7]" /></div>
                 </button>
               )
             })
@@ -634,9 +624,7 @@ export function OffboardingTab() {
       <Dialog open={detailLoading || Boolean(selected)} onOpenChange={open => { if (!open) setSelected(null) }}>
         <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-4 sm:p-6">
           <DialogHeader><DialogTitle className="sr-only">Offboarding details</DialogTitle></DialogHeader>
-          {detailLoading ? (
-            <div className="flex min-h-72 items-center justify-center"><div className="h-9 w-9 animate-spin rounded-full border-2 border-[#2563eb] border-t-transparent" /></div>
-          ) : selected ? (
+          {detailLoading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : selected ? (
             <DetailPanel process={selected} onToggleItem={handleToggleItem} onUpdateStatus={handleUpdateStatus} onItemsChanged={handleItemsChanged} />
           ) : null}
         </DialogContent>
@@ -1190,12 +1178,12 @@ function TemplateManager({ onClose }: { onClose: () => void }) {
 
 function OffboardingMetric({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: React.ComponentType<{ className?: string }>; tone: 'blue' | 'amber' | 'green' | 'violet' }) {
   const colors = {
-    blue: 'bg-[#eaf2ff] text-[#2563eb]',
+    blue: 'bg-[#eaf2ff] text-[#0054d7]',
     amber: 'bg-amber-50 text-amber-600',
     green: 'bg-emerald-50 text-emerald-600',
     violet: 'bg-violet-50 text-violet-600',
   }
-  return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-semibold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-[#12345b]">{value}</p></div><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors[tone]}`}><Icon className="h-5 w-5" /></span></div></div>
+  return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-semibold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-[#162d54]">{value}</p></div><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors[tone]}`}><Icon className="h-5 w-5" /></span></div></div>
 }
 
 function DetailPanel({
@@ -1386,8 +1374,8 @@ function DetailPanel({
                 style={{
                   width: `${pct}%`,
                   background: pct === 100
-                    ? 'linear-gradient(90deg, #16a34a, #22c55e)'
-                    : 'linear-gradient(90deg, #2563eb, #60a5fa)',
+                    ? 'linear-gradient(90deg, #c74300, #c74300)'
+                    : 'linear-gradient(90deg, #0054d7, #60a5fa)',
                 }}
               />
             </div>

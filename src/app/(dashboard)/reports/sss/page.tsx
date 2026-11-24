@@ -97,7 +97,7 @@ export default function SSSReportPage() {
               ))}
             </select>
           </div>
-          <Button onClick={downloadXLSX} disabled={downloading || rows.length === 0} className="bg-[#000000] hover:bg-[#000000]">
+          <Button onClick={downloadXLSX} disabled={downloading || rows.length === 0} className="bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]">
             <Download className="w-4 h-4 mr-2" />
             {downloading ? 'Generating...' : 'Download XLSX'}
           </Button>

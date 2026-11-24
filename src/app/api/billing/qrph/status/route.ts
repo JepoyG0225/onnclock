@@ -1,3 +1,4 @@
+import { reconcileSeatPayment } from '@/lib/billing/reconcile-seats'
 /**
  * GET /api/billing/qrph/status?intentId=pi_xxx
  *
@@ -10,7 +11,7 @@ import { requireAuth, requireAdminOrHR } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getPaymentIntentStatus } from '@/lib/payments/paymongo'
 import { Prisma } from '@prisma/client'
-import { spendCreditOnInvoice } from '@/lib/billing/credit'
+import { spendCreditInTransaction } from '@/lib/billing/credit'
 
 // Plan stays inside the Prisma SubscriptionPlan enum (MONTHLY | ANNUAL).
 // 3_MONTH and 6_MONTH cycles are persisted via the separate billingCycle
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
   const invoices = await prisma.invoice.findMany({
     where: { companyId: ctx.companyId, status: { in: ['VOID', 'UNPAID', 'PAID'] } },
     orderBy: { createdAt: 'desc' },
-    take: 20,
+    // Include older sessions so successful payments remain recoverable.
   })
 
   const matchedInvoice = invoices.find((inv) => {
@@ -85,6 +86,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: 'succeeded', alreadyActivated: true, invoiceNo: matchedInvoice.invoiceNo })
   }
 
+  const activation = parseNotes(matchedInvoice.notes).subscriptionActivationPayload
+  if (activation && 'addSeats' in activation) {
+    try { return NextResponse.json({ ...await reconcileSeatPayment(matchedInvoice.id, ctx.companyId), invoiceNo: matchedInvoice.invoiceNo }) }
+    catch (err) { console.error('[billing/seat-payment]', err); return NextResponse.json({ error: 'Unable to confirm seat payment. It will be retried automatically.' }, { status: 502 }) }
+  }
+
   // Poll PayMongo
   let pmStatus: string
   try {
@@ -97,6 +104,10 @@ export async function GET(req: NextRequest) {
 
   // If payment succeeded → activate subscription + mark invoice paid
   if (pmStatus === 'succeeded') {
+    const creditUsed = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM subscriptions WHERE "companyId" = ${ctx.companyId} FOR UPDATE`
+      const current = await tx.invoice.findFirst({ where: { id: matchedInvoice.id, companyId: ctx.companyId } })
+      if (current?.status === 'PAID') return 0
     const { subscriptionActivationPayload: activation } = parseNotes(matchedInvoice.notes)
 
     if (activation) {
@@ -105,7 +116,7 @@ export async function GET(req: NextRequest) {
         // without touching cycle dates or plan. The seats expire with the
         // current cycle. No upsert path because add-seats requires an
         // already-ACTIVE subscription (validated at the create endpoint).
-        await prisma.subscription.update({
+        await tx.subscription.update({
           where: { companyId: ctx.companyId },
           data: {
             seatCount: { increment: activation.addSeats },
@@ -129,7 +140,7 @@ export async function GET(req: NextRequest) {
           subUpdateData.currentPeriodEnd = new Date(activation.periodEnd)
         }
 
-        await prisma.subscription.upsert({
+        await tx.subscription.upsert({
           where: { companyId: ctx.companyId },
           update: subUpdateData,
           create: {
@@ -147,28 +158,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    await prisma.invoice.update({
+    await tx.invoice.update({
       where: { id: matchedInvoice.id },
       data: { status: 'PAID', paidAt: new Date() },
     })
 
-    // Now that the invoice is confirmed paid, decrement the cached
-    // creditBalance + log the negative ledger entry. Done AFTER the
-    // subscription update + invoice flip so a partial failure leaves
-    // the company over-credited rather than over-charged.
     const creditUsed = Number(activation?.creditApplied ?? 0)
-    if (creditUsed > 0) {
-      try {
-        await spendCreditOnInvoice({
-          companyId: ctx.companyId,
-          amount: creditUsed,
-          invoiceId: matchedInvoice.id,
-          invoiceNo: matchedInvoice.invoiceNo,
-        })
-      } catch (err) {
-        console.error('[billing/qrph/status] credit-spend failed', err)
-      }
-    }
+    await spendCreditInTransaction(tx, { companyId: ctx.companyId, amount: creditUsed, invoiceId: matchedInvoice.id, invoiceNo: matchedInvoice.invoiceNo })
+    return creditUsed
+    }, { timeout: 30000 })
 
     return NextResponse.json({ status: 'succeeded', activated: true, invoiceNo: matchedInvoice.invoiceNo, creditApplied: creditUsed })
   }

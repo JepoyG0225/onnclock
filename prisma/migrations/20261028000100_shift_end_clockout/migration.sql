@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "shiftEndClockoutEnabled" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS "shiftEndClockoutEnabledAt" TIMESTAMP(3);

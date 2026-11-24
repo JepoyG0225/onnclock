@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS "user_update_receipts" (
+  "userId" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "releaseId" TEXT NOT NULL,
+  "shownAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("userId", "releaseId")
+);

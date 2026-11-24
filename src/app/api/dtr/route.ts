@@ -1,3 +1,6 @@
+import { eligibleOtHours } from '@/lib/payroll/ot-policy'
+import { resolveShiftForDtr, type DtrShiftAssignment } from '@/lib/timesheet/compute'
+import { activityScope } from '@/lib/attendance/activities'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
   }
   where.employee = {
-    companyId,
+    ...await activityScope({ ...ctx, companyId }),
     ...(employeeId ? { id: employeeId } : {}),
   }
 
@@ -62,8 +65,13 @@ export async function GET(req: NextRequest) {
             lastName: true,
             employeeNo: true,
             overtimePayOverride: true,
+            trackTime: true,
+            disableHolidayPay: true,
+            disableEarlyInOt: true,
+            disableBeyondScheduleOt: true,
+            workScheduleId: true,
             department: { select: { name: true } },
-            workSchedule: { select: { workDays: true } },
+            workSchedule: true,
           },
         },
         _count: {
@@ -87,13 +95,66 @@ export async function GET(req: NextRequest) {
     isOvertimeEnabledForCompany(companyId),
   ])
 
-  const normalized = records.map(({ _count, ...record }) => ({
-    ...record,
-    overtimeHours: approvedOtMap.get(buildOtMapKey(record.employeeId, record.date)) ?? 0,
-    unreportedOvertimeHours: !companyOvertimeEnabled && !record.employee.overtimePayOverride
-      ? rawOvertimeHours(record)
-      : 0,
-    screenCaptureCount: _count.screenCaptures,
+  // Resolve per-day schedules in one query, not one concurrent query per timesheet.
+  const restrictedRecords = records.filter(r => r.employee.disableEarlyInOt !== r.employee.disableBeyondScheduleOt)
+  const assignmentsByDay = new Map<string, DtrShiftAssignment[]>()
+  if (restrictedRecords.length) {
+    const dates = restrictedRecords.map(r => r.date.getTime())
+    const assignments = await prisma.employeeShiftAssignment.findMany({
+      where: {
+        employeeId: { in: [...new Set(restrictedRecords.map(r => r.employeeId))] },
+        date: { gte: new Date(Math.min(...dates)), lte: new Date(Math.max(...dates)) },
+        isRestDay: false,
+      },
+      orderBy: { id: 'asc' },
+      select: { employeeId: true, date: true, timeIn: true, timeOut: true,
+        schedule: { select: { timezone: true, timeIn: true, timeOut: true, breakMinutes: true, workHoursPerDay: true, breakEnabled: true } },
+      },
+    })
+    for (const assignment of assignments) {
+      const key = buildOtMapKey(assignment.employeeId, assignment.date)
+      const group = assignmentsByDay.get(key) ?? []
+      group.push(assignment)
+      assignmentsByDay.set(key, group)
+    }
+  }
+
+  const normalized = await Promise.all(records.map(async ({ _count, clockInPhoto, breakInPhoto, breakOutPhoto, clockOutPhoto, ...record }) => {
+    const otEnabled = companyOvertimeEnabled || record.employee.overtimePayOverride
+    const approvedOt = approvedOtMap.get(buildOtMapKey(record.employeeId, record.date)) ?? 0
+    let rawOt = rawOvertimeHours(record)
+    const policy = record.employee
+    if (policy.disableEarlyInOt && policy.disableBeyondScheduleOt) {
+      rawOt = 0
+    } else if (policy.disableEarlyInOt || policy.disableBeyondScheduleOt) {
+      const shift = await resolveShiftForDtr({
+        employeeId: record.employeeId, date: record.date, actualTimeIn: record.timeIn,
+        assignments: assignmentsByDay.get(buildOtMapKey(record.employeeId, record.date)) ?? [],
+        employee: { ...policy, workSchedule: policy.workSchedule ? {
+          ...policy.workSchedule,
+          breakMinutes: policy.workSchedule.breakEnabled === false ? 0 : policy.workSchedule.breakMinutes,
+        } : null },
+      })
+      rawOt = Math.min(rawOt, eligibleOtHours(record, shift, policy))
+    }
+    return {
+      ...record,
+      selfieCount: [clockInPhoto, breakInPhoto, breakOutPhoto, clockOutPhoto].filter(Boolean).length,
+      // `overtimeHours` stays APPROVED-only — payroll pays approved OT, and
+      // the employee portal reads this field, so it must not promise hours
+      // nobody has signed off on.
+      overtimeHours: approvedOt,
+      // OT that's on the clock data but not yet approved. Surfaced separately
+      // so the timesheet column can show hours as they're worked instead of
+      // sitting blank until an approver acts — without inflating the paid
+      // figure above. Approved hours are subtracted so a partially-approved
+      // day doesn't double-count.
+      pendingOvertimeHours: otEnabled
+        ? Math.round(Math.max(0, rawOt - approvedOt) * 100) / 100
+        : 0,
+      unreportedOvertimeHours: !otEnabled ? rawOt : 0,
+      screenCaptureCount: _count.screenCaptures,
+    }
   }))
 
   return NextResponse.json({ records: normalized, total, page, limit })

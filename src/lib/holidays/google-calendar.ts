@@ -58,7 +58,7 @@ export async function fetchGoogleHolidaysForYear(params: {
     `&timeMax=${encodeURIComponent(timeMax)}` +
     '&singleEvents=true&orderBy=startTime&maxResults=2500'
 
-  const res = await fetch(url, { cache: 'no-store' })
+  const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15000) })
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     throw new Error(`Google Calendar API failed (${res.status}): ${detail || 'No details'}`)
@@ -69,7 +69,8 @@ export async function fetchGoogleHolidaysForYear(params: {
 
   for (const item of json.items ?? []) {
     const date = normalizeDateOnly(item.start?.date)
-    if (!date) continue
+    // Proclamation 1006 does not declare October 31 a nationwide holiday in 2026.
+    if (!date || date === '2026-10-31') continue
     if (new Date(`${date}T00:00:00Z`).getUTCFullYear() !== params.year) continue
     const name = (item.summary || '').trim()
     if (!name) continue
@@ -89,7 +90,7 @@ export async function fetchPublicPhHolidaysForYear(params: {
   year: number
 }): Promise<Array<{ name: string; date: string; type: HolidayType }>> {
   const url = `https://date.nager.at/api/v3/PublicHolidays/${params.year}/PH`
-  const res = await fetch(url, { cache: 'no-store' })
+  const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15000) })
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     throw new Error(`Public holiday API failed (${res.status}): ${detail || 'No details'}`)
@@ -100,7 +101,8 @@ export async function fetchPublicPhHolidaysForYear(params: {
 
   for (const item of json ?? []) {
     const date = normalizeDateOnly(item.date)
-    if (!date) continue
+    // Proclamation 1006 does not declare October 31 a nationwide holiday in 2026.
+    if (!date || date === '2026-10-31') continue
     if (new Date(`${date}T00:00:00Z`).getUTCFullYear() !== params.year) continue
     const name = (item.name || item.localName || '').trim()
     if (!name) continue
@@ -232,7 +234,10 @@ async function notifyHolidayAdditions(
  * notifies HR of any genuinely-new holidays. Either source failing is
  * tolerated; the other still applies.
  */
+export type HolidaySourceCache = Map<string, Promise<Array<{ name: string; date: string; type: HolidayType }>>>
+
 export async function syncCompanyHolidays(params: {
+  sourceCache?: HolidaySourceCache
   companyId: string
   year: number
   apiKey?: string
@@ -240,17 +245,24 @@ export async function syncCompanyHolidays(params: {
 }) {
   const lists: Array<Array<{ name: string; date: string; type: HolidayType }>> = []
   const sources: string[] = []
+  const cached = (key: string, fetcher: () => Promise<Array<{ name: string; date: string; type: HolidayType }>>) => {
+    const existing = params.sourceCache?.get(key)
+    if (existing) return existing
+    const pending = fetcher()
+    params.sourceCache?.set(key, pending)
+    return pending
+  }
 
   if (params.apiKey) {
     try {
-      lists.push(await fetchGoogleHolidaysForYear({ year: params.year, apiKey: params.apiKey, calendarId: params.calendarId }))
+      lists.push(await cached(`google:${params.year}:${params.calendarId ?? DEFAULT_CALENDAR_ID}`, () => fetchGoogleHolidaysForYear({ year: params.year, apiKey: params.apiKey!, calendarId: params.calendarId })))
       sources.push('google_calendar')
     } catch (err) {
       console.error('[holidays] Google Calendar fetch failed', err)
     }
   }
   try {
-    lists.push(await fetchPublicPhHolidaysForYear({ year: params.year }))
+    lists.push(await cached(`public:${params.year}`, () => fetchPublicPhHolidaysForYear({ year: params.year })))
     sources.push('public_holiday_api')
   } catch (err) {
     console.error('[holidays] Nager.Date fetch failed', err)

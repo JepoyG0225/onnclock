@@ -88,16 +88,16 @@ interface LatestCapture {
   capturedAt: string
 }
 
-function FitBounds({ locations }: { locations: EmployeeLocation[] }) {
+function FitBounds({ locations, fitVersion }: { locations: EmployeeLocation[]; fitVersion: number }) {
   const map = useMap()
   useEffect(() => {
     const coords = locations
       .filter(l => l.lastPing)
       .map(l => [l.lastPing!.lat, l.lastPing!.lng] as [number, number])
     if (coords.length > 0) {
-      map.fitBounds(L.latLngBounds(coords), { padding: [50, 50], maxZoom: 15 })
+      map.fitBounds(L.latLngBounds(coords), { padding: [50, 50], maxZoom: 15, animate: false })
     }
-  }, [locations, map])
+  }, [locations, map, fitVersion])
   return null
 }
 
@@ -118,7 +118,7 @@ function offsetLatLng(lat: number, lng: number, angle: number, radiusMeters: num
 
 const POSITION_BADGE_PALETTE = [
   { bg: '#ecfeff', text: '#646568', border: '#99f6e4' },
-  { bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd' },
+  { bg: '#eff6ff', text: '#0044ad', border: '#93c5fd' },
   { bg: '#f5f3ff', text: '#6d28d9', border: '#c4b5fd' },
   { bg: '#f7f7f7', text: '#343434', border: '#d4d4d4' },
   { bg: '#fef2f2', text: '#b91c1c', border: '#fca5a5' },
@@ -137,10 +137,12 @@ function getPositionBadgeStyle(title?: string | null) {
 export default function LiveMapInner({
   locations,
   latestCaptures = {},
+  fitVersion = 0,
   selectedEmployeeId,
   onSelectEmployee,
 }: {
   locations: EmployeeLocation[]
+  fitVersion?: number
   latestCaptures?: Record<string, LatestCapture>
   selectedEmployeeId?: string | null
   onSelectEmployee?: (id: string) => void
@@ -172,7 +174,7 @@ export default function LiveMapInner({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds locations={locations} />
+      <FitBounds locations={locations} fitVersion={fitVersion} />
       {(() => {
         const groups = new Map<string, EmployeeLocation[]>()
         locations.forEach(loc => {
@@ -229,7 +231,7 @@ export default function LiveMapInner({
                     </div>
                   )}
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontWeight: 600, color: '#000000', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <p style={{ fontWeight: 600, color: 'var(--brand-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {loc.employee.firstName} {loc.employee.lastName}
                     </p>
                     {positionTitle && positionStyle && (

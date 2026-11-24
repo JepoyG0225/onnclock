@@ -1,4 +1,12 @@
+import type { MandatoryMonthToDate } from './mandatory-contributions'
+export type RateAmounts = Pick<PayrollResult,'basicPay'|'regularOtAmount'|'restDayOtAmount'|'holidayOtAmount'|'nightDiffAmount'|'holidayPayAmount'|'lateDeduction'|'undertimeDeduction'|'absenceDeduction'>
 export interface PayrollInput {
+  monthlyPay?: { basicPay: number; absenceDeduction: number }
+  /** Dated earnings are combined before tax, contributions and loan deductions. */
+  rateAmounts?: RateAmounts
+  retroBasic?: number
+
+  mandatoryMonthToDate?: MandatoryMonthToDate
   employee: {
     id: string
     basicSalary: number
@@ -13,6 +21,7 @@ export interface PayrollInput {
      * pay (worked premium + Art. 94 unworked credit) regardless of the
      * company calendar. Useful for project-based / contractor roles.
      */
+    disableNightDifferential?: boolean
     disableHolidayPay?: boolean
     /**
      * Per-employee override: when TRUE the late-minutes pay deduction
@@ -36,6 +45,7 @@ export interface PayrollInput {
     workingDays: number
     payFrequency: 'SEMI_MONTHLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY'
     isFirstCutoff: boolean  // true = 1st–15th, false = 16th–end
+    mandatoryDeductionFrequency?: 'SEMI_MONTHLY' | 'MONTHLY'
     nightDifferentialRate: number
     regularOtRate?: number
     restDayOtRate?: number
@@ -78,9 +88,9 @@ export interface PayrollInput {
      * then charged ONCE, in the separate Late / Undertime deduction
      * column, instead of being silently baked into basic pay.
      *
-     * Absent days are NOT included here — the engine adds them back from
-     * `absentDays` so basic pay covers them too and the Absences column
-     * deducts them exactly once.
+     * Absent days are not included. Hourly payroll sums the dated lesson
+     * schedules for paid attendance dates, excluding gaps and unpaid breaks.
+     * Absences are not deducted again from this already-prorated basis.
      *
      * Falls back to `regularHours` when absent (legacy runs / callers
      * that don't supply it) so historical behavior is preserved.

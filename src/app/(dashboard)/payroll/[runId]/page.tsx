@@ -1,3 +1,4 @@
+import { OT_ELIGIBLE_EMPLOYEE } from '@/lib/overtime-requests'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -8,7 +9,7 @@ import { ComputePayrollButton } from '@/components/payroll/ComputePayrollButton'
 import PayrollActionButtons from '@/components/payroll/PayrollActionButtons'
 import { PayrollRunPayslips } from '@/components/payroll/PayrollRunPayslips'
 import { PayrollPayslipsLoader } from '@/components/payroll/PayrollPayslipsLoader'
-import { PayrollWorkflowStepper } from '@/components/payroll/PayrollWorkflowStepper'
+import { PayrollJourney } from '@/components/payroll/PayrollJourney'
 import { formatDate, getStatusColor, formatCurrency } from '@/lib/utils'
 import { resolveWorkflow, buildPlan, authorizeAdvance } from '@/lib/approvals/engine'
 import {Users, TrendingDown, AlertTriangle, Clock3, ClipboardCheck} from 'lucide-react'
@@ -17,6 +18,8 @@ import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollActivityLog from '@/components/payroll/PayrollActivityLog'
 import { getEffectivePermissions } from '@/lib/auth/effective-permissions'
 import { ProcessPayrollButton } from '@/components/payroll/ProcessPayrollButton'
+import { PayrollAnomalyPanel } from '@/components/payroll/PayrollAnomalyPanel'
+import { findPayrollAnomalies } from '@/lib/payroll/anomalies'
 
 export default async function PayrollRunPage({
   params,
@@ -38,9 +41,11 @@ export default async function PayrollRunPage({
     prisma.company.findUnique({ where: { id: companyId }, select: { payrollCurrency: true } }),
   ])
   if (!run) redirect('/payroll')
+  const isEncashment = run.runType === 'LEAVE_ENCASHMENT'
+  const isThirteenth = run.runType === 'THIRTEENTH_MONTH' || isEncashment || run.runType === 'FINAL_PAY'
   // Direct links and old bookmarks should resume an unfinished draft at the
   // first incomplete step even when they do not include the stage query.
-  const isInputsStage = stage === 'inputs' || (!stage && run.status === 'DRAFT')
+  const isInputsStage = !isThirteenth && (stage === 'inputs' || (!stage && run.status === 'DRAFT'))
   const currency = company?.payrollCurrency ?? 'PHP'
   const permissions = await getEffectivePermissions(session.user.role, companyId, session.user.id)
   const canWritePayroll = permissions.includes('payroll:write') || session.user.role === 'SUPER_ADMIN'
@@ -83,7 +88,7 @@ export default async function PayrollRunPage({
     const approverByLevel = new Map(approvers.map(a => [a.level, a.userId]))
     const userApproverLevel = approvers.find(a => a.userId === session.user.id)?.level ?? null
     const expectedUserId = approverByLevel.get(nextLevel)
-    canApprove = !!expectedUserId && expectedUserId === session.user.id
+    canApprove = approvers.length === 0 || (!!expectedUserId && expectedUserId === session.user.id)
     if (!expectedUserId) {
       approveDisabledReason = `No approver configured for level ${nextLevel}`
     } else if (userApproverLevel && userApproverLevel > nextLevel) {
@@ -134,12 +139,12 @@ export default async function PayrollRunPage({
       },
     }),
     prisma.overtimeRequest.count({
-      where: { companyId, status: 'PENDING', date: { gte: run.periodStart, lte: run.periodEnd } },
+      where: { companyId, employee: OT_ELIGIBLE_EMPLOYEE, status: 'PENDING', date: { gte: run.periodStart, lte: run.periodEnd } },
     }),
   ])
-  const showReadinessWarning =
+  const showReadinessWarning = !isThirteenth &&
     (unapprovedTimesheets > 0 || pendingOtCount > 0) &&
-    run.status !== 'APPROVED' && run.status !== 'LOCKED' && run.status !== 'CANCELLED'
+    run.status !== 'APPROVED' && run.status !== 'LOCKED' && run.status !== 'DISBURSED' && run.status !== 'CANCELLED'
 
   const payslips = await prisma.payslip.findMany({
     where: { payrollRunId: runId },
@@ -157,6 +162,11 @@ export default async function PayrollRunPage({
           // changes depending on whether the employee is paid by
           // hour / day / month.
           rateType: true,
+          trackTime: true,
+          disableLateDeduction: true,
+          sssEnabled: true,
+          philhealthEnabled: true,
+          pagibigEnabled: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
         },
@@ -164,38 +174,50 @@ export default async function PayrollRunPage({
     },
     orderBy: { employee: { lastName: 'asc' } },
   })
+  const [previousRun, payrollConfig] = await Promise.all([
+    prisma.payrollRun.findFirst({
+      where: { companyId, periodStart: { lt: run.periodStart }, status: { not: 'CANCELLED' } },
+      orderBy: { periodStart: 'desc' },
+      select: { payslips: { select: { employeeId: true, grossPay: true, netPay: true, employee: { select: { firstName: true, lastName: true, employeeNo: true } } } } },
+    }),
+    prisma.payrollCycleConfig.findUnique({ where: { companyId }, select: { disableLateDeductions: true } }),
+  ])
+  const lateMinutesByEmployee = new Map<string, number>()
+  const dtrCountByEmployee = new Map<string, number>()
+  for (const row of dtrRows) {
+    lateMinutesByEmployee.set(row.employeeId, (lateMinutesByEmployee.get(row.employeeId) ?? 0) + (row.lateMinutes ?? 0))
+    dtrCountByEmployee.set(row.employeeId, (dtrCountByEmployee.get(row.employeeId) ?? 0) + 1)
+  }
+  const anomalies = isThirteenth ? [] : findPayrollAnomalies({
+    current: payslips.map(item => ({
+      employeeId: item.employeeId,
+      employeeName: `${item.employee.firstName} ${item.employee.lastName}`,
+      grossPay: Number(item.grossPay), netPay: Number(item.netPay), basicPay: Number(item.basicSalary),
+      lateDeduction: Number(item.lateDeduction), sssEmployee: Number(item.sssEmployee),
+      philhealthEmployee: Number(item.philhealthEmployee), pagibigEmployee: Number(item.pagibigEmployee),
+      withholdingTax: Number(item.withholdingTax), trackTime: item.employee.trackTime,
+      rateType: item.employee.rateType,
+      disableLateDeduction: item.employee.disableLateDeduction, sssEnabled: item.employee.sssEnabled,
+      philhealthEnabled: item.employee.philhealthEnabled, pagibigEnabled: item.employee.pagibigEnabled,
+    })),
+    previous: previousRun?.payslips.map(item => ({ employeeId: item.employeeId, employeeName: `${item.employee.firstName} ${item.employee.lastName}`, employeeNo: item.employee.employeeNo, grossPay: Number(item.grossPay), netPay: Number(item.netPay) })) ?? [],
+    lateMinutesByEmployee, dtrCountByEmployee,
+    companyLateDeductionsDisabled: payrollConfig?.disableLateDeductions ?? false,
+  })
   const STATUS_LABELS: Record<string, string> = {
     DRAFT: 'Draft',
     COMPUTED: 'Computed',
     FOR_APPROVAL: 'For Approval',
     APPROVED: 'Approved',
     LOCKED: 'Locked',
+    DISBURSED: 'Disbursed',
     CANCELLED: 'Cancelled',
   }
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-3">
-        {[
-          { number: 1, label: 'Payroll Period', detail: 'Payroll scope selected', href: `/payroll/new?runId=${run.id}`, active: false },
-          { number: 2, label: 'Payroll Inputs', detail: 'Calculate and adjust', href: `/payroll/${run.id}?stage=inputs`, active: isInputsStage },
-          { number: 3, label: 'Payroll Summary', detail: 'Review and finalize', href: `/payroll/${run.id}`, active: !isInputsStage },
-        ].map((item, index) => (
-          <Link
-            key={item.number}
-            href={item.href}
-            className={`flex items-center gap-3 px-5 py-4 transition-colors hover:bg-blue-50 ${index > 0 ? 'border-t sm:border-l sm:border-t-0' : ''} ${item.active ? 'bg-blue-50' : ''}`}
-          >
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${item.active ? 'bg-[var(--brand-primary)] text-white' : item.number === 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-              {item.number === 1 ? '✓' : item.number}
-            </span>
-            <span>
-              <span className="block text-sm font-semibold text-[#1f2937]">{item.label}</span>
-              <span className="block text-xs text-gray-500">{item.detail}</span>
-            </span>
-          </Link>
-        ))}
-      </div>
+      {isThirteenth ? <div className="rounded-xl border bg-blue-50 p-4 text-sm"><strong>{run.runType==='FINAL_PAY'?'Final pay payroll':isEncashment?'Leave encashment payroll':'13th-month payroll'}</strong><p>{run.runType==='FINAL_PAY'?'Reviewed final-pay earnings and deductions. Submit for approval, lock, then mark disbursed after payment. To revise, remove the unapproved payslip (or delete the run if it contains only this employee), then generate a replacement from Final Pay.':isEncashment?'Reviewed leave conversions and withholding tax only. Submit for approval, lock, then mark disbursed after payment. To revise an editable batch, cancel it in Leave Encashment and create a new batch.':'Reviewed 13th-month earnings and withholding tax only. Submit for approval, lock, then mark disbursed after payment. To revise amounts, delete this editable run and regenerate from 13th Month Pay.'}</p><Link href={run.runType==='FINAL_PAY'?'/final-pay':isEncashment?'/leaves/encashments':'/thirteenth-month'} className="font-semibold underline">{run.runType==='FINAL_PAY'?'Back to Final Pay':isEncashment?'Back to Leave Encashment':'Back to 13th Month Pay'}</Link></div> : <PayrollJourney runId={run.id} status={run.status} stage={isInputsStage ? 'review' : 'approval'} />}
+      {run.status === 'DISBURSED' && <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">Payment recorded as disbursed{run.disbursedAt ? ` on ${run.disbursedAt.toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} (Philippine time)` : ''}. This payroll is finalized.</p>}
       {/* Header
           ───
           Title + period on the left, status pill on the right, then a
@@ -215,7 +237,8 @@ export default async function PayrollRunPage({
               <span className="text-gray-500">Pay date {formatDate(run.payDate)}</span>
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex items-center gap-2 flex-wrap">
+            {payslips.length > 0 && <PayrollAnomalyPanel anomalies={anomalies} />}
             <Badge className={`text-sm border-0 ${getStatusColor(run.status)}`}>
               {STATUS_LABELS[run.status]}
             </Badge>
@@ -239,13 +262,13 @@ export default async function PayrollRunPage({
           <div className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-[#1f2937]">Review each employee&apos;s calculated payroll</p>
-              <p className="mt-0.5 text-xs text-gray-600">Use the edit icon to add income, deductions, or manual adjustments before generating the summary.</p>
+              <p className="mt-0.5 text-xs text-gray-600">Review flagged employees, inspect the breakdown, or adjust amounts before continuing to the summary.</p>
             </div>
             {payslips.length > 0 && (
               <ProcessPayrollButton runId={run.id} />
             )}
           </div>
-        ) : <PayrollWorkflowStepper status={run.status} />}
+         ) : null}
       </div>
 
       {/* Pre-payroll readiness warning */}
@@ -294,7 +317,7 @@ export default async function PayrollRunPage({
               <Users className="h-5 w-5 text-[var(--brand-primary)]" />
             </div>
             <div>
-              <p className="text-xs font-medium text-black">Employees</p>
+              <p className="text-xs font-medium text-primary">Employees</p>
               <p className="text-xl font-black text-[#343434]">{payslips.length}</p>
             </div>
           </CardContent>
@@ -305,7 +328,7 @@ export default async function PayrollRunPage({
               <PesoIcon className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs font-medium text-black">Gross Pay</p>
+              <p className="text-xs font-medium text-primary">Gross Pay</p>
               <p className="text-lg font-black text-[#343434]">{peso(run.totalGross.toNumber())}</p>
             </div>
           </CardContent>
@@ -316,7 +339,7 @@ export default async function PayrollRunPage({
               <TrendingDown className="h-5 w-5 text-rose-500" />
             </div>
             <div>
-              <p className="text-xs font-medium text-black">Total Deductions</p>
+              <p className="text-xs font-medium text-primary">Total Deductions</p>
               <p className="text-lg font-bold text-red-600">{peso(run.totalDeductions.toNumber())}</p>
             </div>
           </CardContent>
@@ -327,7 +350,7 @@ export default async function PayrollRunPage({
               <PesoIcon className="h-5 w-5 text-cyan-600" />
             </div>
             <div>
-              <p className="text-xs font-medium text-black">Net Pay</p>
+              <p className="text-xs font-medium text-primary">Net Pay</p>
               <p className="text-lg font-black text-[#343434]">{peso(run.totalNetPay.toNumber())}</p>
             </div>
           </CardContent>
@@ -366,8 +389,9 @@ export default async function PayrollRunPage({
         </CardHeader>
         <CardContent className="p-0">
           <PayrollRunPayslips
+            anomalies={anomalies}
             runStatus={run.status}
-            allowEdits={isInputsStage && canWritePayroll}
+            allowEdits={!isThirteenth && isInputsStage && canWritePayroll}
             showPdf={!isInputsStage}
             totalBasic={run.totalBasic.toNumber()}
             totalGross={run.totalGross.toNumber()}
@@ -414,6 +438,12 @@ export default async function PayrollRunPage({
             payslips={payslips.map(ps => ({
               id: ps.id,
               basicSalary:        ps.basicSalary.toNumber(),
+              calculationBasis: ps.calculationBasis,
+              hasManualEdits: !!ps.manualEdits && Object.keys(ps.manualEdits as object).some(key => !['customIncomes', 'customDeductions', 'adjustmentReason'].includes(key)),
+              riceAllowance: ps.riceAllowance.toNumber(),
+              clothingAllowance: ps.clothingAllowance.toNumber(),
+              medicalAllowance: ps.medicalAllowance.toNumber(),
+              basicPayManuallyEdited: typeof (ps.manualEdits as { basicSalary?: unknown } | null)?.basicSalary === 'number',
               // Hours / day counters used by the expandable breakdown
               dailyRate:          ps.dailyRate.toNumber(),
               daysWorked:         ps.daysWorked.toNumber(),

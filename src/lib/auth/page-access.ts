@@ -1,4 +1,4 @@
-import { Permission } from './permissions'
+import { Permission } from "./permissions";
 
 /**
  * URL prefix → required permission(s).
@@ -21,65 +21,113 @@ import { Permission } from './permissions'
  *   • /api/...                 — middleware doesn't touch APIs
  */
 export const PATH_REQUIRED_PERMISSIONS: Array<{
-  prefix: string
-  required: Permission[]
+  prefix: string;
+  required: Permission[];
 }> = [
   // ── Employment ──────────────────────────────────────────────────────
-  { prefix: '/employees',           required: ['employees:read'] },
-  { prefix: '/organization',        required: ['departments:write', 'employees:read'] },
+  { prefix: "/employees", required: ["employees:read"] },
+  {
+    prefix: "/organization",
+    required: ["departments:write", "employees:read"],
+  },
   // Legacy routes, kept as redirects into the tabs above.
-  { prefix: '/departments',         required: ['departments:write', 'employees:read'] },
-  { prefix: '/positions',           required: ['departments:write', 'employees:read'] },
-  { prefix: '/org-chart',           required: ['employees:read'] },
+  { prefix: "/departments", required: ["departments:write", "employees:read"] },
+  { prefix: "/positions", required: ["departments:write", "employees:read"] },
+  { prefix: "/org-chart", required: ["employees:read"] },
   // Recruitment now hosts Hiring / Onboarding / Offboarding as tabs.
-  { prefix: '/recruitment',         required: ['employees:write', 'recruitment:manage'] },
-  { prefix: '/onboarding',          required: ['employees:write', 'onboarding:manage'] },
-  { prefix: '/performance',         required: ['employees:read', 'performance:manage'] },
+  {
+    prefix: "/recruitment",
+    required: ["employees:write", "recruitment:manage"],
+  },
+  { prefix: "/onboarding", required: ["employees:write", "onboarding:manage"] },
+  {
+    prefix: "/performance",
+    required: ["employees:read", "performance:manage"],
+  },
   // Legacy routes, kept as redirects into the tabs above.
-  { prefix: '/performance-reviews', required: ['employees:read', 'performance:manage'] },
-  { prefix: '/offboarding',         required: ['employees:write', 'offboarding:manage'] },
-  { prefix: '/disciplinary',        required: ['employees:read', 'disciplinary:manage'] },
-  { prefix: '/assets',              required: ['employees:read', 'assets:manage'] },
+  {
+    prefix: "/performance-reviews",
+    required: ["employees:read", "performance:manage"],
+  },
+  {
+    prefix: "/offboarding",
+    required: ["employees:write", "offboarding:manage"],
+  },
+  {
+    prefix: "/disciplinary",
+    required: ["employees:read", "disciplinary:manage"],
+  },
+  { prefix: "/assets", required: ["employees:read", "assets:manage"] },
 
   // ── Time & Attendance ───────────────────────────────────────────────
   // /timesheets is the merged Time Sheets + Corrections + Overtime page. It's
   // gated on dtr:read (the broadest of the three) because the tabs inside
   // still enforce their own approve permissions on the actions themselves.
-  { prefix: '/attendance/map',      required: ['dtr:read'] },
-  { prefix: '/attendance/tardiness',required: ['dtr:read'] },
-  { prefix: '/attendance/settings', required: ['settings:read'] },
-  { prefix: '/timesheets',          required: ['dtr:read'] },
+  { prefix: "/attendance/map", required: ["dtr:read"] },
+  { prefix: "/attendance/reports", required: ["dtr:read"] },
+  { prefix: "/attendance/tardiness", required: ["dtr:read"] },
+  { prefix: "/attendance/settings", required: ["settings:read"] },
+  { prefix: "/attendance/reports", required: ["dtr:read"] },
+  { prefix: "/attendance/map", required: ["dtr:read"] },
+  { prefix: "/employee-files", required: ["employees:read"] },
+  { prefix: "/tax-annualization", required: ["payroll:read"] },
+  { prefix: "/billing", required: ["users:manage", "billing:manage"] },
+  { prefix: "/settings/attendance", required: ["settings:read"] },
+  { prefix: "/settings/workflows", required: ["approvals:manage"] },
+  { prefix: "/timesheets", required: ["dtr:read"] },
   // Legacy routes, kept as redirects into the tabs above.
-  { prefix: '/dtr',                 required: ['dtr:read'] },
-  { prefix: '/time-corrections',    required: ['dtr:read'] },
-  { prefix: '/overtime-requests',   required: ['dtr:read', 'overtime:approve'] },
-  { prefix: '/biometric-devices',   required: ['settings:read'] },
-  { prefix: '/schedules',           required: ['settings:read', 'dtr:read'] },
-  { prefix: '/holidays',            required: ['settings:read'] },
+  { prefix: "/dtr", required: ["dtr:read"] },
+  { prefix: "/time-corrections", required: ["dtr:read"] },
+  { prefix: "/overtime-requests", required: ["dtr:read", "overtime:approve"] },
+  { prefix: "/biometric-devices", required: ["settings:read"] },
+  { prefix: "/schedules", required: ["settings:read", "dtr:read"] },
+  { prefix: "/holidays", required: ["settings:read"] },
 
   // ── Leave Management ────────────────────────────────────────────────
-  { prefix: '/leaves/types',        required: ['settings:write'] },
-  { prefix: '/leaves/calendar',     required: ['leaves:read'] },
-  { prefix: '/leaves',              required: ['leaves:read'] },
+  { prefix: "/leaves/credits", required: ["leaves:read", "payroll:write"] },
+  { prefix: "/leaves/encashments", required: ["payroll:read"] },
+  { prefix: "/leaves/types", required: ["settings:write"] },
+  { prefix: "/leaves/calendar", required: ["leaves:read"] },
+  { prefix: "/leaves", required: ["leaves:read"] },
 
   // ── Payroll ─────────────────────────────────────────────────────────
-  { prefix: '/payroll/settings',    required: ['settings:write', 'payroll:write'] },
-  { prefix: '/payroll',             required: ['payroll:read'] },
-  { prefix: '/thirteenth-month',    required: ['payroll:read'] },
-  { prefix: '/loans',               required: ['loans:read'] },
-  { prefix: '/cash-advance',        required: ['loans:read', 'cashadvance:approve'] },
-  { prefix: '/final-pay',           required: ['payroll:read'] },
-  { prefix: '/disbursement',        required: ['payroll:read', 'disbursement:manage'] },
+  {
+    prefix: "/payroll/settings",
+    required: ["settings:write", "payroll:write"],
+  },
+  { prefix: "/payroll", required: ["payroll:read"] },
+  { prefix: "/thirteenth-month", required: ["payroll:read"] },
+  { prefix: "/loans", required: ["loans:read"] },
+  { prefix: "/cash-advance", required: ["loans:read", "cashadvance:approve"] },
+  { prefix: "/final-pay", required: ["payroll:read"] },
+  { prefix: "/integrations", required: ["payroll:read", "settings:write"] },
+  { prefix: "/requisitions", required: ["budget:read", "budget:approve", "payroll:read", "employees:read", "expenses:read", "expenses:approve"] },
+  { prefix: "/expenses", required: ["expenses:read", "expenses:approve"] },
+  { prefix: "/benefits", required: ["benefits:manage", "employees:read"] },
+  { prefix: "/learning", required: ["learning:manage", "employees:read"] },
 
   // ── Misc ────────────────────────────────────────────────────────────
-  { prefix: '/budget-requisitions', required: ['payroll:read', 'employees:read', 'budget:read', 'budget:approve'] },
-  { prefix: '/announcements',       required: ['employees:read', 'announcements:write'] },
+  {
+    prefix: "/budget-requisitions",
+    required: [
+      "payroll:read",
+      "employees:read",
+      "budget:read",
+      "budget:approve",
+    ],
+  },
+  {
+    prefix: "/announcements",
+    required: ["employees:read", "announcements:write"],
+  },
 
   // ── Task Management ─────────────────────────────────────────────────
-  { prefix: '/tasks',               required: ['tasks:read', 'tasks:manage'] },
+  { prefix: "/hr-center", required: ["contracts:manage", "compliance:manage", "documents:manage", "ssscases:manage", "wageorders:manage", "profilechanges:manage", "salarychanges:manage", "salarychanges:approve", "safety:manage"] },
+  { prefix: "/hr-requests", required: ["hrrequests:manage"] },
+  { prefix: "/tasks", required: ["tasks:read", "tasks:manage"] },
 
   // ── Reports ─────────────────────────────────────────────────────────
-  { prefix: '/reports',             required: ['reports:generate'] },
+  { prefix: "/reports", required: ["reports:generate"] },
 
   // ── Settings & Admin ────────────────────────────────────────────────
   // /settings/profile is always allowed; the other settings sub-paths
@@ -92,17 +140,17 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   // COMPANY_ADMIN permission, force-granted to that role by the loader
   // so they can never lock themselves out). A custom role can still be
   // granted users:manage explicitly if the admin wants to share access.
-  { prefix: '/settings/profile',     required: [] },
-  { prefix: '/settings/billing',     required: ['users:manage'] },
-  { prefix: '/settings/users',       required: ['users:manage'] },
-  { prefix: '/settings/permissions', required: ['users:manage'] },
-  { prefix: '/settings/approvals',   required: ['settings:write'] },
-  { prefix: '/settings/audit',       required: ['users:manage'] },
-  { prefix: '/settings/payroll-rules', required: ['settings:write'] },
-  { prefix: '/settings',             required: ['settings:read'] },
+  { prefix: "/settings/profile", required: [] },
+  { prefix: "/settings/billing", required: ["users:manage", "billing:manage"] },
+  { prefix: "/settings/users", required: ["users:manage"] },
+  { prefix: "/settings/permissions", required: ["users:manage"] },
+  { prefix: "/settings/approvals", required: ["settings:write", "approvals:manage"] },
+  { prefix: "/settings/audit", required: ["users:manage", "audit:read"] },
+  { prefix: "/settings/payroll-rules", required: ["settings:write"] },
+  { prefix: "/settings", required: ["settings:read"] },
 
   // ── Analytics ───────────────────────────────────────────────────────
-  { prefix: '/analytics',           required: ['reports:generate', 'employees:read'] },
+  { prefix: "/analytics", required: ["analytics:read", "reports:generate", "employees:read"] },
 
   // ── Dashboard ───────────────────────────────────────────────────────
   // Dashboard surfaces headcount, payroll status, pending approvals, etc.
@@ -111,14 +159,14 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   // it, so we gate it. When a user lacks dashboard access, the layout
   // redirects them to the first nav path they CAN access (see
   // findFirstAccessiblePath below).
-  { prefix: '/dashboard',           required: ['employees:read'] },
-]
+  { prefix: "/dashboard", required: ["employees:read"] },
+];
 
 // Pre-sort by prefix length (descending) so longer/more-specific prefixes
 // match first — e.g. /payroll/settings wins over /payroll.
 const SORTED = [...PATH_REQUIRED_PERMISSIONS].sort(
   (a, b) => b.prefix.length - a.prefix.length,
-)
+);
 
 /**
  * Return the Permission[] required to access `pathname`. Empty array means
@@ -126,13 +174,15 @@ const SORTED = [...PATH_REQUIRED_PERMISSIONS].sort(
  */
 export function getRequiredPermissionsForPath(pathname: string): Permission[] {
   // Strip query string just in case.
-  const path = pathname.split('?')[0]
+  const path = pathname.split("?")[0];
+  if (path === '/employees/new' || /^\/employees\/[^/]+\/edit(?:\/|$)/.test(path)) return ['employees:write'];
+  if (path === '/payroll/new') return ['payroll:write'];
   for (const entry of SORTED) {
-    if (path === entry.prefix || path.startsWith(entry.prefix + '/')) {
-      return entry.required
+    if (path === entry.prefix || path.startsWith(entry.prefix + "/")) {
+      return entry.required;
     }
   }
-  return []
+  return [];
 }
 
 /**
@@ -144,14 +194,17 @@ export function getRequiredPermissionsForPath(pathname: string): Permission[] {
  * pages they're meant to see. Callers that need a safe landing page
  * when /dashboard is denied should use findFirstAccessiblePath.
  */
-export function canAccessPath(pathname: string, userPermissions: Permission[]): boolean {
+export function canAccessPath(
+  pathname: string,
+  userPermissions: Permission[],
+): boolean {
   // Always-allow paths that aren't part of the matrix.
-  if (pathname.startsWith('/admin') || pathname.startsWith('/api')) {
-    return true
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api")) {
+    return true;
   }
-  const required = getRequiredPermissionsForPath(pathname)
-  if (!required.length) return true
-  return required.some(p => userPermissions.includes(p))
+  const required = getRequiredPermissionsForPath(pathname);
+  if (!required.length) return true;
+  return required.some((p) => userPermissions.includes(p));
 }
 
 /**
@@ -166,16 +219,27 @@ export function canAccessPath(pathname: string, userPermissions: Permission[]): 
  * permissions, so every authenticated user can reach it.
  */
 const FALLBACK_LANDING_ORDER: string[] = [
-  '/dashboard',
-  '/leaves',
-  '/timesheets',
-  '/payroll',
-  '/announcements',
-  '/employees',
-  '/reports',
-  '/settings',
-  '/settings/profile',
-]
+  "/dashboard",
+  "/leaves",
+  "/timesheets",
+  "/payroll",
+  "/announcements",
+  "/employees",
+  "/reports",
+  "/hr-center",
+  "/hr-requests",
+  "/tasks",
+  "/learning",
+  "/assets",
+  "/requisitions",
+  "/expenses",
+  "/benefits",
+  "/budget-requisitions",
+  "/recruitment",
+  "/performance",
+  "/settings",
+  "/settings/profile",
+];
 
 /**
  * Return the first path in FALLBACK_LANDING_ORDER that the user can
@@ -184,9 +248,10 @@ const FALLBACK_LANDING_ORDER: string[] = [
  */
 export function findFirstAccessiblePath(userPermissions: Permission[]): string {
   for (const path of FALLBACK_LANDING_ORDER) {
-    if (canAccessPath(path, userPermissions)) return path
+    if (canAccessPath(path, userPermissions)) return path;
   }
   // Defensive — should be unreachable because /settings/profile has
   // empty required permissions, but return it explicitly anyway.
-  return '/settings/profile'
+  return "/settings/profile";
 }
+

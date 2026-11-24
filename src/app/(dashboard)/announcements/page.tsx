@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -236,7 +237,7 @@ function FormDialog({ open, editing, onClose, onSaved }: FormDialogProps) {
             <Button
               type="submit"
               disabled={saving}
-              style={{ background: '#000000' }}
+              style={{ background: 'var(--brand-primary)' }}
             >
               {saving ? 'Saving...' : editing ? 'Save Changes' : 'Publish'}
             </Button>
@@ -322,13 +323,13 @@ export default function AnnouncementsPage() {
           </p>
         </div>
         {isHR && (
-          <Button
+          <PermissionGate permission="announcements:write"><Button
             data-tour="ann-new"
             onClick={() => { setEditing(null); setShowForm(true) }}
           >
             <Plus className="mr-2 w-4 h-4" />
             New Announcement
-          </Button>
+          </Button></PermissionGate>
         )}
       </div>
 
@@ -338,7 +339,7 @@ export default function AnnouncementsPage() {
           size="sm"
           variant={tab === 'active' ? 'default' : 'outline'}
           onClick={() => setTab('active')}
-          style={tab === 'active' ? { background: '#000000' } : {}}
+          style={tab === 'active' ? { background: 'var(--brand-primary)' } : {}}
         >
           Active
         </Button>
@@ -346,7 +347,7 @@ export default function AnnouncementsPage() {
           size="sm"
           variant={tab === 'all' ? 'default' : 'outline'}
           onClick={() => setTab('all')}
-          style={tab === 'all' ? { background: '#000000' } : {}}
+          style={tab === 'all' ? { background: 'var(--brand-primary)' } : {}}
         >
           All
         </Button>
@@ -362,14 +363,14 @@ export default function AnnouncementsPage() {
             {tab === 'active' ? 'No active announcements' : 'No announcements yet'}
           </p>
           {isHR && tab === 'active' && (
-            <Button
+            <PermissionGate permission="announcements:write"><Button
               variant="outline"
               className="mt-4"
               onClick={() => { setEditing(null); setShowForm(true) }}
             >
               <Plus className="mr-2 w-4 h-4" />
               Create First Announcement
-            </Button>
+            </Button></PermissionGate>
           )}
         </div>
       ) : tab === 'all' ? (

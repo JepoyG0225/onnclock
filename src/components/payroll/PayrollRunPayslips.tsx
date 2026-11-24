@@ -1,7 +1,14 @@
 'use client'
+import { usePermissions } from '@/components/auth/PermissionsProvider'
 
+import { BasicPayComputationDialog } from './BasicPayComputationDialog'
+import { readCalculatedAt, readPreviousPay, matchesPayrollReview } from '@/lib/payroll/review'
+import type { PayrollAnomaly } from '@/lib/payroll/anomalies'
+import { readDeductionCarryover } from '@/lib/payroll/deduction-carryover'
+import { readHourlyCalculationBasis } from '@/lib/payroll/calculation-basis'
+import { payslipTotals } from '@/lib/payroll/payslip-totals'
 import { Fragment, useEffect, useState } from 'react'
-import { Pencil, ChevronRight, ChevronDown, Trash2, Loader2 } from 'lucide-react'
+import { Pencil, ChevronDown, Trash2, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -11,6 +18,12 @@ import { PayslipEditModal, PayslipEditData, type CustomAdjustment } from './Pays
 export interface PayslipRow {
   id: string
   basicSalary: number
+  calculationBasis?: unknown
+  riceAllowance?: number
+  clothingAllowance?: number
+  medicalAllowance?: number
+  basicPayManuallyEdited?: boolean
+  hasManualEdits?: boolean
   // Inputs for the per-row gross-pay breakdown — sourced directly from
   // the persisted Payslip row so the math shown matches what the engine
   // actually charged.
@@ -77,6 +90,7 @@ export interface DtrEntry {
 }
 
 interface Props {
+  anomalies?: PayrollAnomaly[]
   payslips: PayslipRow[]
   runStatus: string
   totalBasic: number
@@ -92,7 +106,12 @@ interface Props {
   showPdf?: boolean
 }
 
-export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPeriod = [], dtrsByEmployee = {}, allowEdits = true, showPdf = true }: Props) {
+export function PayrollRunPayslips({ anomalies = [], payslips: initial, runStatus, holidaysInPeriod = [], dtrsByEmployee = {}, allowEdits = true, showPdf = true }: Props) {
+  const [basicPayId, setBasicPayId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [detailed, setDetailed] = useState(false)
+  const [reviewEmployee, setReviewEmployee] = useState<string | null>(null)
   const [payslips, setPayslips] = useState<PayslipRow[]>(initial)
   const [editing, setEditing] = useState<PayslipEditData | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -110,6 +129,31 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
     setPayslips(initial)
   }, [initial])
 
+  useEffect(() => {
+    const review = (event: Event) => {
+      const id = (event as CustomEvent<{ employeeId: string }>).detail.employeeId
+      const row = payslips.find(p => p.employee.id === id)
+      if (!row) return
+      setFilter('all'); setSearch(row.employee.employeeNo); setExpanded(new Set([row.id])); setReviewEmployee(id)
+    }
+    window.addEventListener('payroll-review-employee', review)
+    return () => window.removeEventListener('payroll-review-employee', review)
+  }, [payslips])
+  useEffect(() => {
+    if (!reviewEmployee) return
+    const button = [...document.querySelectorAll<HTMLButtonElement>('[data-review-employee]')].find(el => el.dataset.reviewEmployee === reviewEmployee && el.getClientRects().length)
+    button?.scrollIntoView({ behavior: 'smooth', block: 'center' }); button?.focus({ preventScroll: true })
+    setReviewEmployee(null)
+  }, [reviewEmployee])
+  const issuesFor = (ps: PayslipRow) => anomalies.filter(a => a.employeeId === ps.employee.id)
+  const changed = (ps: PayslipRow) => {
+    const prior = readPreviousPay(ps.calculationBasis)
+    return !!prior && (prior.netPay !== ps.netPay || prior.grossPay !== ps.grossPay || prior.totalDeductions !== ps.totalDeductions)
+  }
+  const adjusted = (ps: PayslipRow) => !['THIRTEENTH_MONTH','LEAVE_ENCASHMENT','FINAL_PAY'].includes((ps.calculationBasis as { kind?: string } | null)?.kind??'') && (!!ps.hasManualEdits || !!ps.basicPayManuallyEdited || ps.customIncomes.length > 0 || ps.customDeductions.length > 0)
+  const visible = payslips.filter(ps => matchesPayrollReview(ps, search, filter, issuesFor(ps).length > 0))
+
+
   function toggleExpand(id: string) {
     setExpanded(prev => {
       const next = new Set(prev)
@@ -119,13 +163,16 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
     })
   }
 
-  const canEdit = allowEdits && (runStatus === 'COMPUTED' || runStatus === 'DRAFT' || runStatus === 'FOR_APPROVAL')
+  const permissions = usePermissions()
+  const canEdit = permissions.includes('payroll:write') && allowEdits && (runStatus === 'COMPUTED' || runStatus === 'DRAFT' || runStatus === 'FOR_APPROVAL')
 
   function openEdit(ps: PayslipRow) {
     const customIncomeTotal = ps.customIncomes.reduce((sum, item) => sum + item.amount, 0)
     const customDeductionTotal = ps.customDeductions.reduce((sum, item) => sum + item.amount, 0)
     setEditing({
       id: ps.id,
+      calculationBasis: ps.calculationBasis,
+      riceAllowance: ps.riceAllowance ?? 0, clothingAllowance: ps.clothingAllowance ?? 0, medicalAllowance: ps.medicalAllowance ?? 0,
       employeeName: `${ps.employee.lastName}, ${ps.employee.firstName}`,
       employeeNo: ps.employee.employeeNo,
       basicSalary: ps.basicSalary,
@@ -145,7 +192,7 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
       undertimeDeduction: ps.undertimeDeduction,
       absenceDeduction: ps.absenceDeduction,
       otherDeductions: ps.otherDeductions,
-      baseOtherDeductions: Math.max(0, ps.otherDeductions - customDeductionTotal),
+      baseOtherDeductions: Math.max(0, (readDeductionCarryover(ps.calculationBasis)?.otherDue ?? ps.otherDeductions) - customDeductionTotal),
       customDeductions: ps.customDeductions,
       sssEc: ps.sssEc,
       sssLoanDeduction: ps.sssLoanDeduction,
@@ -185,6 +232,8 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
           : {
               ...ps,
               basicSalary:        updated.basicSalary        ?? ps.basicSalary,
+              basicPayManuallyEdited: updated.basicPayManuallyEdited ?? ps.basicPayManuallyEdited,
+              hasManualEdits: updated.hasManualEdits ?? ps.hasManualEdits,
               regularOtAmount:    updated.regularOtAmount    ?? ps.regularOtAmount,
               restDayOtAmount:    updated.restDayOtAmount    ?? ps.restDayOtAmount,
               holidayOtAmount:    updated.holidayOtAmount    ?? ps.holidayOtAmount,
@@ -201,189 +250,91 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
               absenceDeduction:   updated.absenceDeduction   ?? ps.absenceDeduction,
               otherDeductions:    updated.otherDeductions    ?? ps.otherDeductions,
               customDeductions:   updated.customDeductions   ?? ps.customDeductions,
+              sssLoanDeduction: updated.sssLoanDeduction ?? ps.sssLoanDeduction,
+              pagibigLoan: updated.pagibigLoan ?? ps.pagibigLoan,
+              companyLoan: updated.companyLoan ?? ps.companyLoan,
+              calculationBasis: updated.calculationBasis ?? ps.calculationBasis,
               grossPay:           updated.grossPay,
               totalDeductions:    updated.totalDeductions,
               netPay:             updated.netPay,
             }
       )
     )
+    router.refresh()
   }
 
-  // Live totals derived from current state
-  const totals = {
-    basic:      payslips.reduce((s, p) => s + p.basicSalary, 0),
-    ot:         payslips.reduce((s, p) => s + p.regularOtAmount + p.restDayOtAmount + p.holidayOtAmount, 0),
-    holiday:    payslips.reduce((s, p) => s + p.holidayPayAmount, 0),
-    nightDiff:  payslips.reduce((s, p) => s + p.nightDiffAmount, 0),
-    // ps.otherEarnings already equals the sum of ps.incomes line items —
-    // both are written by the same compute pass. Adding them together
-    // double-counted every employee's additional income.
-    other:      payslips.reduce((s, p) => s + p.otherEarnings, 0),
-    gross:      payslips.reduce((s, p) => s + p.grossPay, 0),
-    sss:        payslips.reduce((s, p) => s + p.sssEmployee, 0),
-    ph:         payslips.reduce((s, p) => s + p.philhealthEmployee, 0),
-    pagibig:    payslips.reduce((s, p) => s + p.pagibigEmployee, 0),
-    tax:        payslips.reduce((s, p) => s + p.withholdingTax, 0),
-    loans:      payslips.reduce((s, p) => s + p.sssLoanDeduction + p.pagibigLoan + p.companyLoan, 0),
-    net:        payslips.reduce((s, p) => s + p.netPay, 0),
-  }
-
-  if (payslips.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <p>No payslips yet. Click &quot;Compute Payroll&quot; to generate.</p>
-      </div>
-    )
-  }
-
+  const columns: { label: string; value: (ps: PayslipRow) => number }[] = detailed ? [
+    { label: 'Basic pay', value: p => p.basicSalary },
+    { label: 'Overtime', value: p => p.regularOtAmount + p.restDayOtAmount + p.holidayOtAmount },
+    { label: 'Holiday pay', value: p => p.holidayPayAmount },
+    { label: 'Night differential', value: p => p.nightDiffAmount },
+    { label: 'Other earnings', value: p => p.otherEarnings + (p.riceAllowance ?? 0) + (p.clothingAllowance ?? 0) + (p.medicalAllowance ?? 0) },
+    { label: 'Gross pay', value: p => p.grossPay },
+    { label: 'SSS', value: p => p.sssEmployee }, { label: 'PhilHealth', value: p => p.philhealthEmployee },
+    { label: 'Pag-IBIG', value: p => p.pagibigEmployee }, { label: 'Tax', value: p => p.withholdingTax },
+    { label: 'Attendance', value: p => p.lateDeduction + p.undertimeDeduction + p.absenceDeduction },
+    { label: 'Loans', value: p => p.sssLoanDeduction + p.pagibigLoan + p.companyLoan },
+    { label: 'Other deductions', value: p => p.otherDeductions },
+    { label: 'Total deductions', value: p => p.totalDeductions }, { label: 'Net pay', value: p => p.netPay },
+  ] : [
+    { label: 'Basic pay', value: p => p.basicSalary },
+    { label: 'Additional earnings', value: p => p.grossPay - p.basicSalary },
+    { label: 'Gross pay', value: p => p.grossPay },
+    { label: 'Deductions', value: p => p.totalDeductions }, { label: 'Net pay', value: p => p.netPay },
+  ]
+  const earningItems = (ps: PayslipRow) => <ul className="mt-1 space-y-1 text-xs font-normal text-slate-600 whitespace-normal">{ps.incomes.filter(item => item.amount !== 0).map((item, index) => <li key={`income-${index}`}><span>{item.typeName}</span>: <span className="whitespace-nowrap">{peso(item.amount)}</span></li>)}{ps.customIncomes.filter(item => item.amount !== 0).map((item, index) => <li key={`custom-${index}`}>{item.label}: <span className="whitespace-nowrap">{peso(item.amount)}</span></li>)}</ul>
+  const basicPay = (ps: PayslipRow) => <button type="button" aria-haspopup="dialog" aria-label={`View basic pay computation for ${ps.employee.firstName} ${ps.employee.lastName}`} onClick={() => setBasicPayId(ps.id)} className="min-h-11 text-blue-700 underline decoration-dotted underline-offset-4 hover:text-blue-900">{peso(ps.basicSalary)}<span className="block text-[10px] font-normal">View computation</span></button>
+  const basicPayEmployee = payslips.find(ps => ps.id === basicPayId)
+  const actions = (ps: PayslipRow) => <div className="flex flex-wrap items-center gap-2">
+    {canEdit && <><button type="button" onClick={() => openEdit(ps)} className="min-h-11 inline-flex items-center gap-1 rounded-lg border px-3 text-sm hover:bg-blue-50" aria-label={`Adjust pay for ${ps.employee.firstName} ${ps.employee.lastName}`}><Pencil className="h-4 w-4" />Adjust</button>
+    <button type="button" onClick={() => setPendingDelete(ps)} disabled={deletingId === ps.id} className="min-h-11 min-w-11 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-700 inline-flex items-center justify-center" aria-label={`Remove ${ps.employee.firstName} ${ps.employee.lastName} from payroll`}>{deletingId === ps.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button></>}
+    {showPdf && <a href={`/api/payroll/payslip/${ps.id}/pdf`} target="_blank" rel="noopener noreferrer" className="min-h-11 inline-flex items-center px-2 underline text-sm" aria-label={`Download payslip for ${ps.employee.firstName} ${ps.employee.lastName}`}>PDF</a>}
+  </div>
+  const flags = (ps: PayslipRow) => <div className="flex flex-wrap gap-1 text-xs">
+    {issuesFor(ps).length > 0 && <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">{issuesFor(ps).length} check(s)</span>}
+    {changed(ps) && <span className="rounded bg-violet-50 px-2 py-1 text-violet-800">Changed since prior computation</span>}
+    {adjusted(ps) && <span className="rounded bg-blue-50 px-2 py-1 text-blue-800">Adjusted</span>}
+    {(readDeductionCarryover(ps.calculationBasis)?.deferredTotal ?? 0) > 0 && <span className="rounded bg-amber-50 px-2 py-1 text-amber-900">{peso(readDeductionCarryover(ps.calculationBasis)!.deferredTotal)} carried forward</span>}
+    {ps.netPay <= 0 && <span className="rounded bg-red-50 px-2 py-1 text-red-800">{ps.netPay < 0 ? 'Negative pay' : 'Zero pay'}</span>}
+  </div>
+  const details = (ps: PayslipRow) => <>
+    {issuesFor(ps).map(a => <p key={a.key} className="mb-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{a.title}: {a.detail}</p>)}
+    <GrossPayBreakdown ps={ps} peso={peso} holidaysInPeriod={holidaysInPeriod} dtrs={dtrsByEmployee[ps.employee.id] ?? []} />
+  </>
+  const calculatedAt = payslips.map(p => readCalculatedAt(p.calculationBasis)).filter((value): value is string => value !== null).sort().at(-1)
+  const runNet = payslips.reduce((sum, p) => sum + p.netPay, 0)
   return (
     <>
-      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-        <table className="w-full text-sm whitespace-nowrap">
-          <thead>
-            <tr className="border-b bg-gray-50 text-gray-600">
-              <th className="text-left px-3 py-2.5 font-semibold sticky left-0 bg-gray-50 z-10 min-w-[160px]">Employee</th>
-              <th className="text-right px-3 py-2.5 font-semibold">Basic Pay</th>
-              <th className="text-right px-3 py-2.5 font-semibold text-blue-600">OT Pay</th>
-              <th className="text-right px-3 py-2.5 font-semibold text-purple-600">Holiday Pay</th>
-              <th className="text-right px-3 py-2.5 font-semibold text-cyan-700">Night Diff</th>
-              <th className="text-right px-3 py-2.5 font-semibold text-indigo-600">Other Income</th>
-              <th className="text-right px-3 py-2.5 font-semibold">Gross Pay</th>
-              <th className="text-right px-3 py-2.5 font-semibold">SSS</th>
-              <th className="text-right px-3 py-2.5 font-semibold">PhilHealth</th>
-              <th className="text-right px-3 py-2.5 font-semibold">Pag-IBIG</th>
-              <th className="text-right px-3 py-2.5 font-semibold">Tax</th>
-              <th className="text-right px-3 py-2.5 font-semibold">Loans</th>
-              <th className="text-right px-3 py-2.5 font-semibold">Net Pay</th>
-              <th className="px-3 py-2.5 text-center font-semibold min-w-[80px]">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {payslips.map(ps => {
-              const otTotal          = ps.regularOtAmount + ps.restDayOtAmount + ps.holidayOtAmount
-              // Same data, two sources — see comment on the `other` totals
-              // line above. Picking otherEarnings as the canonical value.
-              const otherIncomeTotal = ps.otherEarnings
-              const loanTotal        = ps.sssLoanDeduction + ps.pagibigLoan + ps.companyLoan
-              const isOpen           = expanded.has(ps.id)
-              return (
-                <Fragment key={ps.id}>
-                  <tr
-                    className="border-b hover:bg-gray-50 group cursor-pointer"
-                    onClick={() => toggleExpand(ps.id)}
-                    aria-expanded={isOpen}
-                  >
-                    <td className="px-3 py-2.5 sticky left-0 bg-white group-hover:bg-gray-50 z-10">
-                      <div className="flex items-center gap-1.5">
-                        {isOpen
-                          ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-                        <div className="min-w-0">
-                          <p className="font-medium">{ps.employee.lastName}, {ps.employee.firstName}</p>
-                          <p className="text-xs text-gray-400">{ps.employee.employeeNo} | {ps.employee.position?.title}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">{peso(ps.basicSalary)}</td>
-                    <td className="px-3 py-2.5 text-right text-blue-600">
-                      {otTotal === 0 ? <span className="text-gray-300">-</span> : peso(otTotal)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-purple-600">
-                      {ps.holidayPayAmount === 0 ? <span className="text-gray-300">-</span> : peso(ps.holidayPayAmount)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-cyan-700">
-                      {ps.nightDiffAmount === 0 ? <span className="text-gray-300">-</span> : peso(ps.nightDiffAmount)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-indigo-600">
-                      {otherIncomeTotal === 0 ? <span className="text-gray-300">-</span> : peso(otherIncomeTotal)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-medium">{peso(ps.grossPay)}</td>
-                    <td className="px-3 py-2.5 text-right text-red-500">{peso(ps.sssEmployee)}</td>
-                    <td className="px-3 py-2.5 text-right text-red-500">{peso(ps.philhealthEmployee)}</td>
-                    <td className="px-3 py-2.5 text-right text-red-500">{peso(ps.pagibigEmployee)}</td>
-                    <td className="px-3 py-2.5 text-right text-red-500">{peso(ps.withholdingTax)}</td>
-                    <td className="px-3 py-2.5 text-right text-red-500">
-                      {loanTotal === 0 ? <span className="text-gray-300">-</span> : peso(loanTotal)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-black text-[#343434]">{peso(ps.netPay)}</td>
-                    <td
-                      className="px-3 py-2.5 text-center"
-                      // Action buttons shouldn't toggle the expander — stop
-                      // the click bubble at the cell level.
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        {canEdit && (
-                          <>
-                            <button
-                              onClick={() => openEdit(ps)}
-                              title="Edit payroll input"
-                              className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setPendingDelete(ps)}
-                              disabled={deletingId === ps.id}
-                              title="Remove employee from payroll run"
-                              className="p-1.5 rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
-                            >
-                              {deletingId === ps.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                            </button>
-                          </>
-                        )}
-                        {showPdf && <a
-                          href={`/api/payroll/payslip/${ps.id}/pdf`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#000000] hover:text-[#000000] text-xs underline"
-                        >
-                          PDF
-                        </a>}
-                      </div>
-                    </td>
-                  </tr>
-                  {isOpen && (
-                    <tr className="border-b bg-slate-50">
-                      <td colSpan={14} className="px-6 py-4">
-                        <GrossPayBreakdown
-                          ps={ps}
-                          peso={peso}
-                          holidaysInPeriod={holidaysInPeriod}
-                          dtrs={dtrsByEmployee[ps.employee.id] ?? []}
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              )
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="bg-gray-50 font-semibold text-gray-700 border-t-2 border-gray-200">
-              <td className="px-3 py-2.5 sticky left-0 bg-gray-50 z-10 font-bold">TOTAL</td>
-              <td className="px-3 py-2.5 text-right">{peso(totals.basic)}</td>
-              <td className="px-3 py-2.5 text-right text-blue-600">{peso(totals.ot)}</td>
-              <td className="px-3 py-2.5 text-right text-purple-600">{peso(totals.holiday)}</td>
-              <td className="px-3 py-2.5 text-right text-cyan-700">{peso(totals.nightDiff)}</td>
-              <td className="px-3 py-2.5 text-right text-indigo-600">
-                {totals.other === 0 ? <span className="text-gray-300">-</span> : peso(totals.other)}
-              </td>
-              <td className="px-3 py-2.5 text-right">{peso(totals.gross)}</td>
-              <td className="px-3 py-2.5 text-right text-red-500">{peso(totals.sss)}</td>
-              <td className="px-3 py-2.5 text-right text-red-500">{peso(totals.ph)}</td>
-              <td className="px-3 py-2.5 text-right text-red-500">{peso(totals.pagibig)}</td>
-              <td className="px-3 py-2.5 text-right text-red-500">{peso(totals.tax)}</td>
-              <td className="px-3 py-2.5 text-right text-red-500">
-                {totals.loans === 0 ? <span className="text-gray-300">-</span> : peso(totals.loans)}
-              </td>
-              <td className="px-3 py-2.5 text-right font-black text-black">{peso(totals.net)}</td>
-              <td className="px-3 py-2.5" />
-            </tr>
-          </tfoot>
+      <p className="px-4 pt-4 text-xs text-slate-500">{calculatedAt ? `Last calculated ${new Date(calculatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })} (Philippine time).` : 'Calculation timestamp was not saved for this older run.'} Recompute after changing attendance or payroll inputs. Saved manual overrides are preserved.</p>
+      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex-1 min-w-0 text-xs font-semibold text-slate-600">Find an employee<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, employee number or department" className="mt-1 block min-h-11 w-full rounded-lg border px-3 text-sm font-normal" /></label>
+        <label className="text-xs font-semibold text-slate-600">Show<select value={filter} onChange={e => setFilter(e.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border bg-white px-3 text-sm font-normal"><option value="all">All employees</option><option value="issues">Needs review</option><option value="changed">Changed since prior computation</option><option value="adjusted">With adjustments</option><option value="carryover">With carryovers</option><option value="zero">Zero or negative pay</option></select></label>
+        <button type="button" aria-pressed={detailed} onClick={() => setDetailed(!detailed)} className="hidden md:block min-h-11 rounded-lg border px-3 text-sm">{detailed ? 'Show simplified columns' : 'Show detailed columns'}</button>
+        {(search || filter !== 'all') && <button type="button" onClick={() => { setSearch(''); setFilter('all') }} className="min-h-11 px-3 text-sm underline">Clear filters</button>}
+      </div>
+      <div className="flex flex-wrap justify-between gap-2 bg-slate-50 px-4 py-3 text-xs text-slate-600" aria-live="polite"><span>Showing {visible.length} of {payslips.length} employees</span><span>Entire run net pay: <strong>{peso(runNet)}</strong></span></div>
+      {visible.length === 0 && <p className="p-8 text-center text-sm text-slate-500">{payslips.length ? 'No employees match these filters. Try another name or clear the filters.' : 'Calculate payroll to see employee pay here.'}</p>}
+      <div className="space-y-3 p-3 md:hidden">
+        {visible.map(ps => <article key={ps.id} className="rounded-xl border bg-white p-4 space-y-3">
+          <div className="flex justify-between gap-3"><div><p className="font-semibold">{ps.employee.lastName}, {ps.employee.firstName}</p><p className="text-xs text-slate-500">{ps.employee.employeeNo} | {ps.employee.department?.name ?? 'No department'}</p></div><div className="text-right"><p className="text-xs text-slate-500">Net pay</p><p className="font-bold">{peso(ps.netPay)}</p></div></div>
+          {flags(ps)}
+          <dl className="grid grid-cols-2 gap-2 text-sm"><div className="col-span-2"><dt className="text-xs text-slate-500">Basic pay</dt><dd>{basicPay(ps)}</dd></div><div><dt className="text-xs text-slate-500">Additional earnings</dt><dd>{peso(ps.grossPay - ps.basicSalary)}{earningItems(ps)}</dd></div><div><dt className="text-xs text-slate-500">Gross pay</dt><dd>{peso(ps.grossPay)}</dd></div><div><dt className="text-xs text-slate-500">Deductions</dt><dd>{peso(ps.totalDeductions)}</dd></div></dl>
+          <div className="flex flex-wrap justify-between gap-2"><button type="button" data-review-employee={ps.employee.id} aria-expanded={expanded.has(ps.id)} aria-controls={`mobile-detail-${ps.id}`} onClick={() => toggleExpand(ps.id)} className="min-h-11 underline text-sm">{expanded.has(ps.id) ? 'Hide breakdown' : 'View breakdown'}</button>{actions(ps)}</div>
+          {expanded.has(ps.id) && <div id={`mobile-detail-${ps.id}`} className="border-t pt-3">{details(ps)}</div>}
+        </article>)}
+      </div>
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm whitespace-nowrap tabular-nums"><thead><tr className="border-b bg-slate-50"><th scope="col" className="sticky left-0 z-10 bg-slate-50 p-3 text-left">Employee</th>{columns.map(c => <th scope="col" key={c.label} className="p-3 text-right">{c.label}</th>)}<th scope="col" className="p-3 text-left">Review</th><th scope="col" className="p-3 text-left">Actions</th></tr></thead>
+          <tbody>{visible.map(ps => <Fragment key={ps.id}>
+            <tr className="border-b hover:bg-slate-50"><th scope="row" className="sticky left-0 z-10 bg-white p-3 text-left font-normal"><button type="button" data-review-employee={ps.employee.id} aria-expanded={expanded.has(ps.id)} aria-controls={`detail-${ps.id}`} onClick={() => toggleExpand(ps.id)} className="min-h-11 flex items-center gap-2 text-left"><ChevronDown className={`h-4 w-4 ${expanded.has(ps.id) ? '' : '-rotate-90'}`} /><span><span className="block font-semibold">{ps.employee.lastName}, {ps.employee.firstName}</span><span className="block text-xs text-slate-500">{ps.employee.employeeNo}</span></span></button></th>
+            {columns.map(c => <td key={c.label} className={`p-3 text-right ${c.label === 'Net pay' ? 'font-bold' : ''}`}>{c.label === 'Basic pay' ? basicPay(ps) : <>{peso(c.value(ps))}{(c.label === 'Additional earnings' || c.label === 'Other earnings') && earningItems(ps)}</>}</td>)}<td className="p-3 max-w-48 whitespace-normal">{flags(ps)}</td><td className="p-3">{actions(ps)}</td></tr>
+            {expanded.has(ps.id) && <tr><td colSpan={columns.length + 3} className="bg-slate-50 p-5 whitespace-normal"><div id={`detail-${ps.id}`}>{details(ps)}</div></td></tr>}
+          </Fragment>)}</tbody>
+          <tfoot><tr className="border-t-2 bg-slate-100 font-semibold"><th scope="row" className="sticky left-0 bg-slate-100 p-3 text-left">{visible.length === payslips.length ? 'Run total' : 'Filtered subtotal'}</th>{columns.map(c => <td key={c.label} className="p-3 text-right">{peso(visible.reduce((sum, p) => sum + c.value(p), 0))}</td>)}<td colSpan={2} /></tr></tfoot>
         </table>
       </div>
 
+      {basicPayEmployee && <BasicPayComputationDialog payslip={basicPayEmployee} dtrs={dtrsByEmployee[basicPayEmployee.employee.id] ?? []} formatAmount={peso} onClose={() => setBasicPayId(null)} />}
       {editing && (
         <PayslipEditModal
           payslip={editing}
@@ -406,26 +357,6 @@ export function PayrollRunPayslips({ payslips: initial, runStatus, holidaysInPer
   )
 }
 
-// ─── Per-row gross-pay breakdown ────────────────────────────────────────────
-// Renders an itemized derivation of how the payslip's grossPay was reached,
-// styled to make audits fast. Goals:
-//   1. Every line shows the formula (rate × quantity) and the resulting peso
-//      amount so the user can verify the engine's math by inspection.
-//   2. Lines SUM to grossPay exactly — including the Art. 94 unworked-holiday
-//      credit, which is folded into basicSalary by the engine but exposed
-//      here as its own line so the basic-pay math reconciles.
-//   3. Holidays in the run's period are listed with status (worked / Art. 94
-//      credit / no pay) so users immediately see why basic includes a
-//      holiday credit.
-//
-// Derivation of Art. 94 credit:
-//   basicSalary stored on the payslip = workedBasic + (dailyRate × N) where
-//   N is the number of unworked regular holidays the employee was credited
-//   for. We back out the credit by subtracting (rate × actual quantity),
-//   which works for DAILY (dailyRate × hoursWorked/8) and HOURLY
-//   (hourlyRate × hoursWorked). For MONTHLY the credit is already inside
-//   the monthly salary so we report 0.
-
 interface BreakdownProps {
   ps: PayslipRow
   peso: (n: number) => string
@@ -434,427 +365,87 @@ interface BreakdownProps {
 }
 
 function GrossPayBreakdown({ ps, peso, holidaysInPeriod, dtrs }: BreakdownProps) {
-  const rt = ps.employee.rateType
-
+  const previous = readPreviousPay(ps.calculationBasis)
+  const carry = readDeductionCarryover(ps.calculationBasis)
+  const basis = readHourlyCalculationBasis(ps.calculationBasis)
+  const totals = payslipTotals(ps)
+  const round = (n: number) => Number(n.toFixed(2))
+  const earnings: Array<[string, number]> = [
+    [ps.basicPayManuallyEdited ? 'Basic pay (manual override)' : 'Basic pay', ps.basicSalary],
+    ['Regular overtime', ps.regularOtAmount],
+    ['Rest-day overtime', ps.restDayOtAmount],
+    ['Holiday overtime', ps.holidayOtAmount],
+    ['Night differential', ps.nightDiffAmount],
+    ['Worked-holiday premium', ps.holidayPayAmount],
+    ['Rice allowance', ps.riceAllowance ?? 0],
+    ['Clothing allowance', ps.clothingAllowance ?? 0],
+    ['Medical allowance', ps.medicalAllowance ?? 0],
+    ...ps.incomes.map(i => [i.typeName, i.amount] as [string, number]),
+    ...ps.customIncomes.map(i => [i.label, i.amount] as [string, number]),
+  ]
+  const listedOther = ps.incomes.reduce((s, i) => s + i.amount, 0) + ps.customIncomes.reduce((s, i) => s + i.amount, 0)
+  earnings.push(['Other earnings / adjustment', round(ps.otherEarnings - listedOther)])
+  const grossDifference = round(ps.grossPay - totals.grossPay)
+  const deductionDifference = round(ps.totalDeductions - totals.totalDeductions)
+  const netDifference = round(ps.netPay - (ps.grossPay - ps.totalDeductions))
+  const dtrHours = round(dtrs.reduce((s, d) => s + d.regularHours, 0))
+  const holidayByDate = new Map(holidaysInPeriod.map(h => [h.date, h]))
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-          Gross Pay Breakdown
-        </p>
-        <p className="text-[11px] text-slate-400">
-          Rate type: <span className="font-semibold text-slate-600">{rt.charAt(0) + rt.slice(1).toLowerCase()}</span>
-        </p>
-      </div>
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Saved payroll breakdown</p>
 
-      {/* Per-day breakdown — what was earned each date */}
-      <PerDayBreakdown ps={ps} dtrs={dtrs} holidaysInPeriod={holidaysInPeriod} peso={peso} />
-
-      {/* Final gross-pay tally — what the payslip actually recorded.
-          Other-income lines are surfaced here too since they don't
-          appear in the per-day table above. */}
+      {carry && (carry.loans.length > 0 || carry.otherDue > 0) && <div className="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
+        <div className="p-3"><p className="text-sm font-semibold">Deduction collection: {peso(carry.deferredTotal)} carried to next payroll</p><p className="text-xs mt-1">Only collected amounts reduce net pay and loan balances. Unpaid amounts remain due.</p></div>
+        <div className="overflow-x-auto"><table className="w-full text-xs tabular-nums"><thead><tr><th className="p-3 text-left">Deduction</th><th className="p-3 text-right">Previous carryover</th><th className="p-3 text-right">Current amount due</th><th className="p-3 text-right">Collected now</th><th className="p-3 text-right">Carried forward</th></tr></thead><tbody>
+          {carry.loans.map(l => <tr key={l.id} className="border-t border-amber-200"><td className="p-3">{l.label ?? `${l.type.replaceAll('_', ' ')} (${l.id.slice(-6)})`}</td><td className="p-3 text-right">{l.incoming === undefined ? 'Not saved' : peso(l.incoming)}</td><td className="p-3 text-right">{l.incoming === undefined ? 'Not saved' : peso(Math.max(0, l.amount - l.incoming))}</td><td className="p-3 text-right">{peso(l.paid)}</td><td className="p-3 text-right">{peso(l.deferred)}</td></tr>)}
+          {carry.otherDue > 0 && <tr className="border-t border-amber-200"><td className="p-3">Other deductions</td><td className="p-3 text-right">{peso(carry.incomingOther)}</td><td className="p-3 text-right">{peso(Math.max(0, carry.otherDue - carry.incomingOther))}</td><td className="p-3 text-right">{peso(carry.otherPaid)}</td><td className="p-3 text-right">{peso(carry.otherDeferred)}</td></tr>}
+        </tbody></table></div>
+      </div>}
+      {previous && <div className="rounded-lg border bg-white p-3 text-xs"><p className="font-semibold">Change from the previously saved payroll</p><p className="mt-1">Gross: {peso(previous.grossPay)} to {peso(ps.grossPay)}. Deductions: {peso(previous.totalDeductions)} to {peso(ps.totalDeductions)}. Net pay: {peso(previous.netPay)} to {peso(ps.netPay)}.</p></div>}
+      {ps.netPay < 0 && <p className="text-xs text-red-700">Statutory and attendance deductions exceed earnings. Review these amounts before processing payroll; loans and other deductions cannot cover this shortfall.</p>}
+      {basis && <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <p className="px-3 py-2 text-xs font-semibold">Scheduled basic pay: {basis.scheduledHours.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} hours x {peso(basis.hourlyRate)} = {peso(basis.computedBasicPay)}</p>
+        <table className="w-full text-xs"><thead><tr className="bg-slate-50 text-left"><th className="px-3 py-2">Date</th><th className="px-3 py-2">Scheduled paid hours</th><th className="px-3 py-2 text-right">Basic amount</th></tr></thead><tbody>
+          {basis.days.map(d => <tr key={d.date} className="border-t"><td className="px-3 py-2">{d.date}</td><td className="px-3 py-2">{d.hours.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}</td><td className="px-3 py-2 text-right">{peso(d.amount)}</td></tr>)}
+          <tr className="border-t font-bold"><td colSpan={2} className="px-3 py-2">Computed scheduled basic pay</td><td className="px-3 py-2 text-right">{peso(basis.computedBasicPay)}</td></tr>
+          {round(ps.basicSalary - basis.computedBasicPay) !== 0 && <tr className="border-t"><td colSpan={2} className="px-3 py-2">{ps.basicPayManuallyEdited ? 'Manual basic-pay adjustment' : 'Difference from saved calculation - review required'}</td><td className="px-3 py-2 text-right">{peso(round(ps.basicSalary - basis.computedBasicPay))}</td></tr>}
+        </tbody></table>
+        <p className="px-3 py-2 text-[11px] text-slate-500">Hours and rate saved at computation. Unpaid gaps and configured breaks are excluded. Late/undertime are deducted separately. Daily rounding is reconciled to the period total.</p>
+      </div>}
       <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-        <table className="w-full text-xs">
-          <tbody>
-            {ps.incomes.map((inc, i) => (
-              <tr key={i} className="border-b last:border-b-0">
-                <td className="px-3 py-2 align-top">
-                  <p className="font-semibold text-slate-700">{inc.typeName}</p>
-                  <p className="text-[10px] text-slate-400">Other income</p>
-                </td>
-                <td className="px-3 py-2 text-right font-bold text-slate-800 whitespace-nowrap w-32">
-                  {peso(inc.amount)}
-                </td>
-              </tr>
-            ))}
-            {ps.customIncomes.map((inc, i) => (
-              <tr key={`custom-${i}`} className="border-b last:border-b-0">
-                <td className="px-3 py-2 align-top">
-                  <p className="font-semibold text-slate-700">{inc.label}</p>
-                  <p className="text-[10px] text-slate-400">Custom additional income</p>
-                </td>
-                <td className="px-3 py-2 text-right font-bold text-slate-800 whitespace-nowrap w-32">{peso(inc.amount)}</td>
-              </tr>
-            ))}
-            {(() => {
-              const surfaced = ps.incomes.reduce((s, i) => s + i.amount, 0) + ps.customIncomes.reduce((s, i) => s + i.amount, 0)
-              const leftover = Math.max(0, Math.round((ps.otherEarnings - surfaced) * 100) / 100)
-              if (leftover <= 0) return null
-              return (
-                <tr className="border-b last:border-b-0">
-                  <td className="px-3 py-2 align-top">
-                    <p className="font-semibold text-slate-700">Additional earnings</p>
-                    <p className="text-[10px] text-slate-400">Manual adjustment</p>
-                  </td>
-                  <td className="px-3 py-2 text-right font-bold text-slate-800 whitespace-nowrap w-32">
-                    {peso(leftover)}
-                  </td>
-                </tr>
-              )
-            })()}
-            <tr className="border-t-2 border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10">
-              <td className="px-3 py-2 font-black text-slate-900 text-sm">
-                Gross pay
-                <span className="ml-2 text-[10px] font-semibold text-[#343434]">stored on payslip</span>
-              </td>
-              <td className="px-3 py-2 text-right font-black text-slate-900 text-base whitespace-nowrap w-32">
-                {peso(ps.grossPay)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <table className="w-full text-xs"><tbody>
+          {earnings.filter(([, amount], i) => i === 0 || amount !== 0).map(([label, amount], i) => (
+            <tr key={i} className="border-b"><td className="px-3 py-2">{label}</td><td className="px-3 py-2 text-right font-semibold">{peso(amount)}</td></tr>
+          ))}
+          {grossDifference !== 0 && <tr className="bg-amber-50 text-amber-900"><td className="px-3 py-2">Unreconciled saved gross difference - review required</td><td className="px-3 py-2 text-right">{peso(grossDifference)}</td></tr>}
+          <tr className="bg-slate-50 font-bold"><td className="px-3 py-2">Saved gross pay</td><td className="px-3 py-2 text-right">{peso(ps.grossPay)}</td></tr>
+          {[
+            ['Government contributions', [['SSS (employee share)', ps.sssEmployee], ['PhilHealth (employee share)', ps.philhealthEmployee], ['Pag-IBIG (employee share)', ps.pagibigEmployee]]],
+            ['Income tax', [['Withholding tax', ps.withholdingTax]]],
+            ['Attendance deductions', [['Late', ps.lateDeduction], ['Undertime', ps.undertimeDeduction], ['Absence', ps.absenceDeduction]]],
+            ['Loan repayments collected', [['SSS loans', ps.sssLoanDeduction], ['Pag-IBIG loans', ps.pagibigLoan], ['Company loans and cash advances', ps.companyLoan]]],
+            ['Other deductions collected', [['Other deductions (including benefits and adjustments)', ps.otherDeductions]]],
+          ].map(([group, items]) => <Fragment key={group as string}><tr className="bg-slate-50"><th colSpan={2} className="px-3 py-2 text-left font-semibold">{group as string}</th></tr>{(items as [string, number][]).map(([label, amount]) => <tr key={label}><td className="px-3 py-2">{label}</td><td className="px-3 py-2 text-right">{peso(amount)}</td></tr>)}</Fragment>)}
+          {deductionDifference !== 0 && <tr className="bg-amber-50 text-amber-900"><td className="px-3 py-2">Unreconciled saved deduction difference - review required</td><td className="px-3 py-2 text-right">{peso(deductionDifference)}</td></tr>}
+          <tr><td className="px-3 py-2">Saved total deductions</td><td className="px-3 py-2 text-right">{peso(ps.totalDeductions)}</td></tr>
+          {netDifference !== 0 && <tr className="bg-amber-50 text-amber-900"><td className="px-3 py-2">Unreconciled saved net difference - review required</td><td className="px-3 py-2 text-right">{peso(netDifference)}</td></tr>}
+          <tr className="bg-slate-50 font-bold"><td className="px-3 py-2">Saved net pay</td><td className="px-3 py-2 text-right">{peso(ps.netPay)}</td></tr>
+        </tbody></table>
       </div>
-    </div>
-  )
-}
-
-// ─── Per-day earnings rows ────────────────────────────────────────────────
-// Lists every day in the run period (union of DTR rows + holidays) with
-// the hours worked, a status badge, and the peso amount that day
-// contributed to gross pay. Matches the format the user asked for:
-//   April 27 — 8.00 h — ₱800
-//   April 28 — 7.50 h — ₱780
-//   May 1   — Holiday — ₱800
-
-function PerDayBreakdown({
-  ps, dtrs, holidaysInPeriod, peso,
-}: {
-  ps: PayslipRow
-  dtrs: DtrEntry[]
-  holidaysInPeriod: HolidayInPeriod[]
-  peso: (n: number) => string
-}) {
-  const hourlyRate = ps.dailyRate / 8
-  const rt = ps.employee.rateType
-  const round2 = (n: number) => Math.round(n * 100) / 100
-  // The payslip only pays APPROVED overtime (the engine uses the approved-OT
-  // map). DTR rows still carry raw computed OT hours, so a day can show worked
-  // OT that was never approved/paid. Flag that case so the breakdown matches
-  // the payslip's OT Pay (₱0) instead of implying unpaid hours were paid.
-  const otWasPaid = ps.regularOtAmount > 0
-
-  // Index holidays for quick lookup
-  const holidayByDate = new Map<string, HolidayInPeriod>()
-  for (const h of holidaysInPeriod) holidayByDate.set(h.date, h)
-
-  const dtrByDate = new Map<string, DtrEntry>()
-  for (const d of dtrs) dtrByDate.set(d.date, d)
-
-  // ── Distribution-safe approach ────────────────────────────────────────
-  // Previously this computed each day's amount independently (hours ×
-  // rate × multiplier). That over-reported in two cases:
-  //   1. OT that wasn't approved via the OT-request system — DTR records
-  //      the raw overtimeHours but the engine pays ₱0 OT
-  //   2. Employees with disableHolidayPay=true — DTRs still flag the
-  //      holiday but the engine pays no Art. 94 credit + no premium
-  //
-  // Now we distribute the engine's STORED totals (ps.regularOtAmount,
-  // ps.nightDiffAmount, ps.holidayPayAmount, derived Art. 94) across the
-  // matching days. If a stored total is 0 (e.g. OT not approved), every
-  // day shows 0 for that component. That way the daily sum always tallies
-  // to what the engine actually paid.
-  const totalOtHoursDtr = dtrs.reduce((s, d) => s + d.overtimeHours, 0)
-  const totalNdHoursDtr = dtrs.reduce((s, d) => s + d.nightDiffHours, 0)
-  // Late / undertime: the engine stores period-level peso deductions
-  // (ps.lateDeduction / ps.undertimeDeduction). Distribute each proportional
-  // to its own per-day minutes so the daily lines sum back to the stored
-  // deduction exactly. These are deductions from NET — not part of gross.
-  const totalLateMinDtr = dtrs.reduce((s, d) => s + (d.lateMinutes || 0), 0)
-  const totalUtMinDtr = dtrs.reduce((s, d) => s + (d.undertimeMinutes || 0), 0)
-
-  // Worked-holiday day classification (for premium distribution)
-  const workedRegularHolidayDates: string[] = []
-  const workedSpecialHolidayDates: string[] = []
-  const unworkedRegularHolidayDates: string[] = []
-  for (const h of holidaysInPeriod) {
-    const d = dtrByDate.get(h.date)
-    const reg = d?.regularHours ?? 0
-    const wasWorked = !!d && !d.isAbsent && !(d.isLeave && !d.isLeavePaid) && reg > 0
-    if (h.type === 'REGULAR') {
-      if (wasWorked) workedRegularHolidayDates.push(h.date)
-      else unworkedRegularHolidayDates.push(h.date)
-    } else if (h.type === 'SPECIAL_NON_WORKING' && wasWorked) {
-      workedSpecialHolidayDates.push(h.date)
-    }
-  }
-
-  // Derive what the engine actually credited for Art. 94. For HOURLY/DAILY
-  // basicSalary stored = (rate × hoursWorked) + art94CreditTotal. For
-  // MONTHLY it's all rolled into the monthly figure so we can't split.
-  let workedBasicReference = ps.basicSalary
-  if (rt === 'HOURLY') workedBasicReference = round2(hourlyRate * ps.hoursWorked)
-  else if (rt === 'DAILY') workedBasicReference = round2(ps.dailyRate * (ps.hoursWorked / 8))
-  const art94CreditTotal = rt === 'MONTHLY'
-    ? 0
-    : Math.max(0, round2(ps.basicSalary - workedBasicReference))
-  // disableHolidayPay zeros out BOTH art94 and worked-holiday premium —
-  // if the engine paid 0 holiday premium AND 0 art94 credit despite the
-  // employee being on a holiday, that's the case. We use the stored
-  // totals as the source of truth so the breakdown matches reality.
-
-  // Build the row list: one entry per date, sourced from DTR ∪ holidays.
-  type Row = {
-    date: string
-    hours: number
-    overtimeHours: number
-    nightDiffHours: number
-    lateMinutes: number
-    undertimeMinutes: number
-    lateUtDeduction: number
-    workedAmount: number
-    overtimeAmount: number
-    nightDiffAmount: number
-    holidayPremium: number
-    art94Credit: number
-    status: string
-    statusTone: 'green' | 'amber' | 'red' | 'blue' | 'slate'
-    note?: string
-  }
-
-  const allDates = new Set<string>([...dtrByDate.keys(), ...holidayByDate.keys()])
-  const sortedDates = Array.from(allDates).sort()
-
-  const rows: Row[] = []
-  for (const dateKey of sortedDates) {
-    const d = dtrByDate.get(dateKey)
-    const holiday = holidayByDate.get(dateKey)
-
-    const reg = d ? d.regularHours : 0
-    const ot = d ? d.overtimeHours : 0
-    const nd = d ? d.nightDiffHours : 0
-    const lateMin = d ? (d.lateMinutes || 0) : 0
-    const utMin = d ? (d.undertimeMinutes || 0) : 0
-    const lateDed = totalLateMinDtr > 0 ? round2((lateMin / totalLateMinDtr) * ps.lateDeduction) : 0
-    const utDed = totalUtMinDtr > 0 ? round2((utMin / totalUtMinDtr) * ps.undertimeDeduction) : 0
-    const lateUtDeduction = round2(lateDed + utDed)
-    const isAbsent = d?.isAbsent ?? false
-    const isLeave = d?.isLeave ?? false
-    const isLeavePaid = d?.isLeavePaid ?? false
-
-    // Worked basic for this day — uses worker's rate × hours. Matches
-    // engine for HOURLY/DAILY; for MONTHLY this is illustrative since
-    // the engine pro-rates a single monthly figure.
-    const workedAmount = round2(hourlyRate * reg)
-
-    // Distribute stored OT/ND totals proportional to this day's hours.
-    // When the engine paid ₱0 (OT not approved, ND disabled, etc.) the
-    // per-day amount is also 0.
-    const overtimeAmount = totalOtHoursDtr > 0
-      ? round2((ot / totalOtHoursDtr) * ps.regularOtAmount)
-      : 0
-    const nightDiffAmount = totalNdHoursDtr > 0
-      ? round2((nd / totalNdHoursDtr) * ps.nightDiffAmount)
-      : 0
-
-    // Worked-holiday premium: distribute stored holidayPayAmount across
-    // the worked-holiday days. If the engine paid 0 (disableHolidayPay),
-    // every day shows 0.
-    let holidayPremium = 0
-    const workedHolidayCount = workedRegularHolidayDates.length + workedSpecialHolidayDates.length
-    if (workedHolidayCount > 0 && (workedRegularHolidayDates.includes(dateKey) || workedSpecialHolidayDates.includes(dateKey))) {
-      holidayPremium = round2(ps.holidayPayAmount / workedHolidayCount)
-    }
-
-    // Art. 94 credit: distribute the derived total across unworked
-    // regular holidays. If disableHolidayPay was on, art94CreditTotal=0
-    // (because the engine didn't fold a credit into basicSalary), so
-    // every day shows 0.
-    let art94Credit = 0
-    if (
-      unworkedRegularHolidayDates.length > 0
-      && unworkedRegularHolidayDates.includes(dateKey)
-      && art94CreditTotal > 0
-    ) {
-      art94Credit = round2(art94CreditTotal / unworkedRegularHolidayDates.length)
-    }
-
-    let status: string
-    let statusTone: Row['statusTone']
-    let note: string | undefined
-    if (holiday) {
-      status = holiday.type === 'REGULAR' ? 'Regular holiday' : 'Special holiday'
-      statusTone = 'amber'
-      note = holiday.name
-    } else if (isAbsent) {
-      status = 'Absent'
-      statusTone = 'red'
-    } else if (isLeave) {
-      status = isLeavePaid ? 'Paid leave' : 'Unpaid leave'
-      statusTone = isLeavePaid ? 'blue' : 'slate'
-    } else if (reg > 0 || ot > 0) {
-      status = 'Present'
-      statusTone = 'green'
-    } else {
-      status = 'No work'
-      statusTone = 'slate'
-    }
-
-    rows.push({
-      date: dateKey,
-      hours: reg,
-      overtimeHours: ot,
-      nightDiffHours: nd,
-      lateMinutes: lateMin,
-      undertimeMinutes: utMin,
-      lateUtDeduction,
-      workedAmount,
-      overtimeAmount,
-      nightDiffAmount,
-      holidayPremium,
-      art94Credit,
-      status,
-      statusTone,
-      note,
-    })
-  }
-
-  if (rows.length === 0) {
-    return null
-  }
-
-  const toneClasses: Record<Row['statusTone'], string> = {
-    green: 'bg-emerald-100 text-emerald-700',
-    amber: 'bg-amber-100 text-amber-700',
-    red: 'bg-rose-100 text-rose-700',
-    blue: 'bg-sky-100 text-sky-700',
-    slate: 'bg-slate-100 text-slate-600',
-  }
-  const formatDate = (iso: string) => {
-    // YYYY-MM-DD → "Apr 27, Mon"
-    const [y, m, d] = iso.split('-').map(n => Number(n))
-    const dt = new Date(Date.UTC(y, m - 1, d))
-    const month = dt.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
-    const dow = dt.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' })
-    return `${month} ${d}, ${dow}`
-  }
-
-  const grandWorked = round2(rows.reduce((s, r) => s + r.workedAmount, 0))
-  const grandPremium = round2(rows.reduce((s, r) => s + r.holidayPremium + r.art94Credit, 0))
-  const grandOt = round2(rows.reduce((s, r) => s + r.overtimeAmount, 0))
-  const grandNd = round2(rows.reduce((s, r) => s + r.nightDiffAmount, 0))
-  const grandLateMin = rows.reduce((s, r) => s + r.lateMinutes, 0)
-  const grandUtMin = rows.reduce((s, r) => s + r.undertimeMinutes, 0)
-  const grandLateUtDed = round2(ps.lateDeduction + ps.undertimeDeduction)
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-          Per-day breakdown ({rows.length})
-        </p>
-        <p className="text-[10px] text-slate-400">
-          {rt === 'HOURLY' ? `${peso(hourlyRate)} / hr` : `${peso(ps.dailyRate)} / day · ${peso(hourlyRate)} / hr`}
-        </p>
-      </div>
-      <table className="w-full text-xs">
-        <thead className="bg-slate-50/50">
-          <tr className="text-slate-500 text-[10px] uppercase tracking-wide">
-            <th className="text-left px-3 py-1.5 font-semibold">Date</th>
-            <th className="text-left px-3 py-1.5 font-semibold">Status</th>
-            <th className="text-right px-3 py-1.5 font-semibold">Reg hrs</th>
-            <th className="text-right px-3 py-1.5 font-semibold">OT</th>
-            <th className="text-right px-3 py-1.5 font-semibold">ND</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-rose-500">Late / UT</th>
-            <th className="text-right px-3 py-1.5 font-semibold">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const totalForDay = round2(r.workedAmount + r.overtimeAmount + r.nightDiffAmount + r.holidayPremium + r.art94Credit)
-            return (
-              <tr key={r.date} className="border-b last:border-b-0">
-                <td className="px-3 py-1.5 align-top">
-                  <p className="font-mono text-slate-700">{formatDate(r.date)}</p>
-                </td>
-                <td className="px-3 py-1.5 align-top">
-                  <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${toneClasses[r.statusTone]}`}>
-                    {r.status}
-                  </span>
-                  {r.note && (
-                    <p className="text-[10px] text-slate-500 mt-0.5">{r.note}</p>
-                  )}
-                  {r.holidayPremium > 0 && (
-                    <p className="text-[10px] text-purple-700 mt-0.5">+ Worked-holiday premium {peso(r.holidayPremium)}</p>
-                  )}
-                </td>
-                <td className="px-3 py-1.5 text-right align-top text-slate-700">
-                  {r.hours > 0 ? `${r.hours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-1.5 text-right align-top">
-                  {r.overtimeHours > 0 ? (
-                    otWasPaid ? (
-                      <span className="text-blue-700">{r.overtimeHours.toFixed(2)}h</span>
-                    ) : (
-                      <span className="inline-block leading-tight" title="Worked OT was not approved — not paid in this run">
-                        <span className="text-slate-400 line-through">{r.overtimeHours.toFixed(2)}h</span>
-                        <span className="block text-[9px] text-slate-400">unpaid</span>
-                      </span>
-                    )
-                  ) : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-1.5 text-right align-top text-cyan-700">
-                  {r.nightDiffHours > 0 ? `${r.nightDiffHours.toFixed(2)}h` : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-1.5 text-right align-top whitespace-nowrap">
-                  {(r.lateMinutes > 0 || r.undertimeMinutes > 0) ? (
-                    <div className="leading-tight">
-                      <p className="font-bold text-rose-600">-{peso(r.lateUtDeduction)}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {r.lateMinutes > 0 ? `${r.lateMinutes}m late` : ''}
-                        {r.lateMinutes > 0 && r.undertimeMinutes > 0 ? ' · ' : ''}
-                        {r.undertimeMinutes > 0 ? `${r.undertimeMinutes}m UT` : ''}
-                      </p>
-                    </div>
-                  ) : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-1.5 text-right align-top font-bold text-slate-800 whitespace-nowrap">
-                  {totalForDay > 0 ? peso(totalForDay) : <span className="text-slate-300">—</span>}
-                </td>
-              </tr>
-            )
-          })}
-          <tr className="bg-slate-50 border-t-2 border-slate-300">
-            <td className="px-3 py-1.5 font-bold text-slate-700" colSpan={2}>
-              Daily totals
-            </td>
-            <td className="px-3 py-1.5 text-right font-bold text-slate-700">
-              {peso(grandWorked)}
-            </td>
-            <td className="px-3 py-1.5 text-right font-bold text-blue-700">
-              {grandOt > 0 ? peso(grandOt) : <span className="text-slate-300">—</span>}
-            </td>
-            <td className="px-3 py-1.5 text-right font-bold text-cyan-700">
-              {grandNd > 0 ? peso(grandNd) : <span className="text-slate-300">—</span>}
-            </td>
-            <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
-              {grandLateUtDed > 0 ? (
-                <div className="leading-tight">
-                  <p className="text-rose-600">-{peso(grandLateUtDed)}</p>
-                  <p className="text-[10px] font-normal text-slate-400">
-                    {grandLateMin > 0 ? `${grandLateMin}m late` : ''}
-                    {grandLateMin > 0 && grandUtMin > 0 ? ' · ' : ''}
-                    {grandUtMin > 0 ? `${grandUtMin}m UT` : ''}
-                  </p>
-                </div>
-              ) : <span className="text-slate-300">—</span>}
-            </td>
-            <td className="px-3 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">
-              {peso(round2(grandWorked + grandOt + grandNd + grandPremium))}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p className="px-3 py-1.5 text-[10px] text-slate-400 bg-slate-50 border-t border-slate-200">
-        OT / ND / holiday-premium amounts are distributed from the engine&apos;s
-        stored totals proportional to each day&apos;s hours, so the daily sum
-        always tallies to what the payslip actually paid. Days show ₱0 for
-        a component when the engine credited none. Worked OT that wasn&apos;t
-        approved (or when overtime is disabled) is shown struck-through and
-        marked <span className="text-slate-400">unpaid</span> — it is not in
-        gross. <span className="text-rose-500">Late / UT</span> is a
-        deduction from net pay (not part of gross) — shown here per day; its column total
-        equals the payslip&apos;s stored late + undertime deduction.
-      </p>
+      {dtrs.length > 0 && <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <p className="px-3 py-2 text-xs text-slate-600">Current attendance reference. Historical calculation inputs were not saved; these rows can differ from the attendance used when payroll was computed. Money amounts above come from the saved payslip.</p>
+        {Math.abs(dtrHours - ps.hoursWorked) > 0.01 && <p className="px-3 py-2 text-xs text-amber-800 bg-amber-50">Current DTR hours: {dtrHours.toFixed(2)}; saved payroll hours: {ps.hoursWorked.toFixed(2)}. Review changes or credited leave before recomputing.</p>}
+        <table className="w-full text-xs"><thead><tr className="bg-slate-50 text-left">
+          {['Date', 'Status', 'Regular hours', 'Recorded OT hours', 'ND hours', 'Late min', 'UT min'].map(h => <th key={h} className="px-3 py-2">{h}</th>)}
+        </tr></thead><tbody>
+          {dtrs.map((d, index) => <tr key={`${d.date}-${index}`} className="border-t">
+            <td className="px-3 py-2">{d.date}</td>
+            <td className="px-3 py-2">{d.isAbsent ? 'Absent' : d.isLeave ? (d.isLeavePaid ? 'Paid leave' : 'Unpaid leave') : 'Present'}{holidayByDate.has(d.date) ? ` | ${holidayByDate.get(d.date)!.name}` : ''}</td>
+            {[d.regularHours, d.overtimeHours, d.nightDiffHours, d.lateMinutes, d.undertimeMinutes].map((v, i) => <td key={i} className="px-3 py-2">{v.toFixed(2)}</td>)}
+          </tr>)}
+        </tbody></table>
+        <p className="px-3 py-2 text-[11px] text-slate-500">Recorded overtime is attendance information; only approved, eligible overtime is payable. Late and undertime reduce net pay separately from gross.</p>
+      </div>}
     </div>
   )
 }

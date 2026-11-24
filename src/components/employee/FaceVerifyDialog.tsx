@@ -131,7 +131,7 @@ export function FaceVerifyDialog({
             <FaceMeshScanner
               key={attempt}
               samples={3}
-              accent="#10b981"
+              accent="#c74300"
               onComplete={handleComplete}
               hint="Look at the camera and hold still."
             />

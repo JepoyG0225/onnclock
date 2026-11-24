@@ -1,3 +1,4 @@
+import { activityScope } from '@/lib/attendance/activities'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -21,9 +22,9 @@ export async function GET(
   const record = await prisma.dTRRecord.findFirst({
     where: {
       id,
-      employee: { companyId },
+      employee: await activityScope({ ...ctx, companyId }),
     },
-    select: { id: true },
+    select: { id: true, clockInPhoto: true, breakInPhoto: true, breakOutPhoto: true, clockOutPhoto: true, timeIn: true, breakIn: true, breakOut: true, timeOut: true },
   })
 
   if (!record) {
@@ -44,6 +45,12 @@ export async function GET(
     },
   })
 
-  return NextResponse.json({ captures })
+  const selfies = [
+    { id: `${id}:clock-in`, label: 'Clock-in selfie', imageDataUrl: record.clockInPhoto, capturedAt: record.timeIn },
+    { id: `${id}:break-start`, label: 'Break start selfie', imageDataUrl: record.breakInPhoto, capturedAt: record.breakIn },
+    { id: `${id}:break-end`, label: 'Break end selfie', imageDataUrl: record.breakOutPhoto, capturedAt: record.breakOut },
+    { id: `${id}:clock-out`, label: 'Clock-out selfie', imageDataUrl: record.clockOutPhoto, capturedAt: record.timeOut },
+  ].filter(photo => photo.imageDataUrl && photo.capturedAt)
+  return NextResponse.json({ captures: [...selfies, ...captures.map(photo => ({ ...photo, label: 'Screenshot' }))] }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 

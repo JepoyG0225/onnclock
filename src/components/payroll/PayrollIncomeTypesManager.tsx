@@ -1,4 +1,6 @@
 ﻿'use client'
+import { AppSpinner } from '@/components/ui/AppSpinner'
+
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -216,7 +218,7 @@ export default function PayrollIncomeTypesManager() {
 
         <div className="space-y-2">
           {incomeTypesLoading ? (
-            <p className="text-sm text-gray-400">Loading income types...</p>
+            <AppSpinner size="md" message="Loading income types..." className="py-8" />
           ) : incomeTypes.length === 0 ? (
             <p className="text-sm text-gray-400">No income types yet.</p>
           ) : (

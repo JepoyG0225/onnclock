@@ -57,6 +57,8 @@ const includeEmployee = {
       firstName: true,
       lastName: true,
       employeeNo: true,
+      disableEarlyInOt: true,
+      disableBeyondScheduleOt: true,
       departmentId: true,
       department: { select: { name: true } },
       position: { select: { title: true } },
@@ -84,12 +86,14 @@ export async function PATCH(
   }
 
   const body = await req.json()
+  if (body.status === 'APPROVED' && existing.employee.disableEarlyInOt && existing.employee.disableBeyondScheduleOt) return NextResponse.json({ error: 'Overtime is disabled for this employee.' }, { status: 422 })
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 })
   }
 
   const { status, rejectionReason } = parsed.data
+  if (!await ctxHasPermission(ctx, 'overtime:approve')) return NextResponse.json({ error: 'View-only access. Approval permission is required.' }, { status: 403 })
 
   // Cancellation stays a simple legacy HR action — no workflow chain.
   if (status === 'CANCELLED') {
@@ -174,7 +178,7 @@ export async function PATCH(
         plan: decision.plan,
         nextLevel: decision.nextLevel,
         isFinal: false,
-        ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/overtime-requests', vars: { requestType: 'Overtime', requesterName } },
+        ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: `/overtime-requests?requestId=${existing.id}`, vars: { requestType: 'Overtime', requesterName } },
         nextApproverTitle: 'Overtime request awaiting your approval',
         nextApproverBody: `${requesterName} · ${existing.hours}h`,
       })
@@ -214,7 +218,7 @@ export async function PATCH(
       plan: decision.plan,
       nextLevel: decision.nextLevel,
       isFinal: true,
-      ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: '/overtime-requests', vars: { requestType: 'Overtime', requesterName } },
+      ctx: { companyId: ctx.companyId, requesterEmployeeId: existing.employeeId, requesterDepartmentId, link: `/overtime-requests?requestId=${existing.id}`, vars: { requestType: 'Overtime', requesterName } },
       nextApproverTitle: '', nextApproverBody: '',
     })
   }

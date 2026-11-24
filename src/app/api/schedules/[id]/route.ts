@@ -1,6 +1,8 @@
+import { scheduleTimezoneSchema } from '@/lib/attendance/timezone'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/api-auth'
+import { locationPolicySchema } from '@/lib/attendance/location-policy'
 import { z } from 'zod'
 import { validateShiftTimes } from '@/lib/timesheet/validate-shift'
 
@@ -10,9 +12,11 @@ const weekPatternSchema = z.object({
 })
 
 const updateSchema = z.object({
+  timezone: scheduleTimezoneSchema.optional(),
   name: z.string().min(2).optional(),
   scheduleType: z.enum(['FIXED', 'FLEXITIME', 'SHIFTING', 'COMPRESSED']).optional(),
   requireSelfieOnClockIn: z.boolean().optional(),
+  attendanceLocation: locationPolicySchema.optional(),
   timeIn: z.string().optional().nullable(),
   timeOut: z.string().optional().nullable(),
   workDays: z.array(z.number().int().min(0).max(6)).min(1).optional(),
@@ -66,6 +70,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const updateData: Parameters<typeof prisma.workSchedule.update>[0]['data'] = {}
 
+    if (data.attendanceLocation !== undefined) updateData.attendanceLocation = data.attendanceLocation
+    if (data.timezone !== undefined) updateData.timezone = data.timezone
     if (data.name !== undefined) updateData.name = data.name
     if (data.scheduleType !== undefined) updateData.scheduleType = data.scheduleType
 

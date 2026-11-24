@@ -1,5 +1,7 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 
+import { attendanceReviewStatus } from '@/lib/attendance/review'
 import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -38,6 +40,8 @@ import { Input } from '@/components/ui/input'
 import { DatePicker } from '@/components/ui/date-picker'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 import { DtrImportModal } from '@/components/dtr/DtrImportModal'
+import { RestDayRequests } from '@/components/attendance/RestDayRequests'
+import { TimesheetActivities } from '@/components/attendance/ActivityLog'
 
 interface DTRRecord {
   id: string
@@ -49,12 +53,14 @@ interface DTRRecord {
   breakOut: string | null
   regularHours: number | null
   overtimeHours: number | null
+  pendingOvertimeHours?: number
   unreportedOvertimeHours?: number
   nightDiffHours: number | null
   lateMinutes: number | null
   undertimeMinutes: number | null
   isAbsent: boolean
   isRestDay: boolean
+  restDayApproval?: string | null
   isHoliday: boolean
   holidayType: string | null
   isLeave: boolean
@@ -67,11 +73,13 @@ interface DTRRecord {
   clockOutLng: number | null
   clockOutAddress: string | null
   employee: {
+    trackTime: boolean
     firstName: string
     lastName: string
     employeeNo: string
     department: { name: string } | null
   }
+  selfieCount?: number
   screenCaptureCount?: number
   screenCaptures?: {
     id: string
@@ -106,6 +114,7 @@ interface WeeklyGroup {
   records: DTRRecord[]
   totalRegular: number
   totalOvertime: number
+  totalPendingOvertime: number
   totalUnreportedOvertime: number
   totalNightDiff: number
   totalLate: number
@@ -113,7 +122,7 @@ interface WeeklyGroup {
   pendingCount: number
   approvedCount: number
   rejectedCount: number
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'MIXED'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'MIXED' | 'IN_PROGRESS' | 'NOT_REQUIRED'
 }
 
 interface WeekOption {
@@ -129,24 +138,24 @@ interface CompanyOption {
 }
 
 const STATUS_BADGE: Record<WeeklyGroup['status'], string> = {
-  PENDING: 'bg-[var(--brand-highlight)] text-black',
+  IN_PROGRESS: 'bg-slate-100 text-slate-500',
+  NOT_REQUIRED: 'bg-slate-100 text-slate-500',
+  PENDING: 'bg-[var(--brand-highlight)] text-primary',
   APPROVED: 'bg-[var(--brand-primary)] text-white',
   REJECTED: 'bg-[var(--brand-danger)] text-white',
   MIXED: 'bg-[var(--brand-primary)] text-white',
 }
 
-const DAILY_STATUS_BADGE: Record<'PENDING' | 'APPROVED' | 'REJECTED', string> = {
-  PENDING: 'bg-[var(--brand-highlight)] text-black',
+const DAILY_STATUS_BADGE: Record<ReturnType<typeof attendanceReviewStatus>, string> = {
+  IN_PROGRESS: 'bg-slate-100 text-slate-500',
+  NOT_REQUIRED: 'bg-slate-100 text-slate-500',
+  PENDING: 'bg-[var(--brand-highlight)] text-primary',
   APPROVED: 'bg-[var(--brand-primary)] text-white',
   REJECTED: 'bg-[var(--brand-danger)] text-white',
 }
 
 
-function dailyStatus(record: DTRRecord): 'PENDING' | 'APPROVED' | 'REJECTED' {
-  if (record.approvedBy) return 'APPROVED'
-  if (record.remarks === 'REJECTED') return 'REJECTED'
-  return 'PENDING'
-}
+function dailyStatus(record: DTRRecord) { return attendanceReviewStatus(record) }
 
 function weekStatus(records: DTRRecord[]): WeeklyGroup['status'] {
   let pending = 0
@@ -161,6 +170,7 @@ function weekStatus(records: DTRRecord[]): WeeklyGroup['status'] {
   if (pending > 0 && approved === 0 && rejected === 0) return 'PENDING'
   if (pending === 0 && approved > 0 && rejected === 0) return 'APPROVED'
   if (pending === 0 && rejected > 0 && approved === 0) return 'REJECTED'
+  if(!pending&&!approved&&!rejected)return records.some(r=>dailyStatus(r)==='IN_PROGRESS')?'IN_PROGRESS':'NOT_REQUIRED'
   return 'MIXED'
 }
 
@@ -215,7 +225,7 @@ export function TimesheetsTab() {
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [expandedCaptureRows, setExpandedCaptureRows] = useState<Record<string, boolean>>({})
-  const [captureRows, setCaptureRows] = useState<Record<string, Array<{ id: string; imageDataUrl: string; capturedAt: string }>>>({})
+  const [captureRows, setCaptureRows] = useState<Record<string, Array<{ id: string; imageDataUrl: string; capturedAt: string; label?: string }>>>({})
   const [captureLoading, setCaptureLoading] = useState<Record<string, boolean>>({})
   const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null)
 
@@ -577,7 +587,10 @@ export function TimesheetsTab() {
       const to = format(activeRange.end, 'yyyy-MM-dd')
       const res = await fetch(withCompanyQuery(`/api/dtr?from=${from}&to=${to}&limit=2000&completed=1`))
       const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error('Unable to load timesheets. Please refresh and try again.')
       setRecords((data.records ?? []) as DTRRecord[])
+    } catch {
+      toast.error('Unable to load timesheets. Please refresh and try again.')
     } finally {
       setLoading(false)
     }
@@ -652,6 +665,7 @@ export function TimesheetsTab() {
           records: [],
           totalRegular: 0,
           totalOvertime: 0,
+          totalPendingOvertime: 0,
           totalUnreportedOvertime: 0,
           totalNightDiff: 0,
           totalLate: 0,
@@ -666,6 +680,7 @@ export function TimesheetsTab() {
       g.records.push(r)
       g.totalRegular += Number(r.regularHours ?? 0)
       g.totalOvertime += Number(r.overtimeHours ?? 0)
+      g.totalPendingOvertime += Number(r.pendingOvertimeHours ?? 0)
       g.totalUnreportedOvertime += Number(r.unreportedOvertimeHours ?? 0)
       g.totalNightDiff += Number(r.nightDiffHours ?? 0)
       g.totalLate += Number(r.lateMinutes ?? 0)
@@ -754,7 +769,10 @@ export function TimesheetsTab() {
   async function approveRecord(id: string, action: 'APPROVED' | 'REJECTED') {
     if (action !== 'APPROVED') return executeApproveSingle(id, action, [])
     const rec = records.find(r => r.id === id)
-    const otHours = Number(rec?.overtimeHours ?? 0)
+    // Count PENDING OT too — approved-only would mean the OT picker never
+    // opens for OT that still needs approving, which is the only case that
+    // matters here.
+    const otHours = Number(rec?.overtimeHours ?? 0) + Number(rec?.pendingOvertimeHours ?? 0)
     if (overtimePayEnabled && otHours > 0 && rec) {
       setPendingApproval({
         kind: 'single',
@@ -795,7 +813,7 @@ export function TimesheetsTab() {
 
   async function approveEmployeeWeek(group: WeeklyGroup, action: 'APPROVED' | 'REJECTED') {
     if (action !== 'APPROVED') return executeApproveEmployeeWeek(group, action, [])
-    if (overtimePayEnabled && group.totalOvertime > 0) {
+    if (overtimePayEnabled && group.totalOvertime + group.totalPendingOvertime > 0) {
       setPendingApproval({ kind: 'employee-week', group })
     } else {
       await executeApproveEmployeeWeek(group, action, undefined)
@@ -834,7 +852,7 @@ export function TimesheetsTab() {
     for (const r of records) {
       if (dailyStatus(r) !== 'PENDING') continue
       count++
-      ot += Number(r.overtimeHours ?? 0)
+      ot += Number(r.overtimeHours ?? 0) + Number(r.pendingOvertimeHours ?? 0)
       regular += Number(r.regularHours ?? 0)
     }
     return { count, ot, regular }
@@ -1071,9 +1089,10 @@ export function TimesheetsTab() {
     try {
       const res = await fetch(withCompanyQuery(`/api/dtr/${recordId}/captures?limit=24`))
       const data = await res.json().catch(() => ({}))
-      setCaptureRows(prev => ({ ...prev, [recordId]: (data.captures ?? []) as Array<{ id: string; imageDataUrl: string; capturedAt: string }> }))
+      if (!res.ok) throw new Error(data.error ?? 'Unable to load attendance photos')
+      setCaptureRows(prev => ({ ...prev, [recordId]: (data.captures ?? []) as Array<{ id: string; imageDataUrl: string; capturedAt: string; label?: string }> }))
     } catch {
-      toast.error('Failed to load screenshots')
+      toast.error('Failed to load attendance photos')
     } finally {
       setCaptureLoading(prev => ({ ...prev, [recordId]: false }))
     }
@@ -1088,6 +1107,7 @@ export function TimesheetsTab() {
 
   return (
     <div className="space-y-6">
+      <RestDayRequests />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Time Sheets</h1>
@@ -1107,14 +1127,14 @@ export function TimesheetsTab() {
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" onClick={() => setShowImport(true)} disabled={isSystemAdmin && !selectedCompanyId}>
+          <PermissionGate permission="dtr:write"><Button variant="outline" onClick={() => setShowImport(true)} disabled={isSystemAdmin && !selectedCompanyId}>
             <Upload className="w-4 h-4 mr-2" />
             Bulk Import
-          </Button>
-          <Button onClick={() => setShowForm(true)} disabled={isSystemAdmin && !selectedCompanyId}>
+          </Button></PermissionGate>
+          <PermissionGate permission="dtr:write"><Button onClick={() => setShowForm(true)} disabled={isSystemAdmin && !selectedCompanyId}>
             <Plus className="w-4 h-4 mr-2" />
             Add DTR Entry
-          </Button>
+          </Button></PermissionGate>
         </div>
       </div>
 
@@ -1250,7 +1270,7 @@ export function TimesheetsTab() {
               <CardTitle className="text-base flex items-center gap-2">
                 New DTR Entry
                 {scheduleAutoFilling && (
-                  <span className="text-xs font-normal text-blue-500 animate-pulse">Loading schedule…</span>
+                  <AppSpinner size="sm" message="Loading schedule…" className="py-1" />
                 )}
               </CardTitle>
             </CardHeader>
@@ -1324,7 +1344,7 @@ export function TimesheetsTab() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={submitForm}>Save DTR Entry</Button>
+                <PermissionGate permission="dtr:write"><Button onClick={submitForm}>Save DTR Entry</Button></PermissionGate>
                 <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
               </div>
             </CardContent>
@@ -1426,9 +1446,9 @@ export function TimesheetsTab() {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setEditRecord(null)}>Cancel</Button>
-                <Button disabled={editSaving} onClick={saveEdit} style={{ background: 'var(--brand-highlight)' }} className="text-white">
+                <PermissionGate permission="dtr:write"><Button disabled={editSaving} onClick={saveEdit} style={{ background: 'var(--brand-highlight)' }} className="text-white">
                   {editSaving ? 'Saving…' : 'Save Changes'}
-                </Button>
+                </Button></PermissionGate>
               </div>
             </CardContent>
           </Card>
@@ -1448,7 +1468,7 @@ export function TimesheetsTab() {
               <Input value={deleteInput} onChange={e => setDeleteInput(e.target.value)} placeholder="Type DELETE" />
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setShowDelete(false)}>Cancel</Button>
-                <Button className="bg-red-600 hover:bg-red-700" onClick={confirmDelete}>Delete</Button>
+                <PermissionGate permission="dtr:write"><Button className="bg-red-600 hover:bg-red-700" onClick={confirmDelete}>Delete</Button></PermissionGate>
               </div>
             </CardContent>
           </Card>
@@ -1464,7 +1484,9 @@ export function TimesheetsTab() {
       {pendingApproval && portalTarget && createPortal(
         (() => {
           const pa = pendingApproval
-          const otHours = pa.kind === 'employee-week' ? pa.group.totalOvertime : pa.otHours
+          const otHours = pa.kind === 'employee-week'
+            ? pa.group.totalOvertime + pa.group.totalPendingOvertime
+            : pa.otHours
           const regularHours = pa.kind === 'employee-week' ? pa.group.totalRegular : pa.regularHours
           const recordCount = pa.kind === 'all' ? pa.recordCount : undefined
           const title =
@@ -1495,7 +1517,7 @@ export function TimesheetsTab() {
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPendingApproval(null)} />
-              <Card className="relative w-full max-w-xl border-emerald-200 shadow-2xl max-h-[90vh] flex flex-col">
+              <Card className="relative w-full max-w-2xl border-emerald-200 shadow-2xl max-h-[90vh] flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-base text-emerald-700">{title}</CardTitle>
                 </CardHeader>
@@ -1532,7 +1554,7 @@ export function TimesheetsTab() {
                         Tick the timesheets whose OT should be approved for payroll. Unticked rows stay PENDING so you can decide on them later — useful when a long day had legitimate OT mixed with unintended over-work.
                       </p>
                       {pendingOtLoading ? (
-                        <div className="text-xs text-slate-400 py-3">Loading overtime requests…</div>
+                        <AppSpinner size="md" message="Loading overtime requests…" className="py-8" />
                       ) : pendingOt && pendingOt.length === 0 ? (
                         <div className="text-xs text-slate-400 py-3">
                           No pending overtime requests found for this scope — DTR records will be approved without OT.
@@ -1601,7 +1623,11 @@ export function TimesheetsTab() {
                     </p>
                   )}
                 </CardContent>
-                <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                {/* Buttons carry shrink-0 + whitespace-nowrap, so a long OT
+                    label ("Approve OT (65.60h · 48 requests)") can't compress
+                    and used to push Cancel out past the card's left edge.
+                    flex-wrap lets the row break instead of overflowing. */}
+                <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2 sm:justify-end">
                   <Button variant="outline" onClick={() => setPendingApproval(null)}>Cancel</Button>
                   {showOtPicker ? (
                     <>
@@ -1612,14 +1638,14 @@ export function TimesheetsTab() {
                         inferred from tick state the approver may not have
                         looked at.
                       */}
-                      <Button
+                      <PermissionGate permission="dtr:approve"><Button
                         variant="outline"
                         onClick={() => confirmPending(false)}
                         disabled={pendingOtLoading}
                       >
                         Approve regular hours only
-                      </Button>
-                      <Button
+                      </Button></PermissionGate>
+                      <PermissionGate permission="dtr:approve"><Button
                         variant="success" className=""
                         onClick={() => confirmPending(true)}
                         disabled={pendingOtLoading || noneSelected}
@@ -1628,12 +1654,12 @@ export function TimesheetsTab() {
                         {noneSelected
                           ? 'Approve OT'
                           : `Approve OT (${selectedHours.toFixed(2)}h · ${selectedOtIds.size} request${selectedOtIds.size !== 1 ? 's' : ''})`}
-                      </Button>
+                      </Button></PermissionGate>
                     </>
                   ) : (
-                    <Button variant="success" className="" onClick={() => confirmPending(false)}>
+                    <PermissionGate permission="dtr:approve"><Button variant="success" className="" onClick={() => confirmPending(false)}>
                       Approve
-                    </Button>
+                    </Button></PermissionGate>
                   )}
                 </div>
               </Card>
@@ -1750,7 +1776,7 @@ export function TimesheetsTab() {
               <Users className="w-4 h-4" />
               <span className="capitalize">{viewMode}</span> Time Sheets
               <Badge className="border-[var(--brand-primary)] bg-white text-[var(--brand-primary)]">{groups.length} {viewMode === 'daily' ? 'employees' : viewMode === 'monthly' ? 'employee-months' : 'employee-weeks'}</Badge>
-              <Badge className="bg-[var(--brand-highlight)] text-black">{totalPendingWeeks} pending</Badge>
+              <Badge className="bg-[var(--brand-highlight)] text-primary">{totalPendingWeeks} pending</Badge>
               {activeRange && (
                 <Badge className="border-[var(--brand-primary)] bg-white text-[var(--brand-primary)]">
                   {viewMode === 'daily' && format(activeRange.start, 'MMM d, yyyy')}
@@ -1760,7 +1786,7 @@ export function TimesheetsTab() {
               )}
             </CardTitle>
             {activeRange && (
-              <Button
+              <PermissionGate permission="dtr:approve"><Button
                 size="sm"
                 variant="success"
                 className="gap-1.5 bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] disabled:bg-[#d4d4d4] disabled:text-[var(--brand-ink)]"
@@ -1778,7 +1804,7 @@ export function TimesheetsTab() {
                   : pendingTotals.count > 0
                     ? `Approve All (${pendingTotals.count})`
                     : 'Approve All'}
-              </Button>
+              </Button></PermissionGate>
             )}
           </div>
         </CardHeader>
@@ -1847,7 +1873,21 @@ export function TimesheetsTab() {
                           <td className="p-3 text-gray-600">{group.department}</td>
                           <td className="p-3 text-right">{group.totalRegular.toFixed(2)}h</td>
                           {overtimePayEnabled && (
-                            <td className="p-3 text-right">{group.totalOvertime > 0 ? `${group.totalOvertime.toFixed(2)}h` : '-'}</td>
+                            <td className="p-3 text-right">
+                              {group.totalOvertime + group.totalPendingOvertime > 0 ? (
+                                <span
+                                  className={group.totalPendingOvertime > 0 ? 'font-medium text-amber-600' : 'font-medium text-blue-700'}
+                                  title={group.totalPendingOvertime > 0
+                                    ? `${group.totalPendingOvertime.toFixed(2)}h awaiting approval${group.totalOvertime > 0 ? ` · ${group.totalOvertime.toFixed(2)}h approved` : ''}`
+                                    : 'Approved overtime'}
+                                >
+                                  {(group.totalOvertime + group.totalPendingOvertime).toFixed(2)}h
+                                  {group.totalPendingOvertime > 0 && (
+                                    <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">pending</span>
+                                  )}
+                                </span>
+                              ) : '-'}
+                            </td>
                           )}
                           <td className="p-3 text-right">
                             {group.totalNightDiff > 0
@@ -1866,21 +1906,21 @@ export function TimesheetsTab() {
                           </td>
                           <td className="p-3 text-center">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_BADGE[group.status]}`}>
-                              {group.status}
+                              {group.status.replaceAll('_',' ')}
                             </span>
                           </td>
                           <td className="p-3">
                             <div className="flex gap-1 justify-center" onClick={e => e.stopPropagation()}>
                               {group.pendingCount > 0 ? (
                                 <>
-                                  <Button size="sm" variant="outline" className="h-7 text-green-600" onClick={() => approveEmployeeWeek(group, 'APPROVED')}>
+                                  <PermissionGate permission="dtr:approve"><Button size="sm" variant="outline" className="h-7 text-green-600" onClick={() => approveEmployeeWeek(group, 'APPROVED')}>
                                     <Check className="w-3 h-3 mr-1" />
                                     Approve
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="h-7 text-red-600" onClick={() => approveEmployeeWeek(group, 'REJECTED')}>
+                                  </Button></PermissionGate>
+                                  <PermissionGate permission="dtr:approve"><Button size="sm" variant="outline" className="h-7 text-red-600" onClick={() => approveEmployeeWeek(group, 'REJECTED')}>
                                     <X className="w-3 h-3 mr-1" />
                                     Reject
-                                  </Button>
+                                  </Button></PermissionGate>
                                 </>
                               ) : (
                                 <span className="text-xs text-gray-400">—</span>
@@ -1933,7 +1973,9 @@ export function TimesheetsTab() {
                                     {group.records.map(r => {
                                       const st = dailyStatus(r)
                                       const isApproving = approvingId === r.id
-                                      const captureCount = Number(r.screenCaptureCount ?? r.screenCaptures?.length ?? 0)
+                                      const screenshotCount = Number(r.screenCaptureCount ?? r.screenCaptures?.length ?? 0)
+                                      const selfieCount = Number(r.selfieCount ?? 0)
+                                      const captureCount = screenshotCount + selfieCount
                                       const showCaptures = !!expandedCaptureRows[r.id]
                                       const rowCaptures = captureRows[r.id] ?? []
                                       const rowCapturesLoading = !!captureLoading[r.id]
@@ -1949,7 +1991,8 @@ export function TimesheetsTab() {
                                           <tr className="border-t border-gray-200/70 hover:bg-white/60">
                                             <td className="py-2 pr-3">
                                               <div className="font-medium">{format(new Date(r.date), 'EEE, MMM d')}</div>
-                                              {r.isRestDay && <span className="text-[10px] bg-gray-200 text-gray-600 px-1 rounded">Rest Day</span>}
+                                              <TimesheetActivities dtrRecordId={r.id} />
+                                              {r.isRestDay && <span className="text-[10px] bg-gray-200 text-gray-600 px-1 rounded">Rest Day{r.restDayApproval ? ` - ${r.restDayApproval.toLowerCase()}` : ''}</span>}
                                               {r.isHoliday && (
                                                 <span className={`text-[10px] px-1 rounded ${r.holidayType === 'REGULAR' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
                                                   {r.holidayType === 'REGULAR' ? 'Regular Holiday' : 'Special Holiday'}
@@ -1994,13 +2037,22 @@ export function TimesheetsTab() {
                                               {breakHrs > 0 ? `${breakHrs.toFixed(2)}h` : '—'}
                                             </td>
                                             <td className="py-2 px-2 text-right font-medium">{Number(r.regularHours ?? 0).toFixed(2)}h</td>
-                                            {overtimePayEnabled && (
-                                              <td className="py-2 px-2 text-right">
-                                                {Number(r.overtimeHours ?? 0) > 0
-                                                  ? <span className="text-blue-700 font-medium">{Number(r.overtimeHours).toFixed(2)}h</span>
-                                                  : <span className="text-gray-300">—</span>}
-                                              </td>
-                                            )}
+                                            {overtimePayEnabled && (() => {
+                                              const approvedOt = Number(r.overtimeHours ?? 0)
+                                              const pendingOt = Number(r.pendingOvertimeHours ?? 0)
+                                              return (
+                                                <td className="py-2 px-2 text-right">
+                                                  {approvedOt + pendingOt > 0
+                                                    ? <span
+                                                        className={pendingOt > 0 ? 'text-amber-600 font-medium' : 'text-blue-700 font-medium'}
+                                                        title={pendingOt > 0 ? `${pendingOt.toFixed(2)}h awaiting approval` : 'Approved overtime'}
+                                                      >
+                                                        {(approvedOt + pendingOt).toFixed(2)}h{pendingOt > 0 ? '*' : ''}
+                                                      </span>
+                                                    : <span className="text-gray-300">—</span>}
+                                                </td>
+                                              )
+                                            })()}
                                             <td className="py-2 px-2 text-right">
                                               {nightDiff > 0
                                                 ? <span className="text-indigo-700 font-medium">{nightDiff.toFixed(2)}h</span>
@@ -2017,26 +2069,26 @@ export function TimesheetsTab() {
                                                 : <span className="text-gray-300">—</span>}
                                             </td>
                                             <td className="py-2 px-2 text-center">
-                                              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${DAILY_STATUS_BADGE[st]}`}>{st}</span>
+                                              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${DAILY_STATUS_BADGE[st]}`}>{st.replaceAll('_',' ')}</span>
                                             </td>
                                             <td className="py-2 text-center">
                                               <div className="flex items-center justify-center gap-1">
-                                                {st !== 'APPROVED' && (
-                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-green-600 hover:bg-green-50 hover:text-green-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'APPROVED')}>
+                                                {r.employee.trackTime && r.timeIn && r.timeOut && st !== 'APPROVED' && (
+                                                  <PermissionGate permission="dtr:approve"><Button size="sm" variant="outline" className="h-6 w-6 p-0 text-green-600 hover:bg-green-50 hover:text-green-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'APPROVED')}>
                                                     <Check className="w-3 h-3" />
-                                                  </Button>
+                                                  </Button></PermissionGate>
                                                 )}
-                                                {st !== 'REJECTED' && (
-                                                  <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'REJECTED')}>
+                                                {r.employee.trackTime && r.timeIn && r.timeOut && st !== 'REJECTED' && (
+                                                  <PermissionGate permission="dtr:approve"><Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50 hover:text-red-600" disabled={isApproving} onClick={() => approveRecord(r.id, 'REJECTED')}>
                                                     <X className="w-3 h-3" />
-                                                  </Button>
+                                                  </Button></PermissionGate>
                                                 )}
-                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-blue-500 hover:bg-blue-50 hover:text-blue-500" onClick={() => openEdit(r)}>
+                                                <PermissionGate permission="dtr:write"><Button size="sm" variant="outline" className="h-6 w-6 p-0 text-blue-500 hover:bg-blue-50 hover:text-blue-500" onClick={() => openEdit(r)}>
                                                   <Pencil className="w-3 h-3" />
-                                                </Button>
-                                                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" onClick={() => requestDelete(r.id)}>
+                                                </Button></PermissionGate>
+                                                <PermissionGate permission="dtr:write"><Button size="sm" variant="outline" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" onClick={() => requestDelete(r.id)}>
                                                   <Trash2 className="w-3 h-3" />
-                                                </Button>
+                                                </Button></PermissionGate>
                                               </div>
                                             </td>
                                           </tr>
@@ -2075,7 +2127,7 @@ export function TimesheetsTab() {
                                                   className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-semibold transition-colors"
                                                 >
                                                   <ZoomIn className="w-3 h-3" />
-                                                  {showCaptures ? 'Hide' : `${captureCount} Screenshot${captureCount !== 1 ? 's' : ''}`}
+                                                  {showCaptures ? 'Hide photos' : [selfieCount ? `${selfieCount} Selfie${selfieCount !== 1 ? 's' : ''}` : '', screenshotCount ? `${screenshotCount} Screenshot${screenshotCount !== 1 ? 's' : ''}` : ''].filter(Boolean).join(' / ')}
                                                 </button>
                                               </td>
                                             </tr>
@@ -2084,20 +2136,21 @@ export function TimesheetsTab() {
                                             <tr className="bg-white/70">
                                               <td colSpan={12} className="pb-3 px-4 pt-0">
                                                 {rowCapturesLoading ? (
-                                                  <div className="text-xs text-gray-500 py-2">Loading screenshots...</div>
+                                                  <AppSpinner size="md" message="Loading attendance photos..." className="py-8" />
                                                 ) : (
                                                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                                                     {rowCaptures.map(sc => (
                                                     <div
                                                       key={sc.id}
                                                       className="group rounded-lg border border-gray-200 bg-white p-1 cursor-pointer hover:border-orange-400 hover:shadow-md transition-all"
-                                                      onClick={() => setLightbox({ src: sc.imageDataUrl, label: format(new Date(sc.capturedAt), 'EEE, MMM d · hh:mm:ss a') })}
+                                                      onClick={() => setLightbox({ src: sc.imageDataUrl, label: `${sc.label ?? 'Screenshot'} - ` + format(new Date(sc.capturedAt), 'EEE, MMM d · hh:mm:ss a') })}
                                                       title="Click to enlarge"
                                                     >
                                                       <div className="relative overflow-hidden rounded">
                                                         <img
                                                           src={sc.imageDataUrl}
-                                                          alt={`Screenshot ${format(new Date(sc.capturedAt), 'hh:mm a')}`}
+                                                          alt={`${sc.label ?? 'Screenshot'} $<span className="block font-semibold">{sc.label ?? 'Screenshot'}</span>
+                                                        {format(new Date(sc.capturedAt), 'hh:mm a')}`}
                                                           className="w-full h-20 object-cover object-top rounded"
                                                         />
                                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
@@ -2105,6 +2158,7 @@ export function TimesheetsTab() {
                                                         </div>
                                                       </div>
                                                       <p className="text-[10px] text-gray-500 mt-1 text-center">
+                                                        <span className="block font-semibold">{sc.label ?? 'Screenshot'}</span>
                                                         {format(new Date(sc.capturedAt), 'hh:mm a')}
                                                       </p>
                                                     </div>

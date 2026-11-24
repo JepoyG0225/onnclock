@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,7 +31,7 @@ const TYPE_CONFIG = {
   SPECIAL_WORKING: {
     label: 'Special Working',
     bg: '#dbeafe',
-    text: '#1e40af',
+    text: '#163d78',
     dot: '#000000',
     border: '#93c5fd',
   },
@@ -153,28 +154,28 @@ export function HolidaysTab() {
       {/* Page Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Holiday Calendar</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Holiday Calendar</h1>
           <p className="text-sm text-slate-500 mt-0.5">Philippine public holidays and special non-working days</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <PermissionGate permission="settings:write"><button
             onClick={syncFromGoogle}
             disabled={syncing}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-            style={{ color: '#000000', border: '1.5px solid rgba(34,127,132,0.22)', background: '#fff' }}
+            style={{ color: 'var(--brand-primary)', border: '1.5px solid rgba(34,127,132,0.22)', background: '#fff' }}
             title={`Sync ${year} holidays`}
           >
             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing…' : 'Sync Holidays'}
-          </button>
-          <button
+          </button></PermissionGate>
+          <PermissionGate permission="settings:write"><button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-            style={{ background: 'var(--brand-highlight)', boxShadow: '0 2px 8px rgba(184, 225, 0,0.3)' }}
+            style={{ background: 'var(--brand-highlight)', boxShadow: '0 2px 8px rgba(255, 89, 0,0.3)' }}
           >
             <Plus className="w-4 h-4" />
             Add Holiday
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
 
@@ -182,9 +183,9 @@ export function HolidaysTab() {
       {showForm && (
         <div
           className="rounded-2xl p-5"
-          style={{ background: '#fff', border: '1px solid rgba(184, 225, 0,0.25)', boxShadow: '0 2px 12px rgba(184, 225, 0,0.08)' }}
+          style={{ background: '#fff', border: '1px solid rgba(255, 89, 0,0.25)', boxShadow: '0 2px 12px rgba(255, 89, 0,0.08)' }}
         >
-          <p className="text-sm font-bold mb-4" style={{ color: '#000000' }}>Add New Holiday</p>
+          <p className="text-sm font-bold mb-4" style={{ color: 'var(--brand-primary)' }}>Add New Holiday</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {[
               { label: 'Holiday Name *', field: 'name', type: 'text', placeholder: 'e.g. Independence Day' },
@@ -198,7 +199,7 @@ export function HolidaysTab() {
                   onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
                   placeholder={placeholder}
                   className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-                  style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#000000' }}
+                  style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: 'var(--brand-primary)' }}
                   onFocus={e => (e.target.style.borderColor = 'var(--brand-highlight)')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(10,53,59,0.15)')}
                 />
@@ -210,7 +211,7 @@ export function HolidaysTab() {
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value as Holiday['type'] }))}
                 className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-                style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: '#000000' }}
+                style={{ border: '1.5px solid rgba(10,53,59,0.15)', background: 'rgba(10,53,59,0.02)', color: 'var(--brand-primary)' }}
                 onFocus={e => (e.target.style.borderColor = 'var(--brand-highlight)')}
                 onBlur={e => (e.target.style.borderColor = 'rgba(10,53,59,0.15)')}
               >
@@ -221,21 +222,21 @@ export function HolidaysTab() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button
+            <PermissionGate permission="settings:write"><button
               onClick={addHoliday}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
               style={{ background: 'var(--brand-highlight)' }}
             >
               {saving ? 'Saving…' : 'Add Holiday'}
-            </button>
-            <button
+            </button></PermissionGate>
+            <PermissionGate permission="settings:write"><button
               onClick={() => setShowForm(false)}
               className="px-5 py-2 rounded-xl text-sm font-semibold hover:bg-slate-100"
               style={{ color: '#666666', border: '1.5px solid rgba(10,53,59,0.12)' }}
             >
               Cancel
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       )}
@@ -248,7 +249,7 @@ export function HolidaysTab() {
         {/* Month Navigation */}
         <div
           className="flex items-center justify-between px-6 py-4"
-          style={{ background: '#0055d4' }}
+          style={{ background: '#0054d7' }}
         >
           <button
             onClick={prevMonth}
@@ -328,7 +329,7 @@ export function HolidaysTab() {
                     background: isTodayCell ? 'var(--brand-highlight)' : 'transparent',
                     color: isTodayCell ? '#fff' : cfg ? cfg.text : isSun ? '#ef4444' : '#343434',
                     fontWeight: isTodayCell ? 700 : 500,
-                    boxShadow: isTodayCell ? '0 2px 6px rgba(184, 225, 0,0.35)' : 'none',
+                    boxShadow: isTodayCell ? '0 2px 6px rgba(255, 89, 0,0.35)' : 'none',
                   }}
                 >
                   {day}
@@ -355,14 +356,14 @@ export function HolidaysTab() {
 
                 {/* Delete on hover */}
                 {holiday && (
-                  <button
+                  <PermissionGate permission="settings:write"><button
                     onClick={() => deleteHoliday(holiday.id, holiday.name)}
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg flex items-center justify-center"
                     style={{ background: 'rgba(239,68,68,0.12)' }}
                     title="Remove holiday"
                   >
                     <Trash2 className="w-3 h-3" style={{ color: '#ef4444' }} />
-                  </button>
+                  </button></PermissionGate>
                 )}
               </div>
             )

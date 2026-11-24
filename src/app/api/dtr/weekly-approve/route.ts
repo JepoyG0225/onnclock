@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth, resolveCompanyIdForRequest } from '@/lib/api-auth'
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
   }
 
+  if(!await ctxHasPermission({...ctx,companyId},'dtr:approve'))return NextResponse.json({error:'Attendance approval permission required.'},{status:403})
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
@@ -54,6 +56,7 @@ export async function POST(req: NextRequest) {
   const pendingWhere = {
     employeeId: employee.id,
     date: { gte: start, lt: endPlus },
+    timeIn:{not:null},timeOut:{not:null},employee:{trackTime:true},
     approvedBy: null,
     OR: [{ remarks: null }, { remarks: { not: 'REJECTED' } }],
   }
@@ -76,6 +79,7 @@ export async function POST(req: NextRequest) {
       otApproved = await approveAutoOtByIds({
         companyId,
         ids: overtimeRequestIds,
+        dateFrom:start,dateTo:end,employeeId:employee.id,
         approvedById: ctx.userId,
       })
     } else if (approveOvertime) {

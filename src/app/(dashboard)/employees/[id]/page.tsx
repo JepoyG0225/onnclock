@@ -26,6 +26,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         include: { leaveType: { select: { name: true, code: true } } },
         orderBy: { leaveType: { name: 'asc' } },
       },
+      incomeAssignments: { where: { isActive: true, incomeType: { isActive: true } }, include: { incomeType: true } },
+      otherDeductionItems: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
       payslips: {
         include: { payrollRun: { select: { periodStart: true, periodEnd: true } } },
         orderBy: { createdAt: 'desc' },
@@ -64,11 +66,11 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         .map(x => x.d)
         .join(', ') || 'â€”'
   const statusColors: Record<string, string> = {
-    PROBATIONARY: 'bg-[#C0C8CA] text-[#000000]',
+    PROBATIONARY: 'bg-[#C0C8CA] text-[var(--brand-primary)]',
     REGULAR:      'bg-green-100 text-green-800',
     CONTRACTUAL:  'bg-yellow-100 text-yellow-800',
     PROJECT_BASED:'bg-orange-100 text-orange-800',
-    PART_TIME:    'bg-[#C0C8CA] text-[#000000]',
+    PART_TIME:    'bg-[#C0C8CA] text-[var(--brand-primary)]',
     RESIGNED:     'bg-gray-100 text-gray-600',
     TERMINATED:   'bg-red-100 text-red-800',
     RETIRED:      'bg-purple-100 text-purple-700',
@@ -101,9 +103,11 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         pagibigEnabled: employee.pagibigEnabled, withholdingTaxEnabled: employee.withholdingTaxEnabled,
         isExemptFromTax: employee.isExemptFromTax, isMinimumWageEarner: employee.isMinimumWageEarner,
       }}
+      earnings={employee.incomeAssignments.map(item => ({ id: item.id, name: item.incomeType.name, amount: Number(item.fixedAmount ?? item.incomeType.defaultAmount ?? 0), variable: item.incomeType.mode !== 'FIXED' }))}
+      recurringDeductions={employee.otherDeductionItems.map(item => ({ id: item.id, name: item.label, amount: Number(item.amount) }))}
       leaves={employee.leaveBalances.map(item => ({
         id: item.id, name: item.leaveType.name, code: item.leaveType.code,
-        entitled: Number(item.entitled), used: Number(item.used), pending: Number(item.pending), carriedOver: Number(item.carriedOver),
+        entitled: Number(item.entitled), used: Number(item.used), pending: Number(item.pending), carriedOver: Number(item.carriedOver), encashed: Number(item.encashed),
       }))}
       payslips={employee.payslips.map(item => ({
         id: item.id, grossPay: Number(item.grossPay), totalDeductions: Number(item.totalDeductions), netPay: Number(item.netPay),

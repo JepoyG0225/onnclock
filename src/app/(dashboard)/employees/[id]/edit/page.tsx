@@ -90,6 +90,9 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     disableHolidayPay: (employee as { disableHolidayPay?: boolean }).disableHolidayPay ?? false,
     disableLateDeduction: (employee as { disableLateDeduction?: boolean }).disableLateDeduction ?? false,
     disableUndertimeDeduction: (employee as { disableUndertimeDeduction?: boolean }).disableUndertimeDeduction ?? false,
+    disableNightDifferential: employee.disableNightDifferential ?? false,
+    disableEarlyInOt: employee.disableEarlyInOt,
+    disableBeyondScheduleOt: employee.disableBeyondScheduleOt,
     trackTime: employee.trackTime,
     fingerprintExempt: employee.fingerprintExempt ?? false,
     geofenceExempt: employee.geofenceExempt ?? false,
@@ -105,7 +108,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Edit Employee</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Edit Employee</h1>
         <div className="flex items-center gap-2 flex-wrap text-sm text-slate-500 mt-1">
           <span>{employee.lastName}, {employee.firstName} {employee.middleName ?? ''}</span>
           <span>Â·</span>

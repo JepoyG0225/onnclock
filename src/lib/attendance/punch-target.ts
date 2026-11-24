@@ -23,7 +23,19 @@ import { resolvePortalEmployeeId } from '@/lib/portal-employee'
 export async function resolvePunchEmployeeId(
   ctx: AuthContext,
   requestedEmployeeId?: string | null,
+  verifiedEmployeeId?: string,
 ): Promise<{ employeeId: string | null; onBehalf: boolean; forbidden?: string }> {
+  // Internal face-kiosk calls pin the exact matched profile. Never read this
+  // value from the request body or choose another profile linked to the user.
+  if (verifiedEmployeeId) {
+    const verified = await prisma.employee.findFirst({
+      where: { id: verifiedEmployeeId, companyId: ctx.companyId, userId: ctx.userId, isActive: true },
+      select: { id: true },
+    })
+    return verified
+      ? { employeeId: verified.id, onBehalf: false }
+      : { employeeId: null, onBehalf: false, forbidden: 'The verified employee profile is no longer active.' }
+  }
   if (!requestedEmployeeId) {
     return { employeeId: await resolvePortalEmployeeId(ctx), onBehalf: false }
   }

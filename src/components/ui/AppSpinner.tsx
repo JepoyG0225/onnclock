@@ -56,12 +56,13 @@ export function AppSpinner({
   const originY = s.box / 2 - (s.dotInset + s.length / 2)
 
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3', className)}>
-      <div className="relative" style={{ width: s.box, height: s.box }}>
+    <span role="status" aria-live="polite" aria-label={message ?? 'Loading'} className={cn('flex flex-col items-center justify-center gap-3', className)}>
+      <span aria-hidden="true" className="relative block" style={{ width: s.box, height: s.box }}>
         {/* Dot ring — each dot rotated to its slot, fading on a staggered cycle. */}
         {Array.from({ length: DOT_COUNT }).map((_, i) => (
           <span
             key={i}
+            className="app-spinner-dot"
             aria-hidden
             style={{
               position: 'absolute',
@@ -84,11 +85,11 @@ export function AppSpinner({
         {/* App icon — transparent background, sits perfectly still in the
             center. Wrapper is iconSize; inner img is scaled up so the
             transparent padding inside the icon file gets clipped away. */}
-      </div>
+      </span>
       {message && (
-        <p className="text-sm font-medium text-slate-600">{message}</p>
+        <span className="text-sm font-medium text-slate-600">{message}</span>
       )}
-    </div>
+    </span>
   )
 }
 

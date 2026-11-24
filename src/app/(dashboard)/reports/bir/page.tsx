@@ -155,7 +155,7 @@ function AnnualizationPanel({ year }: { year: number }) {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">Employees</p>
-            <p className="text-2xl font-bold" style={{ color: '#000000' }}>{data.employeeCount}</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>{data.employeeCount}</p>
           </CardContent>
         </Card>
         <Card>
@@ -207,7 +207,7 @@ function AnnualizationPanel({ year }: { year: number }) {
               variant={filter === val ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter(val)}
-              style={filter === val ? { background: '#0055d4' } : {}}
+              style={filter === val ? { background: '#0054d7' } : {}}
             >
               {label}
             </Button>

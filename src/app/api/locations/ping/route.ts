@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { getManilaDateOnly } from '@/lib/date-manila'
+import { savedGeofence } from '@/lib/attendance/schedule-location'
+import { effectiveGeofence, geofenceStatus } from '@/lib/attendance/location-policy'
 
 const pingSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
           lastName: true,
           employeeNo: true,
           photoUrl: true,
+          geofenceExempt: true,
           department: { select: { name: true } },
           position: { select: { title: true } },
         },
@@ -57,12 +59,10 @@ export async function POST(req: NextRequest) {
     const { lat, lng, accuracy } = parsed.data
 
     // Only accept pings if employee is currently clocked in
-    const manilaDate = getManilaDateOnly()
     const dtrRecord = await withTimeout(
       prisma.dTRRecord.findFirst({
         where: {
           employeeId: employee.id,
-          date: manilaDate,
           timeIn: { not: null },
           timeOut: null, // still clocked in
         },
@@ -97,25 +97,8 @@ export async function POST(req: NextRequest) {
       3000,
       'company.findUnique',
     ).catch(() => null) // Geofence eval is non-essential — degrade silently
-    let geofenceOut: boolean | null = null
-    if (
-      company?.geofenceEnabled &&
-      company.geofenceLat != null &&
-      company.geofenceLng != null &&
-      company.geofenceRadiusMeters != null
-    ) {
-      const toRad = (d: number) => (d * Math.PI) / 180
-      const R = 6371000
-      const dLat = toRad(lat - company.geofenceLat)
-      const dLng = toRad(lng - company.geofenceLng)
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(company.geofenceLat)) * Math.cos(toRad(lat)) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2)
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-      const dist = R * c
-      geofenceOut = dist > company.geofenceRadiusMeters
-    }
+    const policy = savedGeofence(dtrRecord.attendanceLocation) ?? (company ? effectiveGeofence(null, employee.geofenceExempt, company) : null)
+    const geofenceOut = policy?.enabled ? !(geofenceStatus(policy, lat, lng)?.inside ?? false) : null
 
     // Live-map broadcast is best-effort — wrap so an exception in the
     // optional WS hook can't take down the ping itself.
