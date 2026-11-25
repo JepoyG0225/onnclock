@@ -805,16 +805,16 @@ function FlexibleScheduleTab({
             </button></PermissionGate>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">
             {variant === 'FLEXIBLE' && (
-              <div className="flex flex-col gap-1.5">
+              <div className="relative min-w-0">
                 <div
                   draggable
                   onDragStart={() => onDragStart(restDayDragId)}
-                  className="h-full cursor-grab active:cursor-grabbing select-none rounded-xl border border-l-4 px-4 py-3 transition hover:shadow-md"
+                  className="h-full cursor-grab active:cursor-grabbing select-none rounded-lg border border-l-[3px] px-3 py-2 transition hover:shadow-md"
                   style={{ background: '#f8fafc', borderColor: '#cbd5e1', color: '#475569' }}
                 >
-                  <p className="font-medium text-sm leading-snug">Day Off</p>
+                  <p className="font-medium text-xs leading-snug">Day Off</p>
                   <p className="text-[11px] opacity-70 mt-0.5">Drag to set rest day</p>
                 </div>
               </div>
@@ -822,29 +822,26 @@ function FlexibleScheduleTab({
             {templateSchedules.map((s) => {
               const col = colorMap.get(s.id) ?? CARD_COLORS[0]
               return (
-                <div key={s.id} className="flex flex-col gap-1.5">
+                <div key={s.id} className="relative min-w-0">
                   {/* Draggable card */}
                   <div
                     draggable
                     onDragStart={() => onDragStart(s.id)}
-                    className="h-full cursor-grab active:cursor-grabbing select-none rounded-xl border border-l-4 px-4 py-3 transition hover:shadow-md text-left"
+                    className="h-full cursor-grab active:cursor-grabbing select-none rounded-lg border border-l-[3px] px-3 py-2 transition hover:shadow-md text-left"
                     style={{ background: col.bg, borderColor: col.border, color: col.text }}
                   >
-                    <p className="mb-1 truncate text-xs font-medium opacity-70" title={s.name}>{s.name}</p>
-                    <p className="text-sm font-semibold leading-snug">{s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)}` : 'Custom hours'}</p>
-                    <p className="mt-1 break-words text-[11px] opacity-70">{s.timezone ?? 'Asia/Manila'}</p>
-                    {s.breakEnabled && s.breakMinutes > 0 && (
-                      <p className="text-[11px] opacity-70 mt-1">{s.breakMinutes}m break</p>
-                    )}
-                    {!s.breakEnabled && (
-                      <p className="text-[11px] opacity-70 mt-1">No break</p>
-                    )}
+                    <p className="mb-0.5 truncate pr-6 text-[11px] font-medium opacity-70" title={s.name}>{s.name}</p>
+                    <p className="text-xs font-semibold leading-snug">{s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)}` : 'Custom hours'}</p>
+                    <p className="mt-1 truncate text-[10px] opacity-70" title={`${s.timezone ?? 'Asia/Manila'} / ${s.breakEnabled ? `${s.breakMinutes}m break` : 'No break'}`}>
+                      {s.timezone ?? 'Asia/Manila'} ? {s.breakEnabled ? `${s.breakMinutes}m break` : 'No break'}
+                    </p>
                   </div>
                   <PermissionGate permission="dtr:write"><button
                     onClick={() => setShiftModal({ mode: 'edit', schedule: s })}
-                    className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-[#162d54] flex items-center justify-end gap-1"
+                    title={`Edit ${s.name}`} aria-label={`Edit ${s.name}`}
+                    className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-white/80 hover:text-[#162d54]"
                   >
-                    <Pencil className="w-3 h-3" /> Edit Work Hours
+                    <Pencil className="w-3 h-3" />
                   </button></PermissionGate>
                 </div>
               )
