@@ -380,7 +380,7 @@ function ShiftTemplateModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-sm md:max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between" style={{ background: '#0d1b2a' }}>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between" style={{ background: '#162d54' }}>
           <div>
             <p className="font-bold text-white text-sm">{initial ? 'Edit Work Hours' : 'Add Work Hours'}</p>
             <p className="text-[11px] text-white/50 mt-0.5">Define a reusable shift time block</p>
@@ -778,15 +778,15 @@ function FlexibleScheduleTab({
   return (
     <div className="space-y-4">
       {/* â”€â”€ Work Hours Templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <div className="flex items-center justify-between mb-3">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Work Hours</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">Drag a card to an employee cell to assign</p>
+            <p className="text-sm font-semibold text-[#162d54]">Work hours library</p>
+            <p className="text-xs text-slate-500 mt-1">Drag a shift onto the grid, or select + on a day to assign it.</p>
           </div>
           <PermissionGate permission="dtr:write"><button
             onClick={() => setShiftModal({ mode: 'create' })}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-primary"
+            className="ml-auto flex h-10 items-center gap-1.5 rounded-xl px-4 text-xs font-medium text-white shadow-sm hover:opacity-90"
             style={{ background: 'var(--brand-highlight)' }}
           >
             <Plus className="w-3.5 h-3.5" /> Add Work Hours
@@ -805,16 +805,16 @@ function FlexibleScheduleTab({
             </button></PermissionGate>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {variant === 'FLEXIBLE' && (
               <div className="flex flex-col gap-1.5">
                 <div
                   draggable
                   onDragStart={() => onDragStart(restDayDragId)}
-                  className="cursor-grab active:cursor-grabbing select-none rounded-xl border-2 px-4 py-2.5 transition hover:shadow-md"
-                  style={{ background: '#eeeeee', borderColor: '#777777', color: '#343434' }}
+                  className="h-full cursor-grab active:cursor-grabbing select-none rounded-xl border border-l-4 px-4 py-3 transition hover:shadow-md"
+                  style={{ background: '#f8fafc', borderColor: '#cbd5e1', color: '#475569' }}
                 >
-                  <p className="font-bold text-sm leading-tight">Day Off</p>
+                  <p className="font-medium text-sm leading-snug">Day Off</p>
                   <p className="text-[11px] opacity-70 mt-0.5">Drag to set rest day</p>
                 </div>
               </div>
@@ -827,22 +827,22 @@ function FlexibleScheduleTab({
                   <div
                     draggable
                     onDragStart={() => onDragStart(s.id)}
-                    className="cursor-grab active:cursor-grabbing select-none rounded-xl border-2 px-4 py-2.5 transition hover:shadow-md text-center"
+                    className="h-full cursor-grab active:cursor-grabbing select-none rounded-xl border border-l-4 px-4 py-3 transition hover:shadow-md text-left"
                     style={{ background: col.bg, borderColor: col.border, color: col.text }}
                   >
-                    <p className="font-bold text-sm leading-tight">
-                      {s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)} (${s.timezone??'Asia/Manila'})` : s.name}
-                    </p>
+                    <p className="mb-1 truncate text-xs font-medium opacity-70" title={s.name}>{s.name}</p>
+                    <p className="text-sm font-semibold leading-snug">{s.timeIn && s.timeOut ? `${fmt12(s.timeIn)} - ${fmt12(s.timeOut)}` : 'Custom hours'}</p>
+                    <p className="mt-1 break-words text-[11px] opacity-70">{s.timezone ?? 'Asia/Manila'}</p>
                     {s.breakEnabled && s.breakMinutes > 0 && (
-                      <p className="text-[10px] opacity-50 mt-0.5">{s.breakMinutes}m break</p>
+                      <p className="text-[11px] opacity-70 mt-1">{s.breakMinutes}m break</p>
                     )}
                     {!s.breakEnabled && (
-                      <p className="text-[10px] opacity-50 mt-0.5">No break</p>
+                      <p className="text-[11px] opacity-70 mt-1">No break</p>
                     )}
                   </div>
                   <PermissionGate permission="dtr:write"><button
                     onClick={() => setShiftModal({ mode: 'edit', schedule: s })}
-                    className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1"
+                    className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-[#162d54] flex items-center justify-end gap-1"
                   >
                     <Pencil className="w-3 h-3" /> Edit Work Hours
                   </button></PermissionGate>
@@ -854,37 +854,38 @@ function FlexibleScheduleTab({
       </div>
 
       {/* â”€â”€ Week navigation + filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
           <select
+            aria-label="Filter by department"
             value={deptFilter}
             onChange={e => setDeptFilter(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm text-gray-600"
+            className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-[#162d54] outline-none focus:ring-2 focus:ring-orange-200 sm:w-56"
           >
             <option value="">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         {variant === 'FLEXIBLE' && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
           <button
-            onClick={() => setWeekStart(prev => addDays(prev, -7))}
-            className="p-1.5 rounded-lg border hover:bg-gray-50"
+            aria-label="Previous week" onClick={() => setWeekStart(prev => addDays(prev, -7))}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-[#162d54] hover:bg-orange-50"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-sm font-semibold text-gray-700 min-w-[160px] text-center">
+          <span className="text-xs sm:text-sm font-medium text-[#162d54] text-center">
             {formatHeaderDate(weekStart)} - {formatHeaderDate(addDays(weekStart, 6))}
           </span>
           <button
-            onClick={() => setWeekStart(prev => addDays(prev, 7))}
-            className="p-1.5 rounded-lg border hover:bg-gray-50"
+            aria-label="Next week" onClick={() => setWeekStart(prev => addDays(prev, 7))}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-[#162d54] hover:bg-orange-50"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
           <button
             onClick={() => setWeekStart(getWeekStart(new Date()))}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 hover:bg-gray-50"
+            className="h-9 px-3 text-xs font-medium rounded-xl border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
           >
             Today
           </button>
@@ -893,15 +894,15 @@ function FlexibleScheduleTab({
       </div>
 
       {/* â”€â”€ Weekly Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         {loadingGrid && (
           <div className="flex items-center justify-center py-12"><AppSpinner size="md" /></div>
         )}
         {!loadingGrid && (
-          <div className="overflow-x-auto">
+          <div className="max-h-[70vh] overflow-auto">
             <table className="w-full text-sm border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-[var(--brand-primary)] text-white">
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-[#162d54] text-white">
                   <th className="sticky left-0 z-10 w-44 bg-[var(--brand-primary)] px-4 py-3 text-left text-xs font-semibold">
                     Employee
                   </th>
@@ -911,12 +912,12 @@ function FlexibleScheduleTab({
                     return (
                       <th
                         key={ds}
-                        className={`text-center px-2 py-3 font-semibold text-xs border-l border-white/10 ${isToday ? 'text-accent' : 'text-white/80'}`}
+                        className={`text-center px-2 py-3 font-semibold text-xs border-l border-white/10 ${isToday ? 'bg-[#ff5900] text-white' : 'text-white/80'}`}
                         style={{ minWidth: 110 }}
                       >
                         <div>{DAYS[d.getDay()]}</div>
                         {variant === 'FLEXIBLE' && (
-                          <div className={`text-lg font-extrabold ${isToday ? 'text-accent' : ''}`}>
+                          <div className={`text-lg font-medium ${isToday ? 'text-white' : ''}`}>
                             {d.getDate()}
                           </div>
                         )}
@@ -961,7 +962,7 @@ function FlexibleScheduleTab({
                       return (
                         <td
                           key={ds}
-                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-blue-50' : ''} ${isDragOver ? 'bg-blue-100 ring-2 ring-[var(--brand-primary)] ring-inset rounded-lg' : ''}`}
+                          className={`px-1.5 py-1.5 border-l border-gray-100 align-top transition ${isToday ? 'bg-orange-50/50' : ''} ${isDragOver ? 'bg-blue-100 ring-2 ring-[var(--brand-primary)] ring-inset rounded-lg' : ''}`}
                           onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
                           onDragLeave={() => setDragOverCell(null)}
                           onDrop={() => onDrop(emp.id, ds)}
@@ -1514,7 +1515,7 @@ export function ShiftsTab() {
       {/* â”€â”€ Page header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Work Schedules</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">Work Schedules</h1>
           <p className="text-gray-500 text-sm mt-1">
             {mode === 'FIXED'
               ? 'Assign work hours and day offs to employees.'
@@ -1552,12 +1553,12 @@ export function ShiftsTab() {
       </Dialog>
 
       <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 w-fit">
+      <div className="grid w-full grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
         <button
           onClick={() => setMode('FIXED')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+          className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition ${
             mode === 'FIXED'
-              ? 'bg-white text-gray-900 shadow'
+              ? 'bg-[#ff5900] text-white shadow-sm'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -1566,9 +1567,9 @@ export function ShiftsTab() {
         </button>
         <button
           onClick={() => setMode('FLEXIBLE')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+          className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition ${
             mode === 'FLEXIBLE'
-              ? 'bg-white text-gray-900 shadow'
+              ? 'bg-[#ff5900] text-white shadow-sm'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -1583,7 +1584,7 @@ export function ShiftsTab() {
 
       {/* â”€â”€ Mode hint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {mode === 'FIXED' && (
-        <div className="flex items-start gap-3 rounded-xl border border-[var(--brand-highlight)] bg-[var(--brand-highlight)]/10 px-4 py-3 text-sm text-primary">
+        <div className="flex items-start gap-2 border-l-2 border-orange-400 pl-3 text-xs leading-relaxed text-slate-500">
           <Clock className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Fixed mode</strong> - Assign work hours and weekly day offs per employee.
@@ -1592,7 +1593,7 @@ export function ShiftsTab() {
         </div>
       )}
       {mode === 'FLEXIBLE' && (
-        <div className="flex items-start gap-3 rounded-xl bg-[#eef2f7] border border-[var(--brand-primary)]/30 px-4 py-3 text-sm text-primary">
+        <div className="flex items-start gap-2 border-l-2 border-orange-400 pl-3 text-xs leading-relaxed text-slate-500">
           <LayoutGrid className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             <strong>Flexible mode</strong> - Assign specific shifts per employee per day.
@@ -1994,7 +1995,7 @@ function FixedScheduleTabInner({
             <select
               value={fixedDeptFilter}
               onChange={e => setFixedDeptFilter(e.target.value)}
-              className="border rounded-lg px-3 py-1.5 text-sm text-gray-600"
+              className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-[#162d54] outline-none focus:ring-2 focus:ring-orange-200 sm:w-56"
             >
               <option value="">All Departments</option>
               {fixedDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
