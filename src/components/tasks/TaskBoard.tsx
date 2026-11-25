@@ -11,7 +11,7 @@
  * The move is applied optimistically and rolled back if the request fails.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Plus, MessageSquare, Clock, GripVertical, AlertTriangle, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -128,7 +128,7 @@ export function TaskBoard({
   }, [draggingId, canEdit, commitMove])
 
   return (
-    <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">
+    <div className="flex min-w-0 max-w-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:grid lg:grid-cols-[repeat(var(--board-columns),minmax(0,1fr))] lg:items-start lg:overflow-x-visible" style={{ '--board-columns': Math.max(1, Math.min(statuses.length, 5)) } as CSSProperties}>
       {statuses.map(status => {
         const list = byStatus.get(status.id) ?? []
         const overWip = status.wipLimit !== null && list.length > status.wipLimit
@@ -136,7 +136,7 @@ export function TaskBoard({
         return (
           <section
             key={status.id}
-            className="flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-xl bg-muted/40 sm:w-80"
+            className="flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-xl bg-muted/40 sm:w-80 lg:w-auto lg:min-w-0"
             onDragOver={e => {
               if (!canEdit) return
               e.preventDefault()
@@ -149,7 +149,7 @@ export function TaskBoard({
             <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 rounded-t-xl bg-muted px-3 pt-3 pb-2">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: status.color }} />
-                <h3 className="truncate text-base font-semibold text-foreground">{status.name}</h3>
+                <h3 className="truncate text-sm font-semibold text-foreground">{status.name}</h3>
                 <span className="shrink-0 text-sm text-muted-foreground">{list.length}</span>
                 {overWip && (
                   <span title={`WIP limit is ${status.wipLimit}`}>
@@ -168,7 +168,7 @@ export function TaskBoard({
               )}
             </header>
 
-            <div className="flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2">
+            <div className="flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2 lg:max-h-[calc(100dvh-20rem)] lg:min-h-48 lg:overflow-y-auto">
               {list.map((task, index) => (
                 <div key={task.id}>
                   {/* Thin hit-zone above each card marks the insert position. */}
@@ -278,7 +278,7 @@ function BoardCard({
         {canEdit && (
           <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40 opacity-0 transition group-hover:opacity-100" />
         )}
-        <p className="min-w-0 flex-1 text-base font-medium leading-snug text-foreground">{task.title}</p>
+        <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground">{task.title}</p>
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -299,7 +299,7 @@ function BoardCard({
         )}
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           {task.commentCount > 0 && (
             <span className="inline-flex items-center gap-0.5">
