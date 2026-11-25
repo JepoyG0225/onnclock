@@ -364,7 +364,7 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
       { key: 'thirteenth',         label: '13th Month Pay',           permission: 'payroll:read', paths: ["/thirteenth-month"] },
       { key: 'thirteenth_generate', label: 'Compute & generate 13th-month payroll (tax review)', permission: 'payroll:write' },
       { key: 'loans',              label: 'View Loans',               permission: 'loans:read', paths: ["/loans"] },
-      { key: 'loans_write',        label: 'Create / Edit Loans',      permission: 'loans:write' },
+      { key: 'loans_write',        label: 'Create / Edit Loans, Mark Paid / Revert',      permission: 'loans:write' },
       { key: 'cash_advance',       label: 'Cash Advance',             permission: 'cashadvance:approve', paths: ["/cash-advance"] },
       { key: 'final_pay',          label: 'View Final Pay',           permission: 'payroll:read', paths: ["/final-pay"] },
       { key: 'final_pay_edit', label: 'Compute Final Pay / Generate or Add to Unapproved Payroll', permission: 'payroll:write' },

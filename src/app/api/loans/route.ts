@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         employee: {
-          select: { firstName: true, lastName: true, employeeNo: true },
+          select: { firstName: true, lastName: true, employeeNo: true, payFrequency: true },
         },
       },
       orderBy: { createdAt: 'desc' },

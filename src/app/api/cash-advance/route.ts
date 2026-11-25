@@ -78,13 +78,13 @@ export async function GET(req: NextRequest) {
             lastName: true,
             employeeNo: true,
             rateType: true,
-            basicSalary: true,
+            basicSalary: true, payFrequency: true,
             dailyRate: true,
             hourlyRate: true,
             department: { select: { name: true } },
           },
         },
-        loan: { select: { id: true, balance: true, status: true, monthlyAmortization: true } },
+        loan: { select: { id: true, balance: true, status: true, monthlyAmortization: true, manualPaidBalance: true, cutoffInstallment: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
   if (ownEmployeeId && ownOnly) {
     const me = await prisma.employee.findUnique({
       where: { id: ownEmployeeId },
-      select: { id: true, rateType: true, basicSalary: true, dailyRate: true, hourlyRate: true },
+      select: { id: true, rateType: true, basicSalary: true, payFrequency: true, dailyRate: true, hourlyRate: true },
     })
     if (me) {
       myLimit = await computeCashAdvanceLimit({
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
     select: {
       id: true,
       rateType: true,
-      basicSalary: true,
+      basicSalary: true, payFrequency: true,
       dailyRate: true,
       hourlyRate: true,
       firstName: true,

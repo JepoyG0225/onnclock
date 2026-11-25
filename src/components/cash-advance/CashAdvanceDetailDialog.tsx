@@ -1,4 +1,6 @@
 'use client'
+import { LoanPaymentAction } from '@/components/loans/LoanPaymentAction'
+import { employeePeriodDivisor } from '@/lib/payroll/cutoff-frequency'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState } from 'react'
@@ -24,13 +26,14 @@ export interface CashAdvanceDetailDialogProps {
       firstName: string
       lastName: string
       employeeNo: string
+      payFrequency?: string
       rateType?: string
       basicSalary: number
       dailyRate?: number | null
       hourlyRate?: number | null
       department?: { name: string } | null
     }
-    loan?: { balance: number; status: string; monthlyAmortization: number } | null
+    loan?: { id: string; balance: number; status: string; monthlyAmortization: number; manualPaidBalance?: number | null; cutoffInstallment?: number | null } | null
   }
   isHR: boolean
   /** Triggered when an approval/rejection succeeds — caller refetches. */
@@ -67,8 +70,8 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
       ? Number(request.employee.hourlyRate ?? request.employee.basicSalary) * 8 * 22
       : Number(request.employee.basicSalary)
   const monthlyAmort = amount / Math.max(1, request.repaymentMonths)
-  const semiMonthlyBasic = monthlySalary / 2
-  const amortPct = semiMonthlyBasic > 0 ? (monthlyAmort / semiMonthlyBasic) * 100 : 0
+  const divisor = employeePeriodDivisor(request.employee.payFrequency)
+  const installment = request.loan?.cutoffInstallment ?? (request.loan ? Number(request.loan.monthlyAmortization) / divisor : request.repaymentCutoffs ? amount / request.repaymentCutoffs : monthlyAmort / divisor)
 
   async function updateTerms() {
     setActing('terms')
@@ -149,10 +152,11 @@ export function CashAdvanceDetailDialog({ open, onClose, request, isHR, onAction
           />
           <DetailRow
             icon={<TrendingDown className="h-4 w-4" />}
-            label={request.repaymentCutoffs ? 'Deduction per cutoff' : 'Monthly Deduction'}
-            value={peso(request.repaymentCutoffs ? amount / request.repaymentCutoffs : Number(request.loan?.monthlyAmortization ?? monthlyAmort))}
-            hint={request.repaymentCutoffs ? 'Final deduction is capped at the remaining balance' : `${amortPct.toFixed(1)}% of semi-monthly basic`}
+            label="Deduction per pay period"
+            value={peso(Math.min(Number(request.loan?.balance ?? amount), installment))}
+            hint={`${request.employee.payFrequency?.replaceAll('_', ' ') ?? 'Employee pay frequency'} ? Final deduction capped at remaining balance`}
           />
+          {isHR && request.loan && <LoanPaymentAction loan={request.loan} onDone={() => { onActionDone?.(); onClose() }} />}
           {isHR && ['PENDING', 'APPROVED'].includes(request.status) && request.loan?.status !== 'FULLY_PAID' && (
             <div className="sm:col-span-2 border rounded-lg p-3 space-y-2">
               <label className="text-sm font-medium" htmlFor="repayment-term">Change repayment duration</label>

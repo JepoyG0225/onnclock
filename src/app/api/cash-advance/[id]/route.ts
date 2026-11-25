@@ -15,7 +15,7 @@ import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '@/lib/notifications'
 import { logAudit } from '@/lib/audit'
-import { getPeriodDivisor } from '@/lib/payroll/cutoffs'
+import { employeePeriodDivisor } from '@/lib/payroll/cutoff-frequency'
 import { Prisma } from '@prisma/client'
 import { evaluateApprovalAction, type RequestFacts } from '@/lib/approvals/engine'
 import { notifyAfterApprove } from '@/lib/approvals/notify'
@@ -46,11 +46,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       employee: {
         select: {
           id: true, firstName: true, lastName: true, employeeNo: true,
-          basicSalary: true, userId: true,
+          basicSalary: true, payFrequency: true, userId: true,
           department: { select: { name: true } },
         },
       },
-      loan: { select: { id: true, balance: true, status: true, monthlyAmortization: true } },
+      loan: { select: { id: true, balance: true, status: true, monthlyAmortization: true, manualPaidBalance: true, cutoffInstallment: true } },
     },
   })
   if (!request) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       employee: {
         select: {
           id: true, firstName: true, lastName: true, userId: true,
-          basicSalary: true, departmentId: true,
+          basicSalary: true, payFrequency: true, departmentId: true,
         },
       },
     },
@@ -119,11 +119,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           // Recomputed from the REMAINING balance, so shortening the term never
           // re-charges what has already been deducted.
           const newAmort = repaymentCutoffs
-            ? monthlyRepayment(remaining, 1, repaymentCutoffs, await getPeriodDivisor(ctx.companyId))
+            ? monthlyRepayment(remaining, 1, repaymentCutoffs, employeePeriodDivisor(existing.employee.payFrequency))
             : monthlyRepayment(remaining, repaymentMonths ?? 1)
           await tx.employeeLoan.update({
             where: { id: existing.linkedLoanId },
-            data: { monthlyAmortization: newAmort },
+            data: { monthlyAmortization: newAmort, cutoffInstallment: repaymentCutoffs ? monthlyRepayment(remaining, repaymentCutoffs) : null },
           })
         }
       }
@@ -233,7 +233,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   let monthlyAmortization: number
   let termLabel: string
   if (existing.repaymentCutoffs && existing.repaymentCutoffs > 0) {
-    const divisor = await getPeriodDivisor(ctx.companyId)
+    const divisor = employeePeriodDivisor(existing.employee.payFrequency)
     const cutoffs = existing.repaymentCutoffs
     monthlyAmortization = monthlyRepayment(amount, 1, cutoffs, divisor)
     // Per-cutoff is the figure that lands on a payslip, so quote that rather
@@ -255,6 +255,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         principalAmount:     amount,
         balance:             amount,
         monthlyAmortization,
+        cutoffInstallment: existing.repaymentCutoffs ? monthlyRepayment(amount, existing.repaymentCutoffs) : null,
         startDate:           new Date(),
         status:              'ACTIVE',
         notes:               `Auto-created from cash advance request ${existing.id}`,

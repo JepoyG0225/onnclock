@@ -57,24 +57,55 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const body = await req.json()
 
-  // Build update payload — only include defined fields
+  const existing = await prisma.employeeLoan.findFirst({ where: { id, companyId: ctx.companyId } })
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const revert = body.action === 'REVERT_PAID'
+  const markingPaid = body.status === 'FULLY_PAID'
+  if (markingPaid || revert) {
+    const savedBalance = existing.manualPaidBalance
+    if (markingPaid && (existing.status !== 'ACTIVE' || Number(existing.balance) <= 0)) {
+      return NextResponse.json({ error: 'Only active loans with an outstanding balance can be marked paid.' }, { status: 409 })
+    }
+    if (revert && (existing.status !== 'FULLY_PAID' || savedBalance === null)) {
+      return NextResponse.json({ error: 'No saved manual-payment balance is available to restore.' }, { status: 409 })
+    }
+    if (body.confirmed !== true || Number(body.expectedBalance) !== Number(revert ? savedBalance : existing.balance)) {
+      return NextResponse.json({ error: 'Confirm the current balance before continuing. Refresh if it has changed.' }, { status: 409 })
+    }
+    const data = revert
+      ? { status: LoanStatus.ACTIVE, balance: savedBalance!, manualPaidBalance: null }
+      : { status: LoanStatus.FULLY_PAID, balance: 0, manualPaidBalance: existing.balance }
+    const result = await prisma.$transaction(async tx => {
+      const updated = await tx.employeeLoan.updateMany({
+        where: { id, companyId: ctx.companyId, updatedAt: existing.updatedAt, status: existing.status }, data,
+      })
+      if (!updated.count) return false
+      await tx.auditLog.create({ data: {
+        companyId: ctx.companyId, userId: ctx.userId, action: 'UPDATE', entity: 'EmployeeLoan', entityId: id,
+        oldValues: { status: existing.status, balance: Number(existing.balance) },
+        newValues: { status: data.status, balance: Number(data.balance), action: revert ? 'REVERT_PAID' : 'MARK_PAID', savedBalance: Number(revert ? savedBalance : existing.balance) },
+      } })
+      return true
+    })
+    return result ? NextResponse.json({ success: true }) : NextResponse.json({ error: 'Loan changed. Refresh and try again.' }, { status: 409 })
+  }
+  if (body.action !== undefined) return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  if (existing.status === 'FULLY_PAID') return NextResponse.json({ error: 'Use Revert payment to restore a manually paid loan.' }, { status: 409 })
   const updateData: Record<string, unknown> = {}
   if (body.status !== undefined) {
-    // Validate against the enum. An unrecognised string used to reach Prisma
-    // and surface as an opaque 500 rather than a useful message.
-    if (!LOAN_STATUSES.includes(body.status)) {
-      return NextResponse.json({ error: `Unknown loan status: ${body.status}` }, { status: 400 })
-    }
+    if (!LOAN_STATUSES.includes(body.status)) return NextResponse.json({ error: 'Unknown loan status' }, { status: 400 })
     updateData.status = body.status
   }
-  if (body.notes               !== undefined) updateData.notes               = body.notes
-  if (body.monthlyAmortization !== undefined) updateData.monthlyAmortization = body.monthlyAmortization
-  if (body.balance             !== undefined) updateData.balance             = body.balance
-
+  if (body.notes !== undefined) updateData.notes = body.notes
+  for (const field of ['monthlyAmortization', 'balance'] as const) {
+    if (body[field] !== undefined) {
+      if (typeof body[field] !== 'number' || !Number.isFinite(body[field]) || body[field] < 0) return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
+      updateData[field] = body[field]
+    }
+  }
   const loan = await prisma.employeeLoan.updateMany({
-    where: { id, companyId: ctx.companyId },
-    data: updateData,
+    where: { id, companyId: ctx.companyId, updatedAt: existing.updatedAt }, data: updateData,
   })
-
+  if (!loan.count) return NextResponse.json({ error: 'Loan changed. Refresh and try again.' }, { status: 409 })
   return NextResponse.json(loan)
 }

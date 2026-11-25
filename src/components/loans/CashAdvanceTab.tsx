@@ -1,4 +1,5 @@
 'use client'
+import { employeePeriodDivisor } from '@/lib/payroll/cutoff-frequency'
 import { ManualCashAdvance } from '@/components/cash-advance/ManualCashAdvance'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,6 +22,7 @@ interface Request {
   amountRequested: number
   reason: string
   repaymentMonths: number
+  repaymentCutoffs?: number | null
   status: Status
   approvedAt: string | null
   rejectionReason: string | null
@@ -32,9 +34,10 @@ interface Request {
     lastName: string
     employeeNo: string
     basicSalary: number
+    payFrequency?: string
     department?: { name: string } | null
   }
-  loan?: { id: string; balance: number; status: string; monthlyAmortization: number } | null
+  loan?: { id: string; balance: number; status: string; monthlyAmortization: number; cutoffInstallment?: number | null; manualPaidBalance?: number | null } | null
 }
 
 const STATUS_BADGE: Record<Status, string> = {
@@ -152,7 +155,8 @@ export function CashAdvanceTab() {
                     const monthlyBasic = Number(r.employee.basicSalary)
                     const amt          = Number(r.amountRequested)
                     const pctOfSalary  = monthlyBasic > 0 ? (amt / monthlyBasic) * 100 : 0
-                    const monthlyAmort = amt / Math.max(1, r.repaymentMonths)
+                    const monthlyAmort = Number(r.loan?.monthlyAmortization ?? amt / Math.max(1, r.repaymentMonths))
+                    const installment = r.loan?.cutoffInstallment ?? (r.loan ? monthlyAmort / employeePeriodDivisor(r.employee.payFrequency) : r.repaymentCutoffs ? amt / r.repaymentCutoffs : monthlyAmort / employeePeriodDivisor(r.employee.payFrequency))
 
                     return (
                       <RequestRowOpener
@@ -180,8 +184,8 @@ export function CashAdvanceTab() {
                           <div className="text-xs text-gray-400">{pctOfSalary.toFixed(1)}% of basic</div>
                         </td>
                         <td className="p-3 text-center border-b">
-                          <div className="font-medium">{r.repaymentMonths}</div>
-                          <div className="text-xs text-gray-400">{peso(monthlyAmort)}/mo</div>
+                          <div className="font-medium">{r.repaymentCutoffs ? `${r.repaymentCutoffs} pay periods` : `${r.repaymentMonths} months`}</div>
+                          <div className="text-xs text-gray-400">{peso(Math.min(Number(r.loan?.balance ?? amt), installment))}/pay period</div>
                         </td>
                         <td className="p-3 text-gray-700 max-w-xs truncate border-b" title={r.reason}>{r.reason}</td>
                         <td className="p-3 text-xs text-gray-600 border-b">{format(new Date(r.createdAt), 'MMM d, yyyy')}</td>

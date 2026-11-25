@@ -1,4 +1,6 @@
 'use client'
+import { LoanPaymentAction } from './LoanPaymentAction'
+import { employeePeriodDivisor } from '@/lib/payroll/cutoff-frequency'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +15,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { peso } from '@/lib/utils'
 import { KpiCard } from '@/components/ui/kpi-card'
 
-interface Employee { id: string; firstName: string; lastName: string; employeeNo: string }
+interface Employee { id: string; firstName: string; lastName: string; employeeNo: string; payFrequency?: string }
 interface LoanDeduction {
   id: string
   amount: number
@@ -25,12 +27,14 @@ interface Loan {
   loanType: string
   principalAmount: number
   balance: number
+  manualPaidBalance?: number | null
+  cutoffInstallment?: number | null
   monthlyAmortization: number
   startDate: string
   endDate: string | null
   status: string
   notes: string | null
-  employee: { firstName: string; lastName: string; employeeNo: string }
+  employee: { firstName: string; lastName: string; employeeNo: string; payFrequency?: string }
   deductions?: LoanDeduction[]
 }
 
@@ -201,7 +205,7 @@ export function LoansTab() {
         <KpiCard label="Active Loans" value={activeLoans.length} icon={<CreditCard className="h-5 w-5" />} />
         <KpiCard label="Total Outstanding" value={peso(totalBalance)} icon={<CreditCard className="h-5 w-5" />} />
         <KpiCard label="Monthly Deductions" value={peso(totalMonthly)} icon={<CreditCard className="h-5 w-5" />} />
-        <KpiCard label="Semi-Monthly / Payslip" value={peso(totalMonthly / 2)} icon={<CreditCard className="h-5 w-5" />} />
+        <KpiCard label="Scheduled / Payslip" value={peso(activeLoans.reduce((sum, l) => sum + Math.min(Number(l.balance), Number(l.cutoffInstallment ?? Number(l.monthlyAmortization) / employeePeriodDivisor(l.employee.payFrequency))), 0))} icon={<CreditCard className="h-5 w-5" />} />
       </div>
 
       {/* New Loan Form */}
@@ -268,7 +272,7 @@ export function LoansTab() {
                   <p className="text-xs text-gray-400 mt-1">
                     ≈ {Math.ceil(Number(form.amount) / Number(form.monthlyAmortization))} monthly payments
                     &nbsp;·&nbsp;
-                    {peso(Number(form.monthlyAmortization) / 2)}/semi-monthly deduction
+                    {peso(Number(form.monthlyAmortization) / employeePeriodDivisor(employees.find(e => e.id === form.employeeId)?.payFrequency))}/pay period deduction
                   </p>
                 )}
               </div>
@@ -391,7 +395,8 @@ export function LoansTab() {
                             {peso(Number(l.monthlyAmortization))}
                           </td>
                           <td className="p-3 text-right text-primary">
-                            {peso(Number(l.monthlyAmortization) / 2)}
+                            {peso(Math.min(Number(l.balance), Number(l.cutoffInstallment ?? Number(l.monthlyAmortization) / employeePeriodDivisor(l.employee.payFrequency))))}
+                            <span className="block text-xs text-slate-500">{l.employee.payFrequency?.replaceAll("_", " ")}</span>
                           </td>
                           <td className="p-3 text-xs text-gray-600">
                             {format(new Date(l.startDate), 'MMM d, yyyy')}
@@ -434,16 +439,10 @@ export function LoansTab() {
                                   </Button>
                                 </>
                               )}
+                              <LoanPaymentAction loan={l} onDone={() => { load(); setExpandedId(null) }} />
                               {l.status === 'ACTIVE' && (
                                 <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs"
-                                    onClick={() => updateStatus(l.id, 'FULLY_PAID')}
-                                  >
-                                    Mark Paid
-                                  </Button>
+
                                   <Button
                                     size="sm"
                                     variant="ghost"

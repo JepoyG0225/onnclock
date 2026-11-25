@@ -1,3 +1,4 @@
+import { employeePeriodDivisor } from '@/lib/payroll/cutoff-frequency'
 import { monthlyPayDays, monthlyPayAmounts, earnedBasicPay } from '@/lib/payroll/monthly-pay'
 import { scheduleInstants, zonedParts, timezone } from '@/lib/attendance/timezone'
 import { restDayPay } from '@/lib/payroll/rest-day-pay'
@@ -915,14 +916,7 @@ export async function POST(
     const hourlyRate = deriveHourlyRate(rateEmployee, rateBasis)
 
     // ── Loan deductions: cap each at remaining balance ─────────────────────
-    // For semi-monthly, deduct half the monthly amortization each period
-    // Loan amortization is split the same way as mandatory deductions —
-    // MONTHLY=1, SEMI=2, WEEKLY=4, DAILY=22.
-    const periodDivisor =
-      run.payFrequency === 'SEMI_MONTHLY' ? 2
-      : run.payFrequency === 'WEEKLY' ? 4
-      : run.payFrequency === 'DAILY' ? 22
-      : 1
+    const periodDivisor = employeePeriodDivisor(emp.payFrequency)
     const previousPayslip = await prisma.payslip.findFirst({
       where: { employeeId: emp.id, payrollRun: {
         companyId: scopedCompanyId, runType: 'REGULAR', id: { not: runId },
@@ -937,10 +931,10 @@ export async function POST(
       select: { calculationBasis: true },
     })
     const incoming = readDeductionCarryover(previousPayslip?.calculationBasis)
-    const loanDeductions = emp.loans.filter(l => l.startDate <= run.periodEnd).map(loan => {
+    const loanDeductions = emp.loans.filter(l => l.startDate <= run.periodEnd && l.manualPaidBalance == null).map(loan => {
       const balance = Number(loan.balance) + (restoredLoanAmounts.get(loan.id) ?? 0)
       const arrears = incoming?.loans.find(l => l.id === loan.id)?.deferred ?? 0
-      const installment = loanInstallment(Number(loan.monthlyAmortization), periodDivisor, balance)
+      const installment = loan.cutoffInstallment != null ? Math.min(Number(loan.cutoffInstallment), balance) : loanInstallment(Number(loan.monthlyAmortization), periodDivisor, balance)
       return { id: loan.id, type: loan.loanType, label: loan.loanNo || `${loan.loanType.replaceAll('_', ' ')} (${loan.id.slice(-6)})`, incoming: Math.min(balance, arrears), amount: Math.min(balance, installment + arrears) }
     }).filter(l => l.amount > 0)
 
@@ -1249,6 +1243,8 @@ export async function POST(
     })
     await tx.payslip.deleteMany({ where: { payrollRunId: runId } })
     for (const [loanId, amount] of priorByLoan) {
+      const priorLoan = await tx.employeeLoan.findUnique({ where: { id: loanId } })
+      if (priorLoan?.manualPaidBalance != null) throw new Error('Revert the manual full payment before recomputing a payroll that previously deducted this loan.')
       await tx.employeeLoan.update({ where: { id: loanId }, data: {
         balance: { increment: amount }, status: 'ACTIVE', endDate: null,
       } })
