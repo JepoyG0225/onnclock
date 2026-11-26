@@ -180,8 +180,8 @@ export default function AttendanceSettingsPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
-        <CardHeader className="border-b border-slate-100 bg-slate-50/60 px-5 py-5 sm:px-6">
+      <Card className="gap-0 rounded-2xl border-slate-200 py-0 shadow-sm">
+        <CardHeader className="rounded-t-2xl border-b border-slate-100 bg-slate-50/60 px-5 py-5 sm:px-6">
           <CardTitle data-tour="as-security" className="flex items-center gap-2 text-base font-semibold text-[#162d54]"><ShieldCheck className="h-4 w-4 text-[#ff5900]" />Attendance security</CardTitle>
           <p className="text-xs leading-relaxed text-slate-500">Choose the verification methods and location rules your team needs.</p>
         </CardHeader>
