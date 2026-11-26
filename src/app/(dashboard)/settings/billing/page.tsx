@@ -380,7 +380,7 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <SettingsTabs />
         <div className="flex items-center justify-center h-64">
           <AppSpinner size="md" />
@@ -394,14 +394,14 @@ export default function BillingPage() {
   if (!data || !sub) {
     const isNoCompany = loadError?.code === 'NO_COMPANY_CONTEXT'
     return (
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <SettingsTabs />
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-8 max-w-2xl">
           <div className="flex items-start gap-4">
             <AlertCircle className="w-6 h-6 text-amber-700 flex-shrink-0" />
             <div className="space-y-3 flex-1">
               <div>
-                <h2 className="font-bold text-amber-900 text-base">
+                <h2 className="font-medium text-amber-900 text-base">
                   {isNoCompany ? 'No company selected' : 'Couldn’t load billing'}
                 </h2>
                 <p className="text-sm text-amber-800 mt-1">
@@ -415,7 +415,7 @@ export default function BillingPage() {
                   <Link
                     href="/admin/companies"
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
-                    style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
+                    style={{ background: '#ff5900' }}
                   >
                     Pick a company
                   </Link>
@@ -436,14 +436,14 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <SettingsTabs />
-      <div className="space-y-8">
+      <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Billing & Subscription</h1>
+          <h1 className="text-2xl font-semibold text-[#162d54]">Billing & Subscription</h1>
           <p className="text-sm text-slate-500 mt-1">Pay via GCash or Maya QR code — instant confirmation.</p>
         </div>
         <button
@@ -461,7 +461,7 @@ export default function BillingPage() {
             {isExpired ? <AlertCircle className="w-5 h-5 text-red-600" /> : <Clock className="w-5 h-5 text-[var(--brand-primary)]" />}
           </div>
           <div className="flex-1">
-            <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-primary'}`}>
+            <p className={`font-medium text-sm ${isExpired ? 'text-red-700' : 'text-primary'}`}>
               {isExpired ? (sub.plan === 'TRIAL' ? 'Your free trial has ended' : 'Your subscription has expired - not renewed') : `${data.daysLeft} day${data.daysLeft === 1 ? '' : 's'} left in your free trial`}
             </p>
             <p className={`text-xs mt-0.5 ${isExpired ? 'text-red-600' : 'text-slate-600'}`}>
@@ -478,7 +478,7 @@ export default function BillingPage() {
             <CheckCircle2 className="w-5 h-5 text-emerald-700" />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-sm text-emerald-900">
+            <p className="font-medium text-sm text-emerald-900">
               You have {fmt(creditBalance)} in billing credit
             </p>
             <p className="text-xs mt-0.5 text-emerald-800">
@@ -497,7 +497,7 @@ export default function BillingPage() {
               <AlertCircle className="w-5 h-5 text-amber-700" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-sm text-amber-900">
+              <p className="font-medium text-sm text-amber-900">
                 Access of the following {unbilledSeats === 1 ? 'employee has' : `${unbilledSeats} employees have`} been paused
               </p>
               <p className="text-xs mt-0.5 text-amber-800">
@@ -509,9 +509,9 @@ export default function BillingPage() {
             </div>
           </div>
           {data.pausedEmployees && data.pausedEmployees.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-white overflow-hidden ml-14">
+            <div className="rounded-lg border border-amber-200 bg-white overflow-hidden sm:ml-14">
               <div className="px-3 py-1.5 bg-amber-50 border-b border-amber-200">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                <p className="text-[11px] font-medium tracking-wide text-amber-800">
                   Paused employees ({data.pausedEmployees.length})
                 </p>
               </div>
@@ -519,7 +519,7 @@ export default function BillingPage() {
                 {data.pausedEmployees.map(e => (
                   <li key={e.id} className="px-3 py-2 flex items-center gap-3 text-xs">
                     <span className="inline-flex w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                    <span className="font-semibold text-slate-800">{e.fullName}</span>
+                    <span className="font-semibold text-[#162d54]">{e.fullName}</span>
                     <span className="text-slate-400 font-mono ml-auto">{e.employeeNo}</span>
                   </li>
                 ))}
@@ -533,6 +533,50 @@ export default function BillingPage() {
       )}
 
       {/* ── Add seats to current cycle ── */}
+      {/* ── Current plan card ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-6 py-5 border-b border-slate-100 flex flex-wrap gap-3 items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
+              <CreditCard className="w-5 h-5" style={{ color: 'var(--brand-primary)' }} />
+            </div>
+            <div>
+              <p className="font-medium text-[#162d54]">Current Plan</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {isOnTrial && `Free Trial — expires ${sub.trialEndsAt ? format(new Date(sub.trialEndsAt), 'MMM dd, yyyy') : ''}`}
+                {isActive && sub.currentPeriodEnd && `${DURATION_SHORT[(sub.billingCycle as Duration) ?? 'ANNUAL'] ?? 'Annual'} — renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
+                {isExpired && 'Expired — please subscribe'}
+              </p>
+            </div>
+          </div>
+          <span className={`text-xs font-medium px-3 py-1.5 rounded-full ${isOnTrial ? 'bg-[#c4d9ff] text-primary' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+            {isOnTrial ? 'Free Trial' : isActive ? 'Active' : sub.status === 'CANCELLED' ? 'Cancelled' : sub.status === 'PAST_DUE' ? 'Past due' : 'Expired'}
+          </span>
+        </div>
+        <div className="p-5 sm:p-6 grid grid-cols-2 xl:grid-cols-4 gap-5 bg-slate-50/40">
+          <div>
+            <p className="text-xs text-slate-400 font-medium mb-1">Active Employees</p>
+            <div className="flex items-baseline gap-1">
+              <Users className="w-4 h-4 text-slate-400 mt-0.5" />
+              <p className="text-xl font-semibold text-[#162d54]">{employeeCount}</p>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 font-medium mb-1">Subscribed Seats</p>
+            <p className="text-xl font-semibold text-[#162d54]">{sub.seatCount}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 font-medium mb-1">Rate / Employee</p>
+            <p className="text-xl font-semibold text-[#162d54]">{fmt(sub.pricePerSeat)}<span className="text-xs font-medium text-slate-400">/mo</span></p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 font-medium mb-1">Est. Monthly Cost</p>
+            <p className="text-xl font-semibold" style={{ color: 'var(--brand-primary)' }}>{fmt(data.estimatedMonthly)}</p>
+          </div>
+        </div>
+      </div>
+
+
       {/* Only shown on ACTIVE subscriptions. Lets HR top up seats mid-cycle
           without restarting the whole subscription period. Cost is the
           per-seat-per-month rate × number of cycle months × the fraction
@@ -540,9 +584,9 @@ export default function BillingPage() {
           parent cycle was bought under (0% for 3M/6M, 20% for annual). */}
       {isActive && addSeatsCost && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+          <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex flex-wrap items-center gap-2">
             <Users className="w-4 h-4 text-slate-500" />
-            <h3 className="text-base font-bold text-slate-900">Add seats to current plan</h3>
+            <h3 className="text-base font-medium text-[#162d54]">Add seats to current plan</h3>
             <span className="ml-auto text-xs text-slate-500">
               {addSeatsCost.daysRemaining} day{addSeatsCost.daysRemaining === 1 ? '' : 's'} remaining
             </span>
@@ -550,14 +594,14 @@ export default function BillingPage() {
           <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Seats to add</label>
+                <label className="text-xs font-semibold text-slate-500 tracking-wide">Seats to add</label>
                 <input
                   type="number"
                   min={1}
                   max={1000}
                   value={seatsToAdd}
                   onChange={(e) => setSeatsToAdd(Math.max(1, Number(e.target.value) || 1))}
-                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="mt-2 w-full min-h-11 rounded-xl border border-slate-200 px-3 py-2 text-sm"
                 />
                 {unbilledSeats > 0 && (
                   <p className="text-xs text-amber-700 mt-1">
@@ -571,36 +615,36 @@ export default function BillingPage() {
                 )}
               </div>
               <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 space-y-1.5">
-                <p className="font-bold text-slate-700 mb-2">Cost preview</p>
-                <div className="flex justify-between">
+                <p className="font-medium text-slate-700 mb-2">Cost preview</p>
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
                   <span>Per-seat rate</span>
-                  <span className="font-bold text-primary">{fmt(addSeatsCost.subPricePerSeat)} / month</span>
+                  <span className="font-medium text-primary">{fmt(addSeatsCost.subPricePerSeat)} / month</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
                   <span>Cycle length</span>
-                  <span className="font-bold text-primary">
+                  <span className="font-medium text-primary">
                     {addSeatsCost.cycleMonths} month{addSeatsCost.cycleMonths === 1 ? '' : 's'}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
                   <span>Pro-rated to cycle remaining</span>
-                  <span className="font-bold text-primary">{addSeatsCost.daysRemaining} days</span>
+                  <span className="font-medium text-primary">{addSeatsCost.daysRemaining} days</span>
                 </div>
                 {addSeatsCost.discountPct > 0 && (
-                  <div className="flex justify-between text-emerald-700 text-xs">
+                  <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-emerald-700 text-xs">
                     <span>Prepay discount</span>
-                    <span className="font-bold">−{addSeatsCost.discountPct.toFixed(0)}% (−{fmt(addSeatsCost.discountAmount)})</span>
+                    <span className="font-medium">−{addSeatsCost.discountPct.toFixed(0)}% (−{fmt(addSeatsCost.discountAmount)})</span>
                   </div>
                 )}
                 {creditBalance > 0 && (
-                  <div className="flex justify-between text-emerald-700 text-xs">
+                  <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-emerald-700 text-xs">
                     <span>Billing credit applied</span>
-                    <span className="font-bold">−{fmt(Math.min(creditBalance, addSeatsCost.total))}</span>
+                    <span className="font-medium">−{fmt(Math.min(creditBalance, addSeatsCost.total))}</span>
                   </div>
                 )}
-                <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between text-base">
-                  <span className="font-bold text-slate-800">Amount Due Now</span>
-                  <span className="font-black text-primary text-lg">
+                <div className="border-t border-slate-200 pt-2 mt-1 flex flex-wrap justify-between gap-x-4 gap-y-1 text-base">
+                  <span className="font-medium text-[#162d54]">Amount Due Now</span>
+                  <span className="font-semibold text-primary text-lg">
                     {fmt(Math.max(0, addSeatsCost.total - Math.min(creditBalance, addSeatsCost.total)))}
                   </span>
                 </div>
@@ -614,7 +658,7 @@ export default function BillingPage() {
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center flex flex-col items-center gap-3">
                 <img src="/qrph-logo.svg" alt="QR Ph" className="h-10 w-auto" />
                 <div>
-                  <p className="font-bold text-slate-700 text-sm">Pay via QR Ph</p>
+                  <p className="font-medium text-slate-700 text-sm">Pay via QR Ph</p>
                   <p className="text-xs text-slate-500 mt-1">
                     Same payment flow as your subscription. Scan to confirm.
                   </p>
@@ -623,8 +667,8 @@ export default function BillingPage() {
               <button
                 onClick={addSeats}
                 disabled={addingSeats || seatsToAdd <= 0 || addSeatsCost.total <= 0}
-                className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
+                className="w-full py-3.5 rounded-xl font-medium text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+                style={{ background: '#ff5900' }}
               >
                 {addingSeats
                   ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -636,52 +680,9 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* ── Current plan card ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(46,65,86,0.12)' }}>
-              <CreditCard className="w-5 h-5" style={{ color: 'var(--brand-primary)' }} />
-            </div>
-            <div>
-              <p className="font-bold text-slate-800">Current Plan</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {isOnTrial && `Free Trial — expires ${sub.trialEndsAt ? format(new Date(sub.trialEndsAt), 'MMM dd, yyyy') : ''}`}
-                {isActive && sub.currentPeriodEnd && `${DURATION_SHORT[(sub.billingCycle as Duration) ?? 'ANNUAL'] ?? 'Annual'} — renews ${format(new Date(sub.currentPeriodEnd), 'MMM dd, yyyy')}`}
-                {isExpired && 'Expired — please subscribe'}
-              </p>
-            </div>
-          </div>
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isOnTrial ? 'bg-[#c4d9ff] text-primary' : isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
-            {isOnTrial ? 'Free Trial' : isActive ? 'Active' : sub.status === 'CANCELLED' ? 'Cancelled' : sub.status === 'PAST_DUE' ? 'Past due' : 'Expired'}
-          </span>
-        </div>
-        <div className="px-6 py-5 grid grid-cols-2 sm:grid-cols-4 gap-6">
-          <div>
-            <p className="text-xs text-slate-400 font-medium mb-1">Active Employees</p>
-            <div className="flex items-baseline gap-1">
-              <Users className="w-4 h-4 text-slate-400 mt-0.5" />
-              <p className="text-xl font-black text-slate-800">{employeeCount}</p>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-medium mb-1">Subscribed Seats</p>
-            <p className="text-xl font-black text-slate-800">{sub.seatCount}</p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-medium mb-1">Rate / Employee</p>
-            <p className="text-xl font-black text-slate-800">{fmt(sub.pricePerSeat)}<span className="text-xs font-medium text-slate-400">/mo</span></p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-medium mb-1">Est. Monthly Cost</p>
-            <p className="text-xl font-black" style={{ color: 'var(--brand-primary)' }}>{fmt(data.estimatedMonthly)}</p>
-          </div>
-        </div>
-      </div>
-
       {/* ── Plan tier selection ── */}
       <div>
-        <h2 className="text-base font-bold text-slate-800 mb-4">Choose Plan</h2>
+        <h2 className="text-base font-medium text-[#162d54] mb-4">Choose Plan</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
             { price: STANDARD_PRICE as 50, label: 'Basic', desc: 'Core HR, payroll, and attendance' },
@@ -690,10 +691,11 @@ export default function BillingPage() {
             <button
               key={price}
               type="button"
+              aria-pressed={selectedPricePerSeat === price}
               onClick={() => setSelectedPricePerSeat(price)}
-              className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === price ? 'border-[var(--brand-primary)] bg-[#dce5f7]/40' : 'border-slate-200 bg-white hover:border-[#AAB7B7]'}`}
+              className={`rounded-2xl border-2 p-5 text-left transition-all ${selectedPricePerSeat === price ? 'border-[#ff5900] bg-orange-50/60 shadow-sm' : 'border-slate-200 bg-white hover:border-orange-200'}`}
             >
-              <p className="font-black text-slate-900 text-lg">{label}</p>
+              <p className="font-semibold text-[#162d54] text-lg">{label}</p>
               <p className="text-xs text-slate-500 mt-1">{desc}</p>
               <p className="mt-3 text-sm font-semibold text-slate-700">₱{price} / employee / month</p>
             </button>
@@ -702,11 +704,11 @@ export default function BillingPage() {
       </div>
 
       {/* ── Checkout card ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-5 shadow-sm">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-bold text-slate-900">Checkout</h3>
+          <h3 className="text-base font-medium text-[#162d54]">Checkout</h3>
           {planDiscountPct > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white" style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}>
+            <span className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full text-white" style={{ background: '#ff5900' }}>
               <Star className="w-2.5 h-2.5 fill-white" /> {planDiscountPct}% {DURATION_SHORT[selectedDuration].toUpperCase()} DISCOUNT
             </span>
           )}
@@ -716,11 +718,11 @@ export default function BillingPage() {
           {/* Left — seats + summary */}
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Subscription Duration</label>
+              <label className="text-xs font-semibold text-slate-500 tracking-wide">Subscription Duration</label>
               <select
                 value={selectedDuration}
                 onChange={(e) => setSelectedDuration(e.target.value as Duration)}
-                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
+                className="mt-2 w-full min-h-11 rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
               >
                 {(['3_MONTH', '6_MONTH', 'ANNUAL'] as Duration[]).map((d) => {
                   const pct = effectiveDiscountPct(d, effectiveSeatCount)
@@ -737,19 +739,19 @@ export default function BillingPage() {
               </p>
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Quantity (Seats)</label>
+              <label className="text-xs font-semibold text-slate-500 tracking-wide">Quantity (Seats)</label>
               <input
                 type="number"
                 min={Math.max(1, employeeCount)}
                 value={seatCount}
                 onChange={(e) => setSeatCount(Math.max(employeeCount, Number(e.target.value) || employeeCount))}
-                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="mt-2 w-full min-h-11 rounded-xl border border-slate-200 px-3 py-2 text-sm"
               />
               <p className="text-xs text-slate-400 mt-1">Minimum: {employeeCount} active employee{employeeCount !== 1 ? 's' : ''}</p>
             </div>
 
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 space-y-1.5">
-              <p className="font-bold text-slate-700 mb-2">{DURATION_SHORT[selectedDuration]} Plan Summary</p>
+              <p className="font-medium text-slate-700 mb-2">{DURATION_SHORT[selectedDuration]} Plan Summary</p>
               {isVolumeTier && (
                 <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 mb-1">
                   <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -758,41 +760,41 @@ export default function BillingPage() {
                   </span>
                 </div>
               )}
-              <div className="flex justify-between">
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
                 <span>Rate</span>
-                <span className="font-bold text-primary">{fmt(pricePerMonthAfterDiscount)} / seat / month</span>
+                <span className="font-medium text-primary">{fmt(pricePerMonthAfterDiscount)} / seat / month</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
                 <span>Plan total ({effectiveSeatCount} seats × {selectedMonths} {selectedMonths === 1 ? 'month' : 'months'})</span>
-                <span className="font-bold text-primary">{fmt(planTotal)}</span>
+                <span className="font-medium text-primary">{fmt(planTotal)}</span>
               </div>
               {planDiscountPct > 0 && (
-                <div className="flex justify-between text-emerald-600 text-xs">
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-emerald-600 text-xs">
                   <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />{isVolumeTier ? 'Volume discount (100+ seats)' : 'Prepay discount'}</span>
-                  <span className="font-bold">−{planDiscountPct}%</span>
+                  <span className="font-medium">−{planDiscountPct}%</span>
                 </div>
               )}
               {planSavings > 0 && (
-                <div className="flex justify-between text-emerald-600 text-xs">
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-emerald-600 text-xs">
                   <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />You save (vs. full price)</span>
-                  <span className="font-bold">{fmt(planSavings)}</span>
+                  <span className="font-medium">{fmt(planSavings)}</span>
                 </div>
               )}
               {hasRemainingPeriod && remainingCredit > 0 && (
-                <div className="flex justify-between text-emerald-700">
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-emerald-700">
                   <span>Current plan credit</span>
-                  <span className="font-bold">−{fmt(remainingCredit)}</span>
+                  <span className="font-medium">−{fmt(remainingCredit)}</span>
                 </div>
               )}
               {creditBalance > 0 && (
-                <div className="flex justify-between text-emerald-700">
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-emerald-700">
                   <span>Billing credit applied</span>
-                  <span className="font-bold">−{fmt(Math.min(creditBalance, selectedTotal))}</span>
+                  <span className="font-medium">−{fmt(Math.min(creditBalance, selectedTotal))}</span>
                 </div>
               )}
-              <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between text-base">
-                <span className="font-bold text-slate-800">Amount Due Now</span>
-                <span className="font-black text-primary text-lg">
+              <div className="border-t border-slate-200 pt-2 mt-1 flex flex-wrap justify-between gap-x-4 gap-y-1 text-base">
+                <span className="font-medium text-[#162d54]">Amount Due Now</span>
+                <span className="font-semibold text-primary text-lg">
                   {fmt(Math.max(0, selectedTotal - Math.min(creditBalance, selectedTotal)))}
                 </span>
               </div>
@@ -804,7 +806,7 @@ export default function BillingPage() {
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center flex flex-col items-center gap-3">
               <img src="/qrph-logo.svg" alt="QR Ph" className="h-10 w-auto" />
               <div>
-                <p className="font-bold text-slate-700 text-sm">Pay via QR Ph</p>
+                <p className="font-medium text-slate-700 text-sm">Pay via QR Ph</p>
                 <p className="text-xs text-slate-500 mt-1">Supports GCash, Maya, and any QR Ph-enabled bank app. Scan and confirm payment instantly.</p>
               </div>
               <div className="flex gap-2 flex-wrap justify-center">
@@ -817,8 +819,8 @@ export default function BillingPage() {
             <button
               onClick={proceedToPayment}
               disabled={selectedTotal <= 0}
-              className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
+              className="w-full py-3.5 rounded-xl font-medium text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+              style={{ background: '#ff5900' }}
             >
               <QrCode className="w-4 h-4" />
               Proceed to Payment
@@ -829,7 +831,7 @@ export default function BillingPage() {
 
       {/* ── Invoice History ── */}
       <div>
-        <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <h2 className="text-base font-medium text-[#162d54] mb-4 flex items-center gap-2">
           <FileText className="w-4 h-4 text-slate-400" /> Invoice History
         </h2>
         {invoices.length === 0 ? (
@@ -838,32 +840,32 @@ export default function BillingPage() {
             <p className="text-sm text-slate-400 font-medium">No invoices yet</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-sm">
+            <table className="w-full min-w-[480px] text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide">Invoice</th>
-                  <th className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Period</th>
-                  <th className="text-left px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide hidden md:table-cell">Payment</th>
-                  <th className="text-right px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide">Amount</th>
-                  <th className="text-center px-4 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="text-right px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide">Action</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-medium text-slate-500 tracking-wide">Invoice</th>
+                  <th className="text-left px-4 py-3.5 text-xs font-medium text-slate-500 tracking-wide hidden sm:table-cell">Period</th>
+                  <th className="text-left px-4 py-3.5 text-xs font-medium text-slate-500 tracking-wide hidden md:table-cell">Payment</th>
+                  <th className="text-right px-4 py-3.5 text-xs font-medium text-slate-500 tracking-wide">Amount</th>
+                  <th className="text-center px-4 py-3.5 text-xs font-medium text-slate-500 tracking-wide">Status</th>
+                  <th className="text-right px-5 py-3.5 text-xs font-medium text-slate-500 tracking-wide">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {invoices.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-5 py-4">
-                      <p className="font-bold text-slate-800 text-sm">{invoice.invoiceNo}</p>
+                      <p className="font-medium text-[#162d54] text-sm">{invoice.invoiceNo}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{format(new Date(invoice.createdAt), 'MMM dd, yyyy')}</p>
                     </td>
                     <td className="px-4 py-4 hidden sm:table-cell text-xs text-slate-600">
                       {format(new Date(invoice.periodStart), 'MMM dd')} – {format(new Date(invoice.periodEnd), 'MMM dd, yyyy')}
                     </td>
                     <td className="px-4 py-4 hidden md:table-cell text-xs text-slate-600">{invoice.paymentMethodLabel ?? '—'}</td>
-                    <td className="px-4 py-4 text-right font-bold text-slate-800">{fmt(invoice.total)}</td>
+                    <td className="px-4 py-4 text-right font-medium text-[#162d54]">{fmt(invoice.total)}</td>
                     <td className="px-4 py-4 text-center">
-                      <span className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                      <span className={`inline-block text-[10px] font-medium px-2.5 py-1 rounded-full ${
                         invoice.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
                         invoice.status === 'VOID' ? 'bg-slate-100 text-slate-500' :
                         'bg-amber-100 text-amber-700'
@@ -900,7 +902,7 @@ export default function BillingPage() {
             {qr.phase === 'loading' && (
               <div className="flex flex-col items-center justify-center gap-4 py-16 px-8">
                 <AppSpinner size="md" />
-                <p className="font-bold text-slate-700">Generating QR code…</p>
+                <p className="font-medium text-slate-700">Generating QR code…</p>
                 <p className="text-xs text-slate-400 text-center">Generating your QR code…</p>
               </div>
             )}
@@ -912,7 +914,7 @@ export default function BillingPage() {
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3" style={{ background: 'rgba(46,65,86,.1)' }}>
                     <QrCode className="w-6 h-6" style={{ color: 'var(--brand-primary)' }} />
                   </div>
-                  <h2 className="text-lg font-black text-slate-900">Scan to Pay</h2>
+                  <h2 className="text-lg font-semibold text-[#162d54]">Scan to Pay</h2>
                   <p className="text-xs text-slate-500 mt-1">Use GCash, Maya, or any QR Ph-enabled bank app</p>
                 </div>
 
@@ -934,7 +936,7 @@ export default function BillingPage() {
                 {/* Amount + invoice */}
                 <div className="mx-6 mt-4 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-center">
                   <p className="text-xs text-slate-500">Amount Due</p>
-                  <p className="text-2xl font-black text-slate-900 mt-0.5">{fmt(qr.amountDue)}</p>
+                  <p className="text-2xl font-semibold text-[#162d54] mt-0.5">{fmt(qr.amountDue)}</p>
                   <p className="text-xs text-slate-400 mt-0.5">Invoice {qr.invoiceNo}</p>
                 </div>
 
@@ -944,7 +946,7 @@ export default function BillingPage() {
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Waiting for payment…
                   </div>
-                  <div className={`flex items-center gap-1 text-xs font-bold ${countdown < 5 * 60 * 1000 ? 'text-red-500' : 'text-slate-500'}`}>
+                  <div className={`flex items-center gap-1 text-xs font-medium ${countdown < 5 * 60 * 1000 ? 'text-red-500' : 'text-slate-500'}`}>
                     <TimerReset className="w-3.5 h-3.5" />
                     {fmtCountdown(countdown)}
                   </div>
@@ -968,14 +970,14 @@ export default function BillingPage() {
                   <CheckCircle2 className="w-9 h-9 text-emerald-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-slate-900">Payment Confirmed!</h2>
+                  <h2 className="text-xl font-semibold text-[#162d54]">Payment Confirmed!</h2>
                   <p className="text-sm text-slate-500 mt-1">Your subscription is now active.</p>
                   {qr.invoiceNo && <p className="text-xs text-slate-400 mt-1">Invoice {qr.invoiceNo}</p>}
                 </div>
                 <button
                   onClick={closeModal}
-                  className="w-full py-3 rounded-xl font-bold text-sm text-white mt-2"
-                  style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
+                  className="w-full py-3 rounded-xl font-medium text-sm text-white mt-2"
+                  style={{ background: '#ff5900' }}
                 >
                   Done
                 </button>
@@ -989,7 +991,7 @@ export default function BillingPage() {
                   <TimerReset className="w-9 h-9 text-amber-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-slate-900">QR Expired</h2>
+                  <h2 className="text-xl font-semibold text-[#162d54]">QR Expired</h2>
                   <p className="text-sm text-slate-500 mt-1">The QR code has expired. Please generate a new one.</p>
                 </div>
                 <div className="flex gap-3 w-full mt-2">
@@ -998,8 +1000,8 @@ export default function BillingPage() {
                   </button>
                   <button
                     onClick={proceedToPayment}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
+                    style={{ background: '#ff5900' }}
                   >
                     Try Again
                   </button>
@@ -1014,7 +1016,7 @@ export default function BillingPage() {
                   <XCircle className="w-9 h-9 text-red-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-slate-900">Payment Failed</h2>
+                  <h2 className="text-xl font-semibold text-[#162d54]">Payment Failed</h2>
                   <p className="text-sm text-slate-500 mt-1">The payment was declined or cancelled.</p>
                 </div>
                 <div className="flex gap-3 w-full mt-2">
@@ -1023,8 +1025,8 @@ export default function BillingPage() {
                   </button>
                   <button
                     onClick={proceedToPayment}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg,#000000,#000000)' }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
+                    style={{ background: '#ff5900' }}
                   >
                     Try Again
                   </button>

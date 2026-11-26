@@ -504,7 +504,7 @@ function StorageTab() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
         <CardContent className="flex items-center justify-center py-16">
           <AppSpinner size="md" />
         </CardContent>
@@ -514,7 +514,7 @@ function StorageTab() {
 
   if (!data) {
     return (
-      <Card>
+      <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
         <CardContent className="py-12 text-center text-sm text-slate-500">
           Could not load storage information.
         </CardContent>
@@ -538,20 +538,21 @@ function StorageTab() {
   const selectedAddOn = pendingAddOn !== null ? pendingAddOn : data.addOnGb
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-5">
+      <div><h2 className="text-2xl font-semibold tracking-tight tracking-tight text-[#162d54]">Storage</h2><p className="mt-1 text-sm text-slate-500">Monitor document usage and manage your company storage capacity.</p></div>
 
       {/* ── Current usage ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+      <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
+        <CardHeader className="border-b border-slate-100 px-5 py-4">
+          <CardTitle className="text-sm font-semibold text-[#162d54] flex items-center gap-2">
             <HardDrive className="w-4 h-4 text-slate-600" />
             Document Storage
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-5 p-5">
           {/* Plan + add-on badges */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
               data.planName === 'Pro' ? 'bg-emerald-100 text-emerald-700' :
               data.planName === 'Basic' ? 'bg-blue-100 text-blue-700' :
               'bg-slate-100 text-slate-600'
@@ -560,7 +561,7 @@ function StorageTab() {
               {data.planName} Plan · {data.baseLimitLabel}
             </span>
             {data.addOnLabel && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-700">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
                 <PackagePlus className="w-3 h-3" /> {data.addOnLabel} add-on
               </span>
             )}
@@ -573,11 +574,11 @@ function StorageTab() {
           {/* Usage bar */}
           <div className="space-y-2">
             <div className="flex items-end justify-between">
-              <span className="text-2xl font-black text-slate-900">{data.usedLabel}</span>
+              <span className="text-2xl font-semibold tracking-tight text-[#162d54]">{data.usedLabel}</span>
               <span className="text-sm text-slate-500">of {data.limitLabel}</span>
             </div>
             <div className={`h-3 rounded-full overflow-hidden ${barBg}`}>
-              <div className={`h-3 rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${data.usedPct}%` }} />
+              <div className={`h-3 rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${Math.min(100, Math.max(0, data.usedPct))}%` }} />
             </div>
             <div className="flex items-center justify-between">
               <span className={`text-xs font-semibold ${data.usedPct >= 90 ? 'text-red-600' : data.usedPct >= 70 ? 'text-amber-600' : 'text-slate-500'}`}>
@@ -599,15 +600,15 @@ function StorageTab() {
 
           {/* Breakdown */}
           <div className="space-y-2.5">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Breakdown</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+            <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Breakdown</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              <div className="flex items-center gap-3 border border-slate-100 bg-slate-50/60 rounded-xl p-4">
                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
                   <FileText className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-700">Employee Documents</p>
-                  <p className="text-sm font-black text-slate-900">{data.docsLabel}</p>
+                  <p className="text-sm font-semibold text-[#162d54]">{data.docsLabel}</p>
                 </div>
                 {data.usedBytes > 0 && (
                   <span className="ml-auto text-[11px] text-slate-400 shrink-0">
@@ -615,13 +616,13 @@ function StorageTab() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+              <div className="flex items-center gap-3 border border-slate-100 bg-slate-50/60 rounded-xl p-4">
                 <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
                   <Briefcase className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-700">Recruitment Resumes</p>
-                  <p className="text-sm font-black text-slate-900">{data.resumesLabel}</p>
+                  <p className="text-sm font-semibold text-[#162d54]">{data.resumesLabel}</p>
                 </div>
                 {data.usedBytes > 0 && (
                   <span className="ml-auto text-[11px] text-slate-400 shrink-0">
@@ -629,13 +630,13 @@ function StorageTab() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+              <div className="flex items-center gap-3 border border-slate-100 bg-slate-50/60 rounded-xl p-4">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
                   <Paperclip className="w-4 h-4 text-orange-600" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-700">Attachments</p>
-                  <p className="text-sm font-black text-slate-900">{data.attachmentsLabel}</p>
+                  <p className="text-sm font-semibold text-[#162d54]">{data.attachmentsLabel}</p>
                 </div>
                 {data.usedBytes > 0 && (
                   <span className="ml-auto text-[11px] text-slate-400 shrink-0">
@@ -643,13 +644,13 @@ function StorageTab() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+              <div className="flex items-center gap-3 border border-slate-100 bg-slate-50/60 rounded-xl p-4">
                 <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
                   <Cloud className="w-4 h-4 text-teal-600" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-700">Cloud Storage</p>
-                  <p className="text-sm font-black text-slate-900">{data.supabaseLabel}</p>
+                  <p className="text-sm font-semibold text-[#162d54]">{data.supabaseLabel}</p>
                 </div>
                 {data.usedBytes > 0 && (
                   <span className="ml-auto text-[11px] text-slate-400 shrink-0">
@@ -663,14 +664,14 @@ function StorageTab() {
       </Card>
 
       {/* ── Base plan comparison ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+      <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
+        <CardHeader className="border-b border-slate-100 px-5 py-4">
+          <CardTitle className="text-sm font-semibold text-[#162d54] flex items-center gap-2">
             <HardDrive className="w-4 h-4 text-slate-600" />
             Storage Allotment by Plan
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 p-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {BASE_PLANS.map((tier) => {
               const isCurrent = tier.name === data.planName
@@ -683,28 +684,28 @@ function StorageTab() {
               return (
                 <div key={tier.name} className={`relative rounded-xl border-2 p-4 transition-all ${
                   isCurrent
-                    ? tier.name === 'Pro' ? 'border-emerald-400 bg-emerald-50'
-                    : tier.name === 'Basic' ? 'border-blue-400 bg-blue-50'
+                    ? tier.name === 'Pro' ? 'border-[#ff5900] bg-orange-50/50'
+                    : tier.name === 'Basic' ? 'border-[#ff5900] bg-orange-50/50'
                     : 'border-slate-300 bg-slate-50'
                     : 'border-slate-200 bg-white'
                 }`}>
                   {isCurrent && (
-                    <span className="absolute -top-2.5 left-3 px-2 py-0.5 rounded text-[10px] font-bold bg-primary text-white">Current</span>
+                    <span className="absolute -top-2.5 left-3 px-2 py-0.5 rounded text-[10px] font-medium bg-primary text-white">Current</span>
                   )}
                   {tier.name === 'Pro' && !isCurrent && (
-                    <span className="absolute -top-2.5 right-3 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white">
+                    <span className="absolute -top-2.5 right-3 inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500 text-white">
                       <Sparkles className="w-2.5 h-2.5" /> Best
                     </span>
                   )}
                   <div className="space-y-3">
                     <div>
-                      <p className={`text-sm font-bold ${isCurrent && tier.name === 'Pro' ? 'text-emerald-800' : isCurrent && tier.name === 'Basic' ? 'text-blue-800' : 'text-slate-800'}`}>
+                      <p className={`text-sm font-medium ${isCurrent && tier.name === 'Pro' ? 'text-emerald-800' : isCurrent && tier.name === 'Basic' ? 'text-blue-800' : 'text-[#162d54]'}`}>
                         {tier.name}
                       </p>
                       <p className="text-xs text-slate-500">{tier.description}</p>
                     </div>
                     <div>
-                      <p className={`text-2xl font-black ${tier.name === 'Pro' ? 'text-emerald-700' : tier.name === 'Basic' ? 'text-blue-700' : 'text-slate-600'}`}>
+                      <p className={`text-2xl font-semibold tracking-tight ${tier.name === 'Pro' ? 'text-emerald-700' : tier.name === 'Basic' ? 'text-blue-700' : 'text-slate-600'}`}>
                         {tier.storage}
                       </p>
                       {perEmpStr && <p className="text-[11px] text-slate-500 mt-0.5">~{perEmpStr}/employee</p>}
@@ -724,12 +725,12 @@ function StorageTab() {
 
           {/* Upgrade to Pro CTA */}
           {!data.isTopTier && (
-            <div className="rounded-xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50 p-4">
-              <div className="flex items-start justify-between gap-4">
+            <div className="rounded-xl border border-orange-100 bg-orange-50/50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0 space-y-2">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <p className="text-sm font-bold text-emerald-900">
+                    <p className="text-sm font-medium text-emerald-900">
                       Upgrade to Pro at ₱70/employee — unlock 20 GB
                     </p>
                   </div>
@@ -745,7 +746,7 @@ function StorageTab() {
                   )}
                 </div>
                 <Link href="/settings/billing"
-                  className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-success-foreground bg-success hover:bg-success/90 transition-colors whitespace-nowrap shadow-sm">
+                  className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-[#ff5900] hover:bg-[#e65000] transition-colors whitespace-nowrap shadow-sm">
                   Upgrade <ArrowUpRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -756,7 +757,7 @@ function StorageTab() {
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-center gap-3">
               <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-sm font-bold text-emerald-800">You&apos;re on the Pro plan</p>
+                <p className="text-sm font-medium text-emerald-800">You&apos;re on the Pro plan</p>
                 <p className="text-xs text-emerald-700 mt-0.5">
                   20 GB base storage included.{data.employeeCount > 0 && ` ~${Math.round((20 * 1024) / data.employeeCount)} MB per employee.`}
                 </p>
@@ -767,14 +768,14 @@ function StorageTab() {
       </Card>
 
       {/* ── Storage Add-On ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+      <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
+        <CardHeader className="border-b border-slate-100 px-5 py-4">
+          <CardTitle className="text-sm font-semibold text-[#162d54] flex items-center gap-2">
             <PackagePlus className="w-4 h-4 text-violet-600" />
             Storage Add-On
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 p-5">
           <p className="text-sm text-slate-600">
             Need more space? Add extra storage on top of your current plan.
             Changes apply to your <strong>next billing cycle</strong>.
@@ -809,29 +810,30 @@ function StorageTab() {
               return (
                 <button
                   key={tier.gb}
+                  aria-pressed={isSelected}
                   onClick={() => setPendingAddOn(tier.gb)}
                   disabled={savingAddOn}
                   className={`relative text-left rounded-xl border-2 p-4 transition-all disabled:opacity-60 ${
                     isActive
-                      ? 'border-violet-400 bg-violet-50'
+                      ? 'border-[#ff5900] bg-orange-50/50'
                       : isSelected
-                        ? 'border-violet-300 bg-violet-50/50'
-                        : 'border-slate-200 bg-white hover:border-violet-200 hover:bg-violet-50/30'
+                        ? 'border-[#ff5900] bg-orange-50/50'
+                        : 'border-slate-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
                   }`}
                 >
                   {isActive && (
-                    <span className="absolute -top-2.5 left-3 px-2 py-0.5 rounded text-[10px] font-bold bg-violet-600 text-white">
+                    <span className="absolute -top-2.5 left-3 px-2 py-0.5 rounded text-[10px] font-medium bg-violet-600 text-white">
                       Active
                     </span>
                   )}
                   <div className="space-y-2">
-                    <p className="text-xl font-black text-slate-800">{tier.label}</p>
-                    <p className="text-sm font-bold text-violet-700">{tier.priceLabel}</p>
+                    <p className="text-xl font-semibold text-[#162d54]">{tier.label}</p>
+                    <p className="text-sm font-medium text-violet-700">{tier.priceLabel}</p>
                     <p className="text-[11px] text-slate-500">
                       Flat monthly fee · any plan
                     </p>
                     {data.addOnGb !== tier.gb && isSelected && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-600">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-violet-600">
                         <Check className="w-3 h-3" /> Selected
                       </span>
                     )}
@@ -847,7 +849,7 @@ function StorageTab() {
               <div className="flex items-start gap-3">
                 <PackagePlus className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-violet-800">
+                  <p className="text-sm font-medium text-violet-800">
                     {pendingAddOn === 0
                       ? 'Remove storage add-on'
                       : `Add +${pendingAddOn} GB storage`}
@@ -897,7 +899,7 @@ function StorageTab() {
               <p className="font-semibold text-slate-700">Next billing estimate</p>
               <p>Plan: {data.employeeCount} employees × ₱{data.pricePerSeat} = ₱{data.currentMonthlyBase.toLocaleString('en-PH')}</p>
               <p>Storage add-on (+{data.addOnGb} GB): ₱{data.addOnPrice.toLocaleString('en-PH')}</p>
-              <p className="font-bold text-slate-800 pt-0.5 border-t border-slate-200">
+              <p className="font-medium text-[#162d54] pt-0.5 border-t border-slate-200">
                 Total: ₱{data.nextMonthlyTotal.toLocaleString('en-PH')}/month
               </p>
             </div>
