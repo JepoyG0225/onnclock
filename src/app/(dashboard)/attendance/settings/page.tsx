@@ -333,7 +333,9 @@ export default function AttendanceSettingsPage() {
             </div>
           )}
 
+          {(form.screenCaptureEnabled || !screenCaptureEntitled) && (
           <div className="border-t border-slate-100 pt-6"><h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><Monitor className="h-4 w-4 text-[#ff5900]" />Desktop monitoring</h2><p className="mt-1 text-xs text-slate-500">Manage screen capture and desktop attendance requirements.</p></div>
+          )}
           {!screenCaptureEntitled && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-sm font-semibold text-amber-700">Screen capture is locked</p>
