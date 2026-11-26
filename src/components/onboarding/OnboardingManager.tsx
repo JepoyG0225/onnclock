@@ -1221,7 +1221,7 @@ export function OnboardingManager() {
   }, [processes, statusFilter, search])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
+    <div className="w-full min-w-0 space-y-6">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
