@@ -610,6 +610,8 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               key={tab.value}
               value={tab.value}
               data-tour={`emp-tab-${tab.value}`}
+              aria-label={tab.label}
+              title={!isCreate ? tab.label : undefined}
               className={!isCreate ? styles.tab : undefined}
               onClick={tab.value === 'leaves' ? () => loadLeaveAllocations() : undefined}
             >

@@ -23,6 +23,9 @@
  .saveBar { margin-left: 244px; }
 }
 @media(max-width:639px) {
+ .navigation { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 4px; overflow: hidden; }
+ .tab { min-width: 0; min-height: 44px; padding: 10px 0; gap: 0; }
+ .tab > span { display: none; }
  .panels [data-slot="card-header"], .panels [data-slot="card-content"] { padding-inline: 16px; }
  .panels [data-slot="card-header"] > div { flex-wrap: wrap; gap: 12px; }
  .saveBar { bottom: 72px; padding: 12px; }
