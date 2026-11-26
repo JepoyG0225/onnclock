@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Calculator, Printer, Search, ChevronDown, AlertTriangle, FileText, Receipt, X } from 'lucide-react'
+import { Calculator, Printer, UserRound, CalendarDays, SlidersHorizontal, ChevronDown, AlertTriangle, FileText, Receipt, X } from 'lucide-react'
 import { DatePicker } from '@/components/ui/date-picker'
 import { peso } from '@/lib/utils'
 import { format, addDays } from 'date-fns'
@@ -161,7 +161,8 @@ export default function FinalPayPage() {
   const seedReason     = mapOffboardingReason(search.get('reason')) ?? 'RESIGNATION'
 
   const [employees,  setEmployees]  = useState<Employee[]>([])
-  const [empSearch,  setEmpSearch]  = useState('')
+  const [employeesLoading, setEmployeesLoading] = useState(true)
+  const [employeesError, setEmployeesError] = useState('')
   const [employeeId, setEmployeeId] = useState(seedEmployeeId)
   const [lastDay,    setLastDay]    = useState(seedLastDay)
   const [reason,     setReason]     = useState<Reason>(seedReason)
@@ -178,9 +179,19 @@ export default function FinalPayPage() {
   // out of the totals.
   const [computedWith, setComputedWith] = useState<{ sig: string; overrides: Overrides } | null>(null)
 
-  useEffect(() => {
-    fetch('/api/employees?limit=500').then(r => r.json()).then(d => setEmployees(d.employees ?? []))
-  }, [])
+  async function loadEmployees() {
+    setEmployeesLoading(true)
+    setEmployeesError('')
+    try {
+      const response = await fetch('/api/employees?limit=500')
+      if (!response.ok) throw new Error('Unable to load employees. Please try again.')
+      const body = await response.json()
+      setEmployees(body.employees ?? [])
+    } catch (error) {
+      setEmployeesError(error instanceof Error ? error.message : 'Unable to load employees.')
+    } finally { setEmployeesLoading(false) }
+  }
+  useEffect(() => { void loadEmployees() }, [])
 
   // Escape closes the statement popup.
   useEffect(() => {
@@ -192,16 +203,6 @@ export default function FinalPayPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showStatement])
 
-  const matches = useMemo(() => {
-    const q = empSearch.trim().toLowerCase()
-    if (!q) return employees
-    return employees.filter(e =>
-      e.firstName.toLowerCase().includes(q)
-      || e.lastName.toLowerCase().includes(q)
-      || e.employeeNo.toLowerCase().includes(q))
-  }, [employees, empSearch])
-
-  const visible = matches.slice(0, 30)
   const selected = employees.find(e => e.id === employeeId)
   const reasonMeta = REASON_OPTIONS.find(r => r.value === reason)!
 
@@ -305,16 +306,14 @@ export default function FinalPayPage() {
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-[var(--brand-ink)]">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-primary)] text-white">
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-[#162d54]">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[#ff5900]">
               <FileText className="h-5 w-5" />
             </span>
             Final Pay Worksheet
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Everything owed on separation, per DOLE Labor Advisory 06-20. Leave balances, active loans
-            and year-to-date payslip figures are read from records; anything without a source is asked
-            for outright.
+            Prepare an employee settlement, review the breakdown, and transfer it to payroll.
           </p>
         </div>
         {data && !showStatement && (
@@ -326,13 +325,20 @@ export default function FinalPayPage() {
       </div>
 
       {/* ── Worksheet: three panels side by side ────────────────────────── */}
-      <div className="grid items-start gap-4 print:hidden lg:grid-cols-3">
+      <div className="grid items-stretch gap-5 print:hidden lg:grid-cols-2">
 
         {/* Employee */}
         <div>
-          <Card className="h-full">
-            <CardContent className="space-y-3 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Employee</p>
+          <Card className="h-full gap-0 rounded-2xl border-slate-200 py-0 shadow-sm">
+            <CardContent className="space-y-4 p-5 sm:p-6">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><UserRound className="h-4 w-4 text-[#ff5900]" />Employee</h2>
+              <label htmlFor="final-pay-employee" className="block text-xs font-medium text-slate-500">Select employee</label>
+              <select id="final-pay-employee" data-tour="fp-employee" value={employeeId} disabled={employeesLoading || !!employeesError} onChange={e => { setEmployeeId(e.target.value); setData(null); setComputedWith(null); setShowStatement(false) }} className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-[#162d54] outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 disabled:bg-slate-50">
+                <option value="">{employeesLoading ? 'Loading employees...' : employeesError ? 'Employees unavailable' : 'Choose an employee'}</option>
+                {employeeId && !employees.some(e => e.id === employeeId) && <option value={employeeId}>Selected employee unavailable</option>}
+                {employees.map(e => <option key={e.id} value={e.id}>{e.lastName}, {e.firstName} ({e.employeeNo})</option>)}
+              </select>
+              {employeesError && <div role="alert" className="text-xs text-red-600">{employeesError} <button type="button" className="font-medium underline" onClick={loadEmployees}>Retry</button></div>}
 
               {selected ? (
                 <div className="rounded-xl border border-[#e5ecf4] bg-[#f6f9fd] p-3">
@@ -345,13 +351,7 @@ export default function FinalPayPage() {
                         {selected.employeeNo} · {selected.department?.name ?? '—'} · {selected.position?.title ?? '—'}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => { setEmployeeId(''); setData(null); setComputedWith(null) }}
-                      className="shrink-0 text-[11px] font-medium text-[var(--brand-primary)] hover:underline"
-                    >
-                      Change
-                    </button>
+
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#e5ecf4] pt-2.5">
                     <div>
@@ -389,40 +389,11 @@ export default function FinalPayPage() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      value={empSearch}
-                      onChange={e => setEmpSearch(e.target.value)}
-                      data-tour="fp-employee"
-                      placeholder="Search name or employee number…"
-                      className="pl-8"
-                    />
-                  </div>
-                  <div className="h-[100vh] overflow-y-auto rounded-lg border border-[#e5ecf4]">
-                    {visible.length === 0 ? (
-                      <p className="p-3 text-xs text-slate-400">No matches</p>
-                    ) : (
-                      visible.map(e => (
-                        <button
-                          key={e.id}
-                          type="button"
-                          onClick={() => setEmployeeId(e.id)}
-                          className="w-full border-b border-[#eef3f9] px-3 py-2 text-left text-xs last:border-b-0 hover:bg-[#f6f9fd]"
-                        >
-                          <div className="font-medium text-[var(--brand-ink)]">{e.lastName}, {e.firstName}</div>
-                          <div className="text-slate-400">{e.employeeNo} · {e.department?.name ?? '—'}</div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                  {matches.length > visible.length && (
-                    <p className="text-[11px] text-slate-400">
-                      Showing {visible.length} of {matches.length} — keep typing to narrow it down.
-                    </p>
-                  )}
-                </>
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center">
+                  <UserRound className="mx-auto mb-2 h-6 w-6 text-slate-300" />
+                  <p className="text-sm text-slate-500">Select an employee to begin.</p>
+                  <p className="mt-1 text-xs text-slate-400">Their employment details and pay basis will appear here.</p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -430,9 +401,9 @@ export default function FinalPayPage() {
 
         {/* Separation */}
         <div>
-          <Card className="h-full">
-            <CardContent className="space-y-3 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Separation</p>
+          <Card className="h-full gap-0 rounded-2xl border-slate-200 py-0 shadow-sm">
+            <CardContent className="space-y-4 p-5 sm:p-6">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><CalendarDays className="h-4 w-4 text-[#ff5900]" />Separation details</h2>
               <div>
                 <label className="mb-1 block text-[11px] font-semibold text-slate-600">Last working day</label>
                 <DatePicker value={lastDay} onChange={setLastDay} />
@@ -442,7 +413,7 @@ export default function FinalPayPage() {
                 <select
                   value={reason}
                   onChange={e => setReason(e.target.value as Reason)}
-                  className="w-full rounded-lg border border-[#dfe7f1] bg-white px-3 py-2 text-sm"
+                  className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:ring-2 focus:ring-orange-100"
                 >
                   <optgroup label="No separation pay">
                     {REASON_OPTIONS.filter(o => !o.sepPay).map(o => (
@@ -471,10 +442,12 @@ export default function FinalPayPage() {
         </div>
 
         {/* Adjustments */}
-        <div>
-          <Card className="h-full">
-            <CardContent className="space-y-1 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Adjustments</p>
+        <div className="lg:col-span-2">
+          <Card className="h-full gap-0 rounded-2xl border-slate-200 py-0 shadow-sm">
+            <CardContent className="p-5 sm:p-6">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><SlidersHorizontal className="h-4 w-4 text-[#ff5900]" />Review and adjustments</h2>
+              <p className="mt-1 text-xs text-slate-500">Review recorded balances and enter any additional amounts before computing.</p>
+              <div className="mt-4 grid gap-5 xl:grid-cols-3">
 
               <AdjustGroup title="Read from records" tone="auto">
                 {SOURCED_FIELDS.map(f => (
@@ -517,18 +490,19 @@ export default function FinalPayPage() {
                   />
                 ))}
               </AdjustGroup>
+              </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
       {/* ── Compute ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col items-center gap-2 print:hidden">
+      <div className="flex flex-col items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:hidden">
         <Button
           onClick={compute}
           disabled={!employeeId || computing}
           size="lg"
-          className="min-w-[260px]"
+          className="w-full gap-2 rounded-xl bg-[#ff5900] text-white hover:bg-[#e65000] sm:w-auto sm:min-w-[240px]"
         >
           <Calculator className="mr-2 h-4 w-4" />
           {computing ? 'Computing…' : data ? 'Recompute final pay' : 'Compute final pay'}
@@ -686,7 +660,7 @@ function AdjustGroup({ title, tone, children }: {
     : tone === 'manual' ? 'text-[#8a6100]'
     : 'text-slate-400'
   return (
-    <div className="pt-2">
+    <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
       <div className="mb-1 flex items-center gap-2">
         <span className={`text-[10px] font-bold uppercase tracking-wider ${toneCls}`}>{title}</span>
         <span className="h-px flex-1 bg-[#eef3f9]" />
@@ -714,7 +688,7 @@ function AdjustRow({ field, value, onChange, autoValue, overridden }: {
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={autoValue ?? (isManual ? '0' : 'auto')}
-          className={`h-7 w-28 px-2 text-right text-xs tabular-nums ${
+          className={`h-9 w-28 shrink-0 rounded-lg bg-white px-2 text-right text-sm tabular-nums ${
             isManual && value.trim() === ''
               ? 'border-[#e4c56a] bg-[#fffaf0] placeholder:text-[#a98a3c]'
               : ''
