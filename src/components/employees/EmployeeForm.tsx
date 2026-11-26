@@ -1206,59 +1206,60 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
         {employeeId && (
           <TabsContent value="leaves">
             <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4" />
-                  Leave Entitlements — {new Date().getFullYear()}
-                </CardTitle>
-                <Button type="button" size="sm" onClick={saveLeaveAllocations} disabled={leavesSaving || leavesLoading}>
-                  {leavesSaving ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</> : <><Save className="w-3.5 h-3.5 mr-1.5" />Save Leaves</>}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {leavesLoading ? <AppSpinner size="md" message="Loading..." className="py-10" /> : leaveTypes.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">No leave types configured. Add leave types in Leave Types settings first.</p>
-              ) : (
-                <div className="space-y-2">
-                  {leaveTypes.map(lt => {
-                    const alloc = leaveAllocations[lt.id] ?? { enabled: false, entitled: lt.daysEntitled }
-                    return (
-                      <div key={lt.id} className="flex flex-wrap items-center gap-3 p-3 rounded-xl border transition-colors"
-                        style={{ background: alloc.enabled ? 'rgba(255, 89, 0,0.04)' : '#f7f7f7', borderColor: alloc.enabled ? 'rgba(255, 89, 0,0.25)' : '#d4d4d4' }}>
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 accent-orange-500"
-                          checked={alloc.enabled}
-                          onChange={e => setLeaveAllocations(prev => ({ ...prev, [lt.id]: { ...alloc, enabled: e.target.checked } }))}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(14,166,240,0.1)', color: '#0ea6f0' }}>{lt.code}</span>
-                            <span className="text-sm font-medium text-gray-800">{lt.name}</span>
-                            {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(255, 89, 0,0.1)', color: 'var(--brand-highlight)' }}>Dole-Mandated</span>}
+              <CardHeader>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">Leave entitlements</CardTitle>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">Choose the leave types available to this employee and set their annual allocation.</p>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#fff3ec] px-3 py-1.5 text-xs font-medium text-[#a93b00]"><CalendarDays size={14}/>{new Date().getFullYear()} leave year</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {leavesLoading ? <AppSpinner size="md" message="Loading entitlements..." className="py-10"/> : leaveTypes.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
+                    <CalendarDays className="mx-auto mb-3 text-slate-400" size={28}/>
+                    <p className="text-sm font-medium text-[#162d54]">No leave types available</p>
+                    <p className="mt-1 text-xs text-slate-500">Configure leave types in Leave Management to assign entitlements here.</p>
+                  </div>
+                ) : <>
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <span className="font-medium text-[#162d54]">{leaveTypes.filter(lt => leaveAllocations[lt.id]?.enabled).length} of {leaveTypes.length} leave types enabled</span>
+                    <span>Allocations are in days</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 min-[1400px]:grid-cols-2">
+                    {leaveTypes.map(lt => {
+                      const alloc = leaveAllocations[lt.id] ?? { enabled: false, entitled: lt.daysEntitled }
+                      return <div key={lt.id} className={`rounded-xl border p-4 transition-colors ${alloc.enabled ? 'border-orange-200 bg-orange-50/30' : 'border-slate-200 bg-slate-50/60'}`}>
+                        <div className="flex items-start gap-3">
+                          <span className={`flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl px-2 text-xs font-semibold ${alloc.enabled ? 'bg-[#162d54] text-white' : 'bg-slate-200 text-slate-600'}`}>{lt.code}</span>
+                          <div className="min-w-0 flex-1">
+                            <Label htmlFor={`leave-enabled-${lt.id}`} className="cursor-pointer !text-sm !font-semibold !text-[#162d54] break-words">{lt.name}</Label>
+                            <p className="mt-1 text-xs text-slate-500">{lt.isMandatory ? 'Statutory leave' : 'Company leave'}</p>
+                          </div>
+                          <Switch id={`leave-enabled-${lt.id}`} aria-label={`Enable ${lt.name}`} checked={alloc.enabled} disabled={leavesSaving} className="shrink-0" onCheckedChange={enabled => setLeaveAllocations(prev => ({ ...prev, [lt.id]: { ...alloc, enabled } }))}/>
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/70 pt-3">
+                          <span className={`inline-flex items-center gap-1.5 text-xs ${alloc.enabled ? 'text-[#a93b00]' : 'text-slate-500'}`}><span className={`h-1.5 w-1.5 rounded-full ${alloc.enabled ? 'bg-[#ff5900]' : 'bg-slate-400'}`}/>{alloc.enabled ? 'Enabled' : 'Not assigned'}</span>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`leave-days-${lt.id}`}>Days entitled</Label>
+                            <input id={`leave-days-${lt.id}`} aria-label={`${lt.name} days entitled`} type="number" min={0} max={365} value={alloc.entitled} disabled={!alloc.enabled || leavesSaving}
+                              onChange={e => setLeaveAllocations(prev => ({ ...prev, [lt.id]: { ...alloc, entitled: Number(e.target.value) } }))}
+                              className="w-20 border px-2 py-2 text-center text-sm font-semibold text-[#162d54] outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-40"/>
                           </div>
                         </div>
-                        <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-shrink-0">
-                          <span className="text-xs text-gray-500">Days entitled:</span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={365}
-                            value={alloc.entitled}
-                            disabled={!alloc.enabled}
-                            onChange={e => setLeaveAllocations(prev => ({ ...prev, [lt.id]: { ...alloc, entitled: Number(e.target.value) } }))}
-                            className="w-16 border rounded-lg px-2 py-1 text-sm text-center font-medium outline-none disabled:opacity-40 focus:border-orange-400"
-                          />
-                        </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    })}
+                  </div>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                    <p className="max-w-sm text-xs leading-5 text-slate-500">These values are annual entitlements, not the employee's remaining leave balance.</p>
+                    <Button type="button" onClick={saveLeaveAllocations} disabled={leavesSaving || leavesLoading} className="ml-auto gap-2">
+                      {leavesSaving ? <Loader2 size={15} className="animate-spin"/> : <Save size={15}/>}{leavesSaving ? 'Saving...' : 'Save entitlements'}
+                    </Button>
+                  </div>
+                </>}
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
 
