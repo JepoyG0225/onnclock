@@ -85,18 +85,19 @@ export default function AttendanceReports({ standalone = false }: { standalone?:
       {standalone && data && <div className="flex gap-3 mb-5">{standalone && <Button disabled={busy || printing} onClick={() => void print()}>Print / Save as PDF</Button>}<Button variant="outline" disabled={busy} onClick={csv}>Download CSV</Button></div>}
       {error && <p role="alert" className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     </div>
-    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:p-5 print:border-0 print:bg-white print:p-0">
-      {!standalone && <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><Eye className="h-4 w-4 text-[#ff5900]" />Report preview</h2><span className="text-xs text-slate-500">{reportTypes[type]}{reportReady && data ? ` / ${periodLabel(data)}` : ''}</span></div>}
+    <div className="min-w-0 max-w-full rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:p-5 print:border-0 print:bg-white print:p-0">
+      {!standalone && <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><Eye className="h-4 w-4 text-[#ff5900]" />Report preview <span className="ml-1 text-[10px] font-normal text-slate-400">Letter / 8.5 x 11 in</span></h2><span className="text-xs text-slate-500">{reportTypes[type]}{reportReady && data ? ` / ${periodLabel(data)}` : ''}</span></div>}
       {busy ? <div className="no-print flex min-h-64 items-center justify-center"><AppSpinner size="md" message="Preparing report preview..." /></div> : reportReady && data ? <ReportPages data={data} type={generatedType} /> : <div className="no-print flex min-h-56 flex-col items-center justify-center gap-3 p-4 text-center"><FileText className="h-8 w-8 text-slate-300" /><p className="text-sm text-slate-500">{error ? 'Unable to load the preview. Refresh to try again.' : !valid ? 'Complete the report filters above to see your preview.' : 'Preparing your report preview...'}</p></div>}
     </div>
-    <style>{`@media print { @page { size: A4; margin: 14mm; } .no-print { display:none !important; } .report-page { break-before:page; border:0 !important; padding:0 !important; box-shadow:none !important; } .report-page:first-child { break-before:auto; } .activity-entry { break-inside:avoid; } thead { display:table-header-group; } tr { break-inside:avoid; } }`}</style>
+    <style>{`.letter-report { width:8.5in; min-height:11in; padding:0.5in; margin:0 auto; background:white; color:#162d54; box-sizing:border-box; box-shadow:0 2px 12px #162d5412; } .report-scroll { overflow-x:auto; } @media print { .report-scroll { overflow:visible !important; } } @media print { @page { size: Letter; margin: 0.5in; } .no-print { display:none !important; } .report-page { width:100% !important; min-height:0 !important; margin:0 !important; break-before:page; border:0 !important; padding:0 !important; box-shadow:none !important; } .report-page:first-child { break-before:auto; } .activity-entry { break-inside:avoid; } thead { display:table-header-group; } tr { break-inside:avoid; } }`}</style>
   </div>
 }
 function filtered(records: AttendanceReport['records'], type: ReportType) {
   return records.filter(r => type === 'exceptions' ? r.lateMinutes > 0 || r.undertimeMinutes > 0 : type === 'absence' ? r.isAbsent || r.isLeave : type === 'overtime' ? r.overtimeHours > 0 : true)
 }
 export function ReportPages({ data, type }: { data: AttendanceReport; type: ReportType }) {
-  return <div id="attendance-report" className="space-y-5">{data.employees.length === 0 && <p>No employees match these filters.</p>}{data.employees.map(employee => {
+  if (type !== 'activities') return <ConsolidatedReport data={data} type={type} />
+  return <div id="attendance-report" className="report-scroll space-y-5">{data.employees.length === 0 && <p>No employees match these filters.</p>}{data.employees.map(employee => {
     const records = data.records.filter(r => r.employeeId === employee.id), summary = summarize(records)
     const header = <header className="border-b border-slate-100 pb-4 mb-4"><h2 className="font-semibold text-base text-[#162d54]">{data.companyName} · {reportTypes[type]}</h2><p>{employee.lastName}, {employee.firstName} · {employee.employeeNo} · {employee.department?.name ?? 'No department'}</p><p className="text-xs text-gray-500">{data.rangeStart ? 'Date range' : data.reportDate ? 'Date' : 'Month'}: {periodLabel(data)} · Philippine time · Generated {new Date(data.generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p></header>
     const activityRecords = records.filter(record => record.activities.length > 0)
@@ -105,7 +106,7 @@ export function ReportPages({ data, type }: { data: AttendanceReport; type: Repo
     if (type === 'activities' && !activityDays.length) return <p key={employee.id} role="status" className="no-print text-sm text-gray-500">No activity logs for {employee.firstName} {employee.lastName} in {periodLabel(data)}.</p>
     if (type === 'activities') return activityDays.map((day, index) => {
       const shifts = data.rangeStart ? activityRecords.map(r=>({...r,activities:r.activities.filter(a=>activityDay(a.loggedAt)===day)})).filter(r=>r.activities.length) : activityRecords.filter(r => data.reportDate || r.date.slice(0, 10) === day)
-      return <section key={`${employee.id}-${day}`} className="report-page rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">{header}<h3 className="font-semibold mb-3">Daily activities — {day}</h3><p className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold">Total activity logs for this day: {shifts.reduce((total,shift)=>total+shift.activities.length,0)} ? Total in report period: {summary.activities}</p>
+      return <section key={`${employee.id}-${day}`} className="report-page letter-report">{header}<h3 className="font-semibold mb-3">Daily activities — {day}</h3><p className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold">Total activity logs for this day: {shifts.reduce((total,shift)=>total+shift.activities.length,0)} ? Total in report period: {summary.activities}</p>
         {shifts.map(shift => <div key={shift.id} className="mb-4">
           <p className="text-sm mb-3">Shift: {phTime(shift.timeIn)} – {phTime(shift.timeOut)} · Regular hours: {shift.regularHours.toFixed(2)} ? Activity logs: {shift.activities.length}</p>
           {shift.activities.map(activity => <article key={activity.id} className="activity-entry border rounded-lg p-3 mb-3"><p className="font-semibold mb-1">Activity #{activity.dailyNumber}</p><p className="text-xs text-gray-500">{new Date(activity.loggedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p><p className="whitespace-pre-wrap break-words mt-1">{activity.description}</p>{activity.notes && <p className="whitespace-pre-wrap break-words mt-2 text-sm"><strong>Notes: </strong>{activity.notes}</p>}
@@ -115,12 +116,54 @@ export function ReportPages({ data, type }: { data: AttendanceReport; type: Repo
           </article>)}
         </div>)}<footer className="text-xs text-gray-500 mt-4">Activity day {index + 1} of {activityDays.length} · {data.reportDate ? 'Activities logged on the selected Philippine calendar date, including overnight shifts.' : 'Activities belong to the shift date, including overnight shifts.'}</footer></section>
     })
-    return <section key={employee.id} className="report-page rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">{header}
+    return <section key={employee.id} className="report-page letter-report">{header}
       {type === 'summary' ? <dl className="grid grid-cols-2 gap-3 text-sm">{Object.entries({ 'Days with clock-in': summary.present, 'Absent days': summary.absent, 'Leave days': summary.leave, 'Regular hours': summary.regular.toFixed(2), 'Recorded OT hours': summary.overtime.toFixed(2), 'Late minutes': summary.late, 'Undertime minutes': summary.undertime, 'Activity logs': summary.activities }).map(([label, value]) => <div key={label}><dt className="text-gray-500">{label}</dt><dd className="font-semibold">{value}</dd></div>)}</dl>
         : <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b text-left">{['Date', 'In', 'Out', 'Regular h', 'Recorded OT h', 'Late min', 'UT min', 'Activity logs', 'Status'].map(h => <th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{filtered(records, type).map(r => <tr key={r.id} className="border-b"><td className="p-2">{r.date.slice(0, 10)}</td><td>{phTime(r.timeIn)}</td><td>{phTime(r.timeOut)}</td><td>{r.regularHours.toFixed(2)}</td><td>{r.overtimeHours.toFixed(2)}</td><td>{r.lateMinutes}</td><td>{r.undertimeMinutes}</td><td>{r.activities.length}</td><td>{r.isAbsent && r.isLeave ? 'Half-day leave / absent' : r.isAbsent ? (r.derived ? 'Absent (no clock-in)' : 'Absent') : r.isLeave ? 'Leave' : r.timeIn ? (r.timeOut ? 'Present' : 'Open shift') : r.isRestDay ? 'Rest day' : r.isHoliday ? 'Holiday' : 'No punch'}</td></tr>)}</tbody></table>{!filtered(records, type).length && <p className="text-sm py-4">No matching attendance records.</p>}</div>}
       <p className="text-xs text-gray-500 mt-5">Includes saved timesheets and missed scheduled workdays before today after the shift has ended. Approved leave is counted separately; pending leave does not excuse an absence. Rest days, holidays, and days outside employment are excluded from inferred absences. Employees without DTR tracking or a known schedule are not assigned inferred absences. Fixed schedules reflect current settings. Recorded overtime is not a payroll approval.</p>
     </section>
   })}</div>
+}
+
+function ConsolidatedReport({ data, type }: { data: AttendanceReport; type: ReportType }) {
+  const summary = type === 'summary'
+  const totals = { present: 0, absent: 0, leave: 0, regular: 0, overtime: 0, late: 0, undertime: 0, activities: 0 }
+  const rows: React.ReactNode[][] = []
+  for (const employee of data.employees) {
+    const records = data.records.filter(r => r.employeeId === employee.id)
+    const employeeCell = <div><p className="font-medium">{employee.lastName}, {employee.firstName}</p><p className="text-[9px] text-slate-500">{employee.employeeNo} / {employee.department?.name ?? 'No department'}</p></div>
+    if (summary) {
+      const values = summarize(records)
+      for (const key of Object.keys(totals) as (keyof typeof totals)[]) totals[key] += values[key]
+      rows.push([employeeCell, values.present, values.absent, values.leave, values.regular.toFixed(2), values.overtime.toFixed(2), values.late, values.undertime, values.activities])
+    } else {
+      for (const record of filtered(records, type)) {
+        const status = record.isAbsent && record.isLeave ? 'Half-day leave / absent' : record.isAbsent ? 'Absent' : record.isLeave ? 'Leave' : record.timeIn ? (record.timeOut ? 'Present' : 'Open shift') : record.isRestDay ? 'Rest day' : record.isHoliday ? 'Holiday' : 'No punch'
+        rows.push([employeeCell, record.date.slice(0, 10), <div>{phTime(record.timeIn)}<br />{phTime(record.timeOut)}</div>, record.regularHours.toFixed(2), record.overtimeHours.toFixed(2), record.lateMinutes, record.undertimeMinutes, record.activities.length, status])
+      }
+    }
+  }
+  const headings = summary ? ['Employee', 'Present days', 'Absent days', 'Leave days', 'Regular hrs', 'Recorded OT hrs', 'Late min', 'UT min', 'Logs'] : ['Employee', 'Shift date', 'In / Out', 'Regular hrs', 'Recorded OT hrs', 'Late min', 'UT min', 'Logs', 'Status']
+  const perPage = summary ? 20 : 18
+  const pages = Array.from({ length: Math.max(1, Math.ceil(rows.length / perPage)) }, (_, index) => rows.slice(index * perPage, (index + 1) * perPage))
+  return <div id="attendance-report" className="report-scroll space-y-5">
+    {pages.map((page, pageIndex) => <section key={pageIndex} className="report-page letter-report flex flex-col">
+      <div className="mb-5 border-b-2 border-[#162d54] pb-4">
+        <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{data.companyName}</p>
+        <h2 className="mt-1 text-xl font-semibold">{reportTypes[type]}</h2>
+        <div className="mt-2 flex justify-between gap-4 text-[10px] text-slate-500"><p>Period: {periodLabel(data)} / Philippine time</p><p>{data.employees.length} employees</p></div>
+        <p className="mt-1 text-[9px] text-slate-400">Generated {new Date(data.generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
+      </div>
+      <table className="w-full table-fixed border-collapse text-[10px] leading-snug">
+        <colgroup><col style={{ width: summary ? '28%' : '24%' }} />{headings.slice(1).map((_, i) => <col key={i} />)}</colgroup>
+        <thead><tr className="border-y border-slate-300 bg-slate-100">{headings.map((heading, index) => <th key={heading} className={`px-1.5 py-2 font-semibold ${index === 0 ? 'text-left' : 'text-right'}`}>{heading}</th>)}</tr></thead>
+        <tbody>{page.map((row, rowIndex) => <tr key={rowIndex} className="border-b border-slate-100 align-top">{row.map((cell, column) => <td key={column} className={`break-words px-1.5 py-2 tabular-nums ${column === 0 ? 'text-left' : 'text-right'}`}>{cell}</td>)}</tr>)}</tbody>
+        {summary && pageIndex === pages.length - 1 && rows.length > 0 && <tfoot><tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">{['Total', totals.present, totals.absent, totals.leave, totals.regular.toFixed(2), totals.overtime.toFixed(2), totals.late, totals.undertime, totals.activities].map((value, index) => <td key={index} className={`px-1.5 py-2 ${index === 0 ? 'text-left' : 'text-right'}`}>{value}</td>)}</tr></tfoot>}
+      </table>
+      {!rows.length && <p className="py-8 text-center text-sm text-slate-500">No attendance records match these filters.</p>}
+      {pageIndex === pages.length - 1 && <p className="mt-5 text-[9px] leading-relaxed text-slate-500">Includes saved timesheets and inferred absences for eligible scheduled workdays after the shift has ended. Approved leave is counted separately. Rest days, holidays, days outside employment, and employees without DTR tracking or a known schedule are excluded from inferred absences. Fixed schedules reflect current settings. Recorded overtime is not a payroll approval.</p>}
+      <div className="mt-auto flex justify-between border-t border-slate-200 pt-3 text-[9px] text-slate-400"><span>Attendance report / {periodLabel(data)}</span><span>Page {pageIndex + 1} of {pages.length}</span></div>
+    </section>)}
+  </div>
 }
 
 function periodLabel(data:AttendanceReport) { return data.rangeStart && data.rangeEnd ? `${data.rangeStart} to ${data.rangeEnd}` : data.reportDate ?? data.month }
