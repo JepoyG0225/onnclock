@@ -128,7 +128,7 @@ export function TaskBoard({
   }, [draggingId, canEdit, commitMove])
 
   return (
-    <div className="flex min-w-0 max-w-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:grid lg:grid-cols-[repeat(var(--board-columns),minmax(0,1fr))] lg:items-start lg:overflow-x-visible" style={{ '--board-columns': Math.max(1, Math.min(statuses.length, 5)) } as CSSProperties}>
+    <div className="flex min-w-0 max-w-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:grid lg:grid-cols-[repeat(var(--board-columns),minmax(0,1fr))] lg:items-stretch lg:overflow-x-visible" style={{ '--board-columns': Math.max(1, Math.min(statuses.length, 5)) } as CSSProperties}>
       {statuses.map(status => {
         const list = byStatus.get(status.id) ?? []
         const overWip = status.wipLimit !== null && list.length > status.wipLimit
@@ -136,7 +136,7 @@ export function TaskBoard({
         return (
           <section
             key={status.id}
-            className="flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-xl bg-muted/40 sm:w-80 lg:w-auto lg:min-w-0"
+            className="relative flex w-[min(84vw,20rem)] shrink-0 snap-start flex-col rounded-xl bg-muted/40 after:pointer-events-none after:absolute after:-right-[7px] after:inset-y-1 after:w-px after:bg-border/60 after:content-[''] last:after:hidden sm:w-80 lg:w-auto lg:min-w-0 lg:[&:nth-child(5n)]:after:hidden"
             onDragOver={e => {
               if (!canEdit) return
               e.preventDefault()
