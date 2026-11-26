@@ -223,6 +223,8 @@ export function TimesheetsTab() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [expandedCaptureRows, setExpandedCaptureRows] = useState<Record<string, boolean>>({})
   const [captureRows, setCaptureRows] = useState<Record<string, Array<{ id: string; imageDataUrl: string; capturedAt: string; label?: string }>>>({})
@@ -259,7 +261,7 @@ export function TimesheetsTab() {
   const [pendingApproval, setPendingApproval] = useState<
     | { kind: 'single'; id: string; otHours: number; regularHours: number; employeeId: string; date: string }
     | { kind: 'employee-week'; group: WeeklyGroup }
-    | { kind: 'all'; otHours: number; regularHours: number; recordCount: number }
+    | { kind: 'all'; recordIds?: string[]; otHours: number; regularHours: number; recordCount: number }
     | null
   >(null)
   // Pending OT requests for the current `pendingApproval` scope. Fetched
@@ -585,7 +587,7 @@ export function TimesheetsTab() {
     try {
       const from = format(activeRange.start, 'yyyy-MM-dd')
       const to = format(activeRange.end, 'yyyy-MM-dd')
-      const res = await fetch(withCompanyQuery(`/api/dtr?from=${from}&to=${to}&limit=2000&completed=1`))
+      const res = await fetch(withCompanyQuery(`/api/dtr?from=${from}&to=${to}&limit=2000`))
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error('Unable to load timesheets. Please refresh and try again.')
       setRecords((data.records ?? []) as DTRRecord[])
@@ -713,6 +715,23 @@ export function TimesheetsTab() {
     })
   }, [records, search, viewMode])
 
+  const matchesStatus = (group: WeeklyGroup, status: string) => status === 'ALL' || group.records.some(record => dailyStatus(record) === status)
+  const visibleGroups = groups.filter(group => matchesStatus(group, statusFilter))
+  const eligibleSelected = records.filter(record => selectedRecords.has(record.id) && dailyStatus(record) === 'PENDING')
+  function toggleRecords(ids: string[]) {
+    setSelectedRecords(previous => {
+      const next = new Set(previous)
+      const remove = ids.every(id => next.has(id))
+      ids.forEach(id => remove ? next.delete(id) : next.add(id))
+      return next
+    })
+  }
+  function approveSelected() {
+    if (!eligibleSelected.length) return
+    setPendingApproval({ kind: 'all', recordIds: eligibleSelected.map(record => record.id), recordCount: eligibleSelected.length, regularHours: eligibleSelected.reduce((n, r) => n + Number(r.regularHours ?? 0), 0), otHours: eligibleSelected.reduce((n, r) => n + Number(r.overtimeHours ?? 0) + Number(r.pendingOvertimeHours ?? 0), 0) })
+  }
+  useEffect(() => { setSelectedRecords(new Set()); setExpanded({}) }, [selectedCompanyId, viewMode, selectedDate, selectedWeek, selectedMonth, search, statusFilter])
+
   async function submitForm() {
     if (!form.employeeId) {
       toast.error('Select an employee')
@@ -820,7 +839,7 @@ export function TimesheetsTab() {
     }
   }
 
-  async function executeApproveAll(overtimeRequestIds: string[] | undefined) {
+  async function executeApproveAll(overtimeRequestIds: string[] | undefined, recordIds?: string[]) {
     if (!activeRange) return
     setApprovingAll(true)
     try {
@@ -831,12 +850,14 @@ export function TimesheetsTab() {
           weekStart: format(activeRange.start, 'yyyy-MM-dd'),
           weekEnd: format(activeRange.end, 'yyyy-MM-dd'),
           overtimeRequestIds,
+          ...(recordIds ? { recordIds } : {}),
         }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data.error ?? 'Failed to approve all'); return }
       const otBit = (data.otApproved ?? 0) > 0 ? ` and ${data.otApproved} OT request${data.otApproved !== 1 ? 's' : ''}` : ''
       toast.success(`Approved ${data.updated} record${data.updated !== 1 ? 's' : ''}${otBit}`)
+      setSelectedRecords(new Set())
       await loadWeeks()
       await load()
     } finally {
@@ -886,7 +907,7 @@ export function TimesheetsTab() {
     if (!pa) return
     if (pa.kind === 'single') await executeApproveSingle(pa.id, 'APPROVED', otIds)
     else if (pa.kind === 'employee-week') await executeApproveEmployeeWeek(pa.group, 'APPROVED', otIds)
-    else if (pa.kind === 'all') await executeApproveAll(otIds)
+    else if (pa.kind === 'all') await executeApproveAll(otIds, pa.recordIds)
   }
 
   // Fetch the per-timesheet pending OT requests for the active scope so
@@ -930,6 +951,7 @@ export function TimesheetsTab() {
         if (cancelled) return
         type IncomingOt = {
           id: string
+          employeeId: string
           date: string
           startTime: string
           endTime: string
@@ -937,7 +959,7 @@ export function TimesheetsTab() {
           reason: string
           employee: { firstName: string; lastName: string }
         }
-        const items: PendingOt[] = (data.requests ?? []).map((r: IncomingOt) => ({
+        const items: PendingOt[] = (data.requests ?? []).filter((r: IncomingOt) => pendingApproval.kind !== 'all' || !pendingApproval.recordIds || records.some(record => pendingApproval.recordIds!.includes(record.id) && record.employeeId === r.employeeId && record.date.slice(0, 10) === r.date.slice(0, 10))).map((r: IncomingOt) => ({
           id: r.id,
           date: r.date.slice(0, 10),
           startTime: r.startTime,
@@ -1043,7 +1065,7 @@ export function TimesheetsTab() {
   }
 
   function toggleExpand(key: string) {
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+    setExpanded(prev => prev[key] ? {} : { [key]: true })
   }
 
   async function convertEmployeeOvertime(group: WeeklyGroup) {
@@ -1108,16 +1130,16 @@ export function TimesheetsTab() {
   return (
     <div className="space-y-6">
       <RestDayRequests />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Time Sheets</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">Timesheets</h1>
           <p className="text-gray-500 text-sm mt-1">
             {viewMode === 'daily' && 'Per-employee timesheet for the selected day'}
             {viewMode === 'weekly' && 'Grouped by employee and week with weekly approval'}
             {viewMode === 'monthly' && 'Grouped by employee for the selected month'}
           </p>
         </div>
-        <div className="flex items-center gap-2" data-tour="dtr-add">
+        <div className="ml-auto flex flex-wrap justify-end gap-2" data-tour="dtr-add">
           <Button
             variant="outline"
             onClick={openExport}
@@ -1151,7 +1173,7 @@ export function TimesheetsTab() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1.5">Period</label>
-                <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                <div className="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1">
                   {([
                     { id: 'day',    label: 'Day' },
                     { id: 'month',  label: 'Month' },
@@ -1220,7 +1242,7 @@ export function TimesheetsTab() {
 
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1.5">Format</label>
-                <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                <div className="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1">
                   {([
                     { id: 'xlsx', label: 'Excel (.xlsx)' },
                     { id: 'csv',  label: 'CSV' },
@@ -1670,14 +1692,14 @@ export function TimesheetsTab() {
       )}
 
       <Card>
-        <CardContent className="p-4 flex flex-wrap gap-4 items-end">
+        <CardContent className="p-4 sm:p-5 grid grid-cols-1 gap-4 items-end sm:grid-cols-2 xl:grid-cols-4">
           {isSystemAdmin && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Company</label>
               <select
                 value={selectedCompanyId}
                 onChange={e => setSelectedCompanyId(e.target.value)}
-                className="w-72 border rounded px-3 py-2 text-sm bg-white"
+                className="h-10 w-full min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
               >
                 {companies.length === 0 && <option value="">No companies found</option>}
                 {companies.map(c => (
@@ -1689,14 +1711,14 @@ export function TimesheetsTab() {
           {/* View-mode tabs */}
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1" data-tour="dtr-view-mode">View</label>
-            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+            <div className="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1">
               {(['daily', 'weekly', 'monthly'] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setViewMode(m)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition capitalize ${
-                    viewMode === m ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition capitalize ${
+                    viewMode === m ? 'bg-[#ff5900] text-white' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   {m}
@@ -1713,7 +1735,7 @@ export function TimesheetsTab() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-44 border rounded px-3 py-2 text-sm bg-white"
+                className="h-10 w-full min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
               />
             </div>
           )}
@@ -1723,7 +1745,7 @@ export function TimesheetsTab() {
               <select
                 value={selectedWeek}
                 onChange={(e) => setSelectedWeek(e.target.value)}
-                className="w-72 border rounded px-3 py-2 text-sm bg-white"
+                className="h-10 w-full min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
               >
                 {weekOptions.length === 0 && <option value="">No weeks with DTR records</option>}
                 {weekOptions.map((w) => (
@@ -1741,7 +1763,7 @@ export function TimesheetsTab() {
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-44 border rounded px-3 py-2 text-sm bg-white"
+                className="h-10 w-full min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
               />
             </div>
           )}
@@ -1759,7 +1781,7 @@ export function TimesheetsTab() {
               {exporting ? 'Preparing...' : 'Download DTR Excel'}
             </Button>
           </div>
-          <div className="flex-1 min-w-48">
+          <div className="min-w-0">
             <label className="text-xs font-medium text-gray-600 block mb-1">Search Employee</label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
@@ -1769,43 +1791,20 @@ export function TimesheetsTab() {
         </CardContent>
       </Card>
 
-            <Card>
-        <CardHeader>
+      <div className="flex flex-wrap gap-2" aria-label="Timesheet status filters">{[['ALL', 'All'], ['PENDING', 'Pending'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['IN_PROGRESS', 'Open shifts']].map(([value, label]) => <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`rounded-xl border px-3 py-2 text-xs font-medium transition ${statusFilter === value ? 'border-[#ff5900] bg-[#ff5900] text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-orange-50'}`}>{label} <span className="ml-1 opacity-75">{groups.filter(group => matchesStatus(group, value)).length}</span></button>)}</div>
+      <Card className="gap-0 rounded-2xl border-slate-200 py-0 shadow-sm">
+        <CardHeader className="border-b border-slate-100 py-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
               <Users className="w-4 h-4" />
               <span className="capitalize">{viewMode}</span> Time Sheets
               <Badge className="border-[var(--brand-primary)] bg-white text-[var(--brand-primary)]">{groups.length} {viewMode === 'daily' ? 'employees' : viewMode === 'monthly' ? 'employee-months' : 'employee-weeks'}</Badge>
               <Badge className="bg-[var(--brand-highlight)] text-primary">{totalPendingWeeks} pending</Badge>
-              {activeRange && (
-                <Badge className="border-[var(--brand-primary)] bg-white text-[var(--brand-primary)]">
-                  {viewMode === 'daily' && format(activeRange.start, 'MMM d, yyyy')}
-                  {viewMode === 'weekly' && `${format(activeRange.start, 'MMM d')} - ${format(activeRange.end, 'MMM d, yyyy')}`}
-                  {viewMode === 'monthly' && format(activeRange.start, 'MMMM yyyy')}
-                </Badge>
-              )}
             </CardTitle>
-            {activeRange && (
-              <PermissionGate permission="dtr:approve"><Button
-                size="sm"
-                variant="success"
-                className="gap-1.5 bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] disabled:bg-[#d4d4d4] disabled:text-[var(--brand-ink)]"
-                disabled={approvingAll || pendingTotals.count === 0}
-                onClick={approveAll}
-                title={
-                  pendingTotals.count === 0
-                    ? 'Nothing pending to approve in this period'
-                    : `Approve ${pendingTotals.count} pending record${pendingTotals.count === 1 ? '' : 's'}`
-                }
-              >
-                <CheckCheck className="w-3.5 h-3.5" />
-                {approvingAll
-                  ? 'Approving...'
-                  : pendingTotals.count > 0
-                    ? `Approve All (${pendingTotals.count})`
-                    : 'Approve All'}
-              </Button></PermissionGate>
-            )}
+              <PermissionGate permission="dtr:approve"><div className="flex flex-wrap items-center gap-2">
+              {eligibleSelected.length > 0 && <Button variant="ghost" size="sm" onClick={() => setSelectedRecords(new Set())}>Clear selection</Button>}
+              <Button size="sm" disabled={approvingAll || !eligibleSelected.length} onClick={approveSelected} className="gap-2 bg-[#ff5900] text-white hover:bg-[#e65000]"><CheckCheck className="h-4 w-4" />Approve selected ({eligibleSelected.length})</Button>
+            </div></PermissionGate>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -1813,18 +1812,25 @@ export function TimesheetsTab() {
             <div className="flex items-center justify-center py-16">
               <AppSpinner size="md" message="Loading timesheets…" />
             </div>
-          ) : groups.length === 0 ? (
+          ) : visibleGroups.length === 0 ? (
             <div className="p-8 text-center text-gray-400">No time sheets found for this {viewMode === 'daily' ? 'day' : viewMode === 'monthly' ? 'month' : 'week'}</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="divide-y divide-slate-100 lg:hidden">{visibleGroups.map(group => <article key={group.key} className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-medium text-[#162d54]">{group.employeeName}</p><p className="mt-1 text-xs text-slate-500">{group.employeeNo} / {group.department}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${STATUS_BADGE[group.status]}`}>{group.status.replaceAll('_', ' ')}</span></div>
+              <p className="text-xs text-slate-500">{format(group.weekStart, 'MMM d')} - {format(group.weekEnd, 'MMM d, yyyy')}</p>
+              <div className="grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div><p className="text-slate-500">Regular</p><p className="mt-1 font-medium">{group.totalRegular.toFixed(2)}h</p></div><div><p className="text-slate-500">Late</p><p className="mt-1 font-medium">{formatMinutes(group.totalLate)}</p></div><div><p className="text-slate-500">Undertime</p><p className="mt-1 font-medium">{formatMinutes(group.totalUndertime)}</p></div></div>
+              <div className="flex items-center justify-between gap-2"><PermissionGate permission="dtr:approve">{group.pendingCount > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={group.records.filter(r => dailyStatus(r) === 'PENDING').every(r => selectedRecords.has(r.id))} onChange={() => toggleRecords(group.records.filter(r => dailyStatus(r) === 'PENDING').map(r => r.id))} className="h-4 w-4 accent-[#ff5900]" />Select pending</label>}</PermissionGate><Button size="sm" variant="outline" className="ml-auto" onClick={() => toggleExpand(group.key)}>View details<ChevronRight className="ml-1 h-4 w-4" /></Button></div>
+            </article>)}</div>
+            <div className="hidden max-h-[75vh] overflow-auto lg:block">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="sticky top-0 bg-slate-50 border-b">
                   <tr>
                     <th className="text-left p-3 font-medium text-gray-600">Employee</th>
                     <th className="text-left p-3 font-medium text-gray-600">
                       {viewMode === 'daily' ? 'Date' : viewMode === 'monthly' ? 'Month' : 'Week'}
                     </th>
-                    <th className="text-left p-3 font-medium text-gray-600">Department</th>
+
                     <th className="text-right p-3 font-medium text-gray-600">Reg Hrs</th>
                     {overtimePayEnabled && <th className="text-right p-3 font-medium text-gray-600">OT Hrs</th>}
                     <th className="text-right p-3 font-medium text-gray-600">ND Hrs</th>
@@ -1837,12 +1843,12 @@ export function TimesheetsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map(group => {
+                  {visibleGroups.map(group => {
                     const isOpen = !!expanded[group.key]
                     // Daily mode with a single shift renders as a plain row
                     // (no expand chevron, nothing to drill into). All other
                     // cases — daily multi-shift, weekly, monthly — collapse.
-                    const collapsible = !(viewMode === 'daily' && group.records.length <= 1)
+                    const collapsible = true
                     return (
                       <Fragment key={group.key}>
                         <tr
@@ -1851,12 +1857,13 @@ export function TimesheetsTab() {
                         >
                           <td className="p-3">
                             <div className="flex items-center gap-2">
+                              <PermissionGate permission="dtr:approve"><input type="checkbox" aria-label={`Select pending records for ${group.employeeName}`} disabled={!group.pendingCount} checked={group.pendingCount > 0 && group.records.filter(r => dailyStatus(r) === 'PENDING').every(r => selectedRecords.has(r.id))} onClick={e => e.stopPropagation()} onChange={() => toggleRecords(group.records.filter(r => dailyStatus(r) === 'PENDING').map(r => r.id))} className="h-4 w-4 accent-[#ff5900]" /></PermissionGate>
                               {collapsible
                                 ? (isOpen ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />)
                                 : <span className="w-4 h-4 inline-block" />}
                               <div>
                                 <div className="font-medium">{group.employeeName}</div>
-                                <div className="text-xs text-gray-400">{group.employeeNo}</div>
+                                <div className="text-xs text-gray-400">{group.employeeNo} / {group.department}</div>
                               </div>
                             </div>
                           </td>
@@ -1870,7 +1877,7 @@ export function TimesheetsTab() {
                                   : `${format(group.weekStart, 'MMM d')} - ${format(group.weekEnd, 'MMM d, yyyy')}`}
                             </div>
                           </td>
-                          <td className="p-3 text-gray-600">{group.department}</td>
+
                           <td className="p-3 text-right">{group.totalRegular.toFixed(2)}h</td>
                           {overtimePayEnabled && (
                             <td className="p-3 text-right">
@@ -1948,14 +1955,16 @@ export function TimesheetsTab() {
                             </td>
                           </tr>
                         )}
-                        {isOpen && collapsible && (
-                          <tr className="border-b bg-gray-50/60">
-                            <td colSpan={10} className="p-0">
-                              <div className="px-4 py-3">
+                        {isOpen && portalTarget && createPortal(
+                          <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label={`Timesheet details for ${group.employeeName}`} onKeyDown={e => { if (e.key === 'Escape') setExpanded({}) }}>
+                            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setExpanded({})} />
+                            <div className="absolute inset-y-0 right-0 flex w-full max-w-6xl flex-col bg-white shadow-2xl">
+                              <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div><h2 className="font-semibold text-[#162d54]">{group.employeeName}</h2><p className="mt-1 text-xs text-slate-500">{group.employeeNo} / {group.department} / {format(group.weekStart, 'MMM d')} - {format(group.weekEnd, 'MMM d, yyyy')}</p></div><button autoFocus type="button" aria-label="Close timesheet details" onClick={() => setExpanded({})} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5" /></button></div>
+                              <div className="flex-1 overflow-auto px-4 py-3">
                                 <table className="w-full text-xs">
                                   <thead>
                                     <tr className="text-gray-500 border-b border-gray-200">
-                                      <th className="text-left py-2 pr-3">Date</th>
+                                      <th className="text-left py-2 pr-3">Select / Date</th>
                                       <th className="text-center py-2 px-2">Clock In</th>
                                       <th className="text-center py-2 px-2">Clock Out</th>
                                       <th className="text-center py-2 px-2">Break</th>
@@ -1990,7 +1999,7 @@ export function TimesheetsTab() {
                                         <Fragment key={r.id}>
                                           <tr className="border-t border-gray-200/70 hover:bg-white/60">
                                             <td className="py-2 pr-3">
-                                              <div className="font-medium">{format(new Date(r.date), 'EEE, MMM d')}</div>
+                                              <div className="flex items-center gap-2"><PermissionGate permission="dtr:approve">{dailyStatus(r) === 'PENDING' && <input type="checkbox" aria-label={`Select record ${r.id}`} checked={selectedRecords.has(r.id)} onChange={() => toggleRecords([r.id])} className="h-4 w-4 accent-[#ff5900]" />}</PermissionGate><span className="font-medium">{format(new Date(r.date), 'EEE, MMM d')}</span></div>
                                               <TimesheetActivities dtrRecordId={r.id} />
                                               {r.isRestDay && <span className="text-[10px] bg-gray-200 text-gray-600 px-1 rounded">Rest Day{r.restDayApproval ? ` - ${r.restDayApproval.toLowerCase()}` : ''}</span>}
                                               {r.isHoliday && (
@@ -2174,8 +2183,9 @@ export function TimesheetsTab() {
                                   </tbody>
                                 </table>
                               </div>
-                            </td>
-                          </tr>
+                              <PermissionGate permission="dtr:approve"><div className="flex items-center justify-end gap-3 border-t bg-white p-4"><span className="text-xs text-slate-500">{eligibleSelected.length} records selected</span><Button disabled={!eligibleSelected.length || approvingAll} onClick={approveSelected}>Review selected</Button></div></PermissionGate>
+                            </div>
+                          </div>, portalTarget
                         )}
                       </Fragment>
                     )
@@ -2183,6 +2193,7 @@ export function TimesheetsTab() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>
