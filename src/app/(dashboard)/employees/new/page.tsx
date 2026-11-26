@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { ArrowLeft, UserRoundPlus } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -44,11 +46,15 @@ export default async function NewEmployeePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Add New Employee</h1>
-        <p className="text-gray-500 mt-1">Fill in the 201 file information</p>
-        <p className="text-sm text-gray-500 mt-2">If your current seats are full, available billing credit automatically restores a previously credited seat within your paid seat maximum.</p>
-      </div>
+      <Link href="/employees" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-[#162d54]"><ArrowLeft size={15}/>Back to employees</Link>
+      <header className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="absolute inset-y-0 left-0 w-1 bg-[#ff5900]"/>
+        <div className="flex items-start gap-4">
+          <span className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff3ec] text-[#c44d00] sm:flex"><UserRoundPlus size={26}/></span>
+          <div><p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">People / New employee</p><h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">Add new employee</h1><p className="mt-1 text-sm text-slate-500">Set up their personal details, employment and compensation.</p></div>
+        </div>
+        <p className="mt-4 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500">If your seats are full, available billing credit can restore a previously credited seat within your paid seat maximum.</p>
+      </header>
       <EmployeeForm
         departments={departments}
         positions={positions}

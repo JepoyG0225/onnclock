@@ -24,6 +24,7 @@
 }
 @media(max-width:639px) {
  .navigation { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 4px; overflow: hidden; }
+ .navigation[data-tab-count="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
  .tab { min-width: 0; min-height: 44px; padding: 10px 0; gap: 0; }
  .tab > span { display: none; }
  .panels [data-slot="card-header"], .panels [data-slot="card-content"] { padding-inline: 16px; }

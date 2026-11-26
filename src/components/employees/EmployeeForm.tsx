@@ -602,27 +602,27 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
   }
 
   return (
-    <form className={!isCreate ? styles.editor : undefined} onSubmit={handleSubmit(onSubmit as never)}>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className={!isCreate ? styles.layout : "space-y-4"}>
-        <TabsList aria-label="Employee profile sections" className={!isCreate ? styles.navigation : "grid w-full grid-cols-6"}>
+    <form className={styles.editor} onSubmit={handleSubmit(onSubmit as never)}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={styles.layout}>
+        <TabsList aria-label="Employee profile sections" data-tab-count={tabs.length} className={styles.navigation}>
           {tabs.map(tab => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
               data-tour={`emp-tab-${tab.value}`}
               aria-label={tab.label}
-              title={!isCreate ? tab.label : undefined}
-              className={!isCreate ? styles.tab : undefined}
+              title={tab.label}
+              className={styles.tab}
               onClick={tab.value === 'leaves' ? () => loadLeaveAllocations() : undefined}
             >
-              {!isCreate && (() => {const Icon = sectionDesign[tab.value].icon; return <Icon size={18} className="shrink-0" aria-hidden="true"/>})()}
-              <span>{tab.label}{!isCreate && <span className={styles.tabDescription}>{sectionDesign[tab.value].description}</span>}</span>
-              {!isCreate && <ChevronRight size={14} className={styles.chevron} aria-hidden="true"/>}
+              {(() => {const Icon = sectionDesign[tab.value].icon; return <Icon size={18} className="shrink-0" aria-hidden="true"/>})()}
+              <span>{tab.label}<span className={styles.tabDescription}>{sectionDesign[tab.value].description}</span></span>
+              <ChevronRight size={14} className={styles.chevron} aria-hidden="true"/>
             </TabsTrigger>
           ))}
         </TabsList>
 
-        <div className={!isCreate ? styles.panels : undefined}>
+        <div className={styles.panels}>
         {/* PERSONAL INFO */}
         <TabsContent value="personal">
           <Card>
@@ -1288,8 +1288,10 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
       </Tabs>
 
       {/* Save Button */}
-      <div className={!isCreate ? styles.saveBar : "flex justify-end mt-6"}>
-        {!isCreate && <div className="min-w-0"><p className="text-sm font-medium text-[#162d54]">Employee profile</p><p className="text-xs text-slate-500">Review your changes before saving.</p></div>}
+      <div className={styles.saveBar}>
+        <div className="min-w-0"><p className="text-sm font-medium text-[#162d54]">{isCreate ? `Step ${tabs.findIndex(tab => tab.value === activeTab) + 1} of ${tabs.length}` : 'Employee profile'}</p><p className="text-xs text-slate-500">{isCreate ? tabs.find(tab => tab.value === activeTab)?.label : 'Review your changes before saving.'}</p></div>
+        <div className="flex items-center gap-2">
+        {isCreate && activeTab !== tabs[0].value && <Button type="button" variant="outline" onClick={() => setActiveTab(tabs[Math.max(0, tabs.findIndex(tab => tab.value === activeTab) - 1)].value)}>Back</Button>}
         {isCreate && activeTab !== lastTab ? (
           <Button
             type="button"
@@ -1307,10 +1309,11 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
             {saving ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
             ) : (
-              <><Save className="mr-2 h-4 w-4" /> Save Employee</>
+              <><Save className="mr-2 h-4 w-4" /> {isCreate ? 'Create employee' : 'Save Employee'}</>
             )}
           </Button>
         )}
+        </div>
       </div>
 
       {/* ── Quick-add Department Dialog ─────────────────────────────── */}
