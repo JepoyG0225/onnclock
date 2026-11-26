@@ -32,7 +32,7 @@ export function ClickablePayrollRunRow({
 
   return (
     <tr
-      className="cursor-pointer border-b transition-colors hover:bg-blue-50/60 focus-visible:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--brand-primary)]"
+      className="cursor-pointer border-b border-slate-100 last:border-0 transition-colors hover:bg-orange-50/40 focus-visible:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--brand-primary)]"
       onClick={openRun}
       onKeyDown={handleKeyDown}
       role="link"

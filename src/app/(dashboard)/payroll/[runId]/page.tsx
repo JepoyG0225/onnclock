@@ -215,7 +215,8 @@ export default async function PayrollRunPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 min-w-0">
+      <Link href="/payroll" className="inline-flex items-center text-xs text-slate-500 hover:text-[#ff5900]">&larr; All payroll runs</Link>
       {isThirteenth ? <div className="rounded-xl border bg-blue-50 p-4 text-sm"><strong>{run.runType==='FINAL_PAY'?'Final pay payroll':isEncashment?'Leave encashment payroll':'13th-month payroll'}</strong><p>{run.runType==='FINAL_PAY'?'Reviewed final-pay earnings and deductions. Submit for approval, lock, then mark disbursed after payment. To revise, remove the unapproved payslip (or delete the run if it contains only this employee), then generate a replacement from Final Pay.':isEncashment?'Reviewed leave conversions and withholding tax only. Submit for approval, lock, then mark disbursed after payment. To revise an editable batch, cancel it in Leave Encashment and create a new batch.':'Reviewed 13th-month earnings and withholding tax only. Submit for approval, lock, then mark disbursed after payment. To revise amounts, delete this editable run and regenerate from 13th Month Pay.'}</p><Link href={run.runType==='FINAL_PAY'?'/final-pay':isEncashment?'/leaves/encashments':'/thirteenth-month'} className="font-semibold underline">{run.runType==='FINAL_PAY'?'Back to Final Pay':isEncashment?'Back to Leave Encashment':'Back to 13th Month Pay'}</Link></div> : <PayrollJourney runId={run.id} status={run.status} stage={isInputsStage ? 'review' : 'approval'} />}
       {run.status === 'DISBURSED' && <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">Payment recorded as disbursed{run.disbursedAt ? ` on ${run.disbursedAt.toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} (Philippine time)` : ''}. This payroll is finalized.</p>}
       {/* Header
@@ -227,17 +228,17 @@ export default async function PayrollRunPage({
             • ⋯ More menu           (Download Excel, Delete)
           A small pipeline stepper sits below as visual context for where
           the run currently is. */}
-      <div className="space-y-3">
+      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isInputsStage ? 'Payroll Inputs' : 'Payroll Summary'}</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">{isInputsStage ? 'Payroll Inputs' : 'Payroll Summary'}</h1>
+            <p className="text-sm text-slate-500 mt-2">
               {run.periodLabel}
               <span className="mx-2 text-gray-300">·</span>
               <span className="text-gray-500">Pay date {formatDate(run.payDate)}</span>
             </p>
           </div>
-          <div className="relative flex items-center gap-2 flex-wrap">
+          <div className="relative flex items-center justify-end gap-2 flex-wrap sm:ml-auto">
             {payslips.length > 0 && <PayrollAnomalyPanel anomalies={anomalies} />}
             <Badge className={`text-sm border-0 ${getStatusColor(run.status)}`}>
               {STATUS_LABELS[run.status]}
@@ -259,7 +260,7 @@ export default async function PayrollRunPage({
           </div>
         </div>
         {isInputsStage ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl border border-orange-100 bg-orange-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-[#1f2937]">Review each employee&apos;s calculated payroll</p>
               <p className="mt-0.5 text-xs text-gray-600">Review flagged employees, inspect the breakdown, or adjust amounts before continuing to the summary.</p>
@@ -311,47 +312,47 @@ export default async function PayrollRunPage({
       {!isInputsStage && <>
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="bg-white">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="gap-0 rounded-2xl border-slate-200 bg-white py-0 shadow-sm">
+          <CardContent className="p-5 flex items-center gap-3">
             <div className="rounded-lg bg-blue-50 p-2 ring-1 ring-inset ring-blue-100">
               <Users className="h-5 w-5 text-[var(--brand-primary)]" />
             </div>
             <div>
               <p className="text-xs font-medium text-primary">Employees</p>
-              <p className="text-xl font-black text-[#343434]">{payslips.length}</p>
+              <p className="text-xl font-semibold tracking-tight text-[#162d54] tabular-nums">{payslips.length}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="gap-0 rounded-2xl border-slate-200 bg-white py-0 shadow-sm">
+          <CardContent className="p-5 flex items-center gap-3">
             <div className="rounded-lg bg-emerald-50 p-2 ring-1 ring-inset ring-emerald-100">
               <PesoIcon className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
               <p className="text-xs font-medium text-primary">Gross Pay</p>
-              <p className="text-lg font-black text-[#343434]">{peso(run.totalGross.toNumber())}</p>
+              <p className="text-lg font-semibold tracking-tight text-[#162d54] tabular-nums">{peso(run.totalGross.toNumber())}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="gap-0 rounded-2xl border-slate-200 bg-white py-0 shadow-sm">
+          <CardContent className="p-5 flex items-center gap-3">
             <div className="rounded-lg bg-rose-50 p-2 ring-1 ring-inset ring-rose-100">
               <TrendingDown className="h-5 w-5 text-rose-500" />
             </div>
             <div>
               <p className="text-xs font-medium text-primary">Total Deductions</p>
-              <p className="text-lg font-bold text-red-600">{peso(run.totalDeductions.toNumber())}</p>
+              <p className="text-lg font-semibold tabular-nums text-rose-600">{peso(run.totalDeductions.toNumber())}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-cyan-50 p-2 ring-1 ring-inset ring-cyan-100">
-              <PesoIcon className="h-5 w-5 text-cyan-600" />
+        <Card className="gap-0 rounded-2xl border-slate-200 bg-white py-0 shadow-sm">
+          <CardContent className="p-5 flex items-center gap-3">
+            <div className="rounded-xl bg-orange-50 p-2 ring-1 ring-inset ring-orange-100">
+              <PesoIcon className="h-5 w-5 text-[#ff5900]" />
             </div>
             <div>
               <p className="text-xs font-medium text-primary">Net Pay</p>
-              <p className="text-lg font-black text-[#343434]">{peso(run.totalNetPay.toNumber())}</p>
+              <p className="text-lg font-semibold tracking-tight text-[#162d54] tabular-nums">{peso(run.totalNetPay.toNumber())}</p>
             </div>
           </CardContent>
         </Card>
@@ -359,21 +360,21 @@ export default async function PayrollRunPage({
 
       {/* Employer Contributions */}
       {payslips.length > 0 && (
-        <Card className="overflow-hidden py-0">
-          <CardHeader className="border-b bg-white px-6 py-4"><CardTitle className="text-base !text-[#343434]">Employer Contributions (Company Share)</CardTitle></CardHeader>
+        <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
+          <CardHeader className="border-b bg-white px-6 py-4"><CardTitle className="text-sm font-semibold !text-[#162d54]">Employer Contributions (Company Share)</CardTitle></CardHeader>
           <CardContent className="p-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-gray-200 border-t-4 border-t-[var(--brand-highlight)] bg-white p-4 text-center">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
                 <p className="text-sm font-medium text-[#343434]">SSS Employer</p>
-                <p className="text-lg font-black text-[#343434]">{peso(run.totalSssEr.toNumber())}</p>
+                <p className="text-lg font-semibold tracking-tight text-[#162d54] tabular-nums">{peso(run.totalSssEr.toNumber())}</p>
               </div>
-              <div className="rounded-xl border border-gray-200 border-t-4 border-t-[var(--brand-highlight)] bg-white p-4 text-center">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
                 <p className="text-sm font-medium text-[#343434]">PhilHealth Employer</p>
-                <p className="text-lg font-black text-[#343434]">{peso(run.totalPhEr.toNumber())}</p>
+                <p className="text-lg font-semibold tracking-tight text-[#162d54] tabular-nums">{peso(run.totalPhEr.toNumber())}</p>
               </div>
-              <div className="rounded-xl border border-gray-200 border-t-4 border-t-[var(--brand-highlight)] bg-white p-4 text-center">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
                 <p className="text-sm font-medium text-[#343434]">Pag-IBIG Employer</p>
-                <p className="text-lg font-black text-[#343434]">{peso(run.totalPagibigEr.toNumber())}</p>
+                <p className="text-lg font-semibold tracking-tight text-[#162d54] tabular-nums">{peso(run.totalPagibigEr.toNumber())}</p>
               </div>
             </div>
           </CardContent>
@@ -383,9 +384,9 @@ export default async function PayrollRunPage({
 
       {/* Payslip Table */}
       <PayrollPayslipsLoader>
-      <Card className="overflow-hidden py-0">
+      <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
         <CardHeader className="border-b bg-white px-6 py-4">
-          <CardTitle className="text-base !text-[#343434]">{isInputsStage ? 'Calculated Payroll Inputs' : 'Individual Payslips'} ({payslips.length})</CardTitle>
+          <CardTitle className="text-sm font-semibold !text-[#162d54]">{isInputsStage ? 'Calculated Payroll Inputs' : 'Individual Payslips'} ({payslips.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <PayrollRunPayslips
@@ -511,7 +512,7 @@ export default async function PayrollRunPage({
           return 'All active employees'
         })()
         return (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-xs text-slate-500">
             <div>
               <span className="font-medium">Pay Date:</span> {formatDate(run.payDate)}
             </div>

@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Settings } from 'lucide-react'
+import { Plus, Settings, CalendarDays, ListFilter, ArrowUpRight } from 'lucide-react'
 import { peso, formatDate, getStatusColor } from '@/lib/utils'
 import { PesoIcon } from '@/components/ui/PesoIcon'
 import PayrollRunRowActions from '@/components/payroll/PayrollRunRowActions'
@@ -54,8 +54,8 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payroll"
-        subtitle={`${count} payroll run${count === 1 ? '' : 's'}`}
+        title="Payroll Runs"
+        subtitle="Manage each pay cycle, from calculation to disbursement."
         actions={
           <>
             <Link href="/payroll/settings">
@@ -74,13 +74,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
         }
       />
 
-      <form action="/payroll" className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-xs font-semibold">Period or pay group<input name="q" defaultValue={q} placeholder="Search payroll runs" className="mt-1 block w-full min-h-11 rounded-lg border px-3 text-sm font-normal" /></label>
-        <label className="text-xs font-semibold">Status<select name="status" defaultValue={status} className="mt-1 block w-full min-h-11 rounded-lg border bg-white px-3 text-sm font-normal"><option value="">All statuses</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label className="text-xs font-semibold">Pay date<input name="payDate" type="date" defaultValue={payDate ? query.payDate : ''} className="mt-1 block w-full min-h-11 rounded-lg border px-3 text-sm font-normal" /></label>
-        <div className="flex items-end gap-3"><Button type="submit" className="min-h-11">Filter runs</Button><Link href="/payroll" className="min-h-11 inline-flex items-center text-sm underline">Clear</Link></div>
+      <form action="/payroll" className="grid items-end gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_auto]">
+        <label className="text-xs font-medium text-slate-600">Period or pay group<input name="q" defaultValue={q} placeholder="Search payroll runs" className="mt-1 block w-full min-h-11 rounded-xl border-slate-200 border bg-slate-50/60 px-3 text-sm font-normal text-[#162d54] focus:outline-none focus:ring-2 focus:ring-orange-200" /></label>
+        <label className="text-xs font-medium text-slate-600">Status<select name="status" defaultValue={status} className="mt-1 block w-full min-h-11 rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-sm font-normal text-[#162d54]"><option value="">All statuses</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="text-xs font-medium text-slate-600">Pay date<input name="payDate" type="date" defaultValue={payDate ? query.payDate : ''} className="mt-1 block w-full min-h-11 rounded-xl border-slate-200 border bg-slate-50/60 px-3 text-sm font-normal text-[#162d54] focus:outline-none focus:ring-2 focus:ring-orange-200" /></label>
+        <div className="flex items-end gap-3"><Button type="submit" className="min-h-11 rounded-xl"><ListFilter className="mr-2 h-4 w-4" />Apply filters</Button><Link href="/payroll" className="min-h-11 inline-flex items-center px-2 text-sm text-slate-500 hover:text-[#ff5900]">Clear</Link></div>
       </form>
-      <Card>
+      <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[#ff5900]"><CalendarDays className="h-5 w-5" /></span><div><h2 className="text-sm font-semibold text-[#162d54]">Payroll history</h2><p className="mt-0.5 text-xs text-slate-500">{count} matching run{count === 1 ? '' : 's'}</p></div></div><span className="text-xs text-slate-500">Open a run to review its breakdown <ArrowUpRight className="ml-1 inline h-3.5 w-3.5" /></span></div>
         <CardContent className="p-0">
           {runs.length === 0 ? (
             <EmptyState
@@ -95,18 +96,18 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
             />
           ) : (
             <>
-            <div className="divide-y md:hidden">{runs.map(run => <div key={run.id} className="p-4 space-y-3"><div className="flex justify-between gap-3"><Link href={`/payroll/${run.id}${['DRAFT', 'COMPUTED'].includes(run.status) ? '?stage=inputs' : ''}`} className="font-semibold underline">{run.periodLabel}</Link><Badge className={getStatusColor(run.status)}>{STATUS_LABELS[run.status]}</Badge></div><p className="text-xs text-slate-500">Pay date {formatDate(run.payDate)}{run.payGroupLabel ? ` | ${run.payGroupLabel}` : ''}</p><div className="flex justify-between items-center"><p className="text-sm">Net pay <strong>{peso(Number(run.totalNetPay))}</strong></p><PayrollRunRowActions runId={run.id} status={run.status} /></div></div>)}</div>
+            <div className="divide-y md:hidden">{runs.map(run => <div key={run.id} className="p-5 space-y-3"><div className="flex items-start justify-between gap-3 [&>a]:min-w-0 [&>a]:break-words [&>span]:shrink-0"><Link href={`/payroll/${run.id}${['DRAFT', 'COMPUTED'].includes(run.status) ? '?stage=inputs' : ''}`} className="font-medium text-[#162d54] hover:text-[#ff5900]">{run.periodLabel}</Link><Badge className={getStatusColor(run.status)}>{STATUS_LABELS[run.status]}</Badge></div><p className="text-xs text-slate-500">Pay date {formatDate(run.payDate)}{run.payGroupLabel ? ` | ${run.payGroupLabel}` : ''}</p><div className="flex justify-between items-center"><p className="text-sm">Net pay <strong>{peso(Number(run.totalNetPay))}</strong></p><PayrollRunRowActions runId={run.id} status={run.status} /></div></div>)}</div>
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50">
-                    <th className="text-left p-4 font-semibold text-gray-600">Period</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Pay Date</th>
-                    <th className="text-left p-4 font-semibold text-gray-600">Status</th>
-                    <th className="text-right p-4 font-semibold text-gray-600">Gross Pay</th>
-                    <th className="text-right p-4 font-semibold text-gray-600">Total Deductions</th>
-                    <th className="text-right p-4 font-semibold text-gray-600">Net Pay</th>
-                    <th className="text-center p-4 font-semibold text-gray-600">Actions</th>
+                    <th className="text-left p-4 font-medium text-slate-500 text-xs whitespace-nowrap">Period</th>
+                    <th className="text-left p-4 font-medium text-slate-500 text-xs whitespace-nowrap">Pay Date</th>
+                    <th className="text-left p-4 font-medium text-slate-500 text-xs whitespace-nowrap">Status</th>
+                    <th className="text-right p-4 font-medium text-slate-500 text-xs whitespace-nowrap">Gross Pay</th>
+                    <th className="text-right p-4 font-medium text-slate-500 text-xs whitespace-nowrap">Total Deductions</th>
+                    <th className="text-right p-4 font-medium text-slate-500 text-xs whitespace-nowrap">Net Pay</th>
+                    <th className="text-center p-4 font-medium text-slate-500 text-xs whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -129,8 +130,8 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                     return (
                     <ClickablePayrollRunRow key={run.id} runId={run.id} status={run.status}>
                       <td className="p-4">
-                        <p className="font-medium text-gray-900">{run.periodLabel}</p>
-                        <p className="text-xs text-gray-500">{run.payFrequency}</p>
+                        <p className="font-medium text-[#162d54]">{run.periodLabel}</p>
+                        <p className="mt-1 text-xs text-slate-500">{run.payFrequency.replaceAll('_', ' ').toLowerCase()}</p>
                         {scope.payGroupLabel && (
                           <p className="text-[11px] font-semibold text-[#c44d00] bg-orange-50 inline-block px-1.5 py-0.5 rounded mt-1">
                             {scope.payGroupLabel}
@@ -146,9 +147,9 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                           {STATUS_LABELS[run.status]}
                         </Badge>
                       </td>
-                      <td className="p-4 text-right font-medium">{peso(run.totalGross.toNumber())}</td>
-                      <td className="p-4 text-right text-red-600">{peso(run.totalDeductions.toNumber())}</td>
-                      <td className="p-4 text-right font-black text-[#343434]">{peso(run.totalNetPay.toNumber())}</td>
+                      <td className="p-4 text-right font-medium tabular-nums whitespace-nowrap">{peso(run.totalGross.toNumber())}</td>
+                      <td className="p-4 text-right text-slate-500 tabular-nums whitespace-nowrap">{peso(run.totalDeductions.toNumber())}</td>
+                      <td className="p-4 text-right font-semibold text-[#162d54] tabular-nums whitespace-nowrap bg-orange-50/30">{peso(run.totalNetPay.toNumber())}</td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <PayrollRunRowActions runId={run.id} status={run.status} />
@@ -164,7 +165,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           )}
         </CardContent>
       </Card>
-      <nav aria-label="Payroll history pages" className="flex flex-wrap items-center justify-between gap-3 text-sm"><span>{count ? `${(page - 1) * 20 + 1}-${Math.min(page * 20, count)} of ${count} runs` : '0 runs'}</span><div className="flex items-center gap-4">{page > 1 && <Link href={pageUrl(page - 1)} className="min-h-11 inline-flex items-center underline">Previous</Link>}<span>Page {page} of {pageCount}</span>{page < pageCount && <Link href={pageUrl(page + 1)} className="min-h-11 inline-flex items-center underline">Next</Link>}</div></nav>
+      <nav aria-label="Payroll history pages" className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-slate-500"><span>{count ? `${(page - 1) * 20 + 1}-${Math.min(page * 20, count)} of ${count} runs` : '0 runs'}</span><div className="flex items-center gap-4">{page > 1 && <Link href={pageUrl(page - 1)} className="min-h-10 inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 text-[#162d54] hover:bg-orange-50">Previous</Link>}<span>Page {page} of {pageCount}</span>{page < pageCount && <Link href={pageUrl(page + 1)} className="min-h-10 inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 text-[#162d54] hover:bg-orange-50">Next</Link>}</div></nav>
     </div>
   )
 }
