@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   LayoutGrid, List as ListIcon, Table2, CalendarDays, Plus, Search, X, Loader2,
-  Settings2, CheckCircle2, Clock, SlidersHorizontal, RotateCcw,
+  Settings2, GripVertical, CheckCircle2, Clock, SlidersHorizontal, RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/ui/page-header'
@@ -349,7 +349,7 @@ export default function TasksPage() {
             />
           )}
           {view === 'list' && (
-            <TaskListView statuses={statuses} tasks={filtered} onOpenTask={setOpenTaskId} />
+            <TaskListView statuses={statuses} tasks={filtered} onOpenTask={setOpenTaskId} canEdit={canWrite} onRefetch={loadTasks} />
           )}
           {view === 'table' && (
             <TaskTableView statuses={statuses} tasks={filtered} onOpenTask={setOpenTaskId} />
@@ -398,8 +398,30 @@ export default function TasksPage() {
 
 /** Compact grouped rows — denser than the board, richer than the table. */
 function TaskListView({
-  statuses, tasks, onOpenTask,
-}: { statuses: TaskStatus[]; tasks: TaskRow[]; onOpenTask: (id: string) => void }) {
+  statuses, tasks, onOpenTask, canEdit, onRefetch,
+}: { statuses: TaskStatus[]; tasks: TaskRow[]; onOpenTask: (id: string) => void; canEdit: boolean; onRefetch: () => void | Promise<void> }) {
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [targetId, setTargetId] = useState<string | null>(null)
+  const [moving, setMoving] = useState(false)
+  async function moveToStage(statusId: string) {
+    const task = tasks.find(t => t.id === draggingId && !t.parentTaskId)
+    setDraggingId(null)
+    setTargetId(null)
+    if (!canEdit || moving || !task || task.statusId === statusId) return
+    setMoving(true)
+    try {
+      const rows = tasks.filter(t => !t.parentTaskId && t.statusId === statusId).sort((a, b) => a.order - b.order)
+      const response = await fetch('/api/tasks/move', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, statusId, afterTaskId: rows.at(-1)?.id ?? null, beforeTaskId: null }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Unable to move task')
+      await onRefetch()
+      toast.success('Task moved')
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Unable to move task') }
+    finally { setMoving(false) }
+  }
   const top = tasks.filter(t => !t.parentTaskId)
   if (top.length === 0) {
     return (
@@ -410,28 +432,37 @@ function TaskListView({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-busy={moving}>
+      {canEdit && <p role="status" className="flex items-center gap-2 text-xs text-slate-500">{moving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Moving task...</> : 'Drag a task into a stage to update its status.'}</p>}
       {statuses.map(status => {
         const rows = top.filter(t => t.statusId === status.id).sort((a, b) => a.order - b.order)
-        if (rows.length === 0) return null
+        if (rows.length === 0 && !canEdit) return null
         return (
-          <section key={status.id}>
+          <section key={status.id} aria-label={`${status.name} stage`} className={cn('rounded-xl p-2 transition-colors', targetId === status.id && 'bg-orange-50 ring-2 ring-inset ring-orange-300')}
+            onDragOver={e => { if (canEdit && draggingId && !moving) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setTargetId(status.id) } }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setTargetId(null) }}
+            onDrop={e => { e.preventDefault(); void moveToStage(status.id) }}
+          >
             <div className="mb-1.5 flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: status.color }} />
               <h3 className="text-base font-semibold text-foreground">{status.name}</h3>
               <span className="text-sm text-muted-foreground">{rows.length}</span>
             </div>
             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {rows.length === 0 && <p className="bg-card px-4 py-6 text-center text-xs text-muted-foreground">Drop a task here to move it to {status.name}.</p>}
               {rows.map(t => {
                 const overdue = isOverdue(t.dueDate, t.completedAt)
                 return (
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => onOpenTask(t.id)}
-                    className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 bg-card px-3 py-3 text-left transition hover:bg-muted/40 sm:grid-cols-[auto_minmax(12rem,1fr)_auto]"
+                    draggable={canEdit && !moving}
+                    onDragStart={e => { if (!canEdit || moving) { e.preventDefault(); return } setDraggingId(t.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.id) }}
+                    onDragEnd={() => { setDraggingId(null); setTargetId(null) }}
+                    onClick={() => { if (!draggingId && !moving) onOpenTask(t.id) }}
+                    className="group grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 bg-card px-3 py-3 text-left transition hover:bg-muted/40 sm:grid-cols-[auto_minmax(12rem,1fr)_auto]"
                   >
-                    <span className="font-mono text-[11px] text-muted-foreground">{t.key}</span>
+                    <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">{canEdit && <GripVertical className="h-3.5 w-3.5 cursor-grab text-slate-400" aria-hidden="true" />}{t.key}</span>
                     <span className={cn('min-w-0 flex-1 truncate text-base font-medium', t.completedAt && 'text-muted-foreground line-through')}>
                       {t.title}
                     </span>
