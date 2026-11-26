@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
-  BarChart3, Users, TrendingDown, TrendingUp, Calendar, Clock, AlertCircle,
+  BarChart3, Users, TrendingDown, TrendingUp, Calendar, Clock, AlertCircle, RefreshCw, Building2, Hourglass,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 import { KpiCard } from '@/components/ui/kpi-card'
 
@@ -55,6 +55,7 @@ function fmtMinutes(mins: number) {
 }
 
 export default function AnalyticsPage() {
+  const [refreshKey, setRefreshKey] = useState(0)
   const [data, setData] = useState<Overview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -69,247 +70,87 @@ export default function AnalyticsPage() {
         if (cancelled) return
         if (!res.ok) { setError(json.error ?? 'Failed to load analytics'); return }
         setData(json)
+      } catch {
+        if (!cancelled) setError('Unable to load analytics. Please try again.')
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     void load()
     return () => { cancelled = true }
-  }, [])
+  }, [refreshKey])
 
   if (loading) {
-    return <div className="flex items-center justify-center py-24"><AppSpinner size="lg" /></div>
+    return <div className="flex items-center justify-center py-24"><AppSpinner size="lg" message="Loading HR analytics..." /></div>
   }
   if (error || !data) {
     return (
       <div className="p-6 text-center">
         <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-        <p className="text-sm text-slate-600">{error ?? 'No data'}</p>
+        <p className="text-sm text-slate-600">{error ?? 'No data'}</p><Button className="mt-4" onClick={() => setRefreshKey(k => k + 1)}>Try again</Button>
       </div>
     )
   }
 
-  // Hire/separation chart bounds
-  const maxHs = Math.max(
-    1,
-    ...data.hireSeparationTrend.map((m) => Math.max(m.hires, m.separations)),
-  )
-
+  const maxHs = Math.max(1, ...data.hireSeparationTrend.flatMap(m => [m.hires, m.separations]))
+  const tenure = [
+    { label: 'Less than 1 year', value: data.headcount.tenure.lt1 },
+    { label: '1 - 3 years', value: data.headcount.tenure.y1to3 },
+    { label: '3 - 5 years', value: data.headcount.tenure.y3to5 },
+    { label: '5 - 10 years', value: data.headcount.tenure.y5to10 },
+    { label: 'Over 10 years', value: data.headcount.tenure.gt10 },
+  ]
   return (
-    <div className="p-6 md:p-8 space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--brand-ink)] flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100"><BarChart3 className="w-5 h-5 text-[var(--brand-primary)]" /></span>
-            HR Analytics
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Headcount, turnover, leave utilization and attendance trends — refreshed live.
-          </p>
-        </div>
-        <p className="text-xs text-slate-400">
-          Generated {new Date(data.generatedAt).toLocaleString()}
-        </p>
+    <div className="min-w-0 space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">HR Analytics</h1><p className="mt-1 text-sm text-slate-500">A clear view of your workforce, leave and attendance.</p></div>
+        <div className="ml-auto flex items-center gap-3"><span className="text-right text-[11px] text-slate-500">Last updated<br />{new Date(data.generatedAt).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span><Button onClick={() => setRefreshKey(k => k + 1)} className="gap-2 rounded-xl"><RefreshCw className="h-4 w-4" />Refresh</Button></div>
       </div>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
-          { label: 'Active Employees', value: fmtNum(data.headcount.active), sub: `${fmtNum(data.headcount.total)} total`, icon: Users, tone: 'primary' as const },
-          { label: 'Turnover (12mo)', value: `${data.turnover.ratePercent}%`, sub: `${data.turnover.separationsLast12Mo} separations`, icon: TrendingDown, tone: data.turnover.ratePercent >= 20 ? 'warning' as const : 'neutral' as const },
-          { label: 'Leave days used', value: `${data.leaveUtilization.totalDays.toFixed(1)}d`, sub: `${data.leaveUtilization.year} YTD`, icon: Calendar, tone: 'accent' as const },
-          { label: 'Late-shift rate', value: `${data.attendance30d.lateShiftRatePercent}%`, sub: `${data.attendance30d.totalShifts} shifts (30d)`, icon: Clock, tone: data.attendance30d.lateShiftRatePercent >= 10 ? 'warning' as const : 'info' as const },
-        ].map((k) => (
-          <KpiCard key={k.label} label={k.label} value={k.value} hint={k.sub} icon={<k.icon className="h-5 w-5" />} tone={k.tone} />
-        ))}
+          { label: 'Active employees', value: fmtNum(data.headcount.active), sub: `${fmtNum(data.headcount.total)} total employee records`, icon: Users, tone: 'primary' as const },
+          { label: 'Turnover', value: `${data.turnover.ratePercent}%`, sub: `${data.turnover.separationsLast12Mo} separations / last 12 months`, icon: TrendingDown, tone: 'neutral' as const },
+          { label: 'Leave days used', value: `${data.leaveUtilization.totalDays.toFixed(1)}d`, sub: `${data.leaveUtilization.year} year to date`, icon: Calendar, tone: 'accent' as const },
+          { label: 'Late-shift rate', value: `${data.attendance30d.lateShiftRatePercent}%`, sub: `${fmtNum(data.attendance30d.totalShifts)} shifts / last 30 days`, icon: Clock, tone: 'info' as const },
+        ].map(k => <KpiCard key={k.label} label={k.label} value={k.value} hint={k.sub} icon={<k.icon className="h-5 w-5" />} tone={k.tone} />)}
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Hires vs Separations chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle data-tour="an-turnover" className="text-sm flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[var(--brand-primary)]" /> Hires vs Separations (12 mo)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              {data.hireSeparationTrend.map((m) => (
-                <div key={m.month} className="flex items-center gap-2 text-xs">
-                  <span className="w-10 text-slate-500 font-medium">{fmtMonth(m.month)}</span>
-                  <div className="flex-1 flex gap-1">
-                    <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
-                      <div
-                        className="absolute inset-y-0 left-0 bg-[var(--brand-primary)] rounded-sm"
-                        style={{ width: `${(m.hires / maxHs) * 100}%` }}
-                        title={`${m.hires} hires`}
-                      />
-                      <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-blue-900">
-                        {m.hires > 0 ? `+${m.hires}` : ''}
-                      </span>
-                    </div>
-                    <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
-                      <div
-                        className="absolute inset-y-0 left-0 bg-red-400 rounded-sm"
-                        style={{ width: `${(m.separations / maxHs) * 100}%` }}
-                        title={`${m.separations} separations`}
-                      />
-                      <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-red-900">
-                        {m.separations > 0 ? `−${m.separations}` : ''}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-500">
-              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 bg-[var(--brand-primary)] rounded-sm" /> Hires</span>
-              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 bg-red-400 rounded-sm" /> Separations</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Headcount by department */}
-        <Card>
-          <CardHeader>
-            <CardTitle data-tour="an-headcount" className="text-sm flex items-center gap-2">
-              <Users className="w-4 h-4 text-[var(--brand-primary)]" /> Headcount by Department
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.headcount.byDepartment.length === 0 ? (
-              <p className="text-xs text-slate-400">No departments configured.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {(() => {
-                  const max = Math.max(1, ...data.headcount.byDepartment.map((d) => d.count))
-                  return data.headcount.byDepartment.map((d) => (
-                    <div key={d.name} className="flex items-center gap-2 text-xs">
-                      <span className="w-32 truncate text-slate-700">{d.name}</span>
-                      <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
-                        <div
-                          className="absolute inset-y-0 left-0 bg-[var(--brand-primary)] rounded-sm"
-                          style={{ width: `${(d.count / max) * 100}%` }}
-                        />
-                        <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-blue-50">
-                          {d.count}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                })()}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tenure pyramid */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Tenure Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              const t = data.headcount.tenure
-              const rows = [
-                { label: '< 1 year',  v: t.lt1 },
-                { label: '1 – 3 yrs',  v: t.y1to3 },
-                { label: '3 – 5 yrs',  v: t.y3to5 },
-                { label: '5 – 10 yrs', v: t.y5to10 },
-                { label: '> 10 yrs',   v: t.gt10 },
-              ]
-              const max = Math.max(1, ...rows.map((r) => r.v))
-              return (
-                <div className="space-y-1.5">
-                  {rows.map((r) => (
-                    <div key={r.label} className="flex items-center gap-2 text-xs">
-                      <span className="w-24 text-slate-600">{r.label}</span>
-                      <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
-                        <div className="absolute inset-y-0 left-0 bg-[var(--brand-highlight)] rounded-sm" style={{ width: `${(r.v / max) * 100}%` }} />
-                        <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-cyan-950">{r.v}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-          </CardContent>
-        </Card>
-
-        {/* Leave utilization */}
-        <Card>
-          <CardHeader>
-            <CardTitle data-tour="an-leave" className="text-sm flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-cyan-600" /> Leave Utilization ({data.leaveUtilization.year} YTD)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.leaveUtilization.byType.length === 0 ? (
-              <p className="text-xs text-slate-400">No approved leaves this year.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {(() => {
-                  const max = Math.max(1, ...data.leaveUtilization.byType.map((t) => t.days))
-                  return data.leaveUtilization.byType.map((t) => (
-                    <div key={t.code} className="flex items-center gap-2 text-xs">
-                      <span className="w-32 truncate text-slate-700"><Badge variant="outline" className="mr-1">{t.code}</Badge>{t.name}</span>
-                      <div className="flex-1 bg-slate-100 rounded-sm h-5 relative">
-                        <div className="absolute inset-y-0 left-0 bg-cyan-500 rounded-sm" style={{ width: `${(t.days / max) * 100}%` }} />
-                        <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-semibold text-cyan-950">{t.days.toFixed(1)}d · {t.count} reqs</span>
-                      </div>
-                    </div>
-                  ))
-                })()}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[1.2fr_1fr]">
+        <Panel title="Workforce movement" subtitle="Hires and separations over the last 12 months" icon={<TrendingUp className="h-4 w-4" />} tour="an-turnover">
+          <div className="mb-5 flex flex-wrap gap-4 text-xs text-slate-500"><span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-[#0054d7]" />Hires</span><span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-[#ff5900]" />Separations</span></div>
+          <div className="space-y-3">{data.hireSeparationTrend.map(m => <div key={m.month} className="grid grid-cols-[52px_1fr_1fr] items-center gap-3 text-xs"><span className="text-slate-500" title={m.month}>{fmtMonth(m.month)} <span className="text-[10px]">{m.month.slice(2,4)}</span></span>{[{value:m.hires,color:'#0054d7',label:'hires'},{value:m.separations,color:'#ff5900',label:'separations'}].map(item => <div key={item.label} className="flex min-w-0 items-center gap-2" aria-label={`${m.month}: ${item.value} ${item.label}`}><div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{width:`${item.value/maxHs*100}%`,backgroundColor:item.color}} /></div><span className="w-6 text-right tabular-nums text-[#162d54]">{item.value}</span></div>)}</div>)}</div>
+        </Panel>
+        <Panel title="Headcount by department" subtitle="Distribution of active employees" icon={<Building2 className="h-4 w-4" />} tour="an-headcount">
+          {data.headcount.byDepartment.length ? <div className="max-h-[390px] space-y-5 overflow-y-auto pr-1">{data.headcount.byDepartment.map(d => <MetricBar key={d.name} label={d.name} value={d.count} max={Math.max(1,...data.headcount.byDepartment.map(d=>d.count))} display={`${fmtNum(d.count)} employees`} color="#162d54" />)}</div> : <EmptyChart text="No department data available." />}
+        </Panel>
+        <Panel title="Tenure distribution" subtitle="Length of service across the active workforce" icon={<Hourglass className="h-4 w-4" />}>
+          <div className="space-y-5">{tenure.map(t => <MetricBar key={t.label} label={t.label} value={t.value} max={Math.max(1,...tenure.map(t=>t.value))} display={fmtNum(t.value)} color="#ff5900" />)}</div>
+        </Panel>
+        <Panel title="Leave utilization" subtitle={`Approved leave / ${data.leaveUtilization.year} year to date`} icon={<Calendar className="h-4 w-4" />} tour="an-leave">
+          {data.leaveUtilization.byType.length ? <div className="max-h-[330px] space-y-5 overflow-y-auto pr-1">{data.leaveUtilization.byType.map(t => <MetricBar key={t.code} label={`${t.code} / ${t.name}`} value={t.days} max={Math.max(1,...data.leaveUtilization.byType.map(t=>t.days))} display={`${t.days.toFixed(1)} days / ${t.count} requests`} color="#0054d7" />)}</div> : <EmptyChart text="No approved leave recorded this year." />}
+        </Panel>
       </div>
-
-      {/* Attendance summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle data-tour="an-attendance" className="text-sm flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[var(--brand-primary)]" /> Attendance (Last 30 Days)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="rounded-xl bg-blue-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total shifts</p>
-              <p className="text-xl font-bold mt-1">{fmtNum(data.attendance30d.totalShifts)}</p>
-            </div>
-            <div className="rounded-xl bg-cyan-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Regular hours</p>
-              <p className="text-xl font-bold mt-1">{data.attendance30d.regularHours.toFixed(1)}h</p>
-            </div>
-            <div className="rounded-xl bg-blue-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Overtime hours</p>
-              <p className="text-xl font-bold mt-1 text-[var(--brand-primary)]">{data.attendance30d.overtimeHours.toFixed(1)}h</p>
-            </div>
-            <div className="rounded-xl bg-cyan-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Night diff hours</p>
-              <p className="text-xl font-bold mt-1 text-cyan-700">{data.attendance30d.nightDiffHours.toFixed(1)}h</p>
-            </div>
-            <div className="rounded-xl bg-rose-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Avg late / shift</p>
-              <p className="text-xl font-bold mt-1 text-red-600">{fmtMinutes(data.attendance30d.averageLateMinutesPerShift)}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total late</p>
-              <p className="text-xl font-bold mt-1">{fmtMinutes(data.attendance30d.lateMinutes)}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total undertime</p>
-              <p className="text-xl font-bold mt-1">{fmtMinutes(data.attendance30d.undertimeMinutes)}</p>
-            </div>
-            <div className="rounded-xl bg-rose-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Late shifts</p>
-              <p className="text-xl font-bold mt-1">{fmtNum(data.attendance30d.lateShifts)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Panel title="Attendance overview" subtitle="Recorded shifts and working hours / last 30 days" icon={<Clock className="h-4 w-4" />} tour="an-attendance">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[
+          ['Total shifts',fmtNum(data.attendance30d.totalShifts)],
+          ['Regular hours',`${data.attendance30d.regularHours.toFixed(1)}h`],
+          ['Overtime hours',`${data.attendance30d.overtimeHours.toFixed(1)}h`],
+          ['Night differential',`${data.attendance30d.nightDiffHours.toFixed(1)}h`],
+          ['Average late / shift',fmtMinutes(data.attendance30d.averageLateMinutesPerShift)],
+          ['Total late',fmtMinutes(data.attendance30d.lateMinutes)],
+          ['Total undertime',fmtMinutes(data.attendance30d.undertimeMinutes)],
+          ['Late shifts',fmtNum(data.attendance30d.lateShifts)],
+        ].map(([label,value],i) => <div key={label} className={`min-w-0 rounded-xl border p-4 ${i<4?'border-slate-100 bg-slate-50/70':'border-orange-100/70 bg-orange-50/30'}`}><p className="text-xs text-slate-500">{label}</p><p className="mt-2 break-words text-xl font-semibold tracking-tight text-[#162d54] tabular-nums">{value}</p></div>)}</div>
+      </Panel>
     </div>
   )
+}
+
+function Panel({title,subtitle,icon,tour,children}:{title:string;subtitle:string;icon:ReactNode;tour?:string;children:ReactNode}) {
+  return <Card className="min-w-0 gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-sm"><CardHeader className="flex flex-row items-center gap-3 border-b border-slate-100 px-5 py-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#ff5900]">{icon}</span><div className="min-w-0"><CardTitle data-tour={tour} className="text-sm font-semibold text-[#162d54]">{title}</CardTitle><p className="mt-1 text-xs text-slate-500">{subtitle}</p></div></CardHeader><CardContent className="p-5">{children}</CardContent></Card>
+}
+function MetricBar({label,value,max,display,color}:{label:string;value:number;max:number;display:string;color:string}) {
+  return <div><div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs"><span className="min-w-0 break-words text-slate-600">{label}</span><span className="font-medium tabular-nums text-[#162d54]">{display}</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{width:`${value/max*100}%`,backgroundColor:color}} /></div></div>
+}
+function EmptyChart({text}:{text:string}) {
+  return <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 text-center"><BarChart3 className="h-6 w-6 text-slate-300" /><p className="text-xs text-slate-500">{text}</p></div>
 }
