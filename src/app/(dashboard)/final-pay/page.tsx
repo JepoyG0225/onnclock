@@ -1,4 +1,5 @@
 'use client'
+import { EmployeeJourneys } from '@/components/onboarding/EmployeeJourneys'
 import { FinalPayPayroll } from '@/components/payroll/FinalPayPayroll'
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -304,6 +305,7 @@ export default function FinalPayPage() {
       `}</style>
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
+      {employeeId&&<div className="print:hidden"><EmployeeJourneys employeeId={employeeId} compact/></div>}
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-[#162d54]">

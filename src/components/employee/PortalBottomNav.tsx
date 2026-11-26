@@ -37,6 +37,7 @@ const ALL_MORE_TABS: MoreTab[] = [
   { href: '/portal/loans',               label: 'Loans & Advances',    icon: Banknote                        },
   { href: '/portal/budget-requisitions', label: 'Budget Requisitions', icon: ClipboardList, budgetReq: true  },
   { href: '/portal/hr-documents', label: 'HR Documents & Data', icon: Receipt, pro: false },
+  { href: '/portal/journeys', label: 'My Journeys', icon: Receipt, pro: true },
   { href: '/portal/hr-requests', label: 'HR Requests', icon: Receipt, pro: false },
   { href: '/portal/expenses',            label: 'Expenses',            icon: Receipt,       pro: true },
   { href: '/portal/benefits',            label: 'My Benefits',         icon: HeartPulse,    pro: true },

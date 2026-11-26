@@ -9,13 +9,13 @@ export async function authorizedStaff(companyId:string,kind:Kind) {
  return result
 }
 export async function sendHrReminders() {
- const today=new Date(phToday()+'T00:00:00Z'),until=new Date(today.getTime()+7*86400000)
- const records=await prisma.hrOperation.findMany({where:{OR:[{kind:{in:['CONTRACT','COMPLIANCE','SSS_CASE','SAFETY_INCIDENT']},dueDate:{lte:until},OR:[{status:{notIn:terminal}},{kind:'SSS_CASE',status:'APPROVED'}]},{kind:{in:['PROFILE_CHANGE','SALARY_CHANGE']},status:'PENDING'}],AND:[{OR:[{reminderOn:null},{reminderOn:{lt:today}}]}]},orderBy:{createdAt:'asc'},take:500})
+ const today=new Date(phToday()+'T00:00:00Z'),until=new Date(today.getTime()+7*86400000),expiryUntil=new Date(today.getTime()+30*86400000)
+ const records=await prisma.hrOperation.findMany({where:{OR:[{kind:'EXPIRY',dueDate:{lte:expiryUntil},status:{notIn:terminal}},{kind:{in:['CONTRACT','COMPLIANCE','SSS_CASE','SAFETY_INCIDENT']},dueDate:{lte:until},OR:[{status:{notIn:terminal}},{kind:'SSS_CASE',status:'APPROVED'}]},{kind:{in:['PROFILE_CHANGE','SALARY_CHANGE']},status:'PENDING'}],AND:[{OR:[{reminderOn:null},{reminderOn:{lt:today}}]}]},orderBy:{createdAt:'asc'},take:500})
  const cache=new Map<string,string[]>();let sent=0
  for(const r of records){
   const key=r.companyId+':'+r.kind
   if(!cache.has(key))cache.set(key,await authorizedStaff(r.companyId,r.kind as Kind))
-  const eligible=cache.get(key)!,recipients=r.ownerId&&eligible.includes(r.ownerId)?[r.ownerId]:eligible.filter(id=>!['PROFILE_CHANGE','SALARY_CHANGE'].includes(r.kind)||id!==r.createdBy)
+  const eligible=cache.get(key)!,recipients=r.ownerId&&eligible.includes(r.ownerId)&&(!r.dueDate||r.dueDate.getTime()>=today.getTime()-7*86400000)?[r.ownerId]:eligible.filter(id=>!['PROFILE_CHANGE','SALARY_CHANGE'].includes(r.kind)||id!==r.createdBy)
   if(!recipients.length){await prisma.hrOperation.updateMany({where:{id:r.id,version:r.version},data:{reminderOn:today}});continue}
   sent+=await prisma.$transaction(async tx=>{
    const claim=await tx.hrOperation.updateMany({where:{id:r.id,version:r.version,OR:[{reminderOn:null},{reminderOn:{lt:today}}]},data:{reminderOn:today}})

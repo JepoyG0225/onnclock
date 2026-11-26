@@ -14,7 +14,8 @@ export async function prepareData(companyId:string,kind:Exclude<Kind,'PROFILE_CH
  const payload=parsed.data as Record<string,unknown>
  const violation=validateState(kind,status,payload,dueDate);if(violation)throw new HrError(violation)
  if(ownerId&&!await prisma.userCompany.findFirst({where:{companyId,userId:ownerId,isActive:true,user:{isActive:true}},select:{userId:true}}))throw new HrError('Choose an active owner from this company.')
- if(['CONTRACT','DOCUMENT','SSS_CASE','SALARY_CHANGE'].includes(kind)&&!employeeId)throw new HrError('Select an employee.')
+ if(ownerId&&['EXPIRY','COMPLIANCE'].includes(kind)){const owner=await prisma.userCompany.findFirst({where:{companyId,userId:ownerId,isActive:true},select:{role:true}});if(!owner||!(await getEffectivePermissions(owner.role,companyId,ownerId)).includes(kind==='EXPIRY'?'documents:manage':'compliance:manage'))throw new HrError('Select an owner with access to this HR module.')}
+ if(['EXPIRY','CONTRACT','DOCUMENT','SSS_CASE','SALARY_CHANGE'].includes(kind)&&!employeeId)throw new HrError('Select an employee.')
  const employee=employeeId?await prisma.employee.findFirst({where:{id:employeeId,companyId},include:{position:{select:{title:true}},department:{select:{name:true}}}}):null
  if(employeeId&&!employee)throw new HrError('Employee not found in this company.')
  if(kind==='CONTRACT'&&status==='REGULARIZED'&&(!employee?.isActive||employee.employmentStatus!=='PROBATIONARY'))throw new HrError('Only an active probationary employee can be regularized from this tracker.')

@@ -1,3 +1,4 @@
+import { payslipQuestionItems } from '@/lib/hr-requests/payslip-items'
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -20,11 +21,21 @@ export async function POST(req:NextRequest) {
  const {ctx,error,employeeId}=await hrRequestAccess();if(error||!ctx)return error!
  if(!employeeId)return NextResponse.json({error:'An active employee profile is required to submit a request.'},{status:403})
  const parsed=createRequestSchema.safeParse(await req.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:parsed.error.issues[0].message},{status:422})
- const {requestKey,neededBy,...fields}=parsed.data
+ const {requestKey,neededBy,payslipId,payslipItem,payslipAmount,...fields}=parsed.data
+ let payrollContext:Prisma.InputJsonValue|undefined
+ if(payslipId){
+ const slip=await prisma.payslip.findFirst({where:{id:payslipId,employeeId,payrollRun:{companyId:ctx.companyId,status:{in:['APPROVED','LOCKED','DISBURSED']}}},include:{payrollRun:true,incomes:true}})
+ if(!slip)return NextResponse.json({error:'Published payslip not found for your employee account.'},{status:404})
+ const deductions=await prisma.employeeOtherDeduction.findMany({where:{employeeId,isActive:true},select:{label:true,amount:true}})
+ const item=payslipQuestionItems(slip as unknown as Record<string,unknown>,deductions).find(([label,amount])=>label===payslipItem&&typeof payslipAmount==='number'&&Math.abs(amount-payslipAmount)<0.01)
+ if(!item)return NextResponse.json({error:'This payslip line changed. Refresh the payslip before asking your question.'},{status:409})
+ fields.category='Payroll Clarification'
+ payrollContext={payslipId:slip.id,runId:slip.payrollRunId,period:slip.payrollRun.periodLabel,item:item[0],amount:item[1]}
+ }
  const assignees=await hrRequestAssignees(ctx.companyId)
  try {
   const request=await prisma.$transaction(async tx=>{
-   const request=await tx.hrRequest.create({data:{...fields,requestKey,companyId:ctx.companyId,employeeId,neededBy:neededBy?new Date(neededBy+'T00:00:00Z'):null}})
+   const request=await tx.hrRequest.create({data:{...fields,...(payrollContext?{payrollContext}:{}),requestKey,companyId:ctx.companyId,employeeId,neededBy:neededBy?new Date(neededBy+'T00:00:00Z'):null}})
    const recipients=assignees.filter(a=>a.id!==ctx.userId)
    if(recipients.length)await tx.notification.createMany({data:recipients.map(a=>({companyId:ctx.companyId,userId:a.id,type:'GENERIC' as const,title:'New HR request',body:fields.subject,link:'/hr-requests?request='+request.id}))})
    return request

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -43,5 +44,5 @@ export async function GET() {
     otherDeductionItems = []
   }
 
-  return NextResponse.json({ payslips, otherDeductionItems })
+  return NextResponse.json({ payslips:payslips.map(p=>({...p,...Object.fromEntries(Object.entries(p).filter(([,v])=>Prisma.Decimal.isDecimal(v)).map(([key,value])=>[key,Number(value)])),incomes:p.incomes.map(i=>({...i,amount:Number(i.amount)}))})), otherDeductionItems })
 }

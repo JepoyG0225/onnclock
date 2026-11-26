@@ -28,6 +28,7 @@ const ALL_NAV_TABS = [
   { href: '/portal/benefits',            label: 'My Benefits',  icon: HeartPulse,      exact: false, pro: true, budgetReq: false, tasks: false },
   { href: '/portal/learning',            label: 'My Learning',  icon: GraduationCap,   exact: false, pro: true, budgetReq: false, tasks: false },
   { href: '/portal/performance',         label: 'Performance',  icon: BarChart3,       exact: false, pro: false, budgetReq: false, tasks: false },
+  { href: '/portal/journeys', label: 'My Journeys', icon: User, exact: false, pro: true, budgetReq: false, tasks: false },
   { href: '/portal/profile',             label: 'Profile',      icon: User,            exact: false, pro: false, budgetReq: false, tasks: false },
 ]
 

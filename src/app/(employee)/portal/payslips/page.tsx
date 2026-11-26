@@ -1,4 +1,5 @@
 'use client'
+import { PayslipQuestion } from '@/components/payroll/PayslipQuestion'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 
 
@@ -196,7 +197,7 @@ export default function PayslipsPage() {
               <div className="rounded-xl border border-slate-100 divide-y divide-slate-100">
                 {earningRows.map(([label, amount], i) => (
                   <div key={i} className="flex items-center justify-between px-3 py-2.5">
-                    <span className="text-[13px] text-slate-600">{label}</span>
+                    <span className="flex items-center text-[13px] text-slate-600">{label}<PayslipQuestion payslipId={selected.id} amount={amount} item={label} period={selected.payrollRun.periodLabel}/></span>
                     <span className="text-[13px] font-bold text-slate-900 tabular-nums">{peso(amount)}</span>
                   </div>
                 ))}
@@ -217,7 +218,7 @@ export default function PayslipsPage() {
                 )}
                 {deductionRows.map(([label, amount], i) => (
                   <div key={i} className="flex items-center justify-between px-3 py-2.5">
-                    <span className="text-[13px] text-slate-600">{label}</span>
+                    <span className="flex items-center text-[13px] text-slate-600">{label}<PayslipQuestion payslipId={selected.id} amount={amount} item={label} period={selected.payrollRun.periodLabel}/></span>
                     <span className="text-[13px] font-bold text-slate-900 tabular-nums">{peso(amount)}</span>
                   </div>
                 ))}

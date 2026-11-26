@@ -32,6 +32,8 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
    if(initial.kind==='CONTRACT'&&initial.employeeId!==change.employeeId)throw new HrError('Create a new contract review to change the employee.')
    payload=(await prepareData(a.ctx.companyId,initial.kind as Exclude<Kind,'PROFILE_CHANGE'>,change.data,change.employeeId,change.ownerId,change.status,change.dueDate)).payload
   }
+  if(payload&&initial.kind==='EXPIRY'){const saved=initial.data as Record<string,unknown>;if(saved.sourceId){payload.sourceId=saved.sourceId;payload.sourceType=saved.sourceType}}
+  if(payload&&initial.kind==='COMPLIANCE'){const saved=initial.data as Record<string,unknown>;if(saved.remittanceSnapshot){payload.remittanceSnapshot=saved.remittanceSnapshot;payload.remittanceType=saved.remittanceType;payload.period=saved.period;payload.agency=saved.agency;payload.form=saved.form;if(!('action' in change)&&['PAID','COMPLETED'].includes(change.status)&&Math.abs(Number((saved.remittanceSnapshot as {expected:number}).expected)-Number(payload.paidAmount))>0.01&&String(payload.reconciliationNote??'').trim().length<5)throw new HrError('Explain the difference from the prepared payroll total before closing this remittance.')}}
   const record=await prisma.$transaction(async tx=>{
    if(initial.kind==='SALARY_CHANGE')await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${a.ctx.companyId}))`
    await tx.$queryRaw`SELECT id FROM hr_operations WHERE id=${id} AND "companyId"=${a.ctx.companyId} FOR UPDATE`

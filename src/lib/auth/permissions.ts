@@ -152,6 +152,7 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/org-chart': 'employees:read',
   '/recruitment': 'recruitment:manage',
   '/onboarding': 'onboarding:manage',
+  '/employee-journeys': 'onboarding:manage',
   '/performance': 'performance:manage',
   '/performance-reviews': 'performance:manage',
   '/offboarding': 'offboarding:manage',
@@ -230,6 +231,7 @@ export function routePermission(pathname: string): Permission | null {
 
 /** Whether a user holding `granted` permissions may open `pathname`. */
 export function canAccessRoute(pathname: string, granted: readonly string[]): boolean {
+  if(pathname === '/employee-journeys')return ['onboarding:manage','offboarding:manage'].some(p=>granted.includes(p))
   if(pathname === '/requisitions' || pathname.startsWith('/requisitions/')) return ['budget:read','budget:approve','payroll:read','employees:read','expenses:read','expenses:approve'].some(p=>granted.includes(p))
   const required = routePermission(pathname)
   if (!required) return true // unrestricted route
@@ -308,6 +310,8 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
       { key: 'org_chart', label: 'Organization Chart', permission: 'employees:read', paths: ['/org-chart'] },
       { key: 'recruitment',        label: 'Recruitment (Hiring / Onboarding / Offboarding)', permission: 'recruitment:manage', paths: ["/recruitment"] },
       { key: 'performance',        label: 'Performance',              permission: 'performance:manage', paths: ["/performance", "/performance-reviews"] },
+      { key: 'employee_journeys', label: 'Employee journey checklist & progress', permission: 'onboarding:manage', paths: ['/employee-journeys'] },
+      { key: 'clearance_journeys', label: 'Clearance journey & final-pay checklist', permission: 'offboarding:manage', paths: ['/employee-journeys'] },
       { key: 'onboarding', label: 'Manage Onboarding', permission: 'onboarding:manage', paths: ["/onboarding"] },
       { key: 'offboarding', label: 'Manage Offboarding', permission: 'offboarding:manage', paths: ["/offboarding"] },
       { key: 'disciplinary', label: 'Manage Disciplinary Records', permission: 'disciplinary:manage', paths: ["/disciplinary"] },
@@ -353,6 +357,8 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
     group: 'Payroll & Finance',
     pages: [
       { key: 'payroll',            label: 'Payroll Runs',             permission: 'payroll:read', paths: ["/payroll"] },
+      { key: 'pay_operations', label: 'Payroll cost planning & remittance reports', permission: 'payroll:read', paths: ['/payroll/operations'] },
+      { key: 'remittance_manage', label: 'Prepare remittances / Record payments & receipts', permission: 'compliance:manage' },
       { key: 'pay_reconciliation', label: 'Payroll Reconciliation', permission: 'payroll:read', paths: ['/payroll/reconciliation'] },
       { key: 'payslip_design', label: 'Edit Payslip Design (Theme, Sections, Header & Footer)', permission: 'payroll:write' },
       { key: 'tax_annualization', label: 'Tax Annualization', permission: 'payroll:read', paths: ['/tax-annualization'] },
@@ -383,9 +389,10 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
   {
     group: WORKSPACE_GROUP,
     pages: [
-      { key: 'hr_requests', label: 'HR Helpdesk & Document Requests', permission: 'hrrequests:manage', paths: ["/hr-requests"] },
+      { key: 'hr_requests', label: 'HR Helpdesk, Document Requests & Payslip Questions', permission: 'hrrequests:manage', paths: ["/hr-requests"] },
       { key: 'contracts', label: 'Contracts & regularization', permission: 'contracts:manage', paths: ["/hr-center"] },
       { key: 'compliance', label: 'Government compliance', permission: 'compliance:manage' },
+      { key: 'expiry_monitor', label: 'Document / certification expiry monitoring & reminders', permission: 'documents:manage' },
       { key: 'documents', label: 'HR documents & templates (create, edit, delete templates)', permission: 'documents:manage' },
       { key: 'ssscases', label: 'SSS benefit cases', permission: 'ssscases:manage' },
       { key: 'wageorders', label: 'Wage-order checks', permission: 'wageorders:manage' },

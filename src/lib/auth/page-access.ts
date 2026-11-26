@@ -25,6 +25,7 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   required: Permission[];
 }> = [
   // ── Employment ──────────────────────────────────────────────────────
+  { prefix: "/employee-journeys", required: ["onboarding:manage", "offboarding:manage"] },
   { prefix: "/employees", required: ["employees:read"] },
   {
     prefix: "/organization",

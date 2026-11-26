@@ -4,33 +4,36 @@ import { z } from 'zod'
 import { dateOnly } from '@/lib/expenses/policy'
 import type { Permission } from '@/lib/auth/permissions'
 
-export const kinds = ['CONTRACT', 'COMPLIANCE', 'TEMPLATE', 'DOCUMENT', 'SSS_CASE', 'WAGE_ORDER', 'PROFILE_CHANGE', 'SALARY_CHANGE', 'SAFETY_INCIDENT'] as const
+export const kinds = ['CONTRACT', 'EXPIRY', 'COMPLIANCE', 'TEMPLATE', 'DOCUMENT', 'SSS_CASE', 'WAGE_ORDER', 'PROFILE_CHANGE', 'SALARY_CHANGE', 'SAFETY_INCIDENT'] as const
 export type Kind = typeof kinds[number]
 export const permissions: Record<Kind, Permission> = {
+  EXPIRY:'documents:manage',
   SALARY_CHANGE: 'salarychanges:manage', SAFETY_INCIDENT: 'safety:manage',
   CONTRACT: 'contracts:manage', COMPLIANCE: 'compliance:manage', TEMPLATE: 'documents:manage', DOCUMENT: 'documents:manage',
   SSS_CASE: 'ssscases:manage', WAGE_ORDER: 'wageorders:manage', PROFILE_CHANGE: 'profilechanges:manage',
 }
-export const names: Record<Kind, string> = { SALARY_CHANGE: 'Salary changes', SAFETY_INCIDENT: 'Workplace safety', CONTRACT: 'Contracts & regularization', COMPLIANCE: 'Government compliance', TEMPLATE: 'Document templates', DOCUMENT: 'Issued documents', SSS_CASE: 'SSS benefit cases', WAGE_ORDER: 'Wage-order checks', PROFILE_CHANGE: 'Profile changes & privacy' }
+export const names: Record<Kind, string> = { EXPIRY:'Document & certification expiry', SALARY_CHANGE: 'Salary changes', SAFETY_INCIDENT: 'Workplace safety', CONTRACT: 'Contracts & regularization', COMPLIANCE: 'Government compliance', TEMPLATE: 'Document templates', DOCUMENT: 'Issued documents', SSS_CASE: 'SSS benefit cases', WAGE_ORDER: 'Wage-order checks', PROFILE_CHANGE: 'Profile changes & privacy' }
 export const statuses: Record<Kind, readonly string[]> = {
+  EXPIRY:['OPEN','IN_REVIEW','RENEWED','CANCELLED'],
   SALARY_CHANGE: ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'],
   SAFETY_INCIDENT: ['OPEN', 'INVESTIGATING', 'ACTION_REQUIRED', 'MONITORING', 'COMPLETED', 'CANCELLED'],
   CONTRACT: ['OPEN', 'IN_REVIEW', 'REGULARIZED', 'RENEWED', 'ENDED', 'CANCELLED'],
-  COMPLIANCE: ['OPEN', 'PREPARING', 'SUBMITTED', 'COMPLETED', 'CANCELLED'],
+  COMPLIANCE: ['OPEN', 'PREPARING', 'SUBMITTED', 'PAID', 'COMPLETED', 'CANCELLED'],
   TEMPLATE: ['ACTIVE', 'ARCHIVED'], DOCUMENT: ['ISSUED', 'ACKNOWLEDGED', 'VOID'],
   SSS_CASE: ['OPEN', 'NOTIFIED', 'ADVANCED', 'FILED', 'APPROVED', 'REIMBURSED', 'REJECTED', 'CANCELLED'],
   WAGE_ORDER: ['ACTIVE', 'ARCHIVED'], PROFILE_CHANGE: ['PENDING', 'APPROVED', 'REJECTED', 'APPLIED', 'CANCELLED'],
 }
-export const terminal = ['REGULARIZED', 'RENEWED', 'ENDED', 'CANCELLED', 'COMPLETED', 'ARCHIVED', 'ACKNOWLEDGED', 'VOID', 'REIMBURSED', 'REJECTED', 'APPROVED', 'APPLIED']
+export const terminal = ['PAID','REGULARIZED', 'RENEWED', 'ENDED', 'CANCELLED', 'COMPLETED', 'ARCHIVED', 'ACKNOWLEDGED', 'VOID', 'REIMBURSED', 'REJECTED', 'APPROVED', 'APPLIED']
 const text = z.string().trim().max(5000).default('')
 const short = z.string().trim().max(200).default('')
 const optionalDate = dateOnly.nullable().default(null)
 const money = z.coerce.number().finite().min(0).max(999999999).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < 0.0001, 'Use two decimal places.')
 export const payloadSchemas = {
+  EXPIRY:z.object({documentType:z.string().trim().min(1).max(200),expiryDate:dateOnly,reference:short,renewedDate:optionalDate,notes:text}),
   SALARY_CHANGE: z.object({ effectiveDate: dateOnly, amount: money.refine(n=>n>0,'Enter a positive salary / rate.'), reason: z.string().trim().min(5).max(5000), changeType: z.enum(['INCREASE','PROMOTION','CORRECTION','OTHER']), notes: text }),
   SAFETY_INCIDENT: z.object({ incidentDate: dateOnly, incidentTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/,'Enter the incident time.'), location:z.string().trim().min(1).max(200), category:z.enum(['NEAR_MISS','INJURY','ILLNESS','PROPERTY_DAMAGE','OTHER']), severity:z.enum(['LOW','MODERATE','SERIOUS','FATAL']), description:z.string().trim().min(10).max(5000), witnesses:text, immediateAction:text, injuryDetails:text, lostDays:z.coerce.number().int().min(0).max(36500), rootCause:text, investigationFindings:text, correctiveActions:z.array(z.object({description:z.string().trim().min(3).max(1000),ownerId:z.string().min(1),dueDate:dateOnly,completedDate:optionalDate,effectiveness:text})).max(50).default([]), officialReference:short, reportedDate:optionalDate, closureNotes:text, notes:text }),
   CONTRACT: z.object({ contractType: z.enum(['PROBATIONARY', 'FIXED_TERM', 'PROJECT', 'OTHER']), startDate: dateOnly, endDate: optionalDate, effectiveDate: optionalDate, notes: text }),
-  COMPLIANCE: z.object({ agency: z.enum(['BIR', 'SSS', 'PHILHEALTH', 'PAGIBIG', 'DOLE', 'OTHER']), form: z.string().trim().min(1).max(150), period: z.string().trim().min(1).max(100), reference: short, submittedDate: optionalDate, paidAmount: money.default(0), notes: text }),
+  COMPLIANCE: z.object({ agency: z.enum(['BIR', 'SSS', 'PHILHEALTH', 'PAGIBIG', 'DOLE', 'OTHER']), form: z.string().trim().min(1).max(150), period: z.string().trim().min(1).max(100), reference: short, submittedDate: optionalDate, paidAmount: money.default(0), reconciliationNote:text, notes: text }),
   TEMPLATE: z.object({ paperSize: paperSizeSchema, bodyFormat: z.enum(['PLAIN','HTML']).default('PLAIN'), header: documentHeaderSchema, footer: documentHeaderSchema, body: z.string().trim().min(10).max(20000), notes: text }),
   DOCUMENT: z.object({ templateId: z.string().min(1), purpose: short, signatory: z.string().trim().min(1).max(200) }),
   SSS_CASE: z.object({ benefit: z.enum(['MATERNITY', 'SICKNESS']), startDate: dateOnly, endDate: dateOnly, notificationDate: optionalDate, filingDate: optionalDate, reference: short, approvedAmount: money.default(0), advancePaid: money.default(0), reimbursedAmount: money.default(0), reimbursementDate: optionalDate, checklist: z.array(z.enum(['NOTIFICATION', 'SUPPORTING_DOCUMENTS', 'ADVANCE_PROOF', 'EMPLOYEE_CONFIRMATION', 'FILING_RECEIPT', 'REIMBURSEMENT_PROOF'])).default([]), notes: text }),
@@ -49,7 +52,10 @@ export function validateState(kind:Kind,status:string,data:Record<string,unknown
   if(data.startDate&&data.endDate&&String(data.startDate)>String(data.endDate))return 'End date must be on or after the start date.'
   if(kind==='CONTRACT'&&status==='REGULARIZED'&&(!data.effectiveDate||String(data.effectiveDate)>phToday()))return 'Enter a regularization effective date on or before today.'
   if(kind==='CONTRACT'&&['REGULARIZED','RENEWED','ENDED'].includes(status)&&!data.notes)return 'Record the decision and reason in Notes.'
-  if(kind==='COMPLIANCE'&&['SUBMITTED','COMPLETED'].includes(status)&&(!data.reference||!data.submittedDate))return 'Record the submission date and official reference.'
+  if(kind==='COMPLIANCE'&&['SUBMITTED','PAID','COMPLETED'].includes(status)&&(!data.reference||!data.submittedDate))return 'Record the submission date and official reference.'
+  if(kind==='COMPLIANCE'&&status==='PAID'&&!(Number(data.paidAmount)>0))return 'Record the amount paid before marking this obligation paid.'
+  if(kind==='EXPIRY'&&!dueDate)return 'Set the next review date.'
+  if(kind==='EXPIRY'&&status==='RENEWED'&&(!data.renewedDate||!data.notes))return 'Record the renewal date and notes.'
   if(kind==='SAFETY_INCIDENT') {
     if(String(data.incidentDate)>phToday())return 'Incident date cannot be in the future.'
     if(!dueDate)return 'Set the next safety review date.'

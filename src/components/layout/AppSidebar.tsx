@@ -103,6 +103,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: "All Employees", href: "/employees", icon: Users },
       { label: "Organization", href: "/organization", icon: Building2 },
       { label: "Recruitment", href: "/recruitment", icon: ClipboardList },
+      { label: "Employee Journeys", href: "/employee-journeys", icon: ClipboardCheck, releasedAt: "2026-11-26T00:00:00+08:00" },
       { label: "Performance", href: "/performance", icon: BarChart3 },
     ],
   },
@@ -146,6 +147,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: "Payroll Reconciliation", href: "/payroll/reconciliation", icon: ClipboardCheck },
       { label: "Payroll Runs", href: "/payroll", icon: PesoIcon },
+        { label: "Planning & Remittances", href: "/payroll/operations", icon: Receipt, releasedAt: "2026-11-26T00:00:00+08:00" },
       { label: "Payroll Settings", href: "/payroll/settings", icon: Settings },
       { label: "13th Month Pay", href: "/thirteenth-month", icon: Gift },
       { label: "Loans & Cash Advance", href: "/loans", icon: CreditCard },

@@ -9,7 +9,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
  const a=await hrAccess();if(a.error)return a.error
  const {id}=await params,r=await prisma.hrOperation.findFirst({where:{id,companyId:a.ctx.companyId}})
  if(!r||!a.kinds.includes(r.kind as Kind))return NextResponse.json({error:'Record not found.'},{status:404})
- if(!['CONTRACT','COMPLIANCE','SSS_CASE','SAFETY_INCIDENT','SALARY_CHANGE'].includes(r.kind))return NextResponse.json({error:'Attachments are supported for contract, compliance and SSS records.'},{status:422})
+ if(!['EXPIRY','CONTRACT','COMPLIANCE','SSS_CASE','SAFETY_INCIDENT','SALARY_CHANGE'].includes(r.kind))return NextResponse.json({error:'Attachments are supported for contract, compliance and SSS records.'},{status:422})
  if(Number(req.headers.get('content-length')??0)>FILE_LIMIT+100000)return NextResponse.json({error:'Choose a file up to 4 MB.'},{status:413})
  const form=await req.formData().catch(()=>null),file=form?.get('file')
  if(!(file instanceof File)||!file.size||file.size>FILE_LIMIT)return NextResponse.json({error:'Choose a PDF or image up to 4 MB.'},{status:422})

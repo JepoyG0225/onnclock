@@ -1,0 +1,6 @@
+export function payslipQuestionItems(s:Record<string,unknown>,deductions:{label:string;amount:unknown}[]=[]){
+ const n=(k:string)=>Number(s[k]??0),incomes=(s.incomes??[]) as {typeName:string;amount:unknown}[]
+ const rows:[string,number][]=[['Basic pay',n('basicSalary')],['Overtime pay',n('regularOtAmount')+n('restDayOtAmount')+n('holidayOtAmount')],['Holiday pay',n('holidayPayAmount')],['Night differential',n('nightDiffAmount')],['Allowances',n('riceAllowance')+n('clothingAllowance')+n('medicalAllowance')],...incomes.map(i=>[i.typeName,Number(i.amount)] as [string,number]),['Other earnings',n('otherEarnings')-incomes.reduce((a,i)=>a+Number(i.amount),0)],['SSS',n('sssEmployee')],['PhilHealth',n('philhealthEmployee')],['Pag-IBIG',n('pagibigEmployee')],['Withholding tax',n('withholdingTax')],['Late / undertime',n('lateDeduction')+n('undertimeDeduction')],['Absences',n('absenceDeduction')],['Loan amortisations',n('sssLoanDeduction')+n('pagibigLoan')+n('companyLoan')],['Other deductions',n('otherDeductions')]]
+ if(Math.abs(deductions.reduce((a,d)=>a+Number(d.amount),0)-n('otherDeductions'))<0.01)rows.push(...deductions.map(d=>[d.label||'Other deduction',Number(d.amount)] as [string,number]))
+ return rows
+}
