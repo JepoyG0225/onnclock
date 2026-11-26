@@ -1,3 +1,4 @@
+import { PayrollPreparation } from '@/components/payroll/PayrollPreparation'
 import { OT_ELIGIBLE_EMPLOYEE } from '@/lib/overtime-requests'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -217,6 +218,7 @@ export default async function PayrollRunPage({
   return (
     <div className="space-y-5 min-w-0">
       <Link href="/payroll" className="inline-flex items-center text-xs text-slate-500 hover:text-[#ff5900]">&larr; All payroll runs</Link>
+      {!isThirteenth && <PayrollPreparation runId={run.id} status={run.status} />}
       {isThirteenth ? <div className="rounded-xl border bg-blue-50 p-4 text-sm"><strong>{run.runType==='FINAL_PAY'?'Final pay payroll':isEncashment?'Leave encashment payroll':'13th-month payroll'}</strong><p>{run.runType==='FINAL_PAY'?'Reviewed final-pay earnings and deductions. Submit for approval, lock, then mark disbursed after payment. To revise, remove the unapproved payslip (or delete the run if it contains only this employee), then generate a replacement from Final Pay.':isEncashment?'Reviewed leave conversions and withholding tax only. Submit for approval, lock, then mark disbursed after payment. To revise an editable batch, cancel it in Leave Encashment and create a new batch.':'Reviewed 13th-month earnings and withholding tax only. Submit for approval, lock, then mark disbursed after payment. To revise amounts, delete this editable run and regenerate from 13th Month Pay.'}</p><Link href={run.runType==='FINAL_PAY'?'/final-pay':isEncashment?'/leaves/encashments':'/thirteenth-month'} className="font-semibold underline">{run.runType==='FINAL_PAY'?'Back to Final Pay':isEncashment?'Back to Leave Encashment':'Back to 13th Month Pay'}</Link></div> : <PayrollJourney runId={run.id} status={run.status} stage={isInputsStage ? 'review' : 'approval'} />}
       {run.status === 'DISBURSED' && <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">Payment recorded as disbursed{run.disbursedAt ? ` on ${run.disbursedAt.toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} (Philippine time)` : ''}. This payroll is finalized.</p>}
       {/* Header

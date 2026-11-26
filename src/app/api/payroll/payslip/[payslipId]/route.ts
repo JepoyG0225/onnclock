@@ -71,6 +71,7 @@ export async function PATCH(
   }, select: { id: true } })
   if (later) return NextResponse.json({ error: 'A later payroll already uses this employee\'s carried deductions. Remove or cancel later draft payrolls before changing this cycle.' }, { status: 409 })
 
+  if(await tx.hrOperation.count({where:{companyId:ctx.companyId,employeeId:payslip.employeeId,kind:'PAYROLL_ADJUSTMENT',status:'APPROVED',data:{path:['targetRunId'],equals:payslip.payrollRunId}}}))return NextResponse.json({error:'Cancel the scheduled correction before manually overriding this payslip.'},{status:409})
   const body = await req.json()
   const n = (v: unknown) => (v != null && v !== '' ? Number(v) : null)
   type CustomAdjustment = { label: string; amount: number }
@@ -347,6 +348,7 @@ export async function DELETE(
   if (!['DRAFT', 'COMPUTED'].includes(payslip.payrollRun.status)) {
     return NextResponse.json({ error: 'Employees can only be removed from a draft or computed payroll run' }, { status: 400 })
   }
+  if(await tx.hrOperation.count({where:{companyId:ctx.companyId,employeeId:payslip.employeeId,kind:'PAYROLL_ADJUSTMENT',status:'APPROVED',data:{path:['targetRunId'],equals:payslip.payrollRunId}}}))return NextResponse.json({error:'Unschedule this employee payroll corrections in the source payroll before removing the payslip.'},{status:409})
   if(await tx.hrOperation.count({where:{companyId:ctx.companyId,employeeId:payslip.employeeId,kind:'SALARY_CHANGE',status:'APPROVED',data:{path:['retroTargetRunId'],equals:payslip.payrollRunId}}}))return NextResponse.json({error:'Unschedule this employee retro pay in HR Center before removing the payslip.'},{status:409})
   const later = await tx.payslip.findFirst({ where: {
     employeeId: payslip.employeeId, payrollRun: {

@@ -42,6 +42,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${a.ctx.companyId}))`
   const p=await preview(tx,a.ctx.companyId,id)
   if(p.record.createdBy===a.ctx.userId||p.record.employeeId===a.employeeId)throw new HrError('An independent salary approver must authorize retro pay.',403)
+  if(await tx.hrOperation.count({where:{companyId:a.ctx.companyId,employeeId:p.record.employeeId,kind:'PAYROLL_ADJUSTMENT',status:{in:['PENDING','APPROVED']}}}))throw new HrError('Resolve payroll corrections for this employee before scheduling salary retro pay.',409)
   if(p.data.retroTargetRunId)throw new HrError('Retro pay has already been scheduled for this change.',409)
   if(p.issues.length)throw new HrError(p.issues.join(' '),409)
   if(!p.items.length)throw new HrError('No unpaid retroactive difference found in locked payrolls.')

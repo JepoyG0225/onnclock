@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { employeePeriodDivisor } from '@/lib/payroll/cutoff-frequency'
 import { monthlyPayDays, monthlyPayAmounts, earnedBasicPay } from '@/lib/payroll/monthly-pay'
 import { scheduleInstants, zonedParts, timezone } from '@/lib/attendance/timezone'
@@ -202,7 +203,7 @@ export async function GET(
   const scopeModeGet = runScopeGet.employeeScopeMode ?? 'ALL'
   const employeeWhereGet: {
     companyId: string
-    isActive: boolean
+    isActive?: boolean
     id?: { in: string[] }
     employmentType?: { in: ('FULL_TIME' | 'PART_TIME' | 'CONTRACTUAL')[] }
   } = { companyId: ctx.companyId, isActive: true }
@@ -297,6 +298,8 @@ export async function POST(
     : null
   const scopedCompanyId = overrideCompanyId ?? ctx.companyId
 
+  const preview = req.nextUrl.searchParams.get('review') === 'true'
+  if (!isAdminKeyAuth && !await ctxHasPermission(ctx, 'payroll:write')) return NextResponse.json({error:'Payroll write permission required.'},{status:403})
   const run = await prisma.payrollRun.findFirst({
     where: { id: runId, companyId: scopedCompanyId },
     include: { company: { include: { contributionConfig: true } } },
@@ -306,12 +309,13 @@ export async function POST(
   if (run.runType === 'FINAL_PAY' || await prisma.payslip.findFirst({where:{payrollRunId:runId,calculationBasis:{path:['kind'],equals:'FINAL_PAY'}},select:{id:true}})) return NextResponse.json({error:'This run contains reviewed final pay. Remove its final-pay payslip before recomputing regular payroll, then generate final pay again.'},{status:409})
   if (run.runType === 'LEAVE_ENCASHMENT') return NextResponse.json({error:'This is a dedicated leave encashment payroll. Cancel the editable batch in Leave Encashment and generate a new batch to revise it.'},{status:409})
   if (run.runType === 'THIRTEENTH_MONTH') return NextResponse.json({error:'This is a 13th-month payroll. Delete the editable run and regenerate from 13th Month Pay to revise it.'},{status:409})
-  if (['APPROVED', 'LOCKED', 'DISBURSED'].includes(run.status)) {
+  if (!preview && ['APPROVED', 'LOCKED', 'DISBURSED'].includes(run.status)) {
     return NextResponse.json({ error: 'Payroll run is locked and cannot be recomputed' }, { status: 400 })
   }
 
+  if(preview && !['APPROVED','LOCKED','DISBURSED'].includes(run.status))return NextResponse.json({error:'Review corrections on a finalized payroll.'},{status:409})
   const computationStartedAt = new Date()
-  const claimed = await prisma.payrollRun.updateMany({
+  const claimed = preview ? {count:1} : await prisma.payrollRun.updateMany({
     where: { id: runId, payslips:{none:{calculationBasis:{path:['kind'],equals:'FINAL_PAY'}}}, OR: [{ computationStartedAt: null }, { computationStartedAt: { lt: new Date(Date.now() - 30 * 60 * 1000) } }], status: { notIn: ['APPROVED', 'LOCKED', 'DISBURSED'] } },
     data: { computationStartedAt },
   })
@@ -326,7 +330,7 @@ export async function POST(
   if (!parsedPayload.success) {
     return NextResponse.json({ error: 'Invalid computation payload' }, { status: 422 })
   }
-  const variableIncomeEntriesInput = parsedPayload.data.variableIncomeEntries
+  const variableIncomeEntriesInput = preview ? (await prisma.payrollRunIncomeEntry.findMany({where:{payrollRunId:runId}})).map(e=>({employeeId:e.employeeId,incomeTypeId:e.incomeTypeId,amount:Number(e.amount)})) : parsedPayload.data.variableIncomeEntries
 
   const rawWorkingDays = getWorkingDays(run.periodStart, run.periodEnd)
   const firstCutoff = run.payDate.getUTCDate() <= 15
@@ -433,7 +437,7 @@ export async function POST(
   const scopeEmployeeIds = runScope.employeeIds ?? []
   const employeeWhere: {
     companyId: string
-    isActive: boolean
+    isActive?: boolean
     id?: { in: string[] }
     employmentType?: { in: ('FULL_TIME' | 'PART_TIME' | 'CONTRACTUAL')[] }
   } = { companyId: scopedCompanyId, isActive: true }
@@ -445,6 +449,9 @@ export async function POST(
     }
   }
 
+  if(preview){delete employeeWhere.isActive;delete employeeWhere.employmentType;employeeWhere.id={in:(await prisma.payslip.findMany({where:{payrollRunId:runId},select:{employeeId:true}})).map(p=>p.employeeId)}}
+  const adjustmentRecords=await prisma.hrOperation.findMany({where:{companyId:scopedCompanyId,kind:'PAYROLL_ADJUSTMENT',status:'APPROVED',data:{path:['targetRunId'],equals:runId}},orderBy:{id:'asc'}})
+  if(!preview&&adjustmentRecords.some(r=>!r.employeeId))throw new Error('An adjustment has no employee.')
   const sourceRuns = await prisma.payrollRun.findMany({
     where: { companyId: scopedCompanyId, id: { not: runId } },
     select: { id: true, updatedAt: true }, orderBy: { id: 'asc' },
@@ -485,7 +492,7 @@ export async function POST(
       { payDate: run.payDate, periodEnd: run.periodEnd, createdAt: { gt: run.createdAt } },
     ] },
   }, select: { id: true } })
-  if (laterPayroll) return NextResponse.json({ error: 'A later payroll already exists for these employees. Remove or cancel later draft payrolls before recomputing an earlier cycle so carried deductions are not counted twice.' }, { status: 409 })
+  if (laterPayroll && !preview) return NextResponse.json({ error: 'A later payroll already exists for these employees. Remove or cancel later draft payrolls before recomputing an earlier cycle so carried deductions are not counted twice.' }, { status: 409 })
 
   // Per-employee "Other Deductions" line items. Fetched separately (and
   // guarded) so a not-yet-migrated table can't break the whole payroll compute
@@ -618,6 +625,7 @@ export async function POST(
     incomes: { incomeTypeId: string; typeName: string; amount: number; isTaxable: boolean }[]
   }
 
+  const reviewIssues: {employeeId:string;message:string}[]=[]
   const builds: PayslipBuildItem[] = []
   let totalBasic = 0, totalGross = 0, totalDeductions = 0, totalNetPay = 0
   let totalSssEr = 0, totalPhEr = 0, totalPagibigEr = 0
@@ -630,6 +638,7 @@ export async function POST(
       },
     })
 
+    if(preview&&((emp.trackTime&&dtrRecords.some(d=>d.timeIn&&(!d.timeOut||!d.approvedBy)))||dtrRecords.some(d=>d.restDayApproval==='PENDING'||d.restDayApproval==='REJECTED'))){reviewIssues.push({employeeId:emp.id,message:'Complete and approve this employee attendance and rest-day shifts before reviewing corrections.'});continue}
     // Enhance each DTR record:
     // 1. Auto-detect holiday from company calendar (overrides whatever was stored)
     // 2. Auto-compute OT/regular hours from timeIn/timeOut if missing
@@ -1091,8 +1100,9 @@ export async function POST(
       const d=r.data as Record<string,unknown>
       return d.retroTargetRunId===runId?(d.retroItems as {sourceId:string;basic:number;other:number}[]??[]):[]
     })
-    payrollInput.retroBasic=retroItems.reduce((n,r)=>n+r.basic,0)
-    payrollInput.additionalTaxableIncome+=retroItems.reduce((n,r)=>n+r.other,0)
+    const corrections=adjustmentRecords.filter(r=>r.employeeId===emp.id).map(r=>({id:r.id,...r.data as {basic:number;other:number}}))
+    payrollInput.retroBasic=retroItems.reduce((n,r)=>n+r.basic,0)+corrections.reduce((n,r)=>n+r.basic,0)
+    payrollInput.additionalTaxableIncome+=retroItems.reduce((n,r)=>n+r.other,0)+corrections.reduce((n,r)=>n+r.other,0)
     const restDayBreak = emp.workSchedule?.breakEnabled === false ? 0 : emp.workSchedule?.breakMinutes ?? 60
     const restDayBreakdown = restDayPay(restRecords.map(d => ({ ...d, holidayType: holidayMap.get(d.date.toISOString().slice(0,10))?.type ?? d.holidayType })), date => deriveHourlyRate({ ...rateEmployee, basicSalary: salaryAt(history, date, Number(emp.basicSalary)) }, rateBasis), restDayBreak)
     const restDayTotal = Number(restDayBreakdown.reduce((sum, row) => sum + row.total, 0).toFixed(2))
@@ -1120,7 +1130,7 @@ export async function POST(
         payrollRunId:               runId,
         employeeId:                 emp.id,
         basicSalary:                result.basicPay,
-        calculationBasis: { monthlyPay: monthlyDays ? { version: 1, frequency: run.payFrequency, divisor: workingDaysPerMonth, days: salarySnapshot?.monthlyDays ?? monthlyDays, ...monthlyPayAmounts(salarySnapshot?.monthlyDays ?? monthlyDays, workingDaysPerMonth) } : null, restDayBreakdown, dailyBreakdown: datedBreakdown, salarySnapshot, retroItems, ...(hourlySchedule&&!ratesChanged ? hourlyCalculationBasis(hourlyRate, hourlySchedule.days) : {}), incomingOther: incoming?.otherDeferred ?? 0 } as unknown as import('@prisma/client').Prisma.InputJsonValue,
+        calculationBasis: { corrections, monthlyPay: monthlyDays ? { version: 1, frequency: run.payFrequency, divisor: workingDaysPerMonth, days: salarySnapshot?.monthlyDays ?? monthlyDays, ...monthlyPayAmounts(salarySnapshot?.monthlyDays ?? monthlyDays, workingDaysPerMonth) } : null, restDayBreakdown, dailyBreakdown: datedBreakdown, salarySnapshot, retroItems, ...(hourlySchedule&&!ratesChanged ? hourlyCalculationBasis(hourlyRate, hourlySchedule.days) : {}), incomingOther: incoming?.otherDeferred ?? 0 } as unknown as import('@prisma/client').Prisma.InputJsonValue,
         dailyRate: payrollInput.employee.dailyRate,
         daysWorked,
         hoursWorked:                regularHoursTotal,
@@ -1134,7 +1144,7 @@ export async function POST(
         nightDiffAmount:            result.nightDiffAmount,
         holidayPayAmount:           result.holidayPayAmount,
         otherAllowances:            additionalNonTaxableIncome,
-        otherEarnings:              totalOtherIncome + restDayTotal + retroItems.reduce((n,r)=>n+r.other,0),
+        otherEarnings:              totalOtherIncome + restDayTotal + retroItems.reduce((n,r)=>n+r.other,0) + corrections.reduce((n,r)=>n+r.other,0),
         grossPay:                   result.grossPay,
         sssEmployee:                result.sssEmployee,
         sssEc:                      result.sssEc,
@@ -1172,9 +1182,15 @@ export async function POST(
     totalPagibigEr   += result.pagibigEmployer
   }
 
+  if(preview)return NextResponse.json({employees:builds.map(b=>b.data),issues:reviewIssues},{headers:{'Cache-Control':'no-store'}})
+  if(adjustmentRecords.some(r=>!employees.some(e=>e.id===r.employeeId)))throw new Error('An approved adjustment employee is outside the payroll scope.')
   const { priorByLoan, priorManualEdits, aggregated, loanTotalsDeducted, changedEmployees, netPayChange } = await prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${scopedCompanyId}))`
     await tx.$queryRaw`SELECT id FROM employee_loans WHERE "companyId" = ${scopedCompanyId} ORDER BY id FOR UPDATE`
+    const correctionEmployeeIds=adjustmentRecords.map(r=>r.employeeId!).filter(Boolean)
+    if(correctionEmployeeIds.length){const overrides=await tx.payslip.findMany({where:{payrollRunId:runId,employeeId:{in:correctionEmployeeIds}}});if(overrides.some(p=>p.manualEdits&&Object.keys(p.manualEdits as object).length))throw new Error('Remove manual payslip overrides for correction recipients before recomputing.')}
+    const freshAdjustments=await tx.hrOperation.findMany({where:{companyId:scopedCompanyId,kind:'PAYROLL_ADJUSTMENT',status:'APPROVED',data:{path:['targetRunId'],equals:runId}},orderBy:{id:'asc'}})
+    if(JSON.stringify(adjustmentRecords)!==JSON.stringify(freshAdjustments))throw new Error('Adjustments changed during computation. Recompute again.')
     const freshSalary=await tx.hrOperation.findMany({where:{companyId:scopedCompanyId,kind:'SALARY_CHANGE',status:'APPROVED'},orderBy:{id:'asc'}})
     if(JSON.stringify(salaryRecords)!==JSON.stringify(freshSalary))throw new Error('Salary approvals changed during computation. Recompute again.')
     const freshSources = await tx.payrollRun.findMany({ where: { companyId: scopedCompanyId, id: { not: runId } }, select: { id: true, updatedAt: true }, orderBy: { id: 'asc' } })
@@ -1450,7 +1466,7 @@ export async function POST(
     changedEmployees, netPayChange,
   })
   } finally {
-    await prisma.payrollRun.updateMany({ where: { id: runId, computationStartedAt }, data: { computationStartedAt: null } })
+    if(!preview)await prisma.payrollRun.updateMany({ where: { id: runId, computationStartedAt }, data: { computationStartedAt: null } })
   }
 
 }

@@ -52,6 +52,7 @@ export async function PATCH(
   if (current.runType === 'LEAVE_ENCASHMENT') return NextResponse.json({error:'This is a dedicated leave encashment payroll. Cancel the editable batch in Leave Encashment and generate a new batch to revise it.'},{status:409})
   if(current.runType==='THIRTEENTH_MONTH')return NextResponse.json({error:'Delete and regenerate this 13th-month run to change its reviewed inputs.'},{status:409})
   if (await hasLaterPayroll(tx, current)) return NextResponse.json({ error: 'Remove later payrolls first to preserve deduction carryovers.' }, { status: 409 })
+  if(await tx.hrOperation.count({where:{companyId:ctx.companyId,kind:'PAYROLL_ADJUSTMENT',status:'APPROVED',data:{path:['targetRunId'],equals:runId}}}))return NextResponse.json({error:'Unschedule attached payroll corrections in the source payroll before changing this payroll period or scope.'},{status:409})
   if(await tx.hrOperation.count({where:{companyId:ctx.companyId,kind:'SALARY_CHANGE',status:'APPROVED',data:{path:['retroTargetRunId'],equals:runId}}}))return NextResponse.json({error:'Unschedule attached retro pay in HR Center before changing this payroll period or scope.'},{status:409})
   if (current.computationStartedAt) return NextResponse.json({ error: 'Payroll is being computed' }, { status: 409 })
   if (await tx.leaveEncashment.count({ where: { payrollRunId: runId, status: 'APPROVED' } })) return NextResponse.json({ error: 'Cancel attached leave encashments before changing the payroll period or employee scope' }, { status: 409 })
@@ -136,6 +137,7 @@ export async function DELETE(
   }
 
   if (await hasLaterPayroll(tx, run)) return NextResponse.json({ error: 'Remove later payrolls first to preserve deduction carryovers.' }, { status: 409 })
+  if(await tx.hrOperation.count({where:{companyId:ctx.companyId,kind:'PAYROLL_ADJUSTMENT',status:'APPROVED',data:{path:['targetRunId'],equals:runId}}}))return NextResponse.json({error:'Unschedule attached payroll corrections in the source payroll before deleting this payroll.'},{status:409})
   if(await tx.hrOperation.count({where:{companyId:ctx.companyId,kind:'SALARY_CHANGE',status:'APPROVED',data:{path:['retroTargetRunId'],equals:runId}}}))return NextResponse.json({error:'Unschedule attached retro pay in HR Center before deleting this payroll.'},{status:409})
   if (run.computationStartedAt) return NextResponse.json({ error: 'Payroll is being computed' }, { status: 409 })
   if (await tx.leaveEncashment.count({ where: { payrollRunId: runId } })) {

@@ -13,7 +13,7 @@ import type { PayslipRow, DtrEntry } from './PayrollRunPayslips'
 type Props = { payslip: PayslipRow; dtrs: DtrEntry[]; formatAmount: (value: number) => string; onClose: () => void }
 
 export function BasicPayComputation({ payslip: ps, dtrs, formatAmount: money }: Omit<Props, 'onClose'>) {
-  const retro=(ps.calculationBasis as {retroItems?:{sourceId:string;basic:number;other:number}[]}|null)?.retroItems??[]
+  const retro=[...((ps.calculationBasis as {retroItems?:{sourceId:string;basic:number;other:number}[]}|null)?.retroItems??[]),...((ps.calculationBasis as {corrections?:{id:string;basic:number;other:number}[]}|null)?.corrections??[]).map(c=>({...c,sourceId:c.id}))]
   const restDays = (ps.calculationBasis as { restDayBreakdown?: RestDayPayRow[] } | null)?.restDayBreakdown ?? []
   const monthly = (ps.calculationBasis as { monthlyPay?: {version: number; frequency: string; divisor: number; days: MonthlyPayDay[]; basicPay: number; absenceDeduction: number} } | null)?.monthlyPay
   const daily = readDailyBreakdown(ps.calculationBasis)

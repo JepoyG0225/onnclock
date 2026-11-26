@@ -223,6 +223,7 @@ export function TimesheetsTab() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  useEffect(()=>{const query=new URLSearchParams(window.location.search);const name=query.get('q'),month=query.get('month');if(name)setSearch(name);if(month&&/^\d{4}-(0[1-9]|1[0-2])$/.test(month)){setSelectedMonth(month);setViewMode('monthly')}},[])
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})

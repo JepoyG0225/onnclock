@@ -37,6 +37,7 @@ export function ComputePayrollButton({
    */
   status?: 'DRAFT' | 'COMPUTED' | 'FOR_APPROVAL' | 'APPROVED' | 'LOCKED' | 'DISBURSED' | 'CANCELLED'
 }) {
+  const [readinessCount,setReadinessCount]=useState<number|null>(null)
   const [computing, setComputing] = useState(false)
   const [loadingRequirements, setLoadingRequirements] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
@@ -107,10 +108,12 @@ export function ComputePayrollButton({
     }
   }
 
-  async function proceedCompute() {
+  async function proceedCompute(reviewed=false) {
     setShowRecomputeConfirm(false)
     setLoadingRequirements(true)
     try {
+      if(!reviewed){const response=await fetch(`/api/payroll/${runId}/readiness`);const checklist=await response.json();if(!response.ok)throw Error(checklist.error);if(checklist.issues.length){setReadinessCount(checklist.issues.length);return}}
+      setReadinessCount(null)
       const res = await fetch(`/api/payroll/${runId}/compute`)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -178,6 +181,7 @@ export function ComputePayrollButton({
         )}
       </Button>
 
+      <ConfirmDialog open={readinessCount!==null} title="Review payroll readiness" description={`${readinessCount??0} item(s) need review. Expand the Payroll readiness checklist to resolve missing attendance, approvals or employee details. You can continue computing a preview, but review these issues before approving payment.`} confirmLabel="Compute preview anyway" variant="warning" onConfirm={()=>void proceedCompute(true)} onCancel={()=>setReadinessCount(null)} />
       <ConfirmDialog
         open={showRecomputeConfirm}
         title="Recompute Payroll?"

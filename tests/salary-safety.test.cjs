@@ -76,7 +76,7 @@ test('government deductions run once on the combined dated salary earnings',()=>
  const equivalent=engine.computePayroll({...v,attendance:{...v.attendance,scheduledHours:totals.basicPay/150}})
  for(const k of ['sssEmployee','philhealthEmployee','pagibigEmployee','withholdingTax','grossPay'])assert.equal(dated[k],equivalent[k])
 })
-function salaryService(){const writes=[];const tx={$executeRaw:async()=>{},$queryRaw:async()=>{},employee:{findFirst:async()=>({id:'employee',userId:'employee-user',rateType:'HOURLY',basicSalary:150}),update:async v=>writes.push(v)},hrOperation:{findMany:async()=>[]},hrOperationEvent:{create:async v=>writes.push(v)},payrollRun:{updateMany:async v=>writes.push(v)}};const api=loader({'@/lib/prisma':{prisma:{}}})('src/lib/salary/service.ts');return {writes,tx,api}}
+function salaryService(){const writes=[];const tx={$executeRaw:async()=>{},$queryRaw:async()=>{},employee:{findFirst:async()=>({id:'employee',userId:'employee-user',rateType:'HOURLY',basicSalary:150}),update:async v=>writes.push(v)},hrOperation:{count:async()=>0,findMany:async()=>[]},hrOperationEvent:{create:async v=>writes.push(v)},payrollRun:{updateMany:async v=>writes.push(v)}};const api=loader({'@/lib/prisma':{prisma:{}}})('src/lib/salary/service.ts');return {writes,tx,api}}
 const request=()=>({id:'r',companyId:'company',employeeId:'employee',createdBy:'creator',status:'PENDING',data:{effectiveDate:'2026-10-16',amount:200,rateType:'HOURLY',originalAmount:150}})
 test('salary approval blocks self-approval and insufficient permission before writing',async()=>{
  const s=salaryService();await assert.rejects(s.api.decideSalary(s.tx,request(),'creator','APPROVE','Reviewed',true),/different user/);await assert.rejects(s.api.decideSalary(s.tx,request(),'reviewer','APPROVE','Reviewed',false),/different user/);assert.equal(s.writes.length,0)
@@ -111,7 +111,7 @@ test('safety report denies callers without safety permission',async()=>{
  assert.equal((await api.GET({})).status,403)
 })
 test('safety CSV export uses tenant scope and prevents spreadsheet formulas',async()=>{
- let query;const api=loader({'@/lib/prisma':{prisma:{hrOperation:{findMany:async q=>{query=q;return [{id:'r',title:'=HYPERLINK("bad")',status:'OPEN',employee:null,data:{incidentDate:'2026-10-01',correctiveActions:[]}}]}},userCompany:{findMany:async()=>[]}}},'@/lib/hr-center/access':{hrAccess:async()=>({ctx:{companyId:'company'},kinds:['SAFETY_INCIDENT']})}})('src/app/api/hr-center/safety-report/route.ts')
+ let query;const api=loader({'@/lib/prisma':{prisma:{hrOperation:{count:async()=>0,findMany:async q=>{query=q;return [{id:'r',title:'=HYPERLINK("bad")',status:'OPEN',employee:null,data:{incidentDate:'2026-10-01',correctiveActions:[]}}]}},userCompany:{findMany:async()=>[]}}},'@/lib/hr-center/access':{hrAccess:async()=>({ctx:{companyId:'company'},kinds:['SAFETY_INCIDENT']})}})('src/app/api/hr-center/safety-report/route.ts')
  const response=await api.GET({nextUrl:new URL('https://example.test/?from=2026-10-01&to=2026-10-31')});assert.equal(response.status,200);assert.equal(query.where.companyId,'company');assert.match(await response.text(),/'=HYPERLINK/)
 })
 
@@ -119,7 +119,7 @@ function retroApi({scope='ALL',targetStatus='DRAFT',missingSnapshot=false}={}){
  const record={...request(),id:'change',status:'APPROVED',version:1,data:{...change}},writes=[],queries=[]
  const slip={id:'slip',employeeId:'employee',manualEdits:null,calculationBasis:{salarySnapshot:missingSnapshot?null:snapshot([day('2026-10-16')])},payrollRun:{periodStart:new Date('2026-10-01'),periodEnd:new Date('2026-10-16'),payDate:new Date('2026-10-20')}}
  const target={id:'target',periodStart:new Date('2026-10-17'),periodEnd:new Date('2026-10-31'),payDate:new Date('2026-11-05'),employeeScopeMode:scope,employeeIds:[],employmentTypeFilter:[],status:targetStatus}
- const tx={$executeRaw:async()=>{},hrOperation:{findFirst:async q=>{queries.push(q);return record},findMany:async()=>[record],update:async q=>{writes.push(q);Object.assign(record,q.data)}},hrOperationEvent:{create:async q=>writes.push(q)},payrollRun:{findMany:async()=>[target],findFirst:async q=>q.where.status.in.includes(target.status)?target:null,update:async q=>writes.push(q)},employee:{findFirst:async()=>({id:'employee',employmentType:'FULL_TIME'})},payslip:{findMany:async q=>{queries.push(q);return [slip]}}}
+ const tx={$executeRaw:async()=>{},hrOperation:{count:async()=>0,findFirst:async q=>{queries.push(q);return record},findMany:async()=>[record],update:async q=>{writes.push(q);Object.assign(record,q.data)}},hrOperationEvent:{create:async q=>writes.push(q)},payrollRun:{findMany:async()=>[target],findFirst:async q=>q.where.status.in.includes(target.status)?target:null,update:async q=>writes.push(q)},employee:{findFirst:async()=>({id:'employee',employmentType:'FULL_TIME'})},payslip:{findMany:async q=>{queries.push(q);return [slip]}}}
  tx.$transaction=fn=>fn(tx)
  const api=loader({'@/lib/prisma':{prisma:tx},'@/lib/hr-center/access':{hrAccess:async()=>({ctx:{companyId:'company',userId:'reviewer'},employeeId:null,kinds:['SALARY_CHANGE'],granted:['salarychanges:approve']})}})('src/app/api/hr-center/[id]/salary-review/route.ts')
  const params={params:Promise.resolve({id:'change'})}
@@ -139,3 +139,10 @@ test('retro scheduling refuses locked targets and legacy snapshots without chang
  const locked=retroApi({targetStatus:'LOCKED'}),p=await locked.preview();assert.equal((await locked.post(p.items)).status,409);assert.equal(locked.writes.length,0)
  const legacy=retroApi({missingSnapshot:true}),l=await legacy.preview();assert.equal(l.issues.length,1);assert.equal((await legacy.post(l.items)).status,409);assert.equal(legacy.writes.length,0)
 })
+
+ test('effective salary materialization respects company divisor and workday hours',async()=>{
+ const s=salaryService();s.tx.employee.findFirst=async()=>({id:'employee',userId:'employee-user',rateType:'MONTHLY',basicSalary:26000,workScheduleId:'shift'});s.tx.payrollCycleConfig={findUnique:async()=>({workingDaysPerMonth:26})};s.tx.workSchedule={findUnique:async()=>({workHoursPerDay:8})};
+ const r=request();r.data={...r.data,effectiveDate:'2020-01-01',rateType:'MONTHLY',originalAmount:26000,amount:31200};
+ await s.api.decideSalary(s.tx,r,'reviewer','APPROVE','Verified increase',true);
+ const employeeWrite=s.writes.find(w=>w.where?.id==='employee');assert.equal(employeeWrite.data.dailyRate,1200);assert.equal(employeeWrite.data.hourlyRate,150)
+ })

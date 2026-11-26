@@ -218,7 +218,7 @@ test('manual adjustment updates actual repayments atomically and repeats without
   let balance=4200
   let blocked=false
   const run={status:'COMPUTED',payDate:new Date('2026-10-15'),periodEnd:new Date('2026-10-10'),createdAt:new Date('2026-10-01')}
-  const tx={
+  const tx={hrOperation:{count:async()=>0},
     $executeRaw:async()=>0,
     $queryRaw:async()=>[],
     payslip:{

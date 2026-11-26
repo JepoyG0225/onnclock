@@ -11,6 +11,8 @@ export function mutationPermissions(path: string, method: string): Permission[] 
   if (at('/api/dtr')) return [/(?:approve|weekly-approve|approve-all)$/.test(p) ? 'dtr:approve' : 'dtr:write']
   if (p === '/api/attendance/admin-action') return ['dtr:write']
   if (p === '/api/attendance/rest-day-requests') return ['dtr:approve']
+  // Correction decisions choose write vs approval permission in the handler.
+  if (/^\/api\/payroll\/[^/]+\/corrections$/.test(p)) return null
   if (at('/api/payroll')) {
     if (/\/(?:lock|unlock|disburse)$/.test(p)) return ['payroll:lock']
     if (/\/approve$/.test(p)) return ['payroll:approve']
