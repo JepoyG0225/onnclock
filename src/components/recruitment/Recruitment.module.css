@@ -1,0 +1,14 @@
+.recruitment { min-width: 0; padding-bottom: 60px; }
+.recruitment h1, .recruitment h2, .recruitment h3 { font-weight: 600; }
+.recruitment h1 { color: #162d54; letter-spacing: -.025em; }
+.recruitment :global(.font-black) { font-weight: 600; }
+.recruitment [data-slot="card"] { border-color: #e2e8f0; box-shadow: 0 2px 6px #162d5406; }
+.recruitment [data-slot="card-title"] { font-weight: 600; }
+.recruitment [data-app-tab] { border-radius: 10px; border-bottom-width: 0; margin-bottom: 4px; font-weight: 500; }
+.recruitment [data-app-tab][aria-current="page"], .recruitment [data-app-tab][data-active="true"] { background: #ff5900; color: white; }
+.recruitment [data-app-tab][aria-current="page"] svg { color: white; }
+.recruitment input:not([type="checkbox"]):not([type="file"]):not([type="color"]), .recruitment select { min-height: 40px; border-radius: 10px; }
+.recruitment table th { font-weight: 600; letter-spacing: .025em; padding-block: 14px; }
+.recruitment table td { padding-block: 14px; }
+.recruitment table tbody tr:hover { background: #fff9f5; }
+@media(max-width:639px) { .recruitment { min-width: 0; } .recruitment h1 { font-size: 22px; } }

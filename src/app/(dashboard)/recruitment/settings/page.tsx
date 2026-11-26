@@ -112,12 +112,12 @@ export default function RecruitmentSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="w-full space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div><Link href="/recruitment" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-3 font-medium">
           <ArrowLeft className="w-3 h-3" /> Back to Recruitment
         </Link>
-        <h1 className="text-2xl font-black text-slate-900">Career Page Settings</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Career Page Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Build a branded landing page that introduces your company and guides candidates to open roles.</p></div>
         {settings?.id && <Link href={`/careers/${settings.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-[#0044ad] hover:bg-blue-100"><ExternalLink className="h-4 w-4" /> View Live Career Page</Link>}
       </div>
@@ -128,7 +128,7 @@ export default function RecruitmentSettingsPage() {
           <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(7,29,59,0.82)_0%,rgba(7,91,212,0.58)_48%,rgba(11,111,251,0.34)_100%)]" />
           <div className="relative z-10 flex min-h-[360px] max-w-2xl flex-col justify-center px-8 py-12 sm:px-12">
             <span className="mb-5 text-xs font-bold uppercase tracking-[0.22em] text-white">Careers at {settings?.name ?? 'Your company'}</span>
-            <h2 className="text-3xl font-black leading-tight text-white sm:text-5xl">{form.careerTagline || 'Do your best work with us.'}</h2>
+            <h2 className="text-3xl font-semibold leading-tight text-white sm:text-5xl">{form.careerTagline || 'Do your best work with us.'}</h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-blue-50 sm:text-base">{form.careerDescription || 'Tell candidates what makes your company, culture, and mission worth joining.'}</p>
             <span className="mt-7 inline-flex w-fit rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#075bd4] shadow-sm">{form.careerCtaLabel || 'View open positions'}</span>
           </div>

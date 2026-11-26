@@ -201,7 +201,7 @@ function HireModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-3 sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-base font-black text-slate-900">Convert to Employee</h2>
+            <h2 className="text-base font-semibold text-slate-900">Convert to Employee</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Creating employee record for{' '}
               <span className="font-semibold text-slate-700">{application.firstName} {application.lastName}</span>
@@ -602,13 +602,13 @@ function ApplicationDrawer({
 
           {/* Header */}
           <div className="px-6 py-4 border-b border-slate-200 shrink-0">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${aColor}`}>
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm font-semibold shrink-0 ${aColor}`}>
                   {initials(app)}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-base font-black text-slate-900 truncate">
+                  <h2 className="text-base font-semibold text-slate-900 truncate">
                     {app.firstName} {app.lastName}
                   </h2>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -1004,13 +1004,13 @@ export default function RecruitmentJobDetailPage() {
   return (
     <div className="w-full space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/recruitment" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-3 font-medium">
             <ArrowLeft className="w-3 h-3" /> Back to Recruitment
           </Link>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-black text-slate-900">{job?.title ?? 'Job Post'}</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">{job?.title ?? 'Job Post'}</h1>
             {job?.status && (
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 job.status === 'OPEN' ? 'bg-emerald-100 text-emerald-700' :
@@ -1075,7 +1075,7 @@ export default function RecruitmentJobDetailPage() {
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
               }`}
             >
-              <p className={`text-lg font-black ${stageCounts[stage] ? 'text-slate-900' : 'text-slate-300'}`}>
+              <p className={`text-lg font-semibold ${stageCounts[stage] ? 'text-slate-900' : 'text-slate-300'}`}>
                 {stageCounts[stage] ?? 0}
               </p>
               <p className="text-xs text-slate-500 mt-0.5 leading-tight">{STAGE_LABELS[stage]}</p>

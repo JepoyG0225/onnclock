@@ -7,6 +7,7 @@ import {
   MoreHorizontal, Sparkles, TrendingUp, UserRoundCheck, UsersRound, Video,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { KpiCard } from '@/components/ui/kpi-card'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 
 type Category = 'APPLIED' | 'SCREENING' | 'INTERVIEW' | 'FINAL_INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED' | 'WITHDRAWN'
@@ -41,9 +42,13 @@ export function RecruitmentDashboardTab() {
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [refresh, setRefresh] = useState(0)
 
   useEffect(() => {
     let mounted = true
+    setLoading(true)
+    setError('')
     Promise.all([
       fetch('/api/recruitment/applications').then(async response => {
         const data = await response.json().catch(() => null)
@@ -60,10 +65,10 @@ export function RecruitmentDashboardTab() {
       setCandidates(candidateData.applications ?? [])
       setPipelineStages(candidateData.pipelineStages ?? [])
       setJobs(jobData.jobs ?? [])
-    }).catch(error => toast.error(error instanceof Error ? error.message : 'Could not load recruitment dashboard'))
+    }).catch(error => { if (mounted) setError(error instanceof Error ? error.message : 'Could not load recruitment dashboard') })
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
-  }, [])
+  }, [refresh])
 
   const activeJobs = jobs.filter(job => job.visibility === 'PUBLISHED').length
   const inPipeline = candidates.filter(candidate => !TERMINAL.includes(candidate.stage)).length
@@ -93,91 +98,48 @@ export function RecruitmentDashboardTab() {
 
   if (loading) return <div className="flex justify-center py-24"><AppSpinner /></div>
 
+  if (error) return <div role="alert" className="rounded-2xl border border-red-200 bg-white p-6"><p className="text-sm text-red-700">{error}</p><button onClick={()=>setRefresh(v=>v+1)} className="mt-3 rounded-lg bg-[#ff5900] px-4 py-2 text-sm text-white">Try again</button></div>
   return (
-    <div className="space-y-4">
-      <div className="grid items-start gap-4 md:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]">
-        <aside className="min-w-0 space-y-4">
-          <DashboardCard title="Top 3 candidates likely to convert this week" icon={Sparkles} label="AI Insights" className="min-h-[252px]">
-            <div className="space-y-2">
-              {followUps.length === 0 ? <EmptyLine text="No active follow-ups" /> : followUps.map((candidate, index) => (
-                <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="flex items-center gap-2.5 rounded-xl bg-[#f4f8ff] p-2 transition hover:bg-[#eaf2ff]">
-                  <Avatar candidate={candidate} />
-                  <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#162d54]">{candidate.firstName} {candidate.lastName}</p><p className="truncate text-[10px] text-slate-400">{candidate.jobPost.title}</p></div>
-                  <strong className="text-sm text-[#0044ad]">{Math.max(46, 72 - index * 8)}%</strong><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#dbeafe] text-[9px] font-bold text-[#0044ad]">{index + 1}</span>
-                </Link>
-              ))}
-            </div>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-semibold text-[#162d54]">Hiring overview</h2><p className="mt-1 text-sm text-slate-500">Track open roles, candidate progress and next steps.</p></div><Link href="/recruitment?tab=jobs" className="inline-flex items-center gap-2 rounded-xl bg-[#ff5900] px-4 py-2.5 text-sm font-medium text-white">Manage jobs<ArrowRight size={15}/></Link></div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <KpiCard label="Active jobs" value={activeJobs} icon={<BriefcaseBusiness/>}/>
+        <KpiCard label="Candidates in pipeline" value={inPipeline} icon={<UsersRound/>}/>
+        <KpiCard label="At interview stage" value={interviewQueue.length} icon={<CalendarClock/>}/>
+        <KpiCard label="Hired candidates" value={hired} icon={<UserRoundCheck/>} tone="accent"/>
+      </div>
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+        <div className="min-w-0 space-y-5">
+          <DashboardCard title="Candidate pipeline" icon={TrendingUp} action={<Link href="/recruitment?tab=candidates" className="text-xs text-[#0054d7]">View candidates</Link>}>
+            <p className="mb-5 text-xs text-slate-500">{candidates.length} total applications across all roles</p>
+            <div className="space-y-4">{pipelineStages.map(stage=>{const count=stageCounts.get(stage.id)??0;return <div key={stage.id}><div className="mb-2 flex items-center justify-between gap-3 text-sm"><span className="font-medium text-[#162d54]">{stage.name}</span><span className="font-semibold tabular-nums text-[#162d54]">{count}</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{width:`${candidates.length ? count/candidates.length*100 : 0}%`,background:stage.color}}/></div></div>})}{!pipelineStages.length&&<EmptyLine text="No pipeline stages available"/>}</div>
+            <div className="mt-5 flex flex-wrap gap-4 rounded-xl bg-orange-50/70 p-4 text-sm text-[#162d54]"><span><strong>{candidates.length ? Math.round(hired/candidates.length*100):0}%</strong> hired</span><span><strong>{offerCount}</strong> active offers</span></div>
           </DashboardCard>
-
-          <DashboardCard title="Upcoming interviews" icon={Video} action={<MoreHorizontal className="h-4 w-4 text-slate-400" />} className="min-h-[318px]">
-            <div className="mb-4 grid grid-cols-7 gap-1 text-center text-[9px] text-slate-400">
-              {['M 15', 'T 16', 'W 17', 'T 18', 'F 19', 'S 20', 'S 21'].map((day, index) => <span key={day} className={index === 2 ? 'rounded-lg bg-[#0054d7] py-2 font-bold text-white shadow-sm shadow-blue-200' : 'py-2'}>{day}</span>)}
-            </div>
-            <div className="space-y-2">
-              {interviewQueue.length === 0 ? <EmptyLine text="No candidates awaiting interviews" /> : interviewQueue.slice(0, 4).map(candidate => (
-                <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="block rounded-r-xl border-l-4 border-[#0054d7] bg-[#f4f8ff] px-3 py-3 hover:bg-[#eaf2ff]">
-                  <div className="flex items-center justify-between gap-2"><p className="truncate text-xs font-bold text-[#162d54]">Meet with {candidate.firstName} {candidate.lastName}</p><Video className="h-3.5 w-3.5 text-[#0054d7]" /></div>
-                  <p className="mt-1 text-[10px] text-slate-400">{ageInDays(candidate.lastStageUpdatedAt) || 1} day waiting · {candidate.jobPost.title}</p>
-                </Link>
-              ))}
-            </div>
+          <DashboardCard title="Recent activity" icon={Clock3}>
+            <div className="divide-y divide-slate-100">{recent.length===0 ? <EmptyLine text="No recent recruitment activity"/> : recent.map(candidate=><Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="flex items-center gap-3 rounded-lg py-3 hover:bg-slate-50"><Avatar candidate={candidate}/><div className="min-w-0 flex-1"><p className="break-words text-sm font-medium text-[#162d54]">{candidate.firstName} {candidate.lastName}</p><p className="mt-1 text-xs text-slate-500">{candidate.pipelineStage?.name??candidate.stage} / {candidate.jobPost.title}</p></div><span className="shrink-0 text-xs text-slate-400">{ageInDays(candidate.lastStageUpdatedAt)===0?'Today':`${ageInDays(candidate.lastStageUpdatedAt)}d ago`}</span></Link>)}</div>
           </DashboardCard>
-        </aside>
-
-        <main className="min-w-0 space-y-4">
-          <section className="grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:grid-cols-4 sm:divide-x sm:divide-slate-100">
-            <MetricCard label="Active jobs" value={activeJobs} icon={BriefcaseBusiness} />
-            <MetricCard label="Candidates in pipeline" value={inPipeline} icon={UsersRound} />
-            <MetricCard label="Interviewed this week" value={interviewQueue.length} icon={CalendarClock} />
-            <MetricCard label="New hires" value={hired} icon={UserRoundCheck} />
-          </section>
-
-          <DashboardCard title="Recruitment progress" icon={TrendingUp} action={<span className="text-[10px] font-semibold text-slate-400">{candidates.length} total applications</span>} className="min-h-[284px]">
-            <div className="grid grid-cols-3 gap-3 border-b border-slate-100 pb-4 sm:grid-cols-6">
-              {pipelineStages.slice(0, 6).map(stage => <div key={stage.id}><p className="truncate text-[10px] text-slate-400">{stage.name}</p><p className="mt-1 text-lg font-black text-[#0044ad]">{stageCounts.get(stage.id) ?? 0}</p></div>)}
-            </div>
-            <div className="mt-5 flex h-40 items-end gap-1 overflow-hidden rounded-xl bg-gradient-to-b from-white to-[#eff6ff] px-3 pt-4">
-              {pipelineStages.slice(0, 6).map((stage, index) => <div key={stage.id} className="relative flex-1 rounded-t-md border border-[#bfdbfe] bg-[#dbeafe]" style={{ height: `${Math.max(24, 95 - index * 12)}%` }}><div className="absolute inset-x-0 top-0 h-1 rounded-full bg-[#0054d7]" /></div>)}
-            </div>
-            <div className="mt-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-xs text-[#34516f]"><Sparkles className="mr-2 inline h-3.5 w-3.5 text-[#0054d7]" />Hiring conversion is <strong className="text-[#0044ad]">{candidates.length ? Math.round((hired / candidates.length) * 100) : 0}%</strong>, with <strong className="text-[#0044ad]">{offerCount}</strong> active offers.</div>
+        </div>
+        <div className="min-w-0 space-y-5">
+          <DashboardCard title="Priority follow-ups" icon={UsersRound}>
+            <p className="mb-3 text-xs leading-5 text-slate-500">Offers and later-stage candidates first, then time waiting in the stage.</p>
+            <div className="space-y-2">{followUps.length===0 ? <EmptyLine text="No active follow-ups"/> : followUps.map(candidate=><Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="flex items-start gap-3 rounded-xl border border-slate-100 p-3 hover:border-orange-200"><Avatar candidate={candidate}/><div className="min-w-0"><p className="text-sm font-medium text-[#162d54]">{candidate.firstName} {candidate.lastName}</p><p className="mt-1 text-xs text-slate-500">{candidate.jobPost.title}</p><p className="mt-2 text-xs text-[#a93b00]">{candidate.pipelineStage?.name??candidate.stage} / {ageInDays(candidate.lastStageUpdatedAt)}d in stage</p></div></Link>)}</div>
           </DashboardCard>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <DashboardCard title="Recruitment status" icon={CheckCircle2} className="min-h-[214px]">
-              <div className="space-y-3">
-                {pipelineStages.slice(0, 5).map(stage => (
-                  <div key={stage.id}><div className="mb-1 flex justify-between text-xs"><span className="font-semibold text-slate-600">{stage.name}</span><strong className="text-slate-900">{stageCounts.get(stage.id) ?? 0}</strong></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${candidates.length ? ((stageCounts.get(stage.id) ?? 0) / candidates.length) * 100 : 0}%`, background: stage.color }} /></div></div>
-                ))}
-              </div>
-            </DashboardCard>
-            <DashboardCard title="Recent activity" icon={Clock3} className="min-h-[214px]">
-              <div className="space-y-1">
-                {recent.length === 0 ? <EmptyLine text="No recent recruitment activity" /> : recent.map(candidate => (
-                  <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="flex items-center gap-2 rounded-xl p-2 hover:bg-blue-50">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: candidate.pipelineStage?.color ?? 'var(--brand-primary)' }} />
-                    <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-800">{candidate.firstName} {candidate.lastName} moved to {candidate.pipelineStage?.name ?? candidate.stage}</p><p className="text-[10px] text-slate-400">{ageInDays(candidate.lastStageUpdatedAt) === 0 ? 'Today' : `${ageInDays(candidate.lastStageUpdatedAt)} days ago`} · {candidate.jobPost.title}</p></div>
-                    <ArrowRight className="h-3.5 w-3.5 text-slate-300" />
-                  </Link>
-                ))}
-              </div>
-            </DashboardCard>
-          </div>
-        </main>
+          <DashboardCard title="Interview queue" icon={Video} action={<Link href="/recruitment?tab=interviews" className="text-xs text-[#0054d7]">View all</Link>}>
+            <p className="mb-3 text-xs leading-5 text-slate-500">Candidates currently in interview stages.</p>
+            <div className="space-y-2">{!interviewQueue.length ? <EmptyLine text="No candidates awaiting interviews"/> : interviewQueue.slice(0,4).map(candidate=><Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="block rounded-xl border-l-2 border-[#ff5900] bg-slate-50 p-3"><p className="text-sm font-medium text-[#162d54]">{candidate.firstName} {candidate.lastName}</p><p className="mt-1 text-xs text-slate-500">{candidate.jobPost.title}</p></Link>)}</div>
+          </DashboardCard>
+        </div>
       </div>
     </div>
   )
 }
 
-function MetricCard({ label, value, icon: Icon }: { label: string; value: number; icon: React.ComponentType<{ className?: string }> }) {
-  return <div className="min-w-0 p-4"><div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eaf2ff] text-[#0054d7]"><Icon className="h-3.5 w-3.5" /></span><p className="truncate text-[10px] font-semibold text-[#526d8a]">{label}</p></div><div className="mt-2 flex items-end gap-2"><p className="text-xl font-black text-[#0044ad]">{value}</p><span className="mb-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-bold text-emerald-600">+3%</span></div></div>
-}
-
 function DashboardCard({ title, icon: Icon, label, action, className = '', children }: { title: string; icon: React.ComponentType<{ className?: string }>; label?: string; action?: React.ReactNode; className?: string; children: React.ReactNode }) {
-  return <section className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{label && <span className="mb-3 inline-flex items-center gap-1 rounded-full bg-[#eaf2ff] px-2 py-1 text-[9px] font-bold text-[#0044ad]"><Sparkles className="h-3 w-3" />{label}</span>}<header className="mb-3 flex items-start gap-2"><Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#0054d7]" /><h2 className="text-sm font-black leading-tight text-[#162d54]">{title}</h2><div className="ml-auto">{action}</div></header>{children}</section>
+  return <section className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{label && <span className="mb-3 inline-flex items-center gap-1 rounded-full bg-[#eaf2ff] px-2 py-1 text-[9px] font-bold text-[#0044ad]"><Sparkles className="h-3 w-3" />{label}</span>}<header className="mb-3 flex items-start gap-2"><Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#0054d7]" /><h2 className="text-sm font-semibold leading-tight text-[#162d54]">{title}</h2><div className="ml-auto">{action}</div></header>{children}</section>
 }
 
 function Avatar({ candidate }: { candidate: Candidate }) {
-  return <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] text-[10px] font-black text-[#0044ad]">{initials(candidate)}</div>
+  return <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] text-[10px] font-semibold text-[#0044ad]">{initials(candidate)}</div>
 }
 
 function EmptyLine({ text }: { text: string }) {

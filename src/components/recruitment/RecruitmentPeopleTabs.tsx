@@ -44,7 +44,7 @@ function daysInStage(candidate: Candidate) {
 
 function CandidateAvatar({ candidate }: { candidate: Candidate }) {
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-blue-700 ring-2 ring-white">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700 ring-2 ring-white">
       {candidate.firstName.charAt(0)}{candidate.lastName.charAt(0)}
     </div>
   )
@@ -147,7 +147,7 @@ export function CandidatesTab() {
             { id: 'LIST', label: 'List', icon: List },
             { id: 'KANBAN', label: 'Kanban', icon: LayoutGrid },
           ] as const).map(item => (
-            <button key={item.id} type="button" onClick={() => setView(item.id)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${view === item.id ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+            <button key={item.id} type="button" onClick={() => setView(item.id)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${view === item.id ? 'bg-[#ff5900] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
               <item.icon className="h-3.5 w-3.5" /> {item.label}
             </button>
           ))}
@@ -187,9 +187,9 @@ function CandidateKanban({ candidates, pipelineStages, onStageChange }: { candid
               <header className="mb-3 flex items-center justify-between gap-2 px-1">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full" style={{ background: stage.color }} />
-                  <h3 className="text-xs font-black text-slate-700">{stage.name}</h3>
+                  <h3 className="text-xs font-semibold text-slate-700">{stage.name}</h3>
                 </div>
-                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500 ring-1 ring-slate-200">{rows.length}</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">{rows.length}</span>
               </header>
               <div className="space-y-2 min-h-24">
                 {rows.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 px-3 py-8 text-center text-[11px] font-semibold text-slate-400">Drop candidate here</div>}
@@ -301,17 +301,17 @@ function InterviewCalendar({ candidates, month, onMonthChange }: { candidates: C
 
   return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
-      <div><h3 className="font-black text-slate-900">{month.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}</h3><p className="mt-0.5 text-[11px] text-slate-400">Candidates appear on the date they entered their interview stage.</p></div>
+      <div><h3 className="font-semibold text-slate-900">{month.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}</h3><p className="mt-0.5 text-[11px] text-slate-400">Candidates appear on the date they entered their interview stage.</p></div>
       <div className="flex items-center gap-1"><button type="button" onClick={() => onMonthChange(new Date(year, monthIndex - 1, 1))} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-[#eff6ff] hover:text-[#0054d7]" aria-label="Previous month"><ChevronLeft className="h-4 w-4" /></button><button type="button" onClick={() => onMonthChange(new Date(today.getFullYear(), today.getMonth(), 1))} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-[#eff6ff] hover:text-[#0054d7]">Today</button><button type="button" onClick={() => onMonthChange(new Date(year, monthIndex + 1, 1))} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-[#eff6ff] hover:text-[#0054d7]" aria-label="Next month"><ChevronRight className="h-4 w-4" /></button></div>
     </header>
-    <div className="overflow-x-auto"><div className="grid min-w-[760px] grid-cols-7 border-b border-slate-200 bg-slate-50">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">{day}</div>)}</div>
+    <div className="overflow-x-auto"><div className="grid min-w-[760px] grid-cols-7 border-b border-slate-200 bg-slate-50">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">{day}</div>)}</div>
     <div className="grid min-w-[760px] grid-cols-7">{Array.from({ length: totalCells }, (_, cell) => {
       const day = cell - firstWeekday + 1
       const valid = day > 0 && day <= daysInMonth
       const entries = valid ? byDate.get(`${year}-${monthIndex}-${day}`) ?? [] : []
       const current = valid && day === today.getDate() && monthIndex === today.getMonth() && year === today.getFullYear()
       return <div key={cell} className="min-h-36 border-b border-r border-slate-100 p-2 last:border-r-0">
-        {valid && <><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${current ? 'bg-[#0054d7] text-white' : 'text-slate-600'}`}>{day}</span><div className="mt-1.5 space-y-1.5">{entries.slice(0, 3).map(candidate => <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="block rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1.5 transition hover:bg-[#dbeafe]"><p className="truncate text-[11px] font-black text-[#0044ad]">{candidate.firstName} {candidate.lastName}</p><p className="truncate text-[9px] text-[#526d8a]">{candidate.jobPost.title}</p></Link>)}{entries.length > 3 && <p className="px-1 text-[10px] font-bold text-[#0054d7]">+{entries.length - 3} more</p>}</div></>}
+        {valid && <><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${current ? 'bg-[#0054d7] text-white' : 'text-slate-600'}`}>{day}</span><div className="mt-1.5 space-y-1.5">{entries.slice(0, 3).map(candidate => <Link key={candidate.id} href={`/recruitment/${candidate.jobPost.id}?applicationId=${candidate.id}`} className="block rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1.5 transition hover:bg-[#dbeafe]"><p className="truncate text-[11px] font-semibold text-[#0044ad]">{candidate.firstName} {candidate.lastName}</p><p className="truncate text-[9px] text-[#526d8a]">{candidate.jobPost.title}</p></Link>)}{entries.length > 3 && <p className="px-1 text-[10px] font-bold text-[#0054d7]">+{entries.length - 3} more</p>}</div></>}
       </div>
     })}</div></div>
   </section>
@@ -323,7 +323,7 @@ function CandidateTable({ candidates, pipelineStages, onStageChange }: { candida
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[850px] text-sm">
-          <thead className="bg-slate-50 text-left text-[10px] font-black uppercase tracking-wider text-slate-500">
+          <thead className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
             <tr><th className="px-4 py-3">Candidate</th><th className="px-4 py-3">Phone</th><th className="px-4 py-3">Job</th><th className="px-4 py-3">Stage</th><th className="px-4 py-3">Time in stage</th><th className="w-12" /></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -393,14 +393,14 @@ function PipelineManager({ stages, onClose, onChanged }: { stages: PipelineStage
       <button type="button" onClick={onClose} className="absolute inset-0 bg-slate-950/45" aria-label="Close pipeline settings" />
       <section role="dialog" aria-modal="true" aria-label="Manage recruitment pipeline" className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:rounded-[28px]">
         <header className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
-          <div><h2 className="text-lg font-black text-slate-900">Manage pipeline</h2><p className="mt-0.5 text-xs text-slate-500">Create company-specific stages and map each one to its automation category.</p></div>
+          <div><h2 className="text-lg font-semibold text-slate-900">Manage pipeline</h2><p className="mt-0.5 text-xs text-slate-500">Create company-specific stages and map each one to its automation category.</p></div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </header>
         <div className="space-y-2 overflow-y-auto p-5">
           {stages.map(stage => <PipelineStageEditor key={stage.id} stage={stage} disabled={saving} confirmingDelete={confirmDeleteId === stage.id} onRequestDelete={() => setConfirmDeleteId(stage.id)} onCancelDelete={() => setConfirmDeleteId(null)} onDelete={() => void deleteStage(stage.id)} onChanged={onChanged} />)}
         </div>
         <div className="border-t border-slate-100 bg-slate-50 p-5">
-          <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Add stage</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add stage</p>
           <div className="grid gap-2 sm:grid-cols-[44px_minmax(0,1fr)_180px_auto]">
             <input type="color" value={color} onChange={event => setColor(event.target.value)} className="h-10 w-11 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" aria-label="Stage color" />
             <input value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Technical Assessment" className="min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[var(--brand-primary)]" />
@@ -453,7 +453,7 @@ function PipelineStageEditor({ stage, disabled, confirmingDelete, onRequestDelet
 }
 
 function PageHeading({ title, description, count }: { title: string; description: string; count: string }) {
-  return <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-black text-slate-900">{title}</h1><p className="mt-0.5 text-sm text-slate-500">{description}</p></div><span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-[var(--brand-primary)]">{count}</span></header>
+  return <header className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5"><div><h1 className="text-2xl font-semibold text-slate-900">{title}</h1><p className="mt-0.5 text-sm text-slate-500">{description}</p></div><span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-[var(--brand-primary)]">{count}</span></header>
 }
 
 function FilterSelect({ value, onChange, label, children }: { value: string; onChange: (value: string) => void; label: string; children: React.ReactNode }) {

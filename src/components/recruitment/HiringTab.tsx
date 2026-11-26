@@ -297,7 +297,7 @@ export function HiringTab() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
           <Briefcase className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-          <h1 className="text-xl font-black text-amber-900">Recruitment is a Pro Feature</h1>
+          <h1 className="text-xl font-semibold text-amber-900">Recruitment is a Pro Feature</h1>
           <p className="text-sm text-amber-800 mt-2 max-w-md mx-auto">Upgrade to the Php 70/seat plan to unlock recruitment, onboarding, performance reviews, and more.</p>
           <Link href="/settings/billing" className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-bold hover:bg-amber-700">
             Upgrade Now
@@ -318,21 +318,21 @@ export function HiringTab() {
     <div className="w-full space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Jobs</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Jobs</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage open roles, share links, track applicants, and monitor pipeline analytics</p>
           <div className="mt-1">
             <NewFeatureBadge releasedAt="2026-05-01T00:00:00+08:00" />
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={loadJobs} disabled={loading}
+        <div className="ml-auto flex items-center gap-2">
+          <button aria-label="Refresh jobs" onClick={loadJobs} disabled={loading}
             className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button onClick={() => setDrawerOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[var(--brand-primary)] shadow-sm">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#ff5900] hover:bg-[#e65000] shadow-sm">
             <Plus className="w-4 h-4" /> Post a Job
           </button>
         </div>
@@ -340,7 +340,7 @@ export function HiringTab() {
 
       {/* Tabs + Search */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+        <div className="flex max-w-full flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl">
           {TABS.map(t => (
             <button data-app-tab data-active={tab === t.key} key={t.key} onClick={() => setTab(t.key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -351,7 +351,7 @@ export function HiringTab() {
             </button>
           ))}
         </div>
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative w-full min-w-0 sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search job title or department..."
@@ -370,7 +370,7 @@ export function HiringTab() {
           {filteredJobs.map(job => {
             const cfg = STATUS_CONFIG[job.visibility]
             return (
-              <div key={job.id} className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-sm transition-shadow">
+              <div key={job.id} className="bg-white rounded-2xl border border-slate-200 border-l-[3px] border-l-orange-300 p-5 hover:shadow-md transition-shadow">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   {/* Left: job info */}
                   <div className="flex-1 min-w-0">
@@ -423,7 +423,7 @@ export function HiringTab() {
                   </div>
 
                   {/* Right: actions */}
-                  <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                  <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 sm:max-w-[320px]">
                     <Link href={`/apply/${job.publicApplyToken}`} target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                       <Briefcase className="w-3.5 h-3.5" /> View posting
@@ -493,7 +493,7 @@ export function HiringTab() {
           <div className="w-full max-w-xl bg-white h-full overflow-y-auto shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
               <div>
-                <h2 className="text-lg font-black text-slate-900">Post a New Job</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Post a New Job</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Fill in the job details and publish when ready</p>
               </div>
               <button onClick={() => setDrawerOpen(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500">
@@ -532,7 +532,7 @@ export function HiringTab() {
           <div className="w-full max-w-xl bg-white h-full overflow-y-auto shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
               <div>
-                <h2 className="text-lg font-black text-slate-900">Edit Job Post</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Edit Job Post</h2>
                 <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{editingJob.title}</p>
               </div>
               <button onClick={() => setEditingJobId(null)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500">

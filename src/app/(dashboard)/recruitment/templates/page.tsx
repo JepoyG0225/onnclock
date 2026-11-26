@@ -124,7 +124,7 @@ export default function RecruitmentTemplatesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="w-full space-y-6">
       <ConfirmDialog
         open={!!deleteTargetId}
         title="Delete Template?"
@@ -134,17 +134,17 @@ export default function RecruitmentTemplatesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTargetId(null)}
       />
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/recruitment" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-3 font-medium">
             <ArrowLeft className="w-3 h-3" /> Back to Recruitment
           </Link>
-          <h1 className="text-2xl font-black text-slate-900">Email Templates</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Email Templates</h1>
           <p className="text-sm text-slate-500 mt-1">Create, edit, and delete recruitment email templates.</p>
         </div>
         <button
           onClick={startCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-[var(--brand-primary)]"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#ff5900] hover:bg-[#e65000]"
         >
           <Plus className="w-4 h-4" /> Add Template
         </button>
@@ -187,7 +187,7 @@ export default function RecruitmentTemplatesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
             <div className="px-5 py-4 border-b flex items-center justify-between">
-              <h2 className="text-base font-black text-slate-900">{form.id ? 'Edit Template' : 'Add Template'}</h2>
+              <h2 className="text-base font-semibold text-slate-900">{form.id ? 'Edit Template' : 'Add Template'}</h2>
               <button onClick={() => setShowForm(false)} className="p-1 rounded text-slate-400 hover:text-slate-700">
                 <X className="w-4 h-4" />
               </button>
