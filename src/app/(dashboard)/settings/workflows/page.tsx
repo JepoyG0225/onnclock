@@ -100,7 +100,7 @@ const DEFAULT_SCOPE = '__default__'
 // ── UI helpers ───────────────────────────────────────────────────────────────
 
 const selectCls =
-  'border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition'
+  'min-w-0 max-w-full min-h-10 border border-slate-200 rounded-xl px-3 py-2 text-sm text-[#162d54] bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition'
 
 // NOTE: ConditionEditor and StepCard are declared at MODULE scope (not inside
 // the page component). Declaring them inside the component would give them a new
@@ -130,7 +130,7 @@ function ConditionEditor({ idx, step, fields, updateStep }: {
 
   return (
     <div className="rounded-lg border border-orange-100 bg-orange-50/40 p-3 space-y-2">
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <Filter className="w-3 h-3 text-orange-600" />
         <span className="text-gray-600">Run this step only if</span>
         <select
@@ -147,7 +147,7 @@ function ConditionEditor({ idx, step, fields, updateStep }: {
         </button>
       </div>
       {cond.rules.map((rule, ri) => (
-        <div key={ri} className="flex items-center gap-2">
+        <div key={ri} className="flex flex-wrap items-center gap-2">
           <select
             value={rule.field}
             onChange={e => {
@@ -211,16 +211,16 @@ function StepCard({ idx, step, stepsLength, users, fields, updateStep, removeSte
 }) {
   const isApproval = step.stepType === 'APPROVAL'
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${isApproval ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`}>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium ${isApproval ? 'bg-[#162d54] text-white' : 'bg-amber-50 text-amber-700'}`}>
           {isApproval ? <UserCheck className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
           Step {idx + 1} · {isApproval ? 'Approval' : 'Notify'}
         </span>
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => moveStep(idx, -1)} disabled={idx === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-          <button onClick={() => moveStep(idx, 1)} disabled={idx === stepsLength - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
-          <button onClick={() => removeStep(idx)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+          <button aria-label="Move step up" onClick={() => moveStep(idx, -1)} disabled={idx === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+          <button aria-label="Move step down" onClick={() => moveStep(idx, 1)} disabled={idx === stepsLength - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+          <button aria-label="Remove step" onClick={() => removeStep(idx)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -388,12 +388,12 @@ export default function WorkflowBuilderPage() {
   }
 
   return (
-    <div className="space-y-6 bg-gradient-to-b from-slate-50 to-white p-4 md:p-6 rounded-2xl">
+    <div className="min-w-0 space-y-5">
       <SettingsTabs />
-      <div className="rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm">
-        <div className="flex items-center gap-2">
+      <div className="py-1">
+        <div className="flex flex-wrap items-center gap-2">
           <WorkflowIcon className="w-5 h-5 text-[var(--brand-primary)]" />
-          <h1 className="text-2xl font-bold text-gray-900">Workflow Builder</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">Workflow Builder</h1>
           <NewFeatureBadge releasedAt="2026-06-01T00:00:00+08:00" />
         </div>
         <p className="text-gray-500 text-sm mt-1">
@@ -402,18 +402,18 @@ export default function WorkflowBuilderPage() {
         </p>
       </div>
 
-      <Card className="border-0 shadow-md bg-white/95">
-        <CardHeader>
+      <Card className="gap-0 rounded-2xl border border-slate-200 bg-white py-0 shadow-sm">
+        <CardHeader className="border-b border-slate-100 p-5">
           <CardTitle className="text-sm">Configure workflow</CardTitle>
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase">Request type</span>
+          <div className="grid gap-4 pt-2 md:grid-cols-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-slate-500">Request type</span>
               <select value={type} onChange={e => setType(e.target.value as WorkflowType)} className={selectCls}>
                 {TYPES.map(t => <option key={t.key} value={t.key}>{t.label}{t.live ? '' : ' (config only)'}</option>)}
               </select>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase">Scope</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-slate-500">Scope</span>
               <select value={scope} onChange={e => setScope(e.target.value)} className={selectCls}>
                 <option value={DEFAULT_SCOPE}>Company default (all departments)</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -421,7 +421,7 @@ export default function WorkflowBuilderPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4 bg-slate-50/40 p-4 sm:p-5">
           {steps.length === 0 ? (
             <p className="text-sm text-gray-400">No steps yet. Add an approval or notification step to start the chain.</p>
           ) : (
@@ -440,21 +440,21 @@ export default function WorkflowBuilderPage() {
             ))
           )}
 
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
             <Button size="sm" variant="outline" onClick={() => addStep('APPROVAL')} className="gap-1.5 text-xs border-dashed">
               <UserCheck className="w-3.5 h-3.5" /> Add approval step
             </Button>
             <Button size="sm" variant="outline" onClick={() => addStep('NOTIFY')} className="gap-1.5 text-xs border-dashed">
               <Bell className="w-3.5 h-3.5" /> Add notification step
             </Button>
-            <Button size="sm" onClick={save} disabled={saving} className="gap-1.5 text-xs ml-auto bg-[var(--brand-primary)] hover:bg-primary">
+            <Button size="sm" onClick={save} disabled={saving} className="gap-1.5 text-xs ml-auto bg-[#ff5900] hover:bg-[#e65000]">
               <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save workflow'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="gap-0 rounded-2xl border-slate-200 py-0 shadow-sm">
         <CardContent className="p-4 flex items-start gap-3">
           <div className="p-2 rounded-lg bg-[#dce5f7]"><WorkflowIcon className="w-5 h-5 text-[var(--brand-primary)]" /></div>
           <p className="text-sm text-gray-600">
