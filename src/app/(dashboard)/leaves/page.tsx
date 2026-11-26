@@ -185,7 +185,7 @@ export default async function LeavesPage({
         </div>
         <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
           {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(value => <Link key={value || 'all'} href={filterUrl(value)} data-app-tab data-active={(status ?? '') === value} aria-current={(status ?? '') === value ? 'page' : undefined} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${(status ?? '') === value ? 'bg-[#ff5900] text-white' : 'bg-slate-50 text-slate-600 hover:bg-orange-50'}`}>
-            {value ? value.charAt(0) + value.slice(1).toLowerCase() : 'All requests'}<span className="rounded-md bg-white/20 px-1.5 tabular-nums">{value ? count(value) : total}</span>
+            {value ? value.charAt(0) + value.slice(1).toLowerCase() : 'All requests'}<span data-tab-counter className="rounded-md bg-white/20 px-1.5 tabular-nums">{value ? count(value) : total}</span>
           </Link>)}
         </div>
       </div>

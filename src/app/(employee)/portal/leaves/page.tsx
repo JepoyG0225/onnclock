@@ -134,7 +134,7 @@ export default function LeavesPage() {
           >
             {t.label}
             {t.id === 'requests' && pendingCount > 0 && (
-              <span
+              <span data-tab-counter
                 className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${
                   tab === t.id ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'
                 }`}

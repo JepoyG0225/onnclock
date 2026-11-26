@@ -1269,7 +1269,7 @@ export function OnboardingManager() {
           >
             {label}
             {key === 'active' && active.length > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white">{active.length}</span>
+              <span data-tab-counter className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white">{active.length}</span>
             )}
           </button>
         ))}

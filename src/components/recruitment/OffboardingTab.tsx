@@ -539,7 +539,7 @@ export function OffboardingTab() {
           >
             {tab.label}
             {tab.key !== 'ALL' && (
-              <span className="ml-1.5 rounded-full bg-[#eaf2ff] px-1.5 py-0.5 text-[10px] text-[#0044ad]">
+              <span data-tab-counter className="ml-1.5 rounded-full bg-[#eaf2ff] px-1.5 py-0.5 text-[10px] text-[#0044ad]">
                 {processes.filter(p => p.status === tab.key).length}
               </span>
             )}

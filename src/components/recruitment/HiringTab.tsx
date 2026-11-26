@@ -345,7 +345,7 @@ export function HiringTab() {
             <button data-app-tab data-active={tab === t.key} key={t.key} onClick={() => setTab(t.key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
               {t.label}
-              <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${tab === t.key ? 'bg-slate-100 text-slate-600' : 'bg-slate-200 text-slate-500'}`}>
+              <span data-tab-counter className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${tab === t.key ? 'bg-slate-100 text-slate-600' : 'bg-slate-200 text-slate-500'}`}>
                 {t.count}
               </span>
             </button>
