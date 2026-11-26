@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { ArrowLeft, ArrowUpRight, UserRound } from 'lucide-react'
 import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -106,26 +108,23 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>Edit Employee</h1>
-        <div className="flex items-center gap-2 flex-wrap text-sm text-slate-500 mt-1">
-          <span>{employee.lastName}, {employee.firstName} {employee.middleName ?? ''}</span>
-          <span>Â·</span>
-          <span>{employee.employeeNo}</span>
-          <span
-            className="px-2 py-0.5 rounded text-xs font-semibold"
-            style={{
-              background: ['PROBATIONARY', 'REGULAR'].includes(employee.employmentStatus)
-                ? 'rgba(16,185,129,0.1)' : 'rgba(100,116,139,0.1)',
-              color: ['PROBATIONARY', 'REGULAR'].includes(employee.employmentStatus)
-                ? '#059669' : '#666666',
-            }}
-          >
-            {employee.employmentStatus}
-          </span>
+      <Link href={`/employees/${id}`} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-[#162d54]"><ArrowLeft size={15}/>Back to employee</Link>
+      <header className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+        <div className="absolute inset-y-0 left-0 w-1 bg-[#ff5900]"/>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff3ec] text-[#c44d00] sm:flex"><UserRound size={26}/></div>
+            <div className="min-w-0"><p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">People / Employee profile</p>
+              <h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">Edit employee</h1>
+              <p className="mt-1 break-words text-sm text-slate-600">{employee.firstName} {employee.lastName}<span className="mx-2 text-slate-300">/</span>{employee.employeeNo}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`rounded-full px-3 py-1.5 text-xs font-medium text-white ${employee.isActive ? 'bg-[#162d54]' : 'bg-slate-500'}`}>{employee.employmentStatus.replaceAll('_', ' ')}</span>
+            <Link href={`/employees/${id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-[#162d54] hover:bg-slate-50">View profile<ArrowUpRight size={15}/></Link>
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* Form */}
       <EmployeeForm

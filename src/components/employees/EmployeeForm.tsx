@@ -1,4 +1,5 @@
 'use client'
+import styles from './EmployeeForm.module.css'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 
 
@@ -17,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Loader2, Save, CalendarDays, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Save, CalendarDays, Plus, Trash2, UserRound, BriefcaseBusiness, Wallet, ShieldCheck, HeartPulse, Settings2, ChevronRight } from 'lucide-react'
 import { DatePicker } from '@/components/ui/date-picker'
 import { EmployeePortalAccess } from '@/components/employees/EmployeePortalAccess'
 
@@ -91,6 +92,16 @@ interface Props {
   defaultValues?: Partial<EmployeeFormData>
   employeeId?: string
   hasPortalUser?: boolean
+}
+
+const sectionDesign: Record<string, {icon: typeof UserRound; description: string}> = {
+  personal: {icon: UserRound, description: 'Identity & contact details'},
+  employment: {icon: BriefcaseBusiness, description: 'Role, team & work schedule'},
+  compensation: {icon: Wallet, description: 'Pay, earnings & deductions'},
+  government: {icon: ShieldCheck, description: 'Statutory identification'},
+  emergency: {icon: HeartPulse, description: 'Emergency contact details'},
+  leaves: {icon: CalendarDays, description: 'Annual leave entitlements'},
+  settings: {icon: Settings2, description: 'Employee portal access'},
 }
 
 // Defined outside EmployeeForm so its identity is stable across re-renders.
@@ -591,21 +602,25 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit as never)}>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className={`grid w-full ${isCreate ? 'grid-cols-6' : 'grid-cols-7'}`}>
+    <form className={!isCreate ? styles.editor : undefined} onSubmit={handleSubmit(onSubmit as never)}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={!isCreate ? styles.layout : "space-y-4"}>
+        <TabsList aria-label="Employee profile sections" className={!isCreate ? styles.navigation : "grid w-full grid-cols-6"}>
           {tabs.map(tab => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
               data-tour={`emp-tab-${tab.value}`}
+              className={!isCreate ? styles.tab : undefined}
               onClick={tab.value === 'leaves' ? () => loadLeaveAllocations() : undefined}
             >
-              {tab.label}
+              {!isCreate && (() => {const Icon = sectionDesign[tab.value].icon; return <Icon size={18} className="shrink-0" aria-hidden="true"/>})()}
+              <span>{tab.label}{!isCreate && <span className={styles.tabDescription}>{sectionDesign[tab.value].description}</span>}</span>
+              {!isCreate && <ChevronRight size={14} className={styles.chevron} aria-hidden="true"/>}
             </TabsTrigger>
           ))}
         </TabsList>
 
+        <div className={!isCreate ? styles.panels : undefined}>
         {/* PERSONAL INFO */}
         <TabsContent value="personal">
           <Card>
@@ -666,6 +681,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
               <Field label="Religion">
                 <Input {...register('religion')} placeholder="Roman Catholic" />
               </Field>
+              <div className="md:col-span-3 border-t border-slate-100 pt-5 mt-1"><h3 className="text-sm font-semibold text-[#162d54]">Contact & address</h3><p className="mt-1 text-xs text-slate-500">Employee contact information and residential addresses.</p></div>
               <Field label="Personal Email">
                 <Input type="email" {...register('personalEmail')} placeholder="juan@email.com" />
               </Field>
@@ -1207,7 +1223,7 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                   {leaveTypes.map(lt => {
                     const alloc = leaveAllocations[lt.id] ?? { enabled: false, entitled: lt.daysEntitled }
                     return (
-                      <div key={lt.id} className="flex items-center gap-4 p-3 rounded-xl border transition-colors"
+                      <div key={lt.id} className="flex flex-wrap items-center gap-3 p-3 rounded-xl border transition-colors"
                         style={{ background: alloc.enabled ? 'rgba(255, 89, 0,0.04)' : '#f7f7f7', borderColor: alloc.enabled ? 'rgba(255, 89, 0,0.25)' : '#d4d4d4' }}>
                         <input
                           type="checkbox"
@@ -1216,13 +1232,13 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
                           onChange={e => setLeaveAllocations(prev => ({ ...prev, [lt.id]: { ...alloc, enabled: e.target.checked } }))}
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(14,166,240,0.1)', color: '#0ea6f0' }}>{lt.code}</span>
                             <span className="text-sm font-medium text-gray-800">{lt.name}</span>
                             {lt.isMandatory && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(255, 89, 0,0.1)', color: 'var(--brand-highlight)' }}>Dole-Mandated</span>}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex w-full sm:w-auto items-center justify-end gap-2 flex-shrink-0">
                           <span className="text-xs text-gray-500">Days entitled:</span>
                           <input
                             type="number"
@@ -1265,10 +1281,12 @@ const lastTab = tabs[tabs.length - 1]?.value ?? 'settings'
             />
           )}
         </TabsContent>
+        </div>
       </Tabs>
 
       {/* Save Button */}
-      <div className="flex justify-end mt-6">
+      <div className={!isCreate ? styles.saveBar : "flex justify-end mt-6"}>
+        {!isCreate && <div className="min-w-0"><p className="text-sm font-medium text-[#162d54]">Employee profile</p><p className="text-xs text-slate-500">Review your changes before saving.</p></div>}
         {isCreate && activeTab !== lastTab ? (
           <Button
             type="button"

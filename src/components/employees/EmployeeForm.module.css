@@ -1,0 +1,31 @@
+.editor { min-width: 0; }
+.layout { display: grid; gap: 20px; min-width: 0; align-items: start; }
+.navigation { display: flex; justify-content: flex-start; height: auto; width: 100%; overflow-x: auto; padding: 6px; gap: 4px; border: 1px solid #e2e8f0; border-radius: 16px; background: white; }
+.tab { flex-shrink: 0; gap: 10px; padding: 12px 14px; border-radius: 10px; color: #162d54; text-align: left; font-weight: 500; }
+.tabDescription { display: none; font-size: 11px; font-weight: 400; margin-top: 3px; opacity: .75; }
+.chevron { display: none; }
+.panels { min-width: 0; }
+.panels [role="tabpanel"] { margin-top: 0; }
+.panels [data-slot="card"] { border-color: #e2e8f0; border-radius: 18px; gap: 20px; padding-block: 22px; box-shadow: 0 2px 6px #162d5406; }
+.panels [data-slot="card-header"] { border-bottom: 1px solid #f1f5f9; padding-bottom: 18px; }
+.panels [data-slot="card-title"] { font-weight: 600; line-height: 1.4; color: #162d54; }
+.panels [data-slot="card-title"]::before { content: ''; display: inline-block; width: 3px; height: 13px; background: #ff5900; border-radius: 3px; margin-right: 9px; vertical-align: middle; }
+.panels input:not([type="checkbox"]):not([type="hidden"]), .panels [role="combobox"] { min-height: 42px; border-radius: 10px; border-color: #dce4ee; box-shadow: none; background: #fff; }
+.panels label { color: #475569; font-size: 12px; font-weight: 500; }
+.saveBar { position: sticky; bottom: 76px; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fffffff5; backdrop-filter: blur(12px); box-shadow: 0 4px 24px #162d5410; }
+.saveBar button { border-radius: 10px; }
+@media(min-width:1280px) {
+ .layout { grid-template-columns: 220px minmax(0,1fr); gap: 24px; }
+ .navigation { position: sticky; top: 88px; display: flex; flex-direction: column; overflow: visible; padding: 8px; }
+ .tab { width: 100%; justify-content: flex-start; padding: 14px 10px; white-space: normal; }
+ .tabDescription { display: block; }
+ .chevron { display: block; margin-left: auto; flex-shrink: 0; }
+ .saveBar { margin-left: 244px; }
+}
+@media(max-width:639px) {
+ .panels [data-slot="card-header"], .panels [data-slot="card-content"] { padding-inline: 16px; }
+ .panels [data-slot="card-header"] > div { flex-wrap: wrap; gap: 12px; }
+ .saveBar { bottom: 72px; padding: 12px; }
+ .saveBar p { font-size: 11px; }
+ .saveBar button { font-size: 12px; padding-inline: 12px; }
+}
