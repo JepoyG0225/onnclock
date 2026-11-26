@@ -1,10 +1,12 @@
 'use client'
 
+import { usePermissions } from '@/components/auth/PermissionsProvider'
 import { useRef, useState } from 'react'
 import { Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function EmployeePhotoUploader({ employeeId, photoUrl, initials }: { employeeId: string; photoUrl: string | null; initials: string }) {
+  const canEdit = usePermissions().includes('employees:write')
   const inputRef = useRef<HTMLInputElement>(null)
   const [currentPhoto, setCurrentPhoto] = useState(photoUrl)
   const [uploading, setUploading] = useState(false)
@@ -30,6 +32,8 @@ export function EmployeePhotoUploader({ employeeId, photoUrl, initials }: { empl
       if (inputRef.current) inputRef.current.value = ''
     }
   }
+
+  if (!canEdit) return <div className="mx-auto h-32 w-32 overflow-hidden rounded-2xl">{currentPhoto ? <img src={currentPhoto} alt="Employee profile" className="h-full w-full object-cover"/> : <span className="flex h-full w-full items-center justify-center bg-blue-100 text-3xl font-semibold text-[#162d54]">{initials}</span>}</div>
 
   return (
     <>

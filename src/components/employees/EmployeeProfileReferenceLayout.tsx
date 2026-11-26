@@ -1,7 +1,8 @@
+import styles from './EmployeeProfile.module.css'
 import Link from 'next/link'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { format } from 'date-fns'
-import { CalendarDays, Mail, MapPin, Phone, UserRound } from 'lucide-react'
+import { CalendarDays, Mail, MapPin, Phone, UserRound, ArrowLeft, Pencil } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EmployeeBlockEditor, type EmployeeEditField } from './EmployeeBlockEditor'
@@ -61,11 +62,6 @@ export function EmployeeProfileReferenceLayout({
     ['Absences', latest.absenceDeduction],
     ['Other Deductions', latest.otherDeductions],
   ].filter(([, amount]) => Number(amount) > 0) as Array<[string, number]> : []
-  const now = new Date()
-  const year = now.getFullYear(), month = now.getMonth()
-  const firstWeekday = new Date(year, month, 1).getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const calendarCells = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
   const maxHours = Math.max(8, ...hours.map(item => item.hours))
   const personalFields: EmployeeEditField[] = [
     { key: 'firstName', label: 'First Name' }, { key: 'middleName', label: 'Middle Name' }, { key: 'lastName', label: 'Last Name' },
@@ -82,66 +78,45 @@ export function EmployeeProfileReferenceLayout({
   ]
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h1 className="text-xl font-black text-primary">Employee Details</h1><p className="text-xs text-gray-500">Dashboard / Employees / Employee Details</p></div>
-        <div className="flex items-center gap-2">
-          <PermissionGate permission="employees:write"><EmployeeStatusButton employeeId={employee.id} isActive={employee.isActive} employeeName={`${employee.firstName} ${employee.lastName}`} /></PermissionGate>
-          <EmployeeProfileSettings employeeId={employee.id} workEmail={employee.workEmail || null} personalEmail={employee.personalEmail || null} hasUser={Boolean(employee.userId)} />
+    <div className={styles.profile}>
+      <Link href="/employees" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-[#162d54]"><ArrowLeft size={15}/>Employees</Link>
+      <header className={styles.hero}>
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
+            <div className={styles.avatar}><EmployeePhotoUploader employeeId={employee.id} photoUrl={employee.photoUrl} initials={employee.initials}/></div>
+            <div className="min-w-0">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">Employee profile</p>
+              <h1 className="break-words text-xl font-semibold tracking-tight text-[#162d54] sm:text-2xl">{employee.firstName} {employee.lastName}</h1>
+              <p className="mt-1 break-words text-sm text-slate-500">{employee.position} / {employee.department}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2"><Badge variant="secondary">{employee.employeeNo}</Badge><Badge variant={employee.isActive ? 'success' : 'secondary'}>{employee.isActive ? employee.employmentStatus.replaceAll('_', ' ') : 'Inactive'}</Badge></div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <PermissionGate permission="employees:write"><Link className="inline-flex items-center gap-2 rounded-xl bg-[#ff5900] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e65000]" href={`/employees/${employee.id}/edit`}><Pencil size={15}/>Edit profile</Link><EmployeeStatusButton employeeId={employee.id} isActive={employee.isActive} employeeName={`${employee.firstName} ${employee.lastName}`}/></PermissionGate>
+            <EmployeeProfileSettings employeeId={employee.id} workEmail={employee.workEmail || null} personalEmail={employee.personalEmail || null} hasUser={Boolean(employee.userId)}/>
+          </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="space-y-4 xl:col-span-3">
-          <Card className="relative overflow-hidden py-0">
-            <CardContent className="p-4 text-center">
-              <PermissionGate permission="employees:write"><EmployeePhotoUploader employeeId={employee.id} photoUrl={employee.photoUrl} initials={employee.initials} /></PermissionGate>
-              <h2 className="mt-4 font-black">{employee.firstName} {employee.lastName}</h2>
-              <p className="text-xs text-gray-500">{employee.position} · {employee.department}</p>
-              <div className="mt-3 flex justify-center gap-2"><Badge variant="secondary">{employee.employeeNo}</Badge><Badge variant="success">{employee.employmentStatus.replaceAll('_', ' ')}</Badge></div>
-              <div className="mt-5 divide-y text-xs">
-                <div className="flex justify-between py-3"><span className="text-gray-500">Employment Type</span><b>{employee.employmentType.replaceAll('_', ' ')}</b></div>
-                <div className="flex justify-between py-3"><span className="text-gray-500">Department</span><b>{employee.department}</b></div>
-                <div className="flex justify-between py-3"><span className="text-gray-500">Join Date</span><b>{format(new Date(employee.hireDate), 'd MMMM yyyy')}</b></div>
-              </div>
-              <div className="absolute right-3 top-3"><PermissionGate permission="employees:write"><EmployeeBlockEditor employeeId={employee.id} title="Employment Details" fields={employmentFields} values={employee} /></PermissionGate></div>
-            </CardContent>
-          </Card>
-
+        <div className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 lg:grid-cols-4">
+          {[["Department", employee.department], ["Employment", employee.employmentType.replaceAll('_',' ')], ["Joined", format(new Date(employee.hireDate), 'd MMM yyyy')], ["Pay frequency", employee.payFrequency.replaceAll('_',' ')]].map(([label,value])=><div key={label}><p className="text-xs text-slate-500">{label}</p><p className="mt-1 break-words text-sm font-medium text-[#162d54]">{value}</p></div>)}
+        </div>
+      </header>
+      <div className={styles.columns}>
+        <div className="min-w-0 space-y-5">
           <Card>
-            {editorTitle('Personal Info', <PermissionGate permission="employees:write"><EmployeeBlockEditor employeeId={employee.id} title="Personal Information" fields={personalFields} values={employee} /></PermissionGate>)}
-            <CardContent className="space-y-4 px-4 text-sm">
-              {[[UserRound, 'Gender', employee.gender], [CalendarDays, 'Date of Birth', employee.birthDate ? format(new Date(employee.birthDate), 'd MMMM yyyy') : '—'], [Mail, 'Email Address', employee.personalEmail || employee.workEmail || '—'], [Phone, 'Phone', employee.mobileNo || '—'], [MapPin, 'Address', employee.presentAddress || '—']].map(([Icon, label, value]) => {
-                const InfoIcon = Icon as typeof UserRound
-                return <div key={String(label)} className="flex gap-3"><InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-primary)]" /><div><p className="text-[10px] text-gray-500">{String(label)}</p><p className="text-xs font-medium leading-relaxed">{String(value)}</p></div></div>
-              })}
+            {editorTitle('Employment details', <PermissionGate permission="employees:write"><EmployeeBlockEditor employeeId={employee.id} title="Employment Details" fields={employmentFields} values={employee}/></PermissionGate>)}
+            <CardContent className="grid grid-cols-2 gap-5 text-sm">
+              {[["Position",employee.position],["Department",employee.department],["Employment status",employee.employmentStatus.replaceAll('_',' ')],["Employee number",employee.employeeNo]].map(([label,value])=><div key={label}><p className="text-xs text-slate-500">{label}</p><p className="mt-1 break-words font-medium text-[#162d54]">{value}</p></div>)}
             </CardContent>
           </Card>
-        </div>
-
-        <div className="space-y-4 xl:col-span-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {(leaves.length ? leaves.slice(0, 4) : [{ id: 'all', name: 'All Leaves', code: 'ALL', entitled: 0, used: 0, pending: 0, carriedOver: 0 }]).map(leave => {
-              const total = leave.entitled + leave.carriedOver, available = Math.max(0, total - leave.used - leave.pending - (leave.encashed ?? 0)), pct = total ? Math.round((available / total) * 100) : 0
-              const leaveLabel = leave.code.toUpperCase() === 'SIL' || leave.name.toLowerCase().includes('service incentive') ? 'SIL' : leave.name
-              return <Card key={leave.id} className="py-0"><CardContent className="p-3 text-center"><p className="truncate whitespace-nowrap text-[10px] font-semibold" title={leave.name}>{leaveLabel}</p><div className="mx-auto mt-2 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: `conic-gradient(var(--brand-primary) ${pct}%, #eeeeee 0)` }}><div className="flex h-12 w-12 flex-col items-center justify-center rounded-full bg-white"><b>{available}<span className="text-[9px] font-normal">/{total}</span></b><span className="text-[8px]">Days</span></div></div></CardContent></Card>
-            })}
-          </div>
-
-          <Card><CardHeader><CardTitle className="text-sm">Performance Overview</CardTitle></CardHeader><CardContent><div className="flex items-end justify-between"><div><p className="text-3xl font-black text-[var(--brand-ink)]">{performanceRatings.length ? `${((performanceRatings.at(-1) ?? 0) / 5 * 100).toFixed(1)}%` : '—'}</p><p className="text-xs text-gray-500">{performanceRatings.length ? 'Latest completed review' : 'No completed review yet'}</p></div><Badge variant="success">Current Year</Badge></div><div className="mt-6 flex h-28 items-end gap-2 border-b">{(performanceRatings.length ? performanceRatings : [0]).map((rating, i) => <div key={i} className="flex-1 border-t-2 border-[var(--brand-primary)] bg-[var(--brand-highlight-soft)]" style={{ height: `${Math.max(3, rating / 5 * 100)}%` }} />)}</div></CardContent></Card>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Card><CardHeader><CardTitle className="text-sm">Hours Logged</CardTitle></CardHeader><CardContent><p className="text-2xl font-black">{hours.reduce((sum, item) => sum + item.hours, 0).toFixed(1)}<span className="text-xs font-normal"> hrs</span></p><div className="mt-4 flex h-28 items-end gap-2">{hours.slice(-7).map(item => <div key={item.date} className="flex flex-1 flex-col items-center gap-1"><div className="w-full rounded-t bg-[var(--brand-primary)]" style={{ height: `${Math.max(5, item.hours / maxHours * 90)}px` }} /><span className="text-[9px] text-gray-500">{format(new Date(item.date), 'EEE')[0]}</span></div>)}</div></CardContent></Card>
-            <Card className="relative"><CardHeader><CardTitle className="text-sm">Documents</CardTitle></CardHeader><CardContent className="px-4"><EmployeeDocumentsManager employeeId={employee.id} /></CardContent></Card>
-          </div>
-          <Card>{editorTitle('Internal Notes', <PermissionGate permission="employees:write"><EmployeeBlockEditor employeeId={employee.id} title="Internal Notes" fields={[{ key: 'notes', label: 'Notes', type: 'textarea' }]} values={{ notes: employee.notes }} /></PermissionGate>)}<CardContent><div className="rounded-xl bg-[var(--brand-highlight-soft)] p-4 text-sm text-[var(--brand-ink)]">{employee.notes || 'No internal notes yet.'}</div></CardContent></Card>
-        </div>
-
-        <div className="space-y-4 xl:col-span-3">
-          <Card><CardHeader><CardTitle className="text-sm">{format(now, 'MMMM yyyy')}</CardTitle></CardHeader><CardContent><div className="grid grid-cols-7 gap-1 text-center text-[10px]">{'SMTWTFS'.split('').map((d,i)=><b key={i} className="py-1 text-gray-400">{d}</b>)}{calendarCells.map((day,i)=><span key={i} className={`rounded-md py-2 ${day === now.getDate() ? 'bg-[var(--brand-primary)] text-white' : day && [0,6].includes(i%7) ? 'bg-[var(--brand-highlight-soft)]' : ''}`}>{day}</span>)}</div></CardContent></Card>
+          <Card>
+            {editorTitle('Personal & contact information', <PermissionGate permission="employees:write"><EmployeeBlockEditor employeeId={employee.id} title="Personal Information" fields={personalFields} values={employee}/></PermissionGate>)}
+            <CardContent className="grid gap-5 sm:grid-cols-2">
+              {[[UserRound,'Gender',employee.gender],[CalendarDays,'Date of birth',employee.birthDate ? format(new Date(employee.birthDate),'d MMM yyyy') : 'Not provided'],[Mail,'Email',employee.personalEmail || employee.workEmail || 'Not provided'],[Phone,'Phone',employee.mobileNo || 'Not provided'],[MapPin,'Address',employee.presentAddress || 'Not provided']].map(([Icon,label,value])=>{const InfoIcon=Icon as typeof UserRound;return <div key={String(label)} className="flex min-w-0 items-start gap-3"><span className="rounded-lg bg-slate-50 p-2 text-[#162d54]"><InfoIcon size={16}/></span><div className="min-w-0"><p className="text-xs text-slate-500">{String(label)}</p><p className="mt-1 break-words text-sm font-medium text-[#162d54]">{String(value)}</p></div></div>})}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader className="px-4"><CardTitle className="text-sm">Compensation</CardTitle><p className="text-xs text-slate-500">Current pay setup and latest payroll deductions</p></CardHeader>
-            <CardContent className="space-y-3 px-4 text-xs">
+            <CardContent className="grid grid-cols-1 gap-3 px-4 text-sm sm:grid-cols-2">
               {[
                 { id: 'basic-pay', title: 'Basic Pay', content: <><p className="text-xl font-bold text-[var(--brand-primary)]">{money.format(employee.basicSalary)}</p><p className="mt-1 text-slate-500">{employee.rateType.toLowerCase()} rate</p><p className="mt-2">Paid {employee.payFrequency.replaceAll('_', ' ').toLowerCase()}</p></> },
                 { id: 'additional-earnings', title: 'Additional Earnings', content: <div className="space-y-2">{earnings.length ? earnings.map(item => <div key={item.id} className="flex justify-between gap-3"><span>{item.name}</span><b className="shrink-0">{item.variable ? 'Variable per run' : money.format(item.amount)}</b></div>) : <p className="text-slate-500">No additional earnings assigned.</p>}</div> },
@@ -150,14 +125,24 @@ export function EmployeeProfileReferenceLayout({
                   <div className="border-t pt-3"><p className="mb-2 font-medium text-slate-500">Recurring deductions</p>{recurringDeductions.length ? recurringDeductions.map(item => <div key={item.id} className="flex justify-between gap-3 py-1"><span>{item.name}</span><b>{money.format(item.amount)}</b></div>) : <p className="text-slate-500">None assigned.</p>}</div>
                   {latest && <div className="border-t pt-3"><p className="font-medium">Latest payroll deductions</p><p className="mb-2 mt-1 text-slate-500">{format(new Date(latest.periodStart), 'MMM d, yyyy')} - {format(new Date(latest.periodEnd), 'MMM d, yyyy')}</p>{deductionItems.map(([label, amount]) => <div key={label} className="flex justify-between gap-3 py-1"><span>{label}</span><b>{money.format(amount)}</b></div>)}<div className="mt-2 flex justify-between border-t pt-2 font-bold"><span>Total deducted</span><span>{money.format(latest.totalDeductions)}</span></div></div>}
                 </div> },
-              ].map(block => <div key={block.id} className="relative rounded-xl border border-slate-200 bg-slate-50/60 p-3 transition-colors hover:border-blue-300">
+              ].map(block => <div key={block.id} className={`relative rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition-colors hover:border-orange-300 ${block.id === 'deductions' ? 'sm:col-span-2' : ''}`}>
                 <h3 className="mb-3 pr-8 text-sm font-semibold text-[var(--brand-primary)]">{block.title}</h3>
                 {block.content}
                 <PermissionGate permission="employees:write"><Link href={`/employees/${employee.id}/edit?tab=compensation#${block.id}`} aria-label={`Edit ${block.title}`} className="absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-blue-600"><span aria-hidden="true" className="absolute right-3 top-3 text-blue-600">&rarr;</span></Link></PermissionGate>
               </div>)}
             </CardContent>
           </Card>
+
+          <Card><CardHeader><CardTitle>Documents</CardTitle><p className="text-xs text-slate-500">Employee files and supporting records.</p></CardHeader><CardContent><EmployeeDocumentsManager employeeId={employee.id}/></CardContent></Card>
+          <Card>{editorTitle('Internal notes', <PermissionGate permission="employees:write"><EmployeeBlockEditor employeeId={employee.id} title="Internal Notes" fields={[{key:'notes',label:'Notes',type:'textarea'}]} values={{notes:employee.notes}}/></PermissionGate>)}<CardContent><p className="whitespace-pre-wrap break-words rounded-xl bg-orange-50/60 p-4 text-sm leading-6 text-slate-600">{employee.notes || 'No internal notes yet.'}</p></CardContent></Card>
         </div>
+        <aside className="min-w-0 space-y-5">
+          <Card><CardHeader><div className="flex items-center justify-between gap-2"><CardTitle>Leave balances</CardTitle><PermissionGate permission="employees:write"><Link aria-label="Edit leave entitlements" href={`/employees/${employee.id}/edit?tab=leaves`} className="rounded-lg border p-2 text-[#162d54]"><Pencil size={14}/></Link></PermissionGate></div><p className="text-xs text-slate-500">Current-year balances after usage, pending requests and encashment.</p></CardHeader><CardContent className="space-y-4">
+            {!leaves.length ? <p className="text-sm text-slate-500">No leave balances recorded.</p> : leaves.map(leave=>{const total=leave.entitled+leave.carriedOver,available=Math.max(0,total-leave.used-leave.pending-(leave.encashed??0)),pct=total ? Math.min(100,available/total*100) : 0;return <div key={leave.id}><div className="flex items-start justify-between gap-3"><span className="text-sm font-medium text-[#162d54]">{leave.name}</span><span className="shrink-0 text-sm font-semibold text-[#162d54]">{available}<span className="ml-1 text-xs font-normal text-slate-500">days</span></span></div><div className="my-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#ff5900]" style={{width:`${pct}%`}}/></div><p className="text-xs text-slate-500">{total} allocated / {leave.used} used / {leave.pending} pending</p></div>})}
+          </CardContent></Card>
+          <Card><CardHeader><CardTitle>Recent hours</CardTitle><p className="text-xs text-slate-500">Regular hours from the latest {hours.length} attendance records.</p></CardHeader><CardContent><p className="text-3xl font-semibold text-[#162d54]">{hours.reduce((sum,item)=>sum+item.hours,0).toFixed(1)}<span className="ml-1 text-sm font-normal text-slate-500">hrs</span></p>{hours.length ? <div className="mt-5 flex h-32 items-end gap-2">{hours.map((item,i)=><div key={`${item.date}-${i}`} className="flex min-w-0 flex-1 flex-col items-center gap-2" title={`${format(new Date(item.date),'MMM d')}: ${item.hours.toFixed(1)} hours`}><div className="w-full rounded-t-md bg-[#162d54]" style={{height:`${Math.max(2,item.hours/maxHours*90)}px`}}/><span className="text-[10px] text-slate-500">{format(new Date(item.date),'M/d')}</span></div>)}</div> : <p className="mt-3 text-xs text-slate-500">No attendance records yet.</p>}</CardContent></Card>
+          <Card><CardHeader><CardTitle>Performance</CardTitle><p className="text-xs text-slate-500">Latest rated review</p></CardHeader><CardContent><p className="text-3xl font-semibold text-[#162d54]">{performanceRatings.length ? (performanceRatings.at(-1)??0).toFixed(1) : '--'}<span className="ml-1 text-sm font-normal text-slate-500">/ 5</span></p>{performanceRatings.length ? <div className="mt-4 flex h-20 items-end gap-2" aria-label="Recent review ratings">{performanceRatings.map((rating,i)=><div key={i} title={`${rating} out of 5`} className="flex-1 rounded-t-md bg-orange-200 border-t-2 border-[#ff5900]" style={{height:`${Math.max(3,Math.min(100,rating/5*100))}%`}}/>)}</div> : <p className="mt-3 text-xs text-slate-500">No rated reviews yet.</p>}</CardContent></Card>
+        </aside>
       </div>
     </div>
   )

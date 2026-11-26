@@ -1,0 +1,13 @@
+.profile { display: grid; gap: 20px; min-width: 0; padding-bottom: 60px; }
+.hero { position: relative; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 20px; background: white; padding: 24px; box-shadow: 0 2px 6px #162d5406; }
+.hero::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #ff5900; }
+.avatar { flex-shrink: 0; }
+.avatar button, .avatar > div { width: 88px; height: 88px; border-radius: 18px; }
+.columns { display: grid; gap: 20px; align-items: start; }
+.profile [data-slot="card"] { min-width: 0; border-color: #e2e8f0; border-radius: 18px; gap: 18px; padding-block: 20px; box-shadow: 0 2px 6px #162d5406; }
+.profile [data-slot="card-header"] { padding-inline: 20px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9; }
+.profile [data-slot="card-title"] { color: #162d54; font-size: 14px; font-weight: 600; line-height: 1.5; }
+.profile [data-slot="card-content"] { padding-inline: 20px; }
+.profile b { font-weight: 600; }
+@media(min-width:1200px) { .columns { grid-template-columns: minmax(0,1.8fr) minmax(300px,1fr); } }
+@media(max-width:639px) { .hero { padding: 18px; } .avatar button, .avatar > div { width: 64px; height: 64px; border-radius: 14px; } .profile [data-slot="card-content"], .profile [data-slot="card-header"] { padding-inline: 16px; } }

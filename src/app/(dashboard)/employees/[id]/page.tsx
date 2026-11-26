@@ -23,6 +23,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
       position: { select: { title: true } },
       workSchedule: { select: { name: true, scheduleType: true, workDays: true } },
       leaveBalances: {
+        where: { year: new Date(Date.now() + 8 * 3600000).getUTCFullYear(), leaveType: { isActive: true } },
         include: { leaveType: { select: { name: true, code: true } } },
         orderBy: { leaveType: { name: 'asc' } },
       },
@@ -36,7 +37,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
       performanceReviewsAsReviewee: {
         where: { overallRating: { not: null } },
         select: { overallRating: true },
-        orderBy: { periodEnd: 'asc' },
+        orderBy: { periodEnd: 'desc' },
         take: 12,
       },
     },
@@ -121,7 +122,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
       currency={currency}
       departments={departments}
       positions={positions}
-      performanceRatings={employee.performanceReviewsAsReviewee.map(item => Number(item.overallRating))}
+      performanceRatings={employee.performanceReviewsAsReviewee.slice().reverse().map(item => Number(item.overallRating))}
     />
   )
 }
