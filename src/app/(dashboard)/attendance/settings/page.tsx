@@ -1,13 +1,14 @@
 'use client'
 
 import { AppSpinner } from '@/components/ui/AppSpinner'
+import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
-import { MapPin, Loader2, Fingerprint, Camera, ShieldCheck, Monitor, Download, Copy, Check, ScanFace} from 'lucide-react'
+import { MapPin, Loader2, Fingerprint, Camera, ShieldCheck, Monitor, Download, Copy, Check, ScanFace, Clock, Save} from 'lucide-react'
 import { toast } from 'sonner'
 import { OfficeKioskSettings } from '@/components/attendance/OfficeKioskSettings'
 
@@ -170,106 +171,110 @@ export default function AttendanceSettingsPage() {
   if (loadError) return <div role="alert" className="rounded-xl border bg-white p-6"><h1 className="text-lg font-semibold text-primary">Attendance Settings</h1><p className="my-3 text-sm text-red-700">{loadError}</p><Button onClick={() => { void load().catch(() => {}) }}>Retry loading</Button></div>
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Attendance Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Configure attendance security requirements for your company.</p>
+    <div className="space-y-6 pb-4">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[#ff5900]"><ShieldCheck className="h-6 w-6" /></div>
+        <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-[#162d54]">Attendance Settings</h1>
+        <p className="text-sm text-gray-500 mt-1">Manage how your team clocks in, verifies attendance, and ends each shift.</p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle data-tour="as-security" className="text-base">Attendance Security</CardTitle>
+      <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/60 px-5 py-5 sm:px-6">
+          <CardTitle data-tour="as-security" className="flex items-center gap-2 text-base font-semibold text-[#162d54]"><ShieldCheck className="h-4 w-4 text-[#ff5900]" />Attendance security</CardTitle>
+          <p className="text-xs leading-relaxed text-slate-500">Choose the verification methods and location rules your team needs.</p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <CardContent className="space-y-5 p-5 sm:p-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
 
 
-            <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
-              <input
-                type="checkbox"
+            <label className="relative flex flex-col gap-3 rounded-xl border border-slate-200 p-4 bg-white cursor-pointer transition hover:border-orange-200 has-[[data-state=checked]]:border-orange-200 has-[[data-state=checked]]:bg-orange-50/40">
+              <Switch
+                aria-label="Require fingerprint"
                 checked={Boolean(form.fingerprintRequired)}
-                onChange={e => setForm(f => ({ ...f, fingerprintRequired: e.target.checked }))}
-                className="absolute top-3 right-3"
+                onCheckedChange={checked => setForm(f => ({ ...f, fingerprintRequired: checked }))}
+                className="absolute top-4 right-4 data-[state=checked]:bg-[#ff5900]"
               />
-              <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 text-[#162d54] flex items-center justify-center">
                 <Fingerprint className="w-5 h-5" />
               </div>
               <span>
                 <span className="text-sm font-medium text-gray-700 block">Require fingerprint</span>
-                <span className="text-xs text-gray-500">Require biometric verification for clock in/out.</span>
+                <span className="text-xs leading-relaxed text-slate-500">Require biometric verification for clock in/out.</span>
               </span>
             </label>
 
-            <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
-              <input
-                type="checkbox"
+            <label className="relative flex flex-col gap-3 rounded-xl border border-slate-200 p-4 bg-white cursor-pointer transition hover:border-orange-200 has-[[data-state=checked]]:border-orange-200 has-[[data-state=checked]]:bg-orange-50/40">
+              <Switch
+                aria-label="Enable geofencing"
                 checked={Boolean(form.geofenceEnabled)}
-                onChange={e => setForm(f => ({ ...f, geofenceEnabled: e.target.checked }))}
-                className="absolute top-3 right-3"
+                onCheckedChange={checked => setForm(f => ({ ...f, geofenceEnabled: checked }))}
+                className="absolute top-4 right-4 data-[state=checked]:bg-[#ff5900]"
               />
-              <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 text-[#162d54] flex items-center justify-center">
                 <MapPin className="w-5 h-5" />
               </div>
               <span>
                 <span className="text-sm font-medium text-gray-700 block">Enable geofencing</span>
-                <span className="text-xs text-gray-500">Restrict clock in/out by office location radius.</span>
+                <span className="text-xs leading-relaxed text-slate-500">Restrict clock in/out by office location radius.</span>
               </span>
             </label>
 
-            <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
-              <input
-                type="checkbox"
+            <label className="relative flex flex-col gap-3 rounded-xl border border-slate-200 p-4 bg-white cursor-pointer transition hover:border-orange-200 has-[[data-state=checked]]:border-orange-200 has-[[data-state=checked]]:bg-orange-50/40">
+              <Switch
+                aria-label="Require selfie on clock in"
                 checked={Boolean(form.selfieRequired)}
-                onChange={e => setForm(f => ({ ...f, selfieRequired: e.target.checked }))}
-                className="absolute top-3 right-3"
+                onCheckedChange={checked => setForm(f => ({ ...f, selfieRequired: checked }))}
+                className="absolute top-4 right-4 data-[state=checked]:bg-[#ff5900]"
               />
-              <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 text-[#162d54] flex items-center justify-center">
                 <Camera className="w-5 h-5" />
               </div>
               <span>
                 <span className="text-sm font-medium text-gray-700 block">Require selfie on clock in</span>
-                <span className="text-xs text-gray-500">Employees must capture selfie before clocking in.</span>
+                <span className="text-xs leading-relaxed text-slate-500">Employees must capture selfie before clocking in.</span>
               </span>
             </label>
 
-            {faceAvailable && <label className="relative flex flex-col gap-3 border rounded-xl p-4 bg-white cursor-pointer">
-              <input
-                type="checkbox"
+            {faceAvailable && <label className="relative flex flex-col gap-3 rounded-xl border border-slate-200 p-4 bg-white cursor-pointer transition hover:border-orange-200 has-[[data-state=checked]]:border-orange-200 has-[[data-state=checked]]:bg-orange-50/40">
+              <Switch
+                aria-label="Require face verification"
                 checked={Boolean(form.faceRecognitionRequired)}
-                onChange={e => setForm(f => ({ ...f, faceRecognitionRequired: e.target.checked }))}
-                className="absolute top-3 right-3"
+                onCheckedChange={checked => setForm(f => ({ ...f, faceRecognitionRequired: checked }))}
+                className="absolute top-4 right-4 data-[state=checked]:bg-[#ff5900]"
               />
-              <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 text-[#162d54] flex items-center justify-center">
                 <ScanFace className="w-5 h-5" />
               </div>
               <span>
                 <span className="text-sm font-medium text-gray-700 flex flex-wrap items-center gap-2">Require face verification <Badge variant="secondary" className="border-amber-200 bg-amber-50 text-amber-800">Beta</Badge></span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs leading-relaxed text-slate-500">
                   Employees must pass a live face match to clock in. They set their face up once
                   from the portal. Also required for the Face Kiosk terminal.
                 </span>
               </span>
             </label>}
 
-            <label className={`relative flex flex-col gap-3 border rounded-xl p-4 bg-white ${screenCaptureEntitled ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}>
-              <input
-                type="checkbox"
+            <label className={`relative flex flex-col gap-3 rounded-xl border border-slate-200 p-4 bg-white transition has-[[data-state=checked]]:border-orange-200 has-[[data-state=checked]]:bg-orange-50/40 ${screenCaptureEntitled ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}>
+              <Switch
+                aria-label="Enable screen capture"
                 checked={Boolean(form.screenCaptureEnabled)}
-                onChange={e => setForm(f => ({ ...f, screenCaptureEnabled: e.target.checked }))}
-                className="absolute top-3 right-3"
+                onCheckedChange={checked => setForm(f => ({ ...f, screenCaptureEnabled: checked }))}
+                className="absolute top-4 right-4 data-[state=checked]:bg-[#ff5900]"
                 disabled={!screenCaptureEntitled}
               />
-              <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 text-[#162d54] flex items-center justify-center">
                 <Monitor className="w-5 h-5" />
               </div>
               <span>
                 <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
                   Screen capture monitoring
-                  <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 tracking-wide">
+                  <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold px-1.5 py-0.5 tracking-wide">
                     PRO
                   </span>
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs leading-relaxed text-slate-500">
                   Auto-captures desktop screenshots while clocked in and blocks mobile clock-in.
                 </span>
               </span>
@@ -277,132 +282,6 @@ export default function AttendanceSettingsPage() {
           </div>
 
           {faceAvailable && form.faceRecognitionRequired && <OfficeKioskSettings />}
-
-          {!screenCaptureEntitled && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-700">Screen capture is locked</p>
-              <p className="text-xs text-amber-700 mt-1">
-                This feature requires the Php 70 per employee plan. Current plan rate: Php {currentPricePerSeat.toFixed(2)}.
-              </p>
-              <Link href="/settings/billing" className="text-xs font-semibold text-amber-800 underline mt-2 inline-block">
-                Upgrade plan to unlock
-              </Link>
-            </div>
-          )}
-
-          {form.screenCaptureEnabled && (
-            <div className="border rounded-xl p-4 space-y-3 bg-slate-50">
-              <div className="text-sm font-medium text-slate-700">Screen Capture Frequency</div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Capture every</label>
-                <select
-                  value={form.screenCaptureFrequencyMinutes}
-                  onChange={e => setForm(f => ({ ...f, screenCaptureFrequencyMinutes: e.target.value }))}
-                  className="w-full md:w-64 border rounded px-3 py-2 text-sm bg-white"
-                >
-                  <option value="1">1 minute</option>
-                  <option value="3">3 minutes</option>
-                  <option value="5">5 minutes</option>
-                  <option value="10">10 minutes</option>
-                  <option value="15">15 minutes</option>
-                </select>
-              </div>
-              <p className="text-xs text-gray-500">
-                Employees will be prompted to share their screen from laptop/desktop while clocked in.
-              </p>
-            </div>
-          )}
-
-          <div className="rounded-xl border p-4"><label className="flex cursor-pointer items-start gap-3"><input type="checkbox" className="mt-1 h-4 w-4" checked={form.shiftEndClockoutEnabled} onChange={e=>setForm(f=>({...f,shiftEndClockoutEnabled:e.target.checked}))}/><div><p className="text-sm font-semibold">Auto clock-out at scheduled shift end</p><p className="mt-1 text-xs text-gray-500">Automatically close tracked attendance sessions at the assigned shift end, including overnight shifts. Runs every minute, even if the employee app is closed. The recorded time is the scheduled end; employees working beyond it need a time correction. Applies to shift endings after this option is enabled. Sessions without a timed schedule are left open.</p></div></label></div>
-          {form.screenCaptureEnabled && screenCaptureEntitled && (
-            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-4">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Monitor className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-primary">Desktop App Required</p>
-                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                    Employees must install the <strong>OnClock Desktop</strong> app on their Windows PC to enable screen monitoring. Share this download link with your team.
-                  </p>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <code className="flex-1 min-w-0 text-xs bg-white border border-primary/20 rounded-lg px-3 py-2 text-primary font-mono truncate select-all">
-                      {DESKTOP_DOWNLOAD_URL}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(DESKTOP_DOWNLOAD_URL).then(() => {
-                          setUrlCopied(true)
-                          setTimeout(() => setUrlCopied(false), 2000)
-                        })
-                      }}
-                      className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-primary/20 text-primary hover:bg-white transition-colors"
-                    >
-                      {urlCopied
-                        ? <><Check className="w-3 h-3 text-green-600" /><span className="text-green-600">Copied!</span></>
-                        : <><Copy className="w-3 h-3" />Copy</>
-                      }
-                    </button>
-                  </div>
-
-                  <a
-                    href={DESKTOP_DOWNLOAD_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:underline"
-                  >
-                    <Download className="w-3 h-3" />
-                    Download installer
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Auto clock-out on inactivity ─────────────────────────────
-              Desktop app uses Electron's powerMonitor.getSystemIdleTime()
-              which reports the number of seconds since the OS last saw
-              keyboard or mouse input (also counts screen lock / sleep).
-              When the threshold is hit the app fires the standard
-              clock-out path with a remarks stamp so HR can audit. */}
-          {form.screenCaptureEnabled && screenCaptureEntitled && (
-          <div className="space-y-3 rounded-xl border p-4">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                className="h-4 w-4 mt-0.5"
-                checked={Boolean(form.autoClockoutEnabled)}
-                onChange={e => setForm(f => ({ ...f, autoClockoutEnabled: e.target.checked }))}
-              />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-900">Auto clock-out on inactivity</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  When enabled, the desktop app automatically clocks employees out after
-                  the chosen number of minutes with no keyboard, mouse, or screen activity.
-                  Employees see a 60-second warning notification before the clock-out fires.
-                </p>
-              </div>
-            </label>
-
-            {form.autoClockoutEnabled && (
-              <div className="ml-7 flex items-center gap-3 pt-1">
-                <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Inactivity timeout</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={240}
-                  value={form.autoClockoutMinutes}
-                  onChange={e => setForm(f => ({ ...f, autoClockoutMinutes: e.target.value }))}
-                  className="w-24"
-                />
-                <span className="text-xs text-gray-500">minutes (1–240)</span>
-              </div>
-            )}
-          </div>
-
-          )}
 
           {form.geofenceEnabled && (
             <div className="border rounded-xl p-4 space-y-4 bg-slate-50">
@@ -454,13 +333,147 @@ export default function AttendanceSettingsPage() {
             </div>
           )}
 
-          <p className="text-xs text-gray-500">
+          <div className="border-t border-slate-100 pt-6"><h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><Monitor className="h-4 w-4 text-[#ff5900]" />Desktop monitoring</h2><p className="mt-1 text-xs text-slate-500">Manage screen capture and desktop attendance requirements.</p></div>
+          {!screenCaptureEntitled && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-700">Screen capture is locked</p>
+              <p className="text-xs text-amber-700 mt-1">
+                This feature requires the Php 70 per employee plan. Current plan rate: Php {currentPricePerSeat.toFixed(2)}.
+              </p>
+              <Link href="/settings/billing" className="text-xs font-semibold text-amber-800 underline mt-2 inline-block">
+                Upgrade plan to unlock
+              </Link>
+            </div>
+          )}
+
+          {form.screenCaptureEnabled && (
+            <div className="border rounded-xl p-4 space-y-3 bg-slate-50">
+              <div className="text-sm font-medium text-slate-700">Screen Capture Frequency</div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Capture every</label>
+                <select
+                  value={form.screenCaptureFrequencyMinutes}
+                  onChange={e => setForm(f => ({ ...f, screenCaptureFrequencyMinutes: e.target.value }))}
+                  className="h-10 w-full md:w-64 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
+                >
+                  <option value="1">1 minute</option>
+                  <option value="3">3 minutes</option>
+                  <option value="5">5 minutes</option>
+                  <option value="10">10 minutes</option>
+                  <option value="15">15 minutes</option>
+                </select>
+              </div>
+              <p className="text-xs leading-relaxed text-slate-500">
+                Employees will be prompted to share their screen from laptop/desktop while clocked in.
+              </p>
+            </div>
+          )}
+
+
+          {form.screenCaptureEnabled && screenCaptureEntitled && (
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Monitor className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-primary">Desktop App Required</p>
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                    Employees must install the <strong>OnClock Desktop</strong> app on their Windows PC to enable screen monitoring. Share this download link with your team.
+                  </p>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <code className="flex-1 min-w-0 text-xs bg-white border border-primary/20 rounded-lg px-3 py-2 text-primary font-mono truncate select-all">
+                      {DESKTOP_DOWNLOAD_URL}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(DESKTOP_DOWNLOAD_URL).then(() => {
+                          setUrlCopied(true)
+                          setTimeout(() => setUrlCopied(false), 2000)
+                        })
+                      }}
+                      className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-primary/20 text-primary hover:bg-white transition-colors"
+                    >
+                      {urlCopied
+                        ? <><Check className="w-3 h-3 text-green-600" /><span className="text-green-600">Copied!</span></>
+                        : <><Copy className="w-3 h-3" />Copy</>
+                      }
+                    </button>
+                  </div>
+
+                  <a
+                    href={DESKTOP_DOWNLOAD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:underline"
+                  >
+                    <Download className="w-3 h-3" />
+                    Download installer
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-slate-100 pt-6"><h2 className="flex items-center gap-2 text-sm font-semibold text-[#162d54]"><Clock className="h-4 w-4 text-[#ff5900]" />Automatic clock-out</h2><p className="mt-1 text-xs text-slate-500">Choose when attendance sessions should end automatically.</p></div>
+          <div className="rounded-xl border p-4"><label className="flex cursor-pointer items-start gap-3"><Switch aria-label="Auto clock-out at scheduled shift end" className="mt-1 shrink-0 data-[state=checked]:bg-[#ff5900]" checked={form.shiftEndClockoutEnabled} onCheckedChange={checked=>setForm(f=>({...f,shiftEndClockoutEnabled:checked}))}/><div><p className="text-sm font-semibold">Auto clock-out at scheduled shift end</p><p className="mt-1 text-xs leading-relaxed text-slate-500">Automatically close tracked attendance sessions at the assigned shift end, including overnight shifts. Runs every minute, even if the employee app is closed. The recorded time is the scheduled end; employees working beyond it need a time correction. Applies to shift endings after this option is enabled. Sessions without a timed schedule are left open.</p></div></label></div>
+
+          {/* ── Auto clock-out on inactivity ─────────────────────────────
+              Desktop app uses Electron's powerMonitor.getSystemIdleTime()
+              which reports the number of seconds since the OS last saw
+              keyboard or mouse input (also counts screen lock / sleep).
+              When the threshold is hit the app fires the standard
+              clock-out path with a remarks stamp so HR can audit. */}
+          {form.screenCaptureEnabled && screenCaptureEntitled && (
+          <div className="space-y-3 rounded-xl border p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Switch
+                aria-label="Auto clock-out on inactivity"
+                className="mt-0.5 shrink-0 data-[state=checked]:bg-[#ff5900]"
+                checked={Boolean(form.autoClockoutEnabled)}
+                onCheckedChange={checked => setForm(f => ({ ...f, autoClockoutEnabled: checked }))}
+              />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900">Auto clock-out on inactivity</p>
+                <p className="text-xs leading-relaxed text-slate-500 mt-0.5">
+                  When enabled, the desktop app automatically clocks employees out after
+                  the chosen number of minutes with no keyboard, mouse, or screen activity.
+                  Employees see a 60-second warning notification before the clock-out fires.
+                </p>
+              </div>
+            </label>
+
+            {form.autoClockoutEnabled && (
+              <div className="ml-7 flex flex-wrap items-center gap-3 pt-1">
+                <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Inactivity timeout</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={240}
+                  value={form.autoClockoutMinutes}
+                  onChange={e => setForm(f => ({ ...f, autoClockoutMinutes: e.target.value }))}
+                  className="w-24"
+                />
+                <span className="text-xs leading-relaxed text-slate-500">minutes (1–240)</span>
+              </div>
+            )}
+          </div>
+
+          )}
+
+
+          <p className="text-xs leading-relaxed text-slate-500">
             Admins can disable these requirements for specific employees in Employee Profile {'>'} Employment.
           </p>
 
-          <Button onClick={save} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Attendance Settings'}
-          </Button>
+          <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+            <p className="text-xs text-slate-500">Save to apply these settings to your company.</p>
+            <Button onClick={save} disabled={saving} className="ml-auto gap-2 bg-[#ff5900] text-white hover:bg-[#e65000]">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Saving...' : 'Save settings'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
