@@ -1,10 +1,10 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { z } from 'zod'
 
-const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
 
 const patchSchema = z.object({
   status: z.enum(['IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
@@ -18,6 +18,7 @@ export async function GET(
 ) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const sub = await getCompanySubscription(ctx.companyId)
   if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
@@ -56,6 +57,7 @@ export async function PATCH(
 ) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const sub = await getCompanySubscription(ctx.companyId)
   if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
@@ -104,8 +106,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { ctx, error } = await requireAuth(HR_ROLES)
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const { id } = await params
 

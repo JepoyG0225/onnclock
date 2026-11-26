@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
@@ -47,8 +48,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ processId: string; stepId: string }> }
 ) {
-  const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER'])
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'onboarding:manage')) return NextResponse.json({ error: 'Onboarding management permission required.' }, { status: 403 })
 
   const gate = await requireHrisProApi(ctx.companyId)
   if (gate) return gate
@@ -137,8 +139,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ processId: string; stepId: string }> }
 ) {
-  const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER'])
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'onboarding:manage')) return NextResponse.json({ error: 'Onboarding management permission required.' }, { status: 403 })
 
   const gate = await requireHrisProApi(ctx.companyId)
   if (gate) return gate

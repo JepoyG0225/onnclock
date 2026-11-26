@@ -1,9 +1,9 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
-const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
 
 const patchSchema = z.object({
   category: z.string().min(1).max(100).optional(),
@@ -16,8 +16,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ itemId: string }> }
 ) {
-  const { ctx, error } = await requireAuth(HR_ROLES)
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const { itemId } = await params
 
@@ -52,8 +53,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ itemId: string }> }
 ) {
-  const { ctx, error } = await requireAuth(HR_ROLES)
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const { itemId } = await params
 

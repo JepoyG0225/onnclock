@@ -364,7 +364,7 @@ export function OffboardingTab() {
     setShowCreate(true)
     if (employees.length === 0) {
       try {
-        const res = await fetch('/api/employees?limit=200')
+        const res = await fetch('/api/offboarding/employees')
         if (res.ok) {
           const data = await res.json()
           setEmployees(data.employees ?? data.data ?? [])

@@ -51,6 +51,13 @@ export default auth(async (req) => {
 
   const logicalPath = req.nextUrl.pathname
 
+  const legacyJourneyTab = req.nextUrl.searchParams.get('tab')
+  if (logicalPath === '/recruitment' && (legacyJourneyTab === 'onboarding' || legacyJourneyTab === 'offboarding')) {
+    const destination = req.nextUrl.clone()
+    destination.pathname = '/employee-journeys'
+    return NextResponse.redirect(destination)
+  }
+
   const isApi = logicalPath.startsWith('/api')
   const isAsset =
     logicalPath.startsWith('/_next') ||

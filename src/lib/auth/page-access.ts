@@ -35,12 +35,12 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   { prefix: "/departments", required: ["departments:write", "employees:read"] },
   { prefix: "/positions", required: ["departments:write", "employees:read"] },
   { prefix: "/org-chart", required: ["employees:read"] },
-  // Recruitment now hosts Hiring / Onboarding / Offboarding as tabs.
+  // Recruitment handles hiring; Employee Journeys hosts lifecycle management.
   {
     prefix: "/recruitment",
     required: ["employees:write", "recruitment:manage"],
   },
-  { prefix: "/onboarding", required: ["employees:write", "onboarding:manage"] },
+  { prefix: "/onboarding", required: ["onboarding:manage"] },
   {
     prefix: "/performance",
     required: ["employees:read", "performance:manage"],
@@ -52,7 +52,7 @@ export const PATH_REQUIRED_PERMISSIONS: Array<{
   },
   {
     prefix: "/offboarding",
-    required: ["employees:write", "offboarding:manage"],
+    required: ["offboarding:manage"],
   },
   {
     prefix: "/disciplinary",
@@ -237,6 +237,7 @@ const FALLBACK_LANDING_ORDER: string[] = [
   "/benefits",
   "/budget-requisitions",
   "/recruitment",
+  "/employee-journeys",
   "/performance",
   "/settings",
   "/settings/profile",

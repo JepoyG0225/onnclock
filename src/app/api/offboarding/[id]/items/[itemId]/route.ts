@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -17,6 +18,7 @@ export async function PATCH(
 ) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const { id, itemId } = await params
 
@@ -65,6 +67,7 @@ export async function DELETE(
 ) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const { id, itemId } = await params
 

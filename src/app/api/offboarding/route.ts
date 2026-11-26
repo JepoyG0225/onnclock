@@ -1,10 +1,10 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { getCompanySubscription, hasHrisProFeature } from '@/lib/feature-gates'
 import { z } from 'zod'
 
-const HR_ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']
 
 const DEFAULT_ITEMS = [
   { category: 'HR', title: 'Acceptance of resignation letter / Notice of termination', sortOrder: 1 },
@@ -32,6 +32,7 @@ const createSchema = z.object({
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const sub = await getCompanySubscription(ctx.companyId)
   if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {
@@ -82,8 +83,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireAuth(HR_ROLES)
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'offboarding:manage')) return NextResponse.json({ error: 'Offboarding management permission required.' }, { status: 403 })
 
   const sub = await getCompanySubscription(ctx.companyId)
   if (!hasHrisProFeature(sub.pricePerSeat) && !sub.isTrial) {

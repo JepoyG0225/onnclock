@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/api-auth'
@@ -27,8 +28,9 @@ const createTemplateSchema = z.object({
 })
 
 export async function GET() {
-  const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER'])
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'onboarding:manage')) return NextResponse.json({ error: 'Onboarding management permission required.' }, { status: 403 })
 
   const gate = await requireHrisProApi(ctx.companyId)
   if (gate) return gate
@@ -57,8 +59,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER'])
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'onboarding:manage')) return NextResponse.json({ error: 'Onboarding management permission required.' }, { status: 403 })
 
   const gate = await requireHrisProApi(ctx.companyId)
   if (gate) return gate
@@ -129,8 +132,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { ctx, error } = await requireAuth(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER'])
+  const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!await ctxHasPermission(ctx, 'onboarding:manage')) return NextResponse.json({ error: 'Onboarding management permission required.' }, { status: 403 })
 
   const gate = await requireHrisProApi(ctx.companyId)
   if (gate) return gate

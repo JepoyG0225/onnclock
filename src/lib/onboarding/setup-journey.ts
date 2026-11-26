@@ -296,7 +296,7 @@ export const SETUP_STEPS: SetupStep[] = [
     "module": "People operations",
     "title": "Review employee onboarding",
     "description": "Set the steps for new hires and assign onboarding responsibilities.",
-    "href": "/onboarding",
+    "href": "/employee-journeys?tab=onboarding",
     "permission": "onboarding:manage",
     "automatic": null,
     "pro": true
@@ -306,7 +306,7 @@ export const SETUP_STEPS: SetupStep[] = [
     "module": "People operations",
     "title": "Review employee offboarding",
     "description": "Check clearance, document and equipment return workflows.",
-    "href": "/offboarding",
+    "href": "/employee-journeys?tab=offboarding",
     "permission": "offboarding:manage",
     "automatic": null,
     "pro": true
