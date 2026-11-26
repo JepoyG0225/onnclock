@@ -1,3 +1,4 @@
+import { halfDayWorkedShift } from '@/lib/attendance/half-day-leave'
 /**
  * Re-run computeHours + computeLateAndUndertime against every closed DTR in
  * a company over a date range, persisting any drift. Used when payroll
@@ -67,6 +68,7 @@ export async function recomputeCompanyDtrHours(
       nightDiffHours: true,
       lateMinutes: true,
       undertimeMinutes: true,
+      isHalfDay: true, isLeave: true, halfDayPeriod: true,
       employee: {
         select: {
           workScheduleId: true,
@@ -80,7 +82,7 @@ export async function recomputeCompanyDtrHours(
   let updated = 0
   for (const d of dtrs) {
     if (!d.timeIn || !d.timeOut) continue
-    const resolved = await resolveShiftForDtr({
+    const resolved = halfDayWorkedShift(await resolveShiftForDtr({
       employeeId: d.employeeId,
       date: d.date,
       actualTimeIn: d.timeIn,
@@ -97,7 +99,7 @@ export async function recomputeCompanyDtrHours(
           : null,
       },
       defaultBreakMinutes,
-    })
+    }), d)
     // Use the same workHoursPerDay-based cap as the live clock-out path so OT
     // only starts once the employee exceeds the company's set working hours/day
     // (+ break), not merely the shift span.

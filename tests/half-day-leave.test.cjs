@@ -97,3 +97,14 @@ test('real clock-in handler allows uncovered half and preserves the leave-only D
 
 
 
+
+test('company DTR recomputation preserves the worked half instead of restoring morning lateness', async () => {
+  let saved
+  const d={id:'d',employeeId:'e',date:day,timeIn:at('13:00'),timeOut:at('17:00'),breakIn:null,breakOut:null,isHalfDay:true,isLeave:false,halfDayPeriod:'PM',regularHours:4,overtimeHours:0,nightDiffHours:0,lateMinutes:300,undertimeMinutes:0,employee:{workScheduleId:'s',workSchedule:schedule}}
+  const real=loader({'@/lib/prisma':{prisma:{}}})('src/lib/timesheet/compute.ts')
+  const {recomputeCompanyDtrHours}=loader({
+    '@/lib/prisma':{prisma:{company:{findUnique:async()=>({defaultBreakMinutes:60})},dTRRecord:{findMany:async args=>{assert.equal(args.select.isHalfDay,true);return[d]},update:async args=>{saved=args.data}}}},
+    './compute':{...real,getCompanyNightDiffWindow:async()=>({startMins:1320,endMins:360,includesBreak:false}),resolveShiftForDtr:async()=>({scheduleTimeIn:'08:00',scheduleTimeOut:'17:00',allowedBreakMinutes:60,plannedRegularMinutes:540,scheduledStart:at('08:00'),scheduledEnd:at('17:00')})},
+  })('src/lib/timesheet/recompute.ts')
+  await recomputeCompanyDtrHours('c');assert.equal(saved.lateMinutes,0);assert.equal(saved.undertimeMinutes,0);assert.equal(saved.regularHours,4)
+})
