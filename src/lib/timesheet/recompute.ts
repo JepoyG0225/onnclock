@@ -68,7 +68,7 @@ export async function recomputeCompanyDtrHours(
       nightDiffHours: true,
       lateMinutes: true,
       undertimeMinutes: true,
-      isHalfDay: true, isLeave: true, halfDayPeriod: true,
+      halfDayWindow: true, isHalfDay: true, isLeave: true, halfDayPeriod: true,
       employee: {
         select: {
           workScheduleId: true,
@@ -109,7 +109,7 @@ export async function recomputeCompanyDtrHours(
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
       nightDiffIncludesBreak: ndWindow.includesBreak,
-      scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
+      excludedWindows: resolved.excludedWindows, scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     })
     const lateUt = computeLateAndUndertime(

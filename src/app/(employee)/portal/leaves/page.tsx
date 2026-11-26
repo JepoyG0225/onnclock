@@ -1,4 +1,6 @@
 'use client'
+
+import { halfDayWindowLabel } from '@/lib/attendance/custom-half-day'
 import { AppSpinner } from '@/components/ui/AppSpinner'
 
 
@@ -23,6 +25,7 @@ interface LeaveRequest {
   id: string
   startDate: string
   endDate: string
+  halfDayWindow?: unknown
   totalDays: number
   reason: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
@@ -256,7 +259,7 @@ export default function LeavesPage() {
                       <p className="text-[12px] font-semibold text-slate-400 mt-0.5">
                         {format(new Date(req.startDate), 'MMM d')} – {format(new Date(req.endDate), 'MMM d, yyyy')}
                         <span className="text-slate-300"> · </span>
-                        {req.totalDays}d
+                        {req.totalDays}d{req.halfDayWindow ? <span className="block text-[10px] font-normal">{halfDayWindowLabel(req.halfDayWindow)}</span> : null}
                       </p>
                     </div>
                     <span

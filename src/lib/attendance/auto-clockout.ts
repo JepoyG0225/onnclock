@@ -23,7 +23,7 @@ export async function closeScheduledShifts(now=new Date()){
     if(!shift.matchedAssignment){const rest=await prisma.employeeShiftAssignment.count({where:{employeeId:r.employeeId,companyId:company.id,date:r.date,isRestDay:true}});const days=r.employee.workSchedule?.workDays;if(rest||(Array.isArray(days)&&!days.map(Number).includes(r.date.getUTCDay()))){skipped++;continue}}
     if((r.breakIn&&r.breakIn>end)||(r.breakOut&&r.breakOut>end)){skipped++;continue}
     const breakOut=r.breakIn?(r.breakOut??end):null
-    const hours=computeHours(r.timeIn!,end,r.breakIn,breakOut,{plannedRegularMinutes:shift.plannedRegularMinutes,allowedBreakMinutes:shift.allowedBreakMinutes,nightDiffStartMins:nd.startMins,nightDiffEndMins:nd.endMins,nightDiffIncludesBreak:nd.includesBreak,scheduledStart: shift.scheduledStart, scheduledEnd: shift.scheduledEnd, scheduledTimeIn:shift.scheduleTimeIn,scheduledTimeOut:shift.scheduleTimeOut})
+    const hours=computeHours(r.timeIn!,end,r.breakIn,breakOut,{plannedRegularMinutes:shift.plannedRegularMinutes,allowedBreakMinutes:shift.allowedBreakMinutes,nightDiffStartMins:nd.startMins,nightDiffEndMins:nd.endMins,nightDiffIncludesBreak:nd.includesBreak,excludedWindows:shift.excludedWindows,scheduledStart: shift.scheduledStart, scheduledEnd: shift.scheduledEnd, scheduledTimeIn:shift.scheduleTimeIn,scheduledTimeOut:shift.scheduleTimeOut})
     const attendance=computeLateAndUndertime(r.timeIn!,end,shift.scheduleTimeIn,shift.scheduleTimeOut, shift)
     const actualBreak=r.breakIn&&breakOut?Math.max(0,(breakOut.getTime()-r.breakIn.getTime())/60000):0
     const overBreak=actualBreak<=720?Math.max(0,Math.floor(actualBreak)-shift.allowedBreakMinutes):0

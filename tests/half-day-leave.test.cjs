@@ -88,6 +88,11 @@ test('real clock-in handler allows uncovered half and preserves the leave-only D
   const response=await performClockIn(req,{companyId:'c',userId:'u'})
   assert.equal(response.status,200,JSON.stringify(await response.json()))
   assert.equal(created.isLeave,false);assert.equal(created.isHalfDay,true);assert.equal(created.halfDayPeriod,'PM')
+  const {customHalfDayWindow}=loader()('src/lib/attendance/custom-half-day.ts')
+  const custom=customHalfDayWindow(day,{...schedule,timezone:'Asia/Manila'},'08:00','12:00')
+  leaves=[{...leave('CUSTOM'),halfDayWindow:custom}]
+  assert.equal((await performClockIn(req,{companyId:'c',userId:'u'})).status,200)
+  assert.deepEqual(created.halfDayWindow,custom)
   leaves=[leave('PM')];created=null
   assert.equal((await performClockIn(req,{companyId:'c',userId:'u'})).status,403)
   assert.equal(created,null)
@@ -107,4 +112,39 @@ test('company DTR recomputation preserves the worked half instead of restoring m
     './compute':{...real,getCompanyNightDiffWindow:async()=>({startMins:1320,endMins:360,includesBreak:false}),resolveShiftForDtr:async()=>({scheduleTimeIn:'08:00',scheduleTimeOut:'17:00',allowedBreakMinutes:60,plannedRegularMinutes:540,scheduledStart:at('08:00'),scheduledEnd:at('17:00')})},
   })('src/lib/timesheet/recompute.ts')
   await recomputeCompanyDtrHours('c');assert.equal(saved.lateMinutes,0);assert.equal(saved.undertimeMinutes,0);assert.equal(saved.regularHours,4)
+})
+
+test('half-day hour choices match the clock-in boundary and show overnight days', () => {
+  const {halfDayOptions}=loader()('src/lib/attendance/half-day-leave.ts')
+  const options=halfDayOptions(schedule)
+  assert.equal(options[0].label,'8:00 AM - 12:00 PM')
+  assert.equal(options[0].workLabel,'1:00 PM - 5:00 PM')
+  assert.equal(options[1].label,'1:00 PM - 5:00 PM')
+  assert.equal(halfDayOptions({...schedule,breakEnabled:false})[0].end,'12:30')
+  assert.match(halfDayOptions({timeIn:'22:00',timeOut:'06:00',breakMinutes:0})[1].label,/2:00 AM \(next day\)/)
+  assert.deepEqual(halfDayOptions(null),[])
+})
+
+test('custom hours validate half the net shift and exclude leave from clock-in and pay',()=>{
+ const {customHalfDayWindow}=loader()('src/lib/attendance/custom-half-day.ts')
+ const window=customHalfDayWindow(day,{...schedule,timezone:'Asia/Manila'},'09:00','14:00')
+ const custom={...leave('CUSTOM'),halfDayWindow:window}
+ assert.ok(leaveClockInError([custom],at('10:00'),day,schedule))
+ assert.equal(leaveClockInError([custom],at('14:00'),day,schedule),null)
+ assert.throws(()=>customHalfDayWindow(day,{...schedule,timezone:'Asia/Manila'},'09:00','13:00'),/exactly 4/)
+ assert.throws(()=>customHalfDayWindow(day,{...schedule,timezone:'Asia/Manila'},'07:00','11:00'),/within/)
+ const real=loader({'@/lib/prisma':{prisma:{}}})('src/lib/timesheet/compute.ts')
+ const base={scheduleTimeIn:'08:00',scheduleTimeOut:'17:00',allowedBreakMinutes:60,plannedRegularMinutes:540,scheduledStart:at('08:00'),scheduledEnd:at('17:00')}
+ for(const [start,end,hours] of [['08:00','17:00',4],['08:00','09:00',1],['14:00','17:00',3]]){
+   const shift=halfDayWorkedShift(base,{isHalfDay:true,isLeave:false,halfDayPeriod:'CUSTOM',halfDayWindow:window,timeIn:at(start),timeOut:at(end)})
+   assert.equal(real.computeHours(at(start),at(end),null,null,shift).regularHours,hours)
+   assert.equal(real.computeHours(at(start),at(end),null,null,shift).overtimeHours,0)
+   assert.deepEqual(real.computeLateAndUndertime(at(start),at(end),shift.scheduleTimeIn,shift.scheduleTimeOut,shift),{lateMinutes:0,undertimeMinutes:0})
+ }
+})
+test('custom overnight hours retain exact instants and reject malformed input',()=>{
+ const {customHalfDayWindow}=loader()('src/lib/attendance/custom-half-day.ts')
+ const w=customHalfDayWindow(day,{timeIn:'22:00',timeOut:'06:00',breakMinutes:0,timezone:'Asia/Manila'},'02:00','06:00')
+ assert.equal(w.start,'2026-11-10T18:00:00.000Z')
+ assert.throws(()=>customHalfDayWindow(day,{...schedule,timezone:'Asia/Manila'},'25:00','06:00'))
 })

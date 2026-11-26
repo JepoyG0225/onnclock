@@ -279,7 +279,7 @@ export async function performClockIn(req: NextRequest, ctx: AuthContext, officeK
         startDate: { lte: manilaDate },
         endDate:   { gte: manilaDate },
       },
-      select: { id: true, isHalfDay: true, halfDayPeriod: true, leaveType: { select: { name: true } } },
+      select: { id: true, isHalfDay: true, halfDayWindow: true, halfDayPeriod: true, leaveType: { select: { name: true } } },
     }),
     prisma.holiday.findFirst({
       where: { companyId: ctx.companyId, date: manilaDate },
@@ -292,7 +292,8 @@ export async function performClockIn(req: NextRequest, ctx: AuthContext, officeK
   const leaveError = leaveClockInError(onLeave, now, manilaDate, { ...attendance.schedule, timeIn: attendance.shiftTimeIn ?? attendance.schedule?.timeIn, timeOut: attendance.shiftTimeOut ?? attendance.schedule?.timeOut })
   if (leaveError) return NextResponse.json({ error: leaveError }, { status: 403 })
   const halfDayPeriod = workedHalfPeriod(onLeave)
-  const workedLeaveFields = halfDayPeriod ? { isHalfDay: true, halfDayPeriod, isLeave: false, isLeavePaid: false, isAbsent: false, leaveRequestId: null } : {}
+  const customWindow=onLeave.find(l=>l.isHalfDay && l.halfDayWindow)?.halfDayWindow
+  const workedLeaveFields = halfDayPeriod ? { isHalfDay: true, halfDayPeriod, ...(customWindow?{halfDayWindow:customWindow}:{}), isLeave: false, isLeavePaid: false, isAbsent: false, leaveRequestId: null } : {}
 
   const source = officeKiosk ? 'BIOMETRIC' : isDesktopApp(ua) ? 'DESKTOP' : 'GPS'
   let record: Awaited<ReturnType<typeof prisma.dTRRecord.create>>

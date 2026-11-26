@@ -65,6 +65,7 @@ export default async function LeavesPage({
       reviewNotes: true,
       isHalfDay: true,
       halfDayPeriod: true,
+      halfDayWindow: true,
       employee: {
         select: {
           id: true,
@@ -232,6 +233,7 @@ export default async function LeavesPage({
                           reviewNotes: req.reviewNotes,
                           isHalfDay: req.isHalfDay,
                           halfDayPeriod: req.halfDayPeriod,
+                          halfDayWindow: req.halfDayWindow,
                           createdAt: req.createdAt.toISOString(),
                           employee: req.employee,
                           leaveType: req.leaveType,

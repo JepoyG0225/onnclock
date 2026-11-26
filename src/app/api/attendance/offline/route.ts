@@ -55,14 +55,14 @@ export async function POST(req:NextRequest){
     const leaveError=leaveClockInError(onLeave,at,location.date,{...location.schedule,timeIn:location.shiftTimeIn,timeOut:location.shiftTimeOut});if(leaveError)throw new Error(leaveError)
     const halfDayPeriod=workedHalfPeriod(onLeave)
     const holiday=await tx.holiday.findFirst({where:{companyId:ctx.companyId,date:location.date}})
-    await tx.dTRRecord.create({data:{id:event.shiftId,employeeId:employee.id,date:location.date,timeIn:at,isHalfDay:!!halfDayPeriod,halfDayPeriod,source:'OFFLINE',attendanceLocation:location.policy,isRestDay:rest,restDayApproval:rest?'PENDING':null,isHoliday:!!holiday,holidayType:holiday?.type,clockInPhoto:photos[0]??null,clockInLat:event.location?.lat,clockInLng:event.location?.lng,clockInAccuracy:event.location?.accuracy}})
+    await tx.dTRRecord.create({data:{id:event.shiftId,employeeId:employee.id,date:location.date,timeIn:at,isHalfDay:!!halfDayPeriod,halfDayPeriod,...(onLeave.find(l=>l.halfDayWindow)?.halfDayWindow?{halfDayWindow:onLeave.find(l=>l.halfDayWindow)!.halfDayWindow!}:{}),source:'OFFLINE',attendanceLocation:location.policy,isRestDay:rest,restDayApproval:rest?'PENDING':null,isHoliday:!!holiday,holidayType:holiday?.type,clockInPhoto:photos[0]??null,clockInLat:event.location?.lat,clockInLng:event.location?.lng,clockInAccuracy:event.location?.accuracy}})
    }else{
     if(!record?.timeIn||(record.source!=='OFFLINE'&&permit.activeId!==record.id))throw new Error('The offline shift is not linked to this device access. Ask HR to review it.')
     if(at<record.timeIn||at.getTime()-record.timeIn.getTime()>86400000)throw new Error('Event time is outside the shift.')
     if(event.kind==='OUT'){
      if(record.timeOut)throw new Error('This shift was already clocked out. Ask HR to review it.')
-     const resolved=halfDayWorkedShift(await resolveShiftForDtr({employeeId:employee.id,date:record.date,actualTimeIn:record.timeIn,employee}),record)
-     const hours=computeHours(record.timeIn,at,record.breakIn,record.breakOut,{plannedRegularMinutes:resolved.plannedRegularMinutes,allowedBreakMinutes:resolved.allowedBreakMinutes,scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn:resolved.scheduleTimeIn,scheduledTimeOut:resolved.scheduleTimeOut})
+     const resolved=halfDayWorkedShift(await resolveShiftForDtr({employeeId:employee.id,date:record.date,actualTimeIn:record.timeIn,employee}),{...record,timeOut:at})
+     const hours=computeHours(record.timeIn,at,record.breakIn,record.breakOut,{plannedRegularMinutes:resolved.plannedRegularMinutes,allowedBreakMinutes:resolved.allowedBreakMinutes,excludedWindows: resolved.excludedWindows, scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn:resolved.scheduleTimeIn,scheduledTimeOut:resolved.scheduleTimeOut})
      const deductions=record.isRestDay?{lateMinutes:0,undertimeMinutes:0}:computeLateAndUndertime(record.timeIn,at,resolved.scheduleTimeIn,resolved.scheduleTimeOut, resolved)
      await tx.dTRRecord.update({where:{id:record.id},data:{timeOut:at,regularHours:hours.regularHours,overtimeHours:hours.overtimeHours,nightDiffHours:hours.nightDiffHours,...deductions,approvedBy:null,clockOutPhoto:photos[0]??null,clockOutLat:event.location?.lat,clockOutLng:event.location?.lng,clockOutAccuracy:event.location?.accuracy}})
     }else{

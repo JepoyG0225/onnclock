@@ -1,5 +1,7 @@
 'use client'
 
+import { halfDayWindowLabel } from '@/lib/attendance/custom-half-day'
+
 import { CalendarDays, Clock, User, FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { RequestDetailDialog, DetailRow } from '@/components/ui/request-detail-dialog'
@@ -24,6 +26,7 @@ export interface LeaveDetailDialogProps {
     reviewNotes: string | null
     isHalfDay: boolean
     halfDayPeriod: string | null
+    halfDayWindow?: unknown
     createdAt: string
     employee: {
       firstName: string
@@ -98,7 +101,7 @@ export function LeaveRequestDetailDialog({
             }
             hint={
               request.isHalfDay
-                ? `Half-day · ${request.halfDayPeriod ?? ''}`
+                ? halfDayWindowLabel(request.halfDayWindow) ?? `Half-day · ${request.halfDayPeriod ?? ''}`
                 : `${Number(request.totalDays).toFixed(1)} day${Number(request.totalDays) === 1 ? '' : 's'}`
             }
           />

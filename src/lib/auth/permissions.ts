@@ -340,7 +340,7 @@ export const PAGE_PERMISSIONS: { group: string; pages: NavPermission[] }[] = [
     group: 'Leave Management',
     pages: [
       { key: 'leaves',             label: 'Leave Requests',           permission: 'leaves:read', paths: ["/leaves"] },
-      { key: 'leave_write',        label: 'Submit Leave',             permission: 'leaves:write' },
+      { key: 'leave_write',        label: 'Submit Leave (including custom half-day hours)',             permission: 'leaves:write' },
       { key: 'leave_approve',      label: 'Approve Leave',            permission: 'leaves:approve' },
       { key: 'leave_calendar',     label: 'Team Calendar',            permission: 'leaves:read', paths: ["/leaves/calendar"] },
       { key: 'leave_types',        label: 'Leave Types',              permission: 'settings:write', paths: ["/leaves/types"] },

@@ -1,3 +1,5 @@
+import { halfDayWorkedShift } from '@/lib/attendance/half-day-leave'
+import { computeHours, computeLateAndUndertime, getCompanyNightDiffWindow } from '@/lib/timesheet/compute'
 import { leaveWorkDates } from '@/lib/leaves/duration'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
@@ -36,6 +38,7 @@ export async function POST(
       totalDays: true,
       isHalfDay: true,
       halfDayPeriod: true,
+      halfDayWindow: true,
       status: true,
       approvalLevel: true,
       reviewedBy: true,
@@ -130,6 +133,7 @@ export async function POST(
   }
 
   try {
+    const ndWindow = leaveRequest.halfDayWindow ? await getCompanyNightDiffWindow(ctx.companyId) : null
     await prisma.$transaction(async (tx) => {
       await tx.leaveRequest.update({
         where: { id },
@@ -177,7 +181,7 @@ export async function POST(
           employeeId: leaveRequest.employeeId,
           date: { in: dates },
         },
-        select: { id: true, date: true, timeIn: true, timeOut: true },
+        select: { id: true, date: true, timeIn: true, timeOut: true, breakIn: true, breakOut: true },
       })
       const existingMap = new Map(existing.map(r => [r.date.toISOString().split('T')[0], r]))
 
@@ -187,13 +191,21 @@ export async function POST(
       for (const d of dates) {
         const key = d.toISOString().split('T')[0]
         const prev = existingMap.get(key)
-        if (prev && (prev.timeIn || prev.timeOut)) continue
+        if (leaveRequest.halfDayWindow) {
+          for (const row of existing.filter(r=>r.date.getTime()===d.getTime()&&r.timeIn)) {
+            const metadata={isHalfDay:true,isLeave:false,halfDayPeriod:'CUSTOM',halfDayWindow:leaveRequest.halfDayWindow}
+            const shift=halfDayWorkedShift({scheduleTimeIn:null,scheduleTimeOut:null,allowedBreakMinutes:0,plannedRegularMinutes:0},{...metadata,timeIn:row.timeIn,timeOut:row.timeOut})
+            const computed=row.timeIn&&row.timeOut?{...computeHours(row.timeIn,row.timeOut,row.breakIn,row.breakOut,{...shift,nightDiffStartMins:ndWindow?.startMins,nightDiffEndMins:ndWindow?.endMins,nightDiffIncludesBreak:ndWindow?.includesBreak}),...computeLateAndUndertime(row.timeIn,row.timeOut,shift.scheduleTimeIn,shift.scheduleTimeOut,shift)}:{}
+            await tx.dTRRecord.update({where:{id:row.id},data:{...metadata,...computed,approvedBy:null}})
+          }
+        } else if (prev && (prev.timeIn || prev.timeOut)) continue
 
         const dtrData = {
           isLeave:        true,
           isLeavePaid:    isPaid,
           isAbsent:       false,
           isHalfDay,
+          ...(leaveRequest.halfDayWindow?{halfDayWindow:leaveRequest.halfDayWindow}:{}),
           halfDayPeriod:  isHalfDay ? halfPeriod : null,
           remarks:        dtrRemarks,
           leaveRequestId: leaveRequest.id,

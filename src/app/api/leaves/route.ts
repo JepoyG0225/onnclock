@@ -1,3 +1,6 @@
+import { customHalfDayWindow } from '@/lib/attendance/custom-half-day'
+import { halfDayOptions } from '@/lib/attendance/half-day-leave'
+import { scheduleDays } from '@/lib/attendance/schedule-display'
 import { leaveDatesSchema, countLeaveDays } from '@/lib/leaves/duration'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,6 +24,8 @@ const createLeaveSchema = z.object({
   endDate: z.string(),
   totalDays: z.unknown().optional(), // Legacy clients may send 0; the server calculates the actual duration.
   isHalfDay: z.boolean().optional(),
+  halfDayStart: z.string().optional(),
+  halfDayEnd: z.string().optional(),
   halfDayPeriod: z.enum(['AM', 'PM']).optional().nullable(),
   reason: z.string().optional().nullable(),
   employeeId: z.string().optional(), // HR can file on behalf
@@ -41,8 +46,8 @@ export async function GET(req: NextRequest) {
     if(!employeeId)return NextResponse.json({error:'No active employee profile found.'},{status:400})
     const dates=leaveDatesSchema.safeParse({startDate:searchParams.get('startDate'),endDate:searchParams.get('endDate'),isHalfDay:searchParams.get('isHalfDay')==='true'})
     if(!dates.success)return NextResponse.json({error:dates.error.issues[0].message},{status:422})
-    const totalDays=await leaveDuration(ctx.companyId,employeeId,dates.data.startDate,dates.data.endDate,!!dates.data.isHalfDay)
-    return NextResponse.json({totalDays},{headers:{'Cache-Control':'private, no-store'}})
+    const preview=await leaveDuration(ctx.companyId,employeeId,dates.data.startDate,dates.data.endDate,!!dates.data.isHalfDay)
+    return NextResponse.json(preview,{headers:{'Cache-Control':'private, no-store'}})
   }
   const requestedYear=Number(searchParams.get('year')??new Date().getFullYear())
   if(!Number.isInteger(requestedYear)||requestedYear<2000||requestedYear>2100)return NextResponse.json({error:'Choose a valid leave year.'},{status:422})
@@ -116,7 +121,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues.map(issue=>`${issue.path.join('.')}: ${issue.message}`).join('; '), details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { leaveTypeId, startDate, endDate, reason, employeeId: targetEmployeeId, isHalfDay, halfDayPeriod } = parsed.data
+  const { leaveTypeId, startDate, endDate, reason, employeeId: targetEmployeeId, isHalfDay, halfDayPeriod, halfDayStart, halfDayEnd } = parsed.data
   const finalEmployeeId = targetEmployeeId || employeeId
   if (targetEmployeeId && targetEmployeeId !== employeeId) {
     if (ctx.role === 'EMPLOYEE' || !await ctxHasPermission(ctx, 'leaves:write')) return NextResponse.json({ error: 'You may only submit leave for yourself.' }, { status: 403 })
@@ -128,9 +133,15 @@ export async function POST(req: NextRequest) {
   const dates=leaveDatesSchema.safeParse({startDate,endDate,isHalfDay})
   if(!dates.success)return NextResponse.json({error:dates.error.issues[0].message},{status:422})
   const year=Number(startDate.slice(0,4))
-  const totalDays=await leaveDuration(ctx.companyId,finalEmployeeId,startDate,endDate,!!isHalfDay)
+  const {totalDays,halfDayShifts}=await leaveDuration(ctx.companyId,finalEmployeeId,startDate,endDate,!!isHalfDay)
   if(totalDays<=0)return NextResponse.json({error:'No scheduled working days in this date range. Choose a workday or ask HR to correct your schedule.'},{status:422})
 
+  let customWindow: ReturnType<typeof customHalfDayWindow> | undefined
+  if(isHalfDay && (halfDayStart!==undefined || halfDayEnd!==undefined)){
+    if(halfDayShifts.length!==1)return NextResponse.json({error:'Custom half-day hours require one scheduled shift for this date. Ask HR to confirm your schedule.'},{status:422})
+    try { customWindow=customHalfDayWindow(new Date(startDate+'T00:00:00Z'),halfDayShifts[0].schedule,halfDayStart??'',halfDayEnd??'') }
+    catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Invalid leave hours.'},{status:422})}
+  }
   const activeType = await prisma.leaveType.findFirst({ where: { id: leaveTypeId, companyId: ctx.companyId, isActive: true }, select: { id: true } })
   if (!activeType) return NextResponse.json({ error: 'This leave type is no longer available. Refresh and choose an active leave type.' }, { status: 400 })
 
@@ -166,7 +177,8 @@ export async function POST(req: NextRequest) {
         endDate: new Date(endDate),
         totalDays,
         isHalfDay: isHalfDay ?? false,
-        halfDayPeriod: isHalfDay ? (halfDayPeriod ?? 'AM') : null,
+        halfDayPeriod: isHalfDay ? (customWindow ? 'CUSTOM' : halfDayPeriod ?? 'AM') : null,
+        ...(customWindow?{halfDayWindow:customWindow}:{}),
         reason,
         status: 'PENDING',
       },
@@ -256,5 +268,7 @@ async function leaveDuration(companyId:string,employeeId:string,startDate:string
   prisma.employee.findFirst({where:{id:employeeId,companyId,isActive:true},include:{workSchedule:true}}),
   prisma.employeeShiftAssignment.findMany({where:{employeeId,companyId,date:{gte:start,lte:end}},include:{schedule:true}}),
  ])
- return countLeaveDays(startDate,endDate,isHalfDay,assignments,employee?.workSchedule??null)
+ const shifts=scheduleDays(start,assignments,employee?.workSchedule??null,1)[0].shifts.filter(s=>!s.isRestDay)
+ const options=shifts.map(shift=>({name:shift.name,schedule:{timeIn:shift.timeIn,timeOut:shift.timeOut,breakMinutes:shift.breakMinutes??0,timezone:shift.timezone},options:halfDayOptions({...shift,breakMinutes:shift.breakMinutes??0})}))
+ return {totalDays:countLeaveDays(startDate,endDate,isHalfDay,assignments,employee?.workSchedule??null),halfDayShifts:options}
 }

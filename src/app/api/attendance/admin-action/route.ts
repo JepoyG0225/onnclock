@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
           : null,
       },
       defaultBreakMinutes: company?.defaultBreakMinutes ?? 60,
-    }), existing)
+    }), {...existing,timeOut:now})
     const plannedRegularMins = resolved.plannedRegularMinutes
     const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         nightDiffStartMins: ndWindow.startMins,
         nightDiffEndMins: ndWindow.endMins,
         nightDiffIncludesBreak: ndWindow.includesBreak,
-        scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
+        excludedWindows: resolved.excludedWindows, scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
         scheduledTimeOut: resolved.scheduleTimeOut,
       },
     )

@@ -1,3 +1,4 @@
+import { excludedMinutes, type ExcludedWindow } from '@/lib/attendance/custom-half-day'
 import { scheduleInstants, timezone, zonedParts } from '@/lib/attendance/timezone'
 import { chooseAssignment } from '@/lib/attendance/schedule-location'
 /**
@@ -167,6 +168,7 @@ export function computeHours(
   breakIn: Date | null | undefined,
   breakOut: Date | null | undefined,
   opts: {
+    excludedWindows?: ExcludedWindow[]
     plannedRegularMinutes?: number | null
     allowedBreakMinutes?: number
     /**
@@ -236,7 +238,7 @@ export function computeHours(
   const effectiveBreak = Math.min(actualBreakMins, allowed)
   // Don't deduct a break that's longer than the shift itself — e.g. a
   // 30-min visit shouldn't go negative because the policy break is 60.
-  const workedMinutes = Math.max(0, totalMinutes - Math.min(effectiveBreak, totalMinutes))
+  const workedMinutes = Math.max(0, totalMinutes - Math.min(effectiveBreak, totalMinutes) - excludedMinutes(timeIn,effectiveTimeOut,opts.excludedWindows))
 
   // The regular-hours cap should be the PAID portion of the planned shift —
   // the wall-clock span minus the unpaid break. Otherwise a 09:00–18:00
@@ -292,6 +294,7 @@ export function computeHours(
   let nightDiffMinutes = 0
   let cursor = new Date(timeIn)
   while (cursor < effectiveTimeOut) {
+    if(opts.excludedWindows?.some(w=>cursor>=w.start&&cursor<w.end)){cursor=new Date(cursor.getTime()+60000);continue}
     // Skip break minutes unless the company policy counts them toward ND.
     if (!ndIncludesBreak && breakIn && breakOut && cursor >= breakIn && cursor < breakOut) {
       cursor = new Date(cursor.getTime() + 60_000)
@@ -355,9 +358,9 @@ export function computeLateAndUndertime(
   timeOut: Date,
   scheduleTimeIn: string | null | undefined,
   scheduleTimeOut: string | null | undefined,
-  bounds?: { scheduledStart?: Date | null; scheduledEnd?: Date | null },
+  bounds?: { scheduledStart?: Date | null; scheduledEnd?: Date | null; excludedWindows?: ExcludedWindow[] },
 ): LateUndertimeResult {
-  if(bounds?.scheduledStart&&bounds?.scheduledEnd)return {lateMinutes:Math.max(0,Math.floor((timeIn.getTime()-bounds.scheduledStart.getTime())/60000)),undertimeMinutes:Math.max(0,Math.floor((bounds.scheduledEnd.getTime()-timeOut.getTime())/60000))}
+  if(bounds?.scheduledStart&&bounds?.scheduledEnd)return {lateMinutes:Math.max(0,Math.floor((timeIn.getTime()-bounds.scheduledStart.getTime())/60000-excludedMinutes(bounds.scheduledStart,timeIn,bounds.excludedWindows))),undertimeMinutes:Math.max(0,Math.floor((bounds.scheduledEnd.getTime()-timeOut.getTime())/60000-excludedMinutes(timeOut,bounds.scheduledEnd,bounds.excludedWindows)))}
   const scheduledInMins = parseTimeToMinutes(scheduleTimeIn)
   if (scheduledInMins == null) return { lateMinutes: 0, undertimeMinutes: 0 }
 

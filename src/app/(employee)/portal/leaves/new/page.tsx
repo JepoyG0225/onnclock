@@ -16,6 +16,8 @@ const schema = z.object({
   startDate:     z.string().min(1, 'Start date is required'),
   endDate:       z.string().min(1, 'End date is required'),
   isHalfDay:     z.boolean().optional(),
+  halfDayStart: z.string().optional(),
+  halfDayEnd: z.string().optional(),
   halfDayPeriod: z.enum(['AM', 'PM']).optional(),
   reason:        z.string().min(3, 'Please provide a reason'),
 })
@@ -42,6 +44,7 @@ export default function NewLeavePage() {
   const [balances, setBalances] = useState<LeaveBalance[]>([])
   const [loading, setLoading] = useState(false)
   const [days,setDays]=useState(0)
+  const [halfDayShifts,setHalfDayShifts]=useState<Array<{name:string;schedule:{timeIn:string|null;timeOut:string|null;breakMinutes:number;timezone:string};options:Array<{period:'AM'|'PM';start:string;end:string;label:string;workLabel:string;timezone:string}>}>>([])
   const [durationLoading,setDurationLoading]=useState(true)
   const [durationError,setDurationError]=useState('')
 
@@ -70,11 +73,12 @@ export default function NewLeavePage() {
   }, [isSameDay, isHalfDay, setValue])
 
   useEffect(()=>{
-    let active=true;setDurationLoading(true);setDays(0);setDurationError('')
+    let active=true;setDurationLoading(true);setDays(0);setHalfDayShifts([]);setDurationError('')
     const params=new URLSearchParams({duration:'true',startDate:startDate||'',endDate:endDate||'',isHalfDay:String(isHalfDay)})
-    fetch('/api/leaves?'+params,{cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error||'Unable to calculate leave days.');if(active){setDays(data.totalDays);if(!data.totalDays)setDurationError('No scheduled working days in this date range. Choose a workday or contact HR.')}}).catch(e=>{if(active)setDurationError(e.message)}).finally(()=>{if(active)setDurationLoading(false)})
+    fetch('/api/leaves?'+params,{cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error||'Unable to calculate leave days.');if(active){setDays(data.totalDays);setHalfDayShifts(data.halfDayShifts??[]);if(!data.totalDays)setDurationError('No scheduled working days in this date range. Choose a workday or contact HR.')}}).catch(e=>{if(active)setDurationError(e.message)}).finally(()=>{if(active)setDurationLoading(false)})
     return()=>{active=false}
   },[startDate,endDate,isHalfDay])
+  useEffect(()=>{const option=halfDayShifts[0]?.options[0];setValue('halfDayStart',option?.start??'');setValue('halfDayEnd',option?.end??'')},[halfDayShifts,setValue])
   const selectedBalance = balances.find(b => b.leaveTypeId === leaveTypeId)
 
   const maxDays=selectedBalance?Math.max(0,Number(selectedBalance.balance)||0):null
@@ -107,6 +111,8 @@ export default function NewLeavePage() {
         endDate:       data.isHalfDay ? data.startDate : data.endDate, // half-day: same day
         isHalfDay:     data.isHalfDay ?? false,
         halfDayPeriod: data.isHalfDay ? data.halfDayPeriod : undefined,
+        halfDayStart:data.isHalfDay?data.halfDayStart:undefined,
+        halfDayEnd:data.isHalfDay?data.halfDayEnd:undefined,
 
         reason:        data.reason,
       }
@@ -208,19 +214,26 @@ export default function NewLeavePage() {
               <span className="text-sm font-medium text-gray-700">Half-day leave (0.5 day)</span>
             </label>
             {isHalfDay && (
-              <div className="flex flex-wrap gap-2 pl-6">
+              <div className="grid gap-2 pt-2 sm:grid-cols-2">
                 {(['AM', 'PM'] as const).map(period => (
                   <button
                     key={period}
                     type="button"
-                    onClick={() => setValue('halfDayPeriod', period)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                      halfDayPeriod === period
-                        ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]'
+                    aria-pressed={halfDayShifts[0]?.options.some(o=>o.period===period && o.start===watch('halfDayStart') && o.end===watch('halfDayEnd'))??false}
+                    disabled={durationLoading}
+                    onClick={() => {setValue('halfDayPeriod', period);const option=halfDayShifts[0]?.options.find(o=>o.period===period);if(option){setValue('halfDayStart',option.start);setValue('halfDayEnd',option.end)}}}
+                    className={`min-w-0 px-4 py-3 text-left rounded-xl text-sm font-medium border transition-colors disabled:opacity-50 ${
+                      halfDayShifts[0]?.options.some(o=>o.period===period && o.start===watch('halfDayStart') && o.end===watch('halfDayEnd'))
+                        ? 'bg-orange-50 text-[#162d54] border-[#ff5900]'
                         : 'bg-white text-gray-600 border-gray-300 hover:border-[var(--brand-primary)]'
                     }`}
                   >
-                    {period} — {period === 'AM' ? 'Morning' : 'Afternoon'}
+                    <span className="block text-xs text-slate-500">{period === 'AM' ? 'First half of shift' : 'Second half of shift'}</span>
+                    {durationLoading ? <span className="mt-1 block">Loading shift hours...</span> : halfDayShifts.some(s => s.options.length) ? halfDayShifts.map((shift,index) => {
+                      const option=shift.options.find(o=>o.period===period)
+                      return option ? <span key={index} className="mt-2 block"><span className="block">{option.label}</span><span className="mt-1 block text-[11px] font-normal text-slate-500">{halfDayShifts.length>1?`${shift.name} / `:''}{option.timezone}<br />Working hours: {option.workLabel}</span></span> : null
+                    }) : <span className="mt-1 block text-xs">{period === 'AM' ? 'Before noon' : 'From noon'} / schedule hours unavailable</span>}
+
                   </button>
                 ))}
               </div>
@@ -228,12 +241,20 @@ export default function NewLeavePage() {
           </div>
         )}
 
+        {isHalfDay && <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-4 space-y-3">
+          <p className="text-sm font-medium text-[#162d54]">Custom leave hours</p>
+          <p className="text-xs text-slate-500">Choose half of your scheduled working hours. The meal break is excluded. Times follow {halfDayShifts[0]?.schedule.timezone??'your schedule timezone'}.</p>
+          <div className="grid grid-cols-2 gap-3"><label className="text-xs">From<input type="time" required {...register('halfDayStart')} className="mt-1 block w-full min-w-0 rounded-xl border bg-white p-3" /></label><label className="text-xs">Until<input type="time" required {...register('halfDayEnd')} className="mt-1 block w-full min-w-0 rounded-xl border bg-white p-3" /></label></div>
+          {halfDayShifts.length!==1 && !durationLoading && <p className="text-xs text-amber-700">Ask HR to confirm a single scheduled shift for this date before choosing custom hours.</p>}
+          <p className="text-xs text-slate-500">For overnight shifts, an end time earlier on the clock refers to the next day.</p>
+        </div>}
+
         {/* Days Preview */}
         {days > 0 && (
           <div className="rounded-lg p-3 text-sm" style={{ background: 'rgba(46,65,86,0.12)', border: '1px solid rgba(170,183,183,0.45)', color: 'var(--brand-primary)' }}>
             <strong>{days} working day{days !== 1 ? 's' : ''}</strong>
             {isHalfDay
-              ? ` — ${halfDayPeriod === 'AM' ? 'Morning' : 'Afternoon'} half of ${format(parseISO(startDate), 'MMM d, yyyy')}`
+              ? ` / ${watch('halfDayStart')??''} - ${watch('halfDayEnd')??''} on ${format(parseISO(startDate), 'MMM d, yyyy')}`
               : ` from ${format(parseISO(startDate), 'MMM d')} to ${format(parseISO(isHalfDay ? startDate : endDate), 'MMM d, yyyy')}`
             }
             {selectedBalance !== undefined && selectedBalance.balance < days && (

@@ -189,7 +189,7 @@ export async function performClockOut(req: NextRequest, ctx: AuthContext, verifi
         : null,
     },
     defaultBreakMinutes: companyDefaultBreakMinutes,
-  }), existing)
+  }), {...existing,timeOut:effectiveClockOut})
   const plannedRegularMins = resolved.plannedRegularMinutes
   const ndWindow = await getCompanyNightDiffWindow(ctx.companyId)
 
@@ -204,7 +204,7 @@ export async function performClockOut(req: NextRequest, ctx: AuthContext, verifi
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
       nightDiffIncludesBreak: ndWindow.includesBreak,
-      scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
+      excludedWindows: resolved.excludedWindows, scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     },
   )

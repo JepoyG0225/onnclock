@@ -3,7 +3,7 @@ import { halfDayWorkedShift } from './half-day-leave'
 import { prisma } from '@/lib/prisma'
 import { chooseAssignment } from '@/lib/attendance/schedule-location'
 
-export type OpenKioskShift = { isHalfDay?: boolean; isLeave?: boolean; halfDayPeriod?: string | null; date: Date; timeIn: Date | null; breakIn: Date | null; breakOut: Date | null }
+export type OpenKioskShift = { halfDayWindow?: unknown; isHalfDay?: boolean; isLeave?: boolean; halfDayPeriod?: string | null; date: Date; timeIn: Date | null; breakIn: Date | null; breakOut: Date | null }
 export function kioskNextAction(open: OpenKioskShift | null, breakMinutes: number, end: Date | null, now = new Date()) {
   if (!open) return 'IN'
   if (end && now >= end) return 'OUT'

@@ -99,7 +99,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       workSchedule: record.employee.workSchedule,
     },
     defaultBreakMinutes: company?.defaultBreakMinutes ?? 60,
-  }), record)
+  }), {...record,timeIn:newTimeIn,timeOut:newTimeOut})
 
   const plannedRegularMinutes = resolved.plannedRegularMinutes
   const ndWindow = await getCompanyNightDiffWindow(companyId)
@@ -113,7 +113,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       nightDiffStartMins: ndWindow.startMins,
       nightDiffEndMins: ndWindow.endMins,
       nightDiffIncludesBreak: ndWindow.includesBreak,
-      scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
+      excludedWindows: resolved.excludedWindows, scheduledStart: resolved.scheduledStart, scheduledEnd: resolved.scheduledEnd, scheduledTimeIn: resolved.scheduleTimeIn,
       scheduledTimeOut: resolved.scheduleTimeOut,
     })
     lateUt = computeLateAndUndertime(newTimeIn, newTimeOut, resolved.scheduleTimeIn, resolved.scheduleTimeOut, resolved)
