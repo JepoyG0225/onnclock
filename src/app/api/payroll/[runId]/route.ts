@@ -1,4 +1,4 @@
-import { hasLaterPayroll } from '@/lib/payroll/carryover-order'
+import { hasLaterPayroll, findPayrollDeletionBlocker } from '@/lib/payroll/carryover-order'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
@@ -120,6 +120,9 @@ export async function DELETE(
   const { runId } = await params
   const { ctx, error } = await requireAuth()
   if (error) return error
+  if (!(await ctxHasPermission(ctx, 'payroll:write'))) {
+    return NextResponse.json({ error: 'You do not have access to delete payroll runs' }, { status: 403 })
+  }
 
   return prisma.$transaction(async tx => {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ctx.companyId}))`
@@ -136,7 +139,11 @@ export async function DELETE(
     )
   }
 
-  if (await hasLaterPayroll(tx, run)) return NextResponse.json({ error: 'Remove later payrolls first to preserve deduction carryovers.' }, { status: 409 })
+  const dependentRun = await findPayrollDeletionBlocker(tx, run)
+  if (dependentRun) return NextResponse.json({
+    error: `Cannot delete this payroll because it would change carried deductions in ${dependentRun.periodLabel} (${dependentRun.status.replaceAll('_', ' ')}). Review that payroll first.`,
+    dependentPayroll: dependentRun,
+  }, { status: 409 })
   if(await tx.hrOperation.count({where:{companyId:ctx.companyId,kind:'PAYROLL_ADJUSTMENT',status:'APPROVED',data:{path:['targetRunId'],equals:runId}}}))return NextResponse.json({error:'Unschedule attached payroll corrections in the source payroll before deleting this payroll.'},{status:409})
   if(await tx.hrOperation.count({where:{companyId:ctx.companyId,kind:'SALARY_CHANGE',status:'APPROVED',data:{path:['retroTargetRunId'],equals:runId}}}))return NextResponse.json({error:'Unschedule attached retro pay in HR Center before deleting this payroll.'},{status:409})
   if (run.computationStartedAt) return NextResponse.json({ error: 'Payroll is being computed' }, { status: 409 })

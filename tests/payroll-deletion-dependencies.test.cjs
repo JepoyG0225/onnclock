@@ -1,0 +1,18 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('fs'),path=require('path'),ts=require('typescript');
+function load(file){const m={exports:{}};const source=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;new Function('require','module','exports',source)(n=>n.startsWith('.')?load(path.resolve(path.dirname(file),n+'.ts')):require(n),m,m.exports);return m.exports;}
+const {findPayrollDeletionBlocker}=load('src/lib/payroll/carryover-order.ts');
+const run={id:'target',companyId:'company',runType:'REGULAR',payDate:new Date('2026-11-10'),periodEnd:new Date('2026-10-31'),createdAt:new Date('2026-11-01')};
+const basis=(other=0,loans=[])=>({deductionCarryover:{version:1,otherDeferred:other,loans}});
+const slip=(id,date,b,employeeId='employee')=>({employeeId,calculationBasis:b,payrollRun:{...run,id,payDate:new Date(date),periodLabel:id,status:'APPROVED'}});
+async function check(current,related,override={}){let calls=0;const tx={payslip:{findMany:async q=>{calls++;if(calls===1){assert.equal(q.where.payrollRun.companyId,'company');return current;}assert.equal(q.where.payrollRun.companyId,'company');assert.equal(q.where.payrollRun.runType,'REGULAR');assert.equal(q.where.payrollRun.id.not,'target');assert.ok(q.where.payrollRun.status.in.includes('DISBURSED'));return related;}}};return findPayrollDeletionBlocker(tx,{...run,...override});}
+const current=b=>[{employeeId:'employee',calculationBasis:b}];
+test('later approved payroll alone does not block deletion',async()=>{assert.equal(await check(current(basis()),[slip('later','2026-11-25',basis())]),null)});
+test('no payslips or no successor permits deletion',async()=>{assert.equal(await check([],[]),null);assert.equal(await check(current(basis(400)),[]),null)});
+test('changed outgoing other deductions identify the affected payroll',async()=>{assert.deepEqual(await check(current(basis(400)),[slip('later','2026-11-25',basis())]),{id:'later',periodLabel:'later',status:'APPROVED'})});
+test('removing zero debt must not expose older deferred debt',async()=>{assert.ok(await check(current(basis()),[slip('previous','2026-10-25',basis(400)),slip('later','2026-11-25',basis())]))});
+test('identical debt on predecessor allows safe chain reconnection',async()=>{assert.equal(await check(current(basis(400)),[slip('previous','2026-10-25',basis(400)),slip('later','2026-11-25',basis())]),null)});
+test('different loan identities block even if total debt is equal',async()=>{assert.ok(await check(current(basis(0,[{id:'a',deferred:500}])),[slip('previous','2026-10-25',basis(0,[{id:'b',deferred:500}])),slip('later','2026-11-25',basis())]))});
+test('zero deferred loans and legacy snapshots match compute behavior',async()=>{assert.equal(await check(current(basis(0,[{id:'a',paid:500,deferred:0}])),[slip('previous','2026-10-25',null),slip('later','2026-11-25',basis())]),null)});
+test('employee chains remain independent',async()=>{assert.equal(await check(current(basis(200)),[slip('other employee','2026-11-25',basis(),'someone-else')]),null)});
+test('same cutoff later-created run is a successor',async()=>{const later=slip('same cutoff','2026-11-10',basis());later.payrollRun.createdAt=new Date('2026-11-02');assert.ok(await check(current(basis(200)),[later]))});
+test('special runs are excluded from regular carryover ordering',async()=>{for(const runType of ['FINAL_PAY','THIRTEENTH_MONTH','LEAVE_ENCASHMENT'])assert.equal(await check(current(basis(200)),[slip('later','2026-11-25',basis())],{runType}),null)});
