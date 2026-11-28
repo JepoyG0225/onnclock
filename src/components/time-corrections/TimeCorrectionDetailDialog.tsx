@@ -12,6 +12,8 @@ export interface TimeCorrectionDetailDialogProps {
   onClose: () => void
   request: {
     id: string
+    originalAttendance?: { timeIn: string | null; timeOut: string | null } | null
+    originalAttendanceSource?: string
     dtrRecordId: string | null
     date: string
     timeIn: string | null
@@ -132,6 +134,18 @@ export function TimeCorrectionDetailDialog({
             value={formatDate(request.date)}
             hint={`Submitted ${formatDate(request.createdAt, true)}`}
           />
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary">Original attendance</p>
+            {request.originalAttendance ? <div className="grid grid-cols-2 gap-4">
+              {(['timeIn', 'timeOut'] as const).map(field => <div key={field}>
+                <p className="text-xs text-slate-500">{field === 'timeIn' ? 'Clock-in' : 'Clock-out'}</p>
+                <p className="mt-1 text-sm font-semibold text-primary">{request.originalAttendance?.[field]
+                  ? new Date(request.originalAttendance[field]!).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })
+                  : 'Not recorded'}</p>
+              </div>)}
+            </div> : <p className="text-sm text-slate-500">{!request.dtrRecordId ? 'No original attendance record ? manual entry request.' : 'Original times were not saved for this request.'}</p>}
+            {request.originalAttendance && <p className="mt-2 text-xs text-slate-500">Philippine time ? {request.originalAttendanceSource === 'submission' ? 'Recorded when the request was submitted' : 'Current attendance before approval'}</p>}
+          </div>
           <DetailRow
             icon={<Clock className="h-4 w-4" />}
             label="Requested Times"

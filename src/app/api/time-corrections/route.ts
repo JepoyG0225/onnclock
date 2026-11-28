@@ -92,6 +92,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'You already have a pending correction request for this date.' }, { status: 409 })
     }
 
+    const originalAttendance = resolvedDtrRecordId ? await prisma.dTRRecord.findFirst({
+      where: { id: resolvedDtrRecordId, employeeId, employee: { companyId: ctx.companyId } },
+      select: { timeIn: true, timeOut: true },
+    }) : null
     const correction = await prisma.timeEntryCorrection.create({
       data: {
         companyId: employee.companyId,
@@ -107,7 +111,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    logAudit(ctx, 'CREATE', 'TimeCorrection', correction.id, {
+    await logAudit(ctx, 'CREATE', 'TimeCorrection', correction.id, {
+      oldValues: { originalAttendance: originalAttendance ? { timeIn: originalAttendance.timeIn?.toISOString() ?? null, timeOut: originalAttendance.timeOut?.toISOString() ?? null } : null },
       description: `Filed a time entry correction for ${dateOnly.toLocaleDateString()}`,
     }).catch(() => {})
     return NextResponse.json({ correction }, { status: 201 })
@@ -169,6 +174,24 @@ export async function GET(req: NextRequest) {
       prisma.timeEntryCorrection.count({ where }),
       prisma.timeEntryCorrection.groupBy({ by: ['status'], where: baseWhere, _count: { _all: true } }),
     ])
+    const [originalSnapshots, recordedAttendance] = await Promise.all([
+      prisma.auditLog.findMany({
+        where: { companyId, entity: 'TimeCorrection', action: 'CREATE', entityId: { in: corrections.map(c => c.id) } },
+        select: { entityId: true, oldValues: true },
+      }),
+      prisma.dTRRecord.findMany({
+        where: { id: { in: corrections.filter(c => c.status === 'PENDING').flatMap(c => c.dtrRecordId ? [c.dtrRecordId] : []) }, employee: { companyId } },
+        select: { id: true, employeeId: true, timeIn: true, timeOut: true },
+      }),
+    ])
+    const originalFor = (correction: typeof corrections[number]) => {
+      const snapshot = originalSnapshots.find(s => s.entityId === correction.id)?.oldValues
+      if (snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) && 'originalAttendance' in snapshot) {
+        return { originalAttendance: snapshot.originalAttendance, originalAttendanceSource: 'submission' }
+      }
+      const recorded = recordedAttendance.find(d => d.id === correction.dtrRecordId && d.employeeId === correction.employeeId)
+      return { originalAttendance: recorded ? { timeIn: recorded.timeIn, timeOut: recorded.timeOut } : null, originalAttendanceSource: recorded ? 'current' : 'unavailable' }
+    }
     const workflowByDepartment = new Map<string, ReturnType<typeof resolveWorkflow>>()
     const correctionsWithAuthorization = await Promise.all(corrections.map(async correction => {
       if (correction.status !== 'PENDING') {
@@ -217,7 +240,7 @@ export async function GET(req: NextRequest) {
             : `No approver configured for level ${currentLevel + 1}`,
       }
     }))
-    return NextResponse.json({ corrections: correctionsWithAuthorization, total, page, limit, counts: Object.fromEntries(counts.map(c => [c.status, c._count._all])) })
+    return NextResponse.json({ corrections: correctionsWithAuthorization.map(c => ({ ...c, ...originalFor(c) })), total, page, limit, counts: Object.fromEntries(counts.map(c => [c.status, c._count._all])) })
   }
 
   // Employee: own requests only
