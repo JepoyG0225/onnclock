@@ -1,5 +1,6 @@
 'use client'
 
+import { enableNotificationSound } from '@/components/notifications-live'
 import { usePortalNotifications } from './usePortalNotifications'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -164,7 +165,7 @@ export function PortalSidebar({
                 className="absolute bottom-full left-0 mb-2 z-20 w-72 rounded-2xl shadow-2xl overflow-hidden bg-white border border-gray-100 animate-in fade-in slide-in-from-bottom-2 duration-150"
               >
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <p className="text-gray-900 text-sm font-semibold">Notifications</p>
+                  <p className="text-gray-900 text-sm font-semibold">Notifications</p><button type="button" className="text-xs text-[#0054d7]" onClick={() => { void enableNotificationSound().catch(() => {}) }}>Enable sound</button>
                   {notifs.length > 0 && (
                     <button
                       onClick={handleClearAll}

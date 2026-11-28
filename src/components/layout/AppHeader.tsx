@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { useLiveNotifications, enableNotificationSound } from '@/components/notifications-live'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { signOut } from 'next-auth/react'
@@ -34,7 +35,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
   const isMobile = useIsMobile()
   const [allItems, setAllItems] = useState<Array<{
     id: string
-    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION' | 'OVERTIME' | 'CASH_ADVANCE' | 'BUDGET' | 'PAYROLL'
+    type: 'LEAVE' | 'DTR' | 'DISCIPLINARY' | 'TIME_CORRECTION' | 'OVERTIME' | 'CASH_ADVANCE' | 'BUDGET' | 'PAYROLL' | 'EXPENSE' | 'REST_DAY'
     status: string
     title: string
     employee?: string
@@ -59,6 +60,11 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
     isRead: boolean
     createdAt: string
   }>>([])
+
+  useLiveNotifications(false, ({ feeds }) => {
+    setAllItems((feeds[0]?.items ?? []) as typeof allItems)
+    setPersonal((feeds[1]?.items ?? []) as typeof personal)
+  })
 
   const DISMISSED_KEY = 'admin_dismissed_notifs'
 
@@ -183,6 +189,7 @@ export function AppHeader({ user, companyName }: AppHeaderProps) {
                 </button>
               )}
             </div>
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => { void enableNotificationSound().then(() => toast.success('Notification sound enabled')).catch(() => toast.error('Allow audio in your browser to hear notifications')) }} title="Enable notification sound">Enable sound</Button>
             <DropdownMenuSeparator />
             {items.length === 0 && personal.length === 0 ? (
               <div className="px-3 py-4 text-xs text-gray-400 text-center">

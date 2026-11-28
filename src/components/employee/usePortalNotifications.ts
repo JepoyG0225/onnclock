@@ -1,5 +1,6 @@
 'use client'
 
+import { useLiveNotifications } from '@/components/notifications-live'
 import { useEffect, useRef, useState } from 'react'
 
 type Item = { id: string; type: string; status: string; title: string; createdAt: string; href?: string }
@@ -20,6 +21,10 @@ export function usePortalNotifications() {
   const [seen, setSeen] = useState<ReadState>(empty)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  useLiveNotifications(true, ({ feeds }) => {
+    const data = feeds[0]
+    if (data?.scope) { setAll((data.items ?? []) as Item[]); setScope(data.scope); setSeen(read(`portal-notifications:${data.scope}`)) }
+  })
   const locked = useRef(false)
   useEffect(() => {
     let active = true

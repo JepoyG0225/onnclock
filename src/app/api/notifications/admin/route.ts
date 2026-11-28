@@ -1,3 +1,4 @@
+import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { requestAudience,visibleRequests } from '@/lib/approvals/audience'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
@@ -72,7 +73,15 @@ export async function GET(req: NextRequest) {
     TERMINATION: 'Termination',
   }
 
+    const expenses = await ctxHasPermission(ctx, 'expenses:approve') ? await prisma.expenseClaim.findMany({
+      where: { companyId: ctx.companyId, status: 'PENDING' }, include: { employee: { select: empSelect } }, orderBy: { createdAt: 'desc' }, take: 500,
+    }) : []
+    const restDays = ['COMPANY_ADMIN', 'SUPER_ADMIN', 'HR_MANAGER'].includes(ctx.role) && await ctxHasPermission(ctx, 'dtr:approve') ? await prisma.dTRRecord.findMany({
+      where: { employee: { companyId: ctx.companyId }, isRestDay: true, timeIn: { not: null }, restDayApproval: 'PENDING' }, include: { employee: { select: empSelect } }, orderBy: { createdAt: 'desc' }, take: 500,
+    }) : []
     const items = [
+      ...restDays.map(r => ({ id: r.id, type: 'REST_DAY', status: 'PENDING', createdAt: r.createdAt, title: 'Rest-day shift approval needed', employee: r.employee.firstName + ' ' + r.employee.lastName, employeeNo: r.employee.employeeNo, href: '/timesheets' })),
+      ...expenses.map(r => ({ id: r.id, type: 'EXPENSE', status: r.status, createdAt: r.createdAt, title: 'Expense claim awaiting review', employee: r.employee.firstName + ' ' + r.employee.lastName, employeeNo: r.employee.employeeNo, href: '/expenses' })),
       ...cashAdvances.map(r=>({id:r.id,type:'CASH_ADVANCE',status:r.status,createdAt:r.createdAt,title:'Cash advance request',employee:r.employee.firstName+' '+r.employee.lastName,employeeNo:r.employee.employeeNo,href:'/cash-advance'})),
       ...budgets.map(r=>({id:r.id,type:'BUDGET',status:r.status,createdAt:r.createdAt,title:'Budget requisition',employee:r.employee.firstName+' '+r.employee.lastName,employeeNo:r.employee.employeeNo,href:'/budget-requisitions'})),
       ...payrolls.map(r=>({id:r.id,type:'PAYROLL',status:r.status,createdAt:r.createdAt,title:'Payroll awaiting approval',employee:r.periodStart.toISOString().slice(0,10)+' to '+r.periodEnd.toISOString().slice(0,10),employeeNo:'',href:'/payroll/'+r.id})),
