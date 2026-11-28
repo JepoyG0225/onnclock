@@ -1,0 +1,9 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),ts=require('typescript');const m={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync('src/lib/payroll/employee-eligibility.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(require,m,m.exports);
+const start=new Date('2026-11-11'),end=new Date('2026-11-25');const where=m.exports.payrollEmployeeEligibility('company',start,end);
+function matches(row,q){return Object.entries(q).every(([k,v])=>k==='OR'?v.some(c=>matches(row,c)):v&&typeof v==='object'&&!(v instanceof Date)?('some'in v?row[k].some(c=>matches(c,v.some)):('lte'in v||'gte'in v)?(!v.lte||row[k]<=v.lte)&&(!v.gte||row[k]>=v.gte):matches(row[k],v)):row[k]===v)}
+const employee={companyId:'company',hireDate:new Date('2026-01-01'),trackTime:true,dtrRecords:[]};
+test('tracked employee with no DTR or only out-of-period DTR is excluded',()=>{assert.equal(matches(employee,where),false);assert.equal(matches({...employee,dtrRecords:[{date:new Date('2026-11-10')},{date:new Date('2026-11-26')}]},where),false)});
+test('inclusive boundary records and leave/absence rows qualify without a clock-in',()=>{for(const date of [start,end])assert.equal(matches({...employee,dtrRecords:[{date,isLeave:true,timeIn:null}]},where),true)});
+test('non-tracked employees do not need DTR',()=>assert.equal(matches({...employee,trackTime:false},where),true));
+test('future hires excluded regardless of track time',()=>{for(const trackTime of [true,false])assert.equal(matches({...employee,trackTime,hireDate:new Date('2026-12-01'),dtrRecords:[{date:start}]},where),false)});
+test('hire on period end qualifies and other tenants cannot qualify',()=>{assert.equal(matches({...employee,trackTime:false,hireDate:end},where),true);assert.equal(matches({...employee,trackTime:false,companyId:'other'},where),false)});

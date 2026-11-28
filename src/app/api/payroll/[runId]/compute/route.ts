@@ -1,3 +1,4 @@
+import { payrollEmployeeEligibility } from '@/lib/payroll/employee-eligibility'
 import { ctxHasPermission } from '@/lib/auth/effective-permissions'
 import { employeePeriodDivisor } from '@/lib/payroll/cutoff-frequency'
 import { monthlyPayDays, monthlyPayAmounts, earnedBasicPay } from '@/lib/payroll/monthly-pay'
@@ -216,7 +217,7 @@ export async function GET(
   }
 
   const employees = await prisma.employee.findMany({
-    where: employeeWhereGet,
+    where: { AND: [employeeWhereGet, payrollEmployeeEligibility(ctx.companyId, run.periodStart, run.periodEnd)] },
     select: {
       id: true,
       employeeNo: true,
@@ -457,7 +458,7 @@ export async function POST(
     select: { id: true, updatedAt: true }, orderBy: { id: 'asc' },
   })
   const employees = await prisma.employee.findMany({
-    where: employeeWhere,
+    where: preview ? employeeWhere : { AND: [employeeWhere, payrollEmployeeEligibility(scopedCompanyId, run.periodStart, run.periodEnd)] },
     include: {
       workSchedule: {
         select: {
@@ -479,13 +480,21 @@ export async function POST(
     },
   })
 
+  if (!preview && employees.length === 0) {
+    return NextResponse.json({ error: 'No eligible employees for this payroll period. Employees hired after the period ends and employees with Track Time enabled but no DTR records are excluded.' }, { status: 422 })
+  }
+  // Recompute also removes old payslips for employees now excluded by eligibility.
+  // Include them in the downstream dependency guard before deleting their records.
+  const previousEmployeeIds = await prisma.payslip.findMany({ where: { payrollRunId: runId }, select: { employeeId: true } })
+  const affectedEmployeeIds = [...new Set([...employees.map(e => e.id), ...previousEmployeeIds.map(p => p.employeeId)])]
+
   const existingRepayments = await prisma.payslipLoanDeduction.findMany({
     where: { payslip: { payrollRunId: runId } }, select: { loanId: true, amount: true },
   })
   const restoredLoanAmounts = new Map(existingRepayments.map(d => [d.loanId, Number(d.amount)]))
   // A downstream payroll has consumed this run's carryover. Prevent stale chains.
   const laterPayroll = await prisma.payslip.findFirst({ where: {
-    employeeId: { in: employees.map(e => e.id) },
+    employeeId: { in: affectedEmployeeIds },
     payrollRun: { runType: 'REGULAR', companyId: scopedCompanyId, id: { not: runId }, status: { in: ['COMPUTED', 'FOR_APPROVAL', 'APPROVED', 'LOCKED', 'DISBURSED'] }, OR: [
       { payDate: { gt: run.payDate } },
       { payDate: run.payDate, periodEnd: { gt: run.periodEnd } },
